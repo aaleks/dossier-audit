@@ -67,12 +67,12 @@ snapshots/
 *.ledger.db
 
 # ---- Reports produced by the /quality skill ----
+quality-report.md
 # Generated and overwritten on every run; a stale one is worse than none.
 quality-report.md
 
 # ---- Claude Code local overrides ----
 .claude/settings.local.json
-
 # ---- Editors and OS ----
 .idea/
 .vscode/
