@@ -1,0 +1,69 @@
+[project]
+name = "dossier"
+version = "0.1.0"
+description = "Document collection and audit pipeline: sync, freeze, convert, audit, score."
+requires-python = ">=3.12"
+readme = "README.md"
+
+# Every dependency here earns its place. Nothing is added without a reason
+# recorded in the commit message (CLAUDE.md, working style).
+dependencies = [
+    # All schemas and configuration models. Spec 006 R6.7 requires one pydantic
+    # model to generate the model-facing schema, the validation and the scorer
+    # field list — there is no second definition anywhere.
+    "pydantic>=2.7",
+    # The CLI surface described in specs 003/004: sync, run --plan, run, eval.
+    "typer>=0.12",
+    # sources.yaml and pipeline.yaml (spec 003).
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Run tracking, traces and judge scores (spec 007 R7.9). Heavy, and only the
+# infrastructure layer may import it, so it stays out of the default install.
+tracking = ["mlflow>=2.14"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+dossier = "dossier.cli.main:app"
+
+# A new source type is a package that declares an entry point in this group.
+# It is never added to a match statement inside dossier (spec 001 R1.7).
+[project.entry-points."dossier.connectors"]
+folder = "dossier.infrastructure.connectors.folder:FolderConnector"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dossier"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    # The one acceptance test currently driving the outer loop. Red on purpose,
+    # excluded from the default run, and tests/architecture asserts that at most
+    # one exists at a time. See CLAUDE.md, "The two loops".
+    "outer_loop: the open outer-loop acceptance test; red until its slice lands",
+    # The only place a real model call is permitted, for `evaluated` rules that
+    # cannot be checked any other way. Never part of the default suite.
+    "live: needs a real model or a real service; excluded from the default run",
+]
+# The default suite is what a contributor and CI run: offline, in seconds, at
+# zero cost. Both exclusions are deliberate and both are visible here.
+addopts = "-m 'not outer_loop and not live' --strict-markers -q"
+
+[tool.ruff]
+line-length = 96
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
