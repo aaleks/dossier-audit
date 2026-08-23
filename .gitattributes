@@ -1,0 +1,14 @@
+# Content hashes are computed over file bytes, and a run must reproduce on any
+# machine (R0.4, R5.6). A checkout that rewrites line endings would change those
+# hashes between Windows and Linux, so every text file is stored and checked out
+# with LF regardless of platform.
+* text=auto eol=lf
+
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.sqlite binary
+
+# Fixtures are inputs to hashing tests. Never let git touch their bytes.
+tests/fixtures/** -text
+tests/evals/golden/** -text

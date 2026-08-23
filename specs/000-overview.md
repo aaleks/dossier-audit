@@ -1,5 +1,8 @@
 # 000 — Overview, vocabulary and global invariants
 
+**Status:** Proposed
+**Rules:** R0.1 – R0.6
+
 ## Purpose
 
 `dossier` collects documents from heterogeneous sources, runs a configurable
@@ -48,33 +51,122 @@ results on different days. Everything right of it is a pure function of content
 hashes. This separation is the reason a run from six months ago can be
 reproduced exactly.
 
-## Global invariants
+In the code the boundary is a package boundary:
+`dossier.infrastructure.connectors` is the only place a network client may be
+imported. Everything else is right of the line. See `docs/architecture.md`.
 
-**G1.** No component right of the hash boundary performs network I/O.
+## Must hold
 
-**G2.** Nothing under the snapshot store is ever modified or deleted in place.
+These six are global: every other spec assumes them, and a violation anywhere
+breaks reproducibility everywhere. They were numbered `G1`–`G6` in the first
+draft of this spec and are now `R0.1`–`R0.6`, so that one identifier scheme
+covers every rule in the repository.
 
-**G3.** Every artifact produced by a stage has a sibling metadata record naming
-its inputs by hash, the prompt version, the schema version, the model identifier
-and the timestamp.
+### R0.1 — nothing right of the hash boundary performs network I/O
 
-**G4.** Given identical inputs, the resolved manifest and every cache key are
-byte-identical across runs and machines.
+Only `dossier.infrastructure.connectors` may import a network client. Convert,
+run and eval never reach the network on any code path, including error paths and
+imports made lazily inside a function body.
 
-**G5.** Any state that determines an output is part of that output's cache key.
-If changing something changes the result, changing it must invalidate the cache.
+- **Kind:** deterministic
+- **Layer:** architecture
+- **Proved by:** `tests/architecture/test_R000_1__no_network_right_of_the_hash_boundary.py`
+- **Status:** MET
 
-**G6.** Model identifiers are pinned exactly in configuration. Floating aliases
-are rejected at config load time.
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier/application/convert.py` imports `httpx` | violation, naming the file, the line and the import |
+| 2 | `dossier/domain/keys.py` imports `urllib.request` inside a function body | violation; a lazy import is still an import |
+| 3 | *counter-example* — `dossier/infrastructure/connectors/jira.py` imports `httpx` | allowed; this package is left of the boundary and is the only one that is |
+| 4 | *counter-example* — `dossier/infrastructure/store.py` opens a file on local disk | allowed; local file IO is not network IO |
+
+### R0.2 — a stored snapshot is never modified or deleted in place
+
+Once written, the bytes at a snapshot path never change and the path is never
+removed. New content means a new content-addressed path. Tombstoning marks the
+ledger, never the store.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.store`)
+- **Proved by:** `tests/unit/test_R000_2__snapshot_store_never_overwrites.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821` stored at `a3f9c1e2`, then stored again with identical bytes | the existing file is left untouched and no write occurs |
+| 2 | `INC-4821` stored at `a3f9c1e2`, then its payload changes | a second snapshot appears; `a3f9c1e2` still reads back byte-for-byte |
+| 3 | `INC-4821` leaves the Jira query scope | ledger row becomes `state=tombstoned`; the snapshot at `a3f9c1e2` remains readable |
+| 4 | *counter-example* — a partially written snapshot from an interrupted sync | may be discarded; it was never a complete snapshot and no ledger row refers to it (R2.8) |
+
+### R0.3 — every stage artifact has a sibling provenance record
+
+Each artifact is written with a `<name>.meta.json` naming its inputs by hash,
+the prompt version, the schema version, the model identifier and the timestamp.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R000_3__every_artifact_has_a_provenance_record.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `verify` produces `verify/INC-4821.json` | `verify/INC-4821.meta.json` sits beside it, listing inputs `a3f9c1e2` and `77c1b40a` |
+| 2 | the same artifact is served from cache rather than recomputed | the provenance record is present and identical (R5.5) |
+| 3 | *counter-example* — `INC-4821` fails validation twice and produces no artifact | no artifact and no provenance record; the failure is reported, not recorded as an output (R6.9) |
+
+### R0.4 — the resolved manifest and every cache key are byte-identical across runs and machines
+
+Given the same snapshots, prompts, schemas and model identifier, resolution and
+key computation produce identical bytes in any process, on any machine, under
+any locale or timezone.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.keys`, `dossier.domain.resolution`)
+- **Proved by:** `tests/unit/test_R000_4__manifest_and_keys_are_byte_identical.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incident-audit` resolved twice in one process | identical manifest bytes apart from run id and start time (R4.8) |
+| 2 | the same inputs under `TZ=UTC` and under `TZ=Asia/Tokyo` | identical cache keys |
+| 3 | the same inputs in two processes with different `PYTHONHASHSEED` | identical cache keys; no reliance on `hash()` or set iteration order |
+| 4 | *counter-example* — the run id `2026-08-06T14:22:03Z-4f1a` | differs between runs by design, and is excluded from every key |
+
+### R0.5 — anything that can change an output is part of that output's cache key
+
+If changing something changes the result, changing it invalidates the cache. The
+contrapositive is the useful half: a cache hit is a promise that nothing relevant
+changed.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.keys`)
+- **Proved by:** `tests/unit/test_R000_5__key_covers_every_output_determining_input.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `prompts/02_verify.md` is edited | the `verify` key changes |
+| 2 | `schemas/incident.json` is edited | the `verify` key changes |
+| 3 | the pinned model changes to `anthropic:claude-sonnet-4-5-20250929` from another pin | every stage key changes (R5.3) |
+| 4 | *counter-example* — the cache directory is deleted | no key changes; only the time taken (R5.9) |
+
+### R0.6 — model identifiers are pinned exactly, and floating aliases are rejected at load time
+
+A `model` value must name an exact, immutable version. An alias a provider may
+re-point is rejected before any work begins.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.model_id`)
+- **Proved by:** `tests/unit/test_R000_6__floating_model_aliases_are_rejected.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `model: anthropic:claude-sonnet-4-5-20250929` | accepted |
+| 2 | `model: anthropic:claude-sonnet-4-5` | load-time error naming the file, the line and the alias |
+| 3 | `model: anthropic:claude-sonnet-latest` | load-time error |
+| 4 | *counter-example* — a run replayed from `runs/2026-08-06T14:22:03Z-4f1a/manifest.json` | the manifest's recorded identifier is used as-is; the check already happened when that run was resolved (R4.7) |
 
 ## Spec index
 
-| Spec | Covers |
-|---|---|
-| `001-source-connectors.md` | The connector interface and its registration |
-| `002-ledger-and-sync.md` | Change detection, incremental fetch, tombstoning |
-| `003-pipeline-format.md` | `sources.yaml` and `pipeline.yaml` schemas |
-| `004-step-resolution.md` | Reference expansion, the run manifest, plan diffing |
-| `005-caching-and-keys.md` | Cache key composition, cascade, provenance records |
-| `006-output-schemas.md` | Structured output, grounding, abstention, validation |
-| `007-scoring-and-gold.md` | Gold sets, scorers, judge calibration, the change gate |
+`specs/README.md` holds the index and the status of each spec.

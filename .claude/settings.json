@@ -2,9 +2,12 @@
   "permissions": {
     "deny": [
       "Read(./.env)",
-      "Read(./docker/langfuse/.env)",
       "Read(./**/*.pem)",
       "Read(./**/*.key)",
+      "Edit(./gold/**)",
+      "Write(./gold/**)",
+      "Edit(./tests/evals/golden/**)",
+      "Write(./tests/evals/golden/**)",
       "Edit(./.github/workflows/**)",
       "Write(./.github/workflows/**)"
     ]

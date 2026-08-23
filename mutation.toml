@@ -1,0 +1,21 @@
+# Mutation testing configuration — see the mutation-analyst agent.
+#
+# Scope is src/dossier/domain only, and deliberately so. Mutation testing runs
+# the suite once per mutant; that is affordable only where tests are fast and
+# deterministic. domain/ has no IO, no clock and no model client, so a surviving
+# mutant there is a real missing assertion rather than a flaky run.
+#
+# Widening this to infrastructure/ would need a filesystem, a ledger and a model
+# call per mutant. Slow, and a survivor would not be a reliable signal.
+
+[cosmic-ray]
+module-path = "src/dossier/domain"
+timeout = 30.0
+excluded-modules = []
+test-command = "python -m pytest tests/unit -x -q"
+
+[cosmic-ray.distributor]
+name = "local"
+
+[cosmic-ray.distributor.local]
+worker-type = "local"
