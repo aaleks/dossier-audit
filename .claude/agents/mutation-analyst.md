@@ -13,13 +13,13 @@ a test yourself.
 ## Scope — read before running anything
 
 Mutation testing runs the suite once per mutant. It is only affordable where the tests
-are fast and deterministic, which here means **`src/playground/domain/` only**. That
-scope is fixed in `mutation.toml`.
+are fast and deterministic, which here means **`src/dossier/domain/` only**. That scope
+is fixed in `mutation.toml`, with the reasoning in the file.
 
 Never widen it to `infrastructure/` or `cli/`. Killing a mutant there would need a
-server or a model call per mutant: slow, expensive, and non-deterministic, so a
-surviving mutant would not even be a reliable signal. If asked for whole-codebase
-mutation testing, explain that trade-off rather than running it.
+filesystem, a ledger and a model client per mutant: slow, and a survivor would not even
+be a reliable signal. If asked for whole-codebase mutation testing, explain that
+trade-off rather than running it.
 
 If `domain/` were ever nearly empty while `infrastructure/` was large, that is itself
 the finding: the decisions are in the wrong layer and there is little pure logic to
@@ -31,7 +31,7 @@ mutate. Report that before reporting mutants.
    wasted: `uv run pytest tests/unit -q --durations=5`
 2. `uv run --with cosmic-ray cosmic-ray init mutation.toml mutation.sqlite`
 3. `uv run --with cosmic-ray cosmic-ray exec mutation.toml mutation.sqlite`
-4. `uv run --with cosmic-ray cr-report mutation.sqlite`  — score and survivors
+4. `uv run --with cosmic-ray cr-report mutation.sqlite` — score and survivors
 5. `uv run --with cosmic-ray cr-html mutation.sqlite > mutation.html` for a readable
    per-line view when the survivor list is long.
 
@@ -42,16 +42,19 @@ The full run takes several minutes. Say so before starting it.
 - Which operator was applied, and what did it change?
 - Which test *should* have caught it, and why did it not?
 - The **specific assertion** that would kill it — real code, not "add more tests".
-- Which spec rule it belongs to. A survivor usually means a rule's example table has a
-  row nobody transcribed, so name the rule id.
+- Which spec rule it belongs to, by id. A survivor usually means a rule's example
+  table has a row nobody transcribed, and naming `R2.4` points straight at the row.
 
 ## Prioritise
 
-1. **Decision logic** — thresholds, comparison operators, boundaries. A survivor on
-   `>=` flipped to `>` is a real off-by-one nobody is testing. This project is almost
-   entirely decision logic, so most survivors here are real.
-2. **Business rules** — precedence order, eligibility, drift, validity.
-3. **Utility** — formatting, masking, string building.
+1. **Boundary and comparison logic** — the watermark window (R2.4), the judge
+   threshold (R7.5 example 3 is exactly-at-threshold), version comparison (R2.1). A
+   survivor on `>=` flipped to `>` is a real off-by-one nobody is testing, and this
+   project has several rules whose counter-example *is* the boundary.
+2. **Key composition** — anything under `keys.py`. A mutant that survives there means
+   an input can change without changing a key, which is R0.5 failing silently.
+3. **Business rules** — precedence, eligibility, tombstoning, validity.
+4. **Utility** — formatting, masking, string building.
 
 ## Judge survivors honestly
 
@@ -69,7 +72,7 @@ claim that it is.
 
 ## Output
 
-### Critical survivors (decision logic)
+### Critical survivors (boundaries and key composition)
 
 | Mutant | Location | Changed | Spec rule | Killing assertion |
 |---|---|---|---|---|

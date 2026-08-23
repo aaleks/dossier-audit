@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# PreToolUse: refuse edits that break the project's two hard rules.
+# PreToolUse: refuse edits that break the project's hard rules.
 #
 # Exit 2 blocks the tool call and returns stderr to Claude as feedback.
 # Exit 0 allows it. Anything else is a hook error, not a block.
 #
-# Kept deliberately small. Rules needing real parsing belong in the test suite
-# where they can be debugged; a hook is for the two mistakes that are cheap to
-# detect now and expensive to discover later.
+# Kept deliberately small. Rules needing real parsing belong in
+# tests/architecture/ where they can be debugged; a hook is for the mistakes
+# that are cheap to detect now and expensive to discover later.
 
 set -uo pipefail
 payload=$(cat)
@@ -22,21 +22,21 @@ norm=$(printf '%s' "$path" | tr '\\' '/')
 
 # 1. Secrets are never edited by an agent, only by a human.
 case "$norm" in
-  *.env|*/.env)
+  *.env|*/.env|*.pem|*.key)
     echo "BLOCKED: $norm holds live credentials." >&2
     echo "Edit it yourself and tell me what changed." >&2
     exit 2
     ;;
 esac
 
-# 2. Golden eval data is a human decision.
-#    The failure mode of eval-driven work is "the eval failed, so adjust the expected
-#    answer". That silently lowers the bar and leaves the suite green. Prepare the
-#    cases, show them, let a human write the file.
+# 2. Verified answers are a human decision.
+#    The failure mode of eval-driven work is "the score dropped, so adjust the
+#    expected answer". That silently lowers the bar and leaves the suite green.
+#    R7.7 says corrections are attributed; an agent has nobody to attribute to.
 case "$norm" in
-  */tests/evals/golden/*|tests/evals/golden/*)
-    echo "BLOCKED: golden eval data is changed by a human, not by an agent." >&2
-    echo "Editing expected answers until an eval passes is how a threshold dies." >&2
+  */gold/*|gold/*|*/tests/evals/golden/*|tests/evals/golden/*)
+    echo "BLOCKED: verified answers are changed by a human, not by an agent." >&2
+    echo "Editing gold until a score passes is how a threshold dies (R7.7)." >&2
     echo "Propose the cases and let the user write them." >&2
     exit 2
     ;;
@@ -50,20 +50,53 @@ case "$norm" in
     ;;
 esac
 
-# 4. The domain layer imports nothing. import-linter catches this in the suite,
-#    but catching it at write time saves a red run and explains the reason.
+# 4. Snapshots are immutable (R0.2). Nothing under a snapshot store is ever
+#    rewritten -- new content means a new content-addressed path.
+case "$norm" in
+  */.dossier/snapshots/*|.dossier/snapshots/*)
+    echo "BLOCKED: snapshots are immutable (R0.2)." >&2
+    echo "New content means a new content-addressed path, never an edit." >&2
+    exit 2
+    ;;
+esac
+
+# 5. The hash boundary (R0.1). Only connectors may import a network client.
+#    tests/architecture catches this too, but catching it at write time saves a
+#    red run and explains the reason.
 #
 #    Grep the raw JSON payload: written content arrives as a JSON string with
-#    newlines escaped, so an import statement still appears verbatim. An
-#    earlier version tried to unescape it first and silently matched nothing,
-#    which is worse than no hook.
+#    newlines escaped, so an import statement still appears verbatim.
 case "$norm" in
-  src/playground/domain/*.py|*/src/playground/domain/*.py)
+  src/dossier/infrastructure/connectors/*|*/src/dossier/infrastructure/connectors/*)
+    : # left of the boundary -- network is this package's whole job
+    ;;
+  src/dossier/*|*/src/dossier/*)
     if printf '%s' "$payload" \
-      | grep -qE '(import|from)[[:space:]]+(mlflow|langfuse|litellm|langchain[a-z_]*)([^a-z_]|$)'; then
-      echo "BLOCKED: domain/ imports nothing -- no LangChain, no MLflow, no Langfuse." >&2
-      echo "That purity is what makes these rules testable without a server." >&2
-      echo "Put the SDK call in infrastructure/ and pass the decision in." >&2
+      | grep -qE '(import|from)[[:space:]]+(httpx|requests|aiohttp|urllib3|urllib\.request|http\.client|socket|boto3|atlassian|jira)([^a-z_]|$)'; then
+      echo "BLOCKED: this file is right of the hash boundary (R0.1)." >&2
+      echo "Only dossier.infrastructure.connectors may reach the network." >&2
+      echo "That is what makes a six-month-old run reproducible offline." >&2
+      echo "Fix: make the call in a connector and pass the result across." >&2
+      exit 2
+    fi
+    ;;
+esac
+
+# 6. The purity boundary. domain/ imports stdlib and pydantic, nothing else.
+case "$norm" in
+  src/dossier/domain/*.py|*/src/dossier/domain/*.py)
+    if printf '%s' "$payload" \
+      | grep -qE '(import|from)[[:space:]]+(yaml|typer|mlflow|sqlite3|pathlib|requests|httpx|os|shutil|logging)([^a-z_]|$)'; then
+      echo "BLOCKED: domain/ imports the standard library and pydantic, nothing else." >&2
+      echo "No IO, no clock, no environment -- it all arrives as an argument." >&2
+      echo "That purity is what makes R0.4 and R5.6 testable without a workspace." >&2
+      exit 2
+    fi
+    if printf '%s' "$payload" \
+      | grep -qE '(datetime\.now|datetime\.utcnow|time\.time|uuid4|random\.|os\.environ)'; then
+      echo "BLOCKED: domain/ must be deterministic." >&2
+      echo "R0.4 and R5.6 claim cache keys are byte-identical across machines." >&2
+      echo "Take a clock or an id generator as a parameter instead." >&2
       exit 2
     fi
     ;;
