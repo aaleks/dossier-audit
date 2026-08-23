@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./docker/langfuse/.env)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Edit(./.github/workflows/**)",
+      "Write(./.github/workflows/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard-edits.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-alignment.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
