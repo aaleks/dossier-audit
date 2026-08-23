@@ -31,9 +31,15 @@ Rule ids are `R<spec>.<rule>`. Test files encode them:
 tests/unit/test_R002_4__watermark_overlap_refetches_boundary_items.py
 ```
 
-`Status: NOT MET` is the only exemption from the named test having to exist. It
-is explicit on purpose: a rule agreed and not yet built is a normal state, and
-silence about it is not.
+Two statuses exempt a rule from the named test having to exist, and both say so
+rather than staying silent: `NOT MET` is the spec running ahead of the code, and
+`SUPERSEDED by R2.10` is it running behind on purpose.
+
+**Rule ids never move.** A rule that stops being true is superseded in place and
+names its replacement; it is never renumbered, deleted, or rewritten to mean
+something else. Test filenames and other rules cite those ids, and rewriting the
+text under one leaves every test citing it claiming to prove something nobody
+agreed to. `specs/README.md` has the procedure.
 
 A pull request that changes a rule must change the matching test in the same PR.
 

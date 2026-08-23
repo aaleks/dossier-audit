@@ -40,6 +40,30 @@ Supporting files:
 | `NOT MET` | Written, not built. No test needs to exist yet. |
 | `IN PROGRESS` | The open outer loop. Its acceptance test exists and is red. At most one rule repository-wide. |
 | `MET` | The named test exists and passes in the default suite. |
+| `SUPERSEDED by RN.x` | No longer true. Kept in place for its id and its history. |
+
+## Retiring a rule
+
+**A rule is never renumbered, rewritten to mean something else, or deleted.** Its id
+is referenced by test filenames and by other rules, so all three break links silently
+— and the worst of them is rewriting the text, because every test citing that id then
+claims to prove something nobody agreed to.
+
+When behaviour changes, add the new rule at the end of its spec and mark the old one:
+
+```markdown
+- **Status:** SUPERSEDED by R2.10
+```
+
+The old rule keeps its examples. They are the record of what was true before and why
+it changed, which is the question anyone re-reading the spec in a year will have.
+`test_spec_coverage.py` checks that the replacement exists, is not the rule itself,
+and is not in turn superseded — a reader following the trail lands on the rule that is
+in force today.
+
+A superseded rule is exempt from naming a test that exists, like `NOT MET`. Its old
+test should be deleted or reclaimed by the replacement; the "every test file is claimed
+by a rule" check will catch it if neither happened.
 
 ## The shape of a rule
 
