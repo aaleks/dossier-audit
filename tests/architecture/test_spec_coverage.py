@@ -134,13 +134,57 @@ def test_rule_id_matches_its_spec_number(rule: Rule):
 
 @pytest.mark.parametrize("rule", RULES, ids=_ids(RULES))
 def test_a_met_rule_names_a_test_that_exists(rule: Rule):
-    """`NOT MET` is exempt. That exemption is the only one, and it is explicit."""
-    if rule.status == "NOT MET":
+    """Two statuses are exempt, and both are explicit rather than silent.
+
+    `NOT MET` is the spec running ahead of the code. `SUPERSEDED` is it running
+    behind on purpose — the rule is kept for its id and its history, and the
+    test that proved it has gone or been reclaimed by its replacement.
+    """
+    if not rule.needs_a_living_test:
         return
     missing = [path for path in rule.proved_by if not (REPO_ROOT / path).exists()]
     assert not missing, (
         f"{rule.where}: status {rule.status} but these do not exist: {missing}. "
         "Either write the test, or set the status back to NOT MET."
+    )
+
+
+@pytest.mark.parametrize("rule", RULES, ids=_ids(RULES))
+def test_a_superseded_rule_names_a_replacement_that_exists(rule: Rule):
+    """The alternative is a rule that silently contradicts another one.
+
+    Renumbering is not available -- ids are referenced by test filenames and by
+    other rules -- so a rule that stops being true is retired in place and must
+    say what replaced it. `SUPERSEDED by R9.9` pointing at nothing is the same
+    dangling reference the format exists to prevent.
+    """
+    if rule.status != "SUPERSEDED":
+        return
+    assert rule.superseded_by, (
+        f"{rule.where}: status SUPERSEDED must read `SUPERSEDED by R<spec>.<rule>`, "
+        "naming the rule that replaced it."
+    )
+    known = {other.id for other in RULES}
+    assert rule.superseded_by in known, (
+        f"{rule.where}: superseded by {rule.superseded_by}, which does not exist."
+    )
+    assert rule.superseded_by != rule.id, f"{rule.where}: a rule cannot supersede itself."
+
+
+@pytest.mark.parametrize("rule", RULES, ids=_ids(RULES))
+def test_a_supersession_points_at_a_rule_still_in_force(rule: Rule):
+    """A reader following the trail must land on the rule that is true today.
+
+    Two retirements of the same behaviour would otherwise chain, and the second
+    hop is exactly where someone stops reading and implements the dead rule.
+    """
+    if rule.status != "SUPERSEDED":
+        return
+    replacement = next((r for r in RULES if r.id == rule.superseded_by), None)
+    assert replacement is None or replacement.status != "SUPERSEDED", (
+        f"{rule.where}: superseded by {rule.superseded_by}, which is itself "
+        f"superseded by {replacement.superseded_by if replacement else '?'}. "
+        "Point at the rule that is actually in force."
     )
 
 
@@ -215,11 +259,14 @@ def test_coverage_summary_is_reportable(capsys):
     total = len(RULES)
     met = sum(1 for rule in RULES if rule.status == "MET")
     in_progress = sum(1 for rule in RULES if rule.status == "IN PROGRESS")
+    superseded = sum(1 for rule in RULES if rule.status == "SUPERSEDED")
     evaluated = sum(1 for rule in RULES if rule.kind == "evaluated")
+    not_met = total - met - in_progress - superseded
     with capsys.disabled():
         print(
             f"\nspecs: {total} rules across 8 specs | "
-            f"{met} MET, {in_progress} IN PROGRESS, {total - met - in_progress} NOT MET | "
+            f"{met} MET, {in_progress} IN PROGRESS, {not_met} NOT MET, "
+            f"{superseded} SUPERSEDED | "
             f"{total - evaluated} deterministic, {evaluated} evaluated"
         )
     assert total > 0

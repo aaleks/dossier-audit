@@ -16,7 +16,12 @@ SPECS_DIR = REPO_ROOT / "specs"
 TESTS_DIR = REPO_ROOT / "tests"
 
 VALID_KINDS = {"deterministic", "evaluated"}
-VALID_STATUSES = {"NOT MET", "IN PROGRESS", "MET"}
+VALID_STATUSES = {"NOT MET", "IN PROGRESS", "MET", "SUPERSEDED"}
+
+# A rule is never renumbered and never deleted -- test filenames and other rules
+# reference its id. When it stops being true it is superseded, in place, and says
+# by what: `**Status:** SUPERSEDED by R2.10`.
+SUPERSEDED_RE = re.compile(r"^SUPERSEDED by (R\d+\.\d+)$")
 
 # Test tiers whose every file must be named by a rule. tests/architecture is
 # excluded as a directory because it also holds the checker itself; files there
@@ -44,8 +49,16 @@ class Rule:
     layer: str | None = None
     status: str | None = None
     threshold: str | None = None
+    superseded_by: str | None = None
     proved_by: list[str] = field(default_factory=list)
     example_rows: list[str] = field(default_factory=list)
+
+    @property
+    def needs_a_living_test(self) -> bool:
+        """`NOT MET` is the spec running ahead of the code; `SUPERSEDED` is it
+        running behind, on purpose. Both are exempt from naming a test that
+        exists -- and both say so explicitly, which is the point."""
+        return self.status not in ("NOT MET", "SUPERSEDED")
 
     @property
     def where(self) -> str:
@@ -92,6 +105,13 @@ def _parse_spec(path: Path) -> list[Rule]:
             status=_field_value(body, "Status"),
             threshold=_field_value(body, "Threshold"),
         )
+
+        # `SUPERSEDED by R2.10` carries its replacement in the status line, so the
+        # link is visible where the status is read rather than in a separate field
+        # someone can forget to update.
+        if rule.status and (superseded := SUPERSEDED_RE.match(rule.status)):
+            rule.superseded_by = superseded.group(1)
+            rule.status = "SUPERSEDED"
 
         proved = _field_value(body, "Proved by") or ""
         rule.proved_by = [
