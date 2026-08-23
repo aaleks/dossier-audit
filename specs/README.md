@@ -2,15 +2,16 @@
 
 The specs here are the source of truth. The code is an implementation of them.
 
-Read `000-overview.md` first: it holds the vocabulary, the hash boundary and the
-six global invariants every other spec assumes.
+Read `000-overview.md` first: it holds the vocabulary, the hash boundary, the
+hash algorithm, the workspace layout, and the eight global invariants every other
+spec assumes.
 
 | Spec | Covers | Rules | Status |
 |---|---|---|---|
-| `000-overview.md` | Vocabulary, the hash boundary, global invariants | R0.1 – R0.6 | Proposed |
+| `000-overview.md` | Vocabulary, the hash boundary, hashing, workspace layout, global invariants | R0.1 – R0.8 | Proposed |
 | `001-source-connectors.md` | The connector interface and its registration | R1.1 – R1.9 | Proposed |
-| `002-ledger-and-sync.md` | Change detection, incremental fetch, tombstoning | R2.1 – R2.9 | Proposed |
-| `003-pipeline-format.md` | `sources.yaml` and `pipeline.yaml` schemas | R3.1 – R3.8 | Proposed |
+| `002-ledger-and-sync.md` | Change detection, incremental fetch, tombstoning, the store | R2.1 – R2.13 | Proposed |
+| `003-pipeline-format.md` | `sources.yaml` and `pipeline.yaml` schemas | R3.1 – R3.9 | Proposed |
 | `004-step-resolution.md` | Reference expansion, the run manifest, plan diffing | R4.1 – R4.9 | Proposed |
 | `005-caching-and-keys.md` | Cache key composition, cascade, provenance records | R5.1 – R5.9 | Proposed |
 | `006-output-schemas.md` | Structured output, grounding, abstention, validation | R6.1 – R6.9 | Proposed |

@@ -41,12 +41,14 @@ Every one of these is already specified. Take them in whatever order the failing
 assertions demand, and write the unit test from the rule's example table first:
 
 - `folder` connector — `list`, `fetch`, `attachments` (R1.2, R1.3, R1.5)
-- content-addressed snapshot store (R0.2)
+- SHA-256 hashing and the sharded store path (R0.7, R2.11)
+- the content-addressed snapshot store, and the `.dossier/` layout (R0.2, R0.8)
 - the ledger and its rows (spec 002)
-- the normalisation projection and the change decision (R2.2, R2.3)
+- the change decision, and raw hashing for a source with no `fields`
+  (R2.2, R2.3, R2.10)
 - the sync window (R2.4)
-- `sources.yaml` loading and validation (R3.1, R3.8)
-- `dossier sync` in `cli/`, printing what it did
+- `sources.yaml` and `pipeline.yaml` loading and validation (R3.1, R3.8, R3.9)
+- `dossier sync <pipeline>` in `cli/`, and the counts it prints (R2.12, R2.13)
 
 Each of those rules has a `Proved by:` path already named in the spec. Write the
 test at that path, then set the rule's `Status:` to `MET` when it is green.
