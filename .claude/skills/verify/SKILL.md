@@ -96,11 +96,17 @@ third should have to justify itself.
 rot quietly, in both directions.
 
 ```bash
-grep -rn "NOT MET\|Threshold:\*\* OPEN" specs/
+grep -rn "NOT MET\|SUPERSEDED\|Threshold:\*\* OPEN" specs/
 ```
 
-For each: has it since been implemented and nobody updated the status? Is it still
-genuinely unmet, or has the requirement gone away?
+For each `NOT MET`: has it since been implemented and nobody updated the status? Is it
+still genuinely unmet, or has the requirement gone away?
+
+For each `SUPERSEDED`: does the replacement actually cover what the old rule covered?
+The checker proves the replacement *exists*; it cannot tell you the new rule left a
+gap. A supersession that quietly drops a case is the most expensive thing in this
+section, because the dropped case still has an id, still reads as agreed behaviour,
+and no test fails.
 
 Check the outer loop too. A rule sitting at `IN PROGRESS` across several sessions
 means a slice that is not converging — say so, and say which inner cycle is missing.

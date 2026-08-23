@@ -62,3 +62,4 @@ first — see `.claude/skills/discover/references/splitting-rules.md`.>
 | **Status** | `NOT MET` | Written, not built. No test needs to exist. |
 | | `IN PROGRESS` | The open outer loop. Its test exists and is red. At most one rule repo-wide. |
 | | `MET` | The named test exists and passes in the default suite. |
+| | `SUPERSEDED by RN.x` | No longer true. Kept for its id and its history; the named replacement must exist and be in force. |

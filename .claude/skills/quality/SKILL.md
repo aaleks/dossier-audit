@@ -40,11 +40,15 @@ different things:
 | A rule that is `MET` or `IN PROGRESS` names a test that does not exist | The status is lying | **Critical** |
 | More than one rule `IN PROGRESS` | Two open slices; neither will finish | **Major** |
 
-And the one that is **not** a defect: a rule marked `NOT MET` whose test does not
-exist. That is a rule agreed and not yet built — the ordinary state of most of this
-repository. The checker does not fail on it and neither should you. Reporting it as a
-defect trains people to ignore the check, which is the one outcome that makes it
-worthless.
+And the two that are **not** defects: a rule marked `NOT MET` whose test does not
+exist — a rule agreed and not yet built, the ordinary state of most of this repository
+— and a rule marked `SUPERSEDED`, which is a deliberate retirement. The checker does
+not fail on either and neither should you. Reporting them as defects trains people to
+ignore the check, which is the one outcome that makes it worthless.
+
+Do report a `SUPERSEDED` rule under Informational when its replacement looks narrower
+than the rule it retired. The checker proves the replacement exists; only a reader can
+see that a case went missing.
 
 ## Steps 1 and 2 — spec compliance and architecture, in parallel
 

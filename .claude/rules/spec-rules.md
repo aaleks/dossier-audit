@@ -10,9 +10,19 @@ fails the build rather than merely reading badly.
 - A rule is an **invariant**, not a description of a function. "Sync asks for changes
   from `last_sync_at` minus an overlap" — not "the sync window is computed". The
   first can be false; the second cannot.
+- **One rule, one constraint.** If a sentence needs an "and" to join two independent
+  claims, it is two rules. Split it before writing the table, or the examples end up
+  proving one half and the counter-example the other.
 - Rule ids are `R<spec>.<rule>` — `R2.4` is rule 4 of spec `002`. **Keep them
   stable.** Test filenames encode them (`test_R002_4__...py`), so renumbering
   silently breaks that link. Add at the end rather than renumbering.
+- **A rule that stops being true is superseded, never deleted or rewritten in place.**
+  Set `**Status:** SUPERSEDED by R2.10` and add the replacement at the end of the
+  spec. The id survives, so every reference to it still resolves and the history of
+  why the behaviour changed stays readable. Silently editing a rule's text to mean
+  something new is the one edit that makes a spec untrustworthy: every test that
+  cites it now claims to prove something nobody agreed. `test_spec_coverage.py`
+  checks that the replacement exists and is itself in force.
 - Every rule needs four fields, and `tests/architecture/test_spec_coverage.py`
   rejects the file without them:
   - `**Kind:**` — `deterministic` or `evaluated`
@@ -26,6 +36,13 @@ fails the build rather than merely reading badly.
   are the test cases — `INC-4821`, `a3f9c1e2`, `2026-08-06T09:00:00Z`. Do not invent
   a new incident key; add to `_fixtures.md` instead, so one vocabulary spans all
   eight specs.
+- Write each row so it reads back as **"The one where …"**. That sentence is not
+  decoration: `/accept` transcribes it into the test's docstring, so a row nobody can
+  phrase that way is a row nobody can name a test after.
+- Do not restate a table row as a prose bullet underneath. A bullet earns its place
+  only when it adds a rule, a boundary or an outcome the table cannot hold. When a
+  boundary row is doing real work, say in one line *why* it matters rather than
+  repeating it.
 - Example tables are `Given | Then` by default. Add a `When` column only when the
   action varies between rows of the same rule. A column reading `sync` on every row
   is noise pretending to be structure — put the verb in the rule sentence.

@@ -15,6 +15,32 @@ the user** — not to write code, and not to guess at answers only they have.
 `allowed-tools` deliberately excludes `Edit` and `Bash`: this skill cannot touch code.
 If you find yourself wanting to implement, that is `/accept` and `/tdd`, later.
 
+## The method
+
+This is **Example Mapping**, adapted. The original is a short conversation that breaks
+a story into four kinds of card, and the four map onto what a `dossier` spec holds:
+
+| Card | What it is | Here |
+|---|---|---|
+| **Story** (yellow) | What was asked for | The spec's `## Purpose` |
+| **Rule** (blue) | One testable constraint | `### R2.4 — <the invariant>` |
+| **Example** (green) | A concrete case that makes it unambiguous | A `Given \| Then` row |
+| **Question** (red) | An unknown only the user can resolve | Asked now, or recorded `OPEN` |
+
+Read the health of the map as you go. **A handful of rules, one or two examples each,
+and few red cards is ready to build. A lot of red is not** — say so and stop rather
+than writing a spec on top of unresolved questions. Many open questions is the single
+clearest signal that a wrong assumption is about to get expensive.
+
+Two places `dossier` departs from the original method, both deliberate:
+
+- **Rules are invariants, not obligations.** The classic form is "Must…" / "Should…".
+  Skip it. "Must handle a missing version marker" is an obligation and cannot be
+  false; "a connector that cannot supply `remote_version` sets it to `None`" can.
+- **An unresolved question can survive into the saved spec.** The original deletes
+  the red cards before saving. Here, a question whose answer does not exist yet is
+  recorded as `OPEN` with what would resolve it — see step 6.
+
 ## Workflow
 
 1. **Check what already exists** (step 1 below).
@@ -61,7 +87,18 @@ The good column states something that can be false. The bad column cannot. Note 
 "Must handle missing versions" is still in the bad column — a modal verb does not make
 a claim falsifiable.
 
+**One rule, one constraint. If a sentence needs an "and" to join two independent
+claims, it is two rules.** "An unchanged version is not fetched **and** an unchanged
+payload is not stored" is R2.1 and R2.2, and keeping them joined would give you one
+table where half the rows prove one half of the sentence.
+
 Treat any rules the user already stated as a starting point. Refine, split, challenge.
+
+If a rule you are writing contradicts one that already exists, **do not edit the old
+one**. Its id is referenced by test filenames and by other rules. Add the new rule at
+the end of the spec, and mark the old one `**Status:** SUPERSEDED by R<new>`. Tell the
+user you did — a superseded rule is a change of mind about the product, and it should
+be reviewed as one.
 
 ## 3. Classify each rule — the determinism boundary
 
@@ -106,6 +143,26 @@ a third column that reads `sync` on every row is noise pretending to be structur
 Add a **When** column only when the action genuinely varies between rows of the *same*
 rule. If every row would say the same verb, that verb belongs in the rule sentence.
 
+### Every row must read back as "The one where…"
+
+Write each row so the sentence forms without effort:
+
+| The row | Reads as |
+|---|---|
+| `last_sync_at=2026-08-06T09:00:00Z`, default overlap → `since = 2026-08-05T09:00:00Z` | *The one where the overlap pulls the window back a day.* |
+| *counter-example* — a source that has never synced → `since = None` | *The one where there is no watermark to subtract from.* |
+
+That sentence is the deliverable, not a flourish. `/accept` puts it straight into the
+test's docstring:
+
+```python
+def test_a_source_that_has_never_synced_asks_for_everything(self):
+    """The one where there is no watermark to subtract from."""
+```
+
+A row you cannot phrase that way is a row nobody can name a test after — which
+usually means it is not one case but two, or it is a restatement of the row above it.
+
 This is a spec format, not a discovery ritual. Do not run the session in
 Given/When/Then and do not write Gherkin: those are test shapes, and reaching for them
 during discovery pushes you toward mechanism (`when window_start() is called`) instead
@@ -123,6 +180,21 @@ where the boundary is, and on a threshold rule **the counter-example is the off-
 test** — the one mutation testing is weakest at generating.
 
 ### Quality checklist — apply before showing anything
+
+Run it as a checklist, not as a memory of having read one.
+
+- [ ] **Normal case first.** Then boundaries, then genuinely different outcomes.
+- [ ] Every row reads back as "The one where…".
+- [ ] No rule joins two independent claims with an "and".
+- [ ] No table row is restated as a prose bullet underneath. A bullet appears only if
+      it adds a rule, a boundary or an outcome the table cannot hold.
+- [ ] Where a boundary row is doing real work, one line says *why* it matters.
+- [ ] Every rule has a `*counter-example*` row.
+- [ ] No two rows differ only in a value while proving the same thing.
+- [ ] Eight rules or fewer. More means the story is too big.
+- [ ] Few enough open questions that building is not a guess.
+
+The detail behind each:
 
 - **Normal case first.** Then boundaries, then genuinely different outcomes.
 - **No two examples that differ only in the value.** Two rows proving the same thing
@@ -186,10 +258,16 @@ While the session is running, keep it plain. No file, no markdown scaffolding:
 
 ```
 Rule: sync asks from last_sync_at minus an overlap, never from last_sync_at
-  Example:         last_sync_at 2026-08-06T09:00Z, overlap 24h  ->  since 2026-08-05T09:00Z
-  Counter-example: never synced  ->  since None, full listing
+  Example:         The one where the overlap pulls the window back a day
+                     last_sync_at 2026-08-06T09:00Z, overlap 24h  ->  since 2026-08-05T09:00Z
+  Counter-example: The one where there is no watermark to subtract from
+                     never synced  ->  since None, full listing
   Question:        should the overlap be per-source, or one global setting?
 ```
+
+Say the count of each at the end of the draft — rules, examples, open questions. Four
+rules with eleven questions is a different situation from four rules with one, and the
+user should be able to see which they are looking at without counting.
 
 ## Output — only after approval
 
