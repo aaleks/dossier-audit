@@ -1,0 +1,76 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+sdist/
+wheels/
+*.egg-info/
+*.egg
+MANIFEST
+
+# ---- Environments ----
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# ---- Tooling caches ----
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pytype/
+.dmypy.json
+dmypy.json
+.tox/
+.nox/
+.hypothesis/
+.cache/
+
+# ---- Coverage and mutation testing ----
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.cover
+session.sqlite
+*.sqlite-journal
+
+# ---- Secrets and local config ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- MLflow (spec 000: run tracking, traces, judge scores) ----
+mlruns/
+mlartifacts/
+mlflow.db
+
+# ---- dossier local state ----
+# Snapshots, ledger and run outputs are machine-local data, never source.
+# See specs/002-ledger-and-sync.md and specs/004-step-resolution.md.
+runs/
+snapshots/
+.dossier/
+*.ledger.db
+
+# ---- Reports produced by the /quality skill ----
+quality-report.md
+
+# ---- Editors and OS ----
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
