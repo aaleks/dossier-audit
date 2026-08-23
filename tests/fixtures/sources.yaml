@@ -1,0 +1,9 @@
+# The smallest configuration that exercises a full sync (spec 003).
+#
+# A folder source only: no credentials, no network, and `remote_version` is
+# always None, so change detection falls through to payload hashing (R1.5, R2.2)
+# -- which is exactly the path R2.5 makes a claim about.
+sources:
+  - id: incidents-manual
+    type: folder
+    path: inbox/incidents/
