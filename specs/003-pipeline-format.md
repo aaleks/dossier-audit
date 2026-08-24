@@ -121,7 +121,7 @@ and unambiguous.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.pipeline.validate_step_ids`)
 - **Proved by:** `tests/unit/test_R003_2__step_ids_are_unique_and_well_formed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -138,7 +138,7 @@ linear, and both are cheap to reject.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.pipeline.validate_references`)
 - **Proved by:** `tests/unit/test_R003_3__forward_and_unknown_references_are_rejected.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -168,7 +168,7 @@ The load-time half of R0.6.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R003_5__output_schemas_must_load_and_validate.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
