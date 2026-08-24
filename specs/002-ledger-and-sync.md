@@ -248,7 +248,7 @@ no declared fields has nothing to project onto, and every byte of it counts.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync.normalise`)
 - **Proved by:** `tests/unit/test_R002_10__a_source_without_fields_hashes_raw_bytes.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
