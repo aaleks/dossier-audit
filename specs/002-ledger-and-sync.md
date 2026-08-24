@@ -265,7 +265,7 @@ path: not the source id, not the item key, not the fetch time.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.store.snapshot_path`)
 - **Proved by:** `tests/unit/test_R002_11__snapshot_path_is_derived_from_the_hash.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
