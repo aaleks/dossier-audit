@@ -196,7 +196,7 @@ A run from March must still resolve the documents it used.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync.tombstones`)
 - **Proved by:** `tests/unit/test_R002_7__out_of_scope_items_are_tombstoned_not_deleted.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
