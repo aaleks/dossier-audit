@@ -1,7 +1,7 @@
 # 002 — Ledger and incremental sync
 
 **Status:** Proposed
-**Rules:** R2.1 – R2.13
+**Rules:** R2.1 – R2.15
 
 ## Purpose
 
@@ -166,7 +166,16 @@ proof that the ledger, the hashing and the store agree with each other.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.sync`)
 - **Proved by:** `tests/acceptance/test_R002_5__second_sync_fetches_nothing.py`
-- **Status:** IN PROGRESS
+- **Status:** SUPERSEDED by R2.14
+
+> Superseded because it is two claims joined by an "and", and only one of them
+> holds for every source. A source with no version marker -- a folder -- cannot
+> know an item is unchanged without reading it, because R1.5 forbids fabricating
+> a marker and its counter-example rules out mtime specifically. So "fetches zero
+> payloads" is unreachable there, while "writes zero snapshots" holds everywhere.
+> R2.14 and R2.15 are the two halves, each scoped to where it is true. Kept in
+> place with its examples, because the reasoning above is the answer to "why is
+> this split" and it belongs next to the thing that was split.
 
 | # | Given | Then |
 |---|-------|------|
@@ -174,6 +183,47 @@ proof that the ledger, the hashing and the store agree with each other.
 | 2 | the snapshot store after the second run | byte-identical to its state after the first |
 | 3 | the ledger after the second run | identical apart from `last_seen` and `last_sync_at` (R2.9) |
 | 4 | *counter-example* — one fixture file edited between the two runs | that one item is fetched and snapshotted; the others still report no work |
+
+### R2.14 — a second sync with nothing changed writes zero snapshots
+
+Holds for every source, whatever it can or cannot tell us about its own
+versions. Re-reading a payload is cheap and sometimes unavoidable; re-storing one
+is neither, and a second snapshot of identical content would make the store lie
+about what changed.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.sync`)
+- **Proved by:** `tests/acceptance/test_R002_14__second_sync_writes_no_snapshot.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier sync incident-audit` run twice over a folder source, nothing changed | the summary reports `0 new snapshots · 0 tombstoned` |
+| 2 | the snapshot store after the second run | byte-identical to its state after the first, including modification times |
+| 3 | the ledger after the second run | identical apart from `last_seen` and `last_sync_at` (R2.9) |
+| 4 | one fixture file edited between the two runs | `1 new snapshots`; the other two documents still write nothing |
+| 5 | *counter-example* — the number of payloads read on the second run | not constrained here; a source with no version marker must read to know (R2.15) |
+
+### R2.15 — a second sync fetches zero payloads from a source that exposes a version marker
+
+Where the source can vouch that nothing moved, we take its word and never ask for
+the payload. Where it cannot, we read and let the content hash decide (R2.2).
+
+The split matters because the cost is different in kind. A Jira query returning
+"nothing changed" is one request; a folder of 4,000 files is 4,000 reads however
+the answer comes out.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.sync`)
+- **Proved by:** `tests/acceptance/test_R002_15__version_marker_avoids_the_fetch.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a source whose items carry `remote_version`, synced twice with nothing changed | the second run reports `0 fetched` |
+| 2 | the same source with `OPS-114` moving `v37` to `v38` | `1 fetched`; the rest are not read |
+| 3 | a source whose items carry no `remote_version`, synced twice | every item is read on both runs, and the run says so rather than reporting `0 fetched` |
+| 4 | *counter-example* — an item whose marker is unchanged but whose payload was edited behind the source's back | not fetched, and therefore not detected. That is the cost of trusting a marker, and it is why a source that cannot supply one must not pretend (R1.5) |
 
 ### R2.6 — a replaced attachment is detected under an otherwise unchanged item
 
