@@ -114,7 +114,7 @@ snapshot of identical content would make the store lie about what changed.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync.classify`)
 - **Proved by:** `tests/unit/test_R002_2__identical_payload_writes_no_new_snapshot.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
