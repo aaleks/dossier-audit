@@ -97,7 +97,7 @@ requested.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync.needs_fetch`)
 - **Proved by:** `tests/unit/test_R002_1__unchanged_remote_version_is_not_fetched.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
