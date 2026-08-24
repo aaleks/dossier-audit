@@ -115,7 +115,7 @@ model, no cost.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.grounding.locate_span`)
 - **Proved by:** `tests/unit/test_R006_4__unlocatable_span_marks_field_ungrounded.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
