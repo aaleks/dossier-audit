@@ -179,7 +179,7 @@ touching a file under `src/dossier/`, the interface has failed.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R001_7__connectors_are_resolved_only_by_entry_point.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
