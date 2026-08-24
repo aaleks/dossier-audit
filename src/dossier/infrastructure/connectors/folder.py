@@ -96,3 +96,18 @@ class FolderConnector:
     def _media_type(path: Path) -> str:
         media_type, _ = mimetypes.guess_type(path.name)
         return media_type or "application/octet-stream"
+
+    @classmethod
+    def from_config(cls, config, *, workspace: Path) -> FolderConnector:
+        """Build from a `sources.yaml` entry (the entry-point contract).
+
+        `path` is resolved against the workspace, so a configuration file is
+        portable and a relative path in it means the same thing wherever the
+        workspace is checked out.
+        """
+        if config.path is None:
+            raise ValueError(
+                f"source {config.id!r} has type 'folder' and no `path`. "
+                "A folder source needs a directory to read."
+            )
+        return cls(Path(workspace) / config.path)
