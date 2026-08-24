@@ -1,0 +1,94 @@
+"""R3.3 — a step may only reference an id that exists and appears before it.
+
+Forward and self references are the two ways a linear pipeline stops being
+linear, and both are cheap to reject.
+
+The rows below are the rule's example table, transcribed.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from tests.pipelines import write_pipeline
+
+from dossier.config.load import ConfigError, load_pipeline
+
+
+class TestStepReferences:
+    """R3.3 — the graph is a line, and stays one."""
+
+    def test_a_step_may_read_an_earlier_step(self, tmp_path: Path):
+        """Example 1: the one where `verify` reads `extract`."""
+        path = write_pipeline(
+            tmp_path,
+            steps=["extract", "verify"],
+            inputs={"verify": "[documents, extract]"},
+        )
+
+        assert load_pipeline(path).steps[1].inputs == ["documents", "extract"]
+
+    def test_a_step_may_not_read_a_later_step(self, tmp_path: Path):
+        """Example 2: the one where `extract` reads `verify`."""
+        path = write_pipeline(
+            tmp_path, steps=["extract", "verify"], inputs={"extract": "verify"}
+        )
+
+        with pytest.raises(ConfigError) as error:
+            load_pipeline(path)
+
+        assert "verify" in str(error.value)
+
+    def test_a_step_may_not_read_an_id_that_does_not_exist(self, tmp_path: Path):
+        """Example 3: the one where `enrich` was never declared."""
+        path = write_pipeline(
+            tmp_path, steps=["extract", "report"], inputs={"report": "enrich"}
+        )
+
+        with pytest.raises(ConfigError) as error:
+            load_pipeline(path)
+
+        assert "enrich" in str(error.value)
+
+    def test_a_step_may_not_read_itself(self, tmp_path: Path):
+        """The one the check's ordering makes impossible.
+
+        A step id becomes available only after its own inputs are validated, so a
+        self-reference is an error rather than a silent no-op that would deadlock
+        or read an empty directory at run time.
+        """
+        path = write_pipeline(tmp_path, steps=["extract"], inputs={"extract": "extract"})
+
+        with pytest.raises(ConfigError):
+            load_pipeline(path)
+
+    @pytest.mark.parametrize("keyword", ["documents", "reference"])
+    def test_source_keywords_are_always_available(self, tmp_path: Path, keyword: str):
+        """Counter-example (row 4): the one where the name is not a step id.
+
+        `documents` and `reference` name sources. No step produces them, and a
+        first step reading one is entirely ordinary.
+        """
+        path = write_pipeline(tmp_path, steps=["extract"], inputs={"extract": keyword})
+
+        assert load_pipeline(path).steps[0].inputs == [keyword]
+
+    def test_the_error_lists_what_was_available(self, tmp_path: Path):
+        """The one where the message is actionable rather than merely correct.
+
+        R3.1 makes an error message an interface. "enrich is not available" sends
+        someone to check their spelling; listing what *was* available shows them
+        they put the step in the wrong order.
+        """
+        path = write_pipeline(
+            tmp_path,
+            steps=["extract", "verify", "report"],
+            inputs={"report": "enrich"},
+        )
+
+        with pytest.raises(ConfigError) as error:
+            load_pipeline(path)
+
+        message = str(error.value)
+        assert "extract" in message and "verify" in message
