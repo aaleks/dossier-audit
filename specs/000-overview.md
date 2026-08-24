@@ -212,7 +212,7 @@ truncation is stored, and no other digest appears anywhere in the system.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.hashing`)
 - **Proved by:** `tests/unit/test_R000_7__hashes_are_sha256_lowercase_hex.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
