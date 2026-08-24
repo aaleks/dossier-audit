@@ -126,7 +126,7 @@ ledger, never the store.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.store`)
 - **Proved by:** `tests/unit/test_R000_2__snapshot_store_never_overwrites.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
