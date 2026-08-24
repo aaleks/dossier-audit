@@ -72,3 +72,23 @@ class Connector(Protocol):
     def attachments(self, key: str) -> Iterator[AttachmentRef]:
         """Files attached to the item, each independently addressable (R1.6)."""
         ...
+
+
+@runtime_checkable
+class ModelClient(Protocol):
+    """How a stage reaches a model.
+
+    Declared here so that `application/` can run a stage without importing any
+    vendor SDK, and so the default test suite can hand it a fake that counts
+    calls -- R4.6, R5.5 and R5.7 are all claims about how many calls happened.
+
+    `model_id` is on the client rather than passed per call because it is part of
+    every cache key (R5.3) and part of every provenance record (R0.3): a score
+    without the model that produced it is not reproducible.
+    """
+
+    model_id: str
+
+    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+        """One completion, returned as text for the caller to validate."""
+        ...

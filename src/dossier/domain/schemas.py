@@ -36,3 +36,18 @@ class FieldRecord(BaseModel):
     reason: str | None = None
     confidence: Confidence | None = None
     source: Evidence | None = None
+
+
+class StageOutput(BaseModel):
+    """What one `per_file` stage returns for one document (spec 006).
+
+    The same model generates the JSON schema shown to the model and the
+    validation applied to its answer. There is no second definition: two
+    definitions of one schema disagree eventually, and the disagreement surfaces
+    as a scoring bug months later (R6.7).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    document: str
+    fields: list[FieldRecord]
