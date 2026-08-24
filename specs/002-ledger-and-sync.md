@@ -149,7 +149,7 @@ source.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync.window_start`)
 - **Proved by:** `tests/unit/test_R002_4__watermark_overlap_refetches_boundary_items.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

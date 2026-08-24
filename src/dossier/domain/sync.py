@@ -8,6 +8,13 @@ rules be proved in milliseconds with a plain dict.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
+
+# Clock skew between dossier and the source, plus source-side indexing lag, are
+# both routinely minutes and occasionally hours. A day of overlap costs a handful
+# of redundant listings; getting it wrong costs a document that is never fetched
+# again, and which nobody notices because there is no error to see (R2.4).
+DEFAULT_OVERLAP = timedelta(hours=24)
 
 # Canonical JSON: keys sorted, no incidental whitespace, escaped to ASCII. Every
 # one of those three is a hash-stability decision rather than a style choice --
@@ -61,3 +68,36 @@ def normalise(payload: bytes, *, fields: list[str] | None) -> bytes:
     # system, and collapsing them would make two different items hash alike.
     projected = {name: document[name] for name in sorted(fields) if name in document}
     return json.dumps(projected, **_CANONICAL).encode()
+
+
+def window_start(
+    last_sync_at: datetime | None, *, overlap: timedelta = DEFAULT_OVERLAP
+) -> datetime | None:
+    """The `since` to pass to `Connector.list`, given a source's watermark.
+
+    Returns `None` when the source has never synced: there is no watermark to
+    subtract from, and a full listing is wanted anyway -- it is what tombstoning
+    is computed against (R1.3, R2.7).
+    """
+    if overlap <= timedelta(0):
+        # Zero is the boundary the rule names: "never from last_sync_at". A
+        # source configuring `watermark_overlap: 0h` is asking for exactly the
+        # sync that skips its own edge, and it should hear about it now rather
+        # than lose an item quietly.
+        raise ValueError(
+            f"watermark_overlap must be positive, got {overlap}. "
+            "Sync asks from last_sync_at minus an overlap, never from "
+            "last_sync_at itself (R2.4)."
+        )
+
+    if last_sync_at is None:
+        return None
+
+    if last_sync_at.tzinfo is None:
+        # A naive watermark means something different on every machine that
+        # reads it, and an hour of drift here is an item silently not fetched.
+        raise ValueError(
+            f"last_sync_at must be timezone-aware, got naive {last_sync_at.isoformat()}"
+        )
+
+    return last_sync_at - overlap
