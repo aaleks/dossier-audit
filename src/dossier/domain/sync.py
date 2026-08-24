@@ -101,3 +101,26 @@ def window_start(
         )
 
     return last_sync_at - overlap
+
+
+def needs_fetch(*, recorded_version: str | None, listed_version: str | None) -> bool:
+    """Whether an item's payload must be requested, given its version markers.
+
+    The only way to skip a fetch is for the source to vouch that nothing moved:
+    both markers present and exactly equal (R2.1). Everything else fetches, and
+    the content hash then decides whether anything is actually stored (R2.2) --
+    so a fetch is not a write, and over-fetching costs a request rather than a
+    snapshot.
+
+    `recorded_version` is `None` both for an item with no ledger row and for one
+    whose source has no version marker at all. The two are different situations
+    and the same answer: there is nothing to compare, so fetch.
+    """
+    if recorded_version is None or listed_version is None:
+        return True
+
+    # Compared verbatim. A version marker is an opaque token belonging to the
+    # source system; normalising case or whitespace would mean guessing at
+    # another system's semantics, and a wrong guess is a change that is never
+    # fetched again -- silently, because there is no error to see.
+    return recorded_version != listed_version
