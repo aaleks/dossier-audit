@@ -168,3 +168,49 @@ def classify(*, recorded_hash: str | None, computed_hash: str) -> Change:
             "A ledger row holds the full digest, never a display prefix (R0.7)."
         )
     return Change.UNCHANGED if recorded_hash == computed_hash else Change.CHANGED
+
+
+class State(Enum):
+    """What a ledger row currently is (spec 002).
+
+    There is no `deleted`. An item that leaves scope is tombstoned so that a run
+    which pinned its snapshots still resolves (R2.7, R4.9).
+    """
+
+    ACTIVE = "active"
+    TOMBSTONED = "tombstoned"
+
+
+def tombstones(
+    *,
+    held: set[str],
+    listed: set[str],
+    already_tombstoned: set[str] = frozenset(),
+    listing_was_complete: bool = True,
+) -> set[str]:
+    """Which held items have left the source's scope.
+
+    `held` is the active rows for one source; `listed` is what a full listing
+    just returned. The answer is the difference -- items recorded as present that
+    the source no longer offers.
+    """
+    if not listing_was_complete:
+        # An incremental listing legitimately omits everything that did not
+        # change. Computing departures from it would tombstone the entire
+        # unchanged majority of a source: the most destructive thing sync could
+        # do, and it would look like it had worked (R1.3, R2.7).
+        raise ValueError(
+            "tombstoning must be computed against a full listing. "
+            "An incremental listing omits unchanged items, which are not departures."
+        )
+    return set(held) - set(listed) - set(already_tombstoned)
+
+
+def reactivated(*, listed: set[str], already_tombstoned: set[str]) -> set[str]:
+    """Which tombstoned items the source is offering again.
+
+    Returned alongside `tombstones` rather than left to the caller: an item that
+    comes back must go to `active`, and a sync that only handled departures would
+    leave the ledger permanently wrong about it (R2.7 example 3).
+    """
+    return set(listed) & set(already_tombstoned)
