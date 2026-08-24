@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
+from enum import Enum
+
+from dossier.domain.hashing import is_content_hash
 
 # Clock skew between dossier and the source, plus source-side indexing lag, are
 # both routinely minutes and occasionally hours. A day of overlap costs a handful
@@ -124,3 +127,44 @@ def needs_fetch(*, recorded_version: str | None, listed_version: str | None) -> 
     # another system's semantics, and a wrong guess is a change that is never
     # fetched again -- silently, because there is no error to see.
     return recorded_version != listed_version
+
+
+class Change(Enum):
+    """What a sync decided about one item (R2.2).
+
+    `writes_snapshot` lives on the outcome rather than at the call site. R2.5
+    counts snapshots written, and a caller deciding for itself which outcomes
+    write would be a second implementation of this rule -- one that can disagree
+    with this one.
+    """
+
+    NEW = "new"
+    CHANGED = "changed"
+    UNCHANGED = "unchanged"
+
+    @property
+    def writes_snapshot(self) -> bool:
+        return self is not Change.UNCHANGED
+
+
+def classify(*, recorded_hash: str | None, computed_hash: str) -> Change:
+    """What to do with an item, given the hash held and the hash just computed.
+
+    Both hashes are over the *normalised* payload (R2.10), never over the raw
+    bytes -- which is what stops a regenerated HTML field reporting every item as
+    changed on every sync.
+    """
+    if not is_content_hash(computed_hash):
+        raise ValueError(
+            f"computed_hash {computed_hash!r} is not a content hash. "
+            "Comparing display prefixes is how two different documents get "
+            "called unchanged (R0.7)."
+        )
+    if recorded_hash is None:
+        return Change.NEW
+    if not is_content_hash(recorded_hash):
+        raise ValueError(
+            f"recorded_hash {recorded_hash!r} is not a content hash. "
+            "A ledger row holds the full digest, never a display prefix (R0.7)."
+        )
+    return Change.UNCHANGED if recorded_hash == computed_hash else Change.CHANGED
