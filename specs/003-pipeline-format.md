@@ -235,7 +235,7 @@ a projection onto no fields, which is never what anyone means.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R003_9__fields_is_optional_and_never_empty.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
