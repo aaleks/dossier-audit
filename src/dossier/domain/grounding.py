@@ -12,6 +12,11 @@ matches gold (R7.4).
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from enum import Enum
+
+from dossier.domain.schemas import FieldRecord
 
 # `\s` under Python 3's default unicode matching covers the ordinary whitespace
 # plus U+00A0, which PDF text extraction emits inside figures like `CHF 48'200`.
@@ -50,3 +55,86 @@ def locate_span(span: str, *, document_text: str) -> bool:
         return False
 
     return needle in normalise_whitespace(document_text)
+
+
+class FieldVerdict(Enum):
+    """What a checked field record turned out to be (spec 006).
+
+    Four outcomes rather than a boolean, because the spec draws three different
+    lines and collapsing them would lose the one that matters most: an
+    `ungrounded` field has a plausible value and no evidence, which is a
+    completely different problem from a malformed record, and is scored
+    incorrect even when the value happens to match gold (R7.4).
+    """
+
+    VALID = "valid"
+    ABSTAINED = "abstained"
+    UNGROUNDED = "ungrounded"
+    INVALID = "invalid"
+
+    @property
+    def is_failure(self) -> bool:
+        """Abstention is never a failure (R6.5)."""
+        return self in (FieldVerdict.UNGROUNDED, FieldVerdict.INVALID)
+
+
+@dataclass(frozen=True)
+class FieldCheck:
+    """A verdict, and why -- the `why` ends up in `review.jsonl` (spec 007)."""
+
+    verdict: FieldVerdict
+    detail: str | None = None
+
+    @property
+    def is_failure(self) -> bool:
+        return self.verdict.is_failure
+
+
+def check_field(
+    record: FieldRecord,
+    *,
+    input_documents: Mapping[str, str],
+) -> FieldCheck:
+    """Check one extracted field against the documents its stage actually read.
+
+    `input_documents` maps document key to converted text. Passing the text in
+    rather than a lookup is what keeps this a pure function -- and what makes
+    R6.3 checkable at all, because "is an input to that stage" is a fact about
+    the caller, not about the field.
+    """
+    if record.value is None:
+        if not record.reason:
+            # "Not stated" is a first-class answer, but only when it says why.
+            # A bare null is indistinguishable from a field the model forgot.
+            return FieldCheck(
+                FieldVerdict.INVALID,
+                f"{record.field}: value is null with no reason. Abstention must say "
+                "why it abstained (R6.5).",
+            )
+        return FieldCheck(FieldVerdict.ABSTAINED, record.reason)
+
+    if record.source is None:
+        return FieldCheck(
+            FieldVerdict.INVALID,
+            f"{record.field}: has a value and no source. A figure without evidence "
+            "is the thing this system exists not to produce (R6.6).",
+        )
+
+    if record.source.document not in input_documents:
+        # Worse than no citation, because it looks checkable. A reviewer opening
+        # the named document would find it was never part of this stage.
+        return FieldCheck(
+            FieldVerdict.INVALID,
+            f"{record.field}: cites {record.source.document!r}, which was not an "
+            f"input to this stage. Inputs were {sorted(input_documents)} (R6.3).",
+        )
+
+    if not locate_span(
+        record.source.span, document_text=input_documents[record.source.document]
+    ):
+        return FieldCheck(
+            FieldVerdict.UNGROUNDED,
+            f"{record.field}: span not found in {record.source.document} (R6.4).",
+        )
+
+    return FieldCheck(FieldVerdict.VALID)

@@ -98,7 +98,7 @@ it looks checkable.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.grounding.check_source`)
 - **Proved by:** `tests/unit/test_R006_3__source_must_name_an_input_document.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -132,7 +132,7 @@ instead.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.grounding.check_field`)
 - **Proved by:** `tests/unit/test_R006_5__abstention_is_valid_output.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -146,7 +146,7 @@ instead.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.grounding.check_field`)
 - **Proved by:** `tests/unit/test_R006_6__non_null_without_source_is_invalid.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
