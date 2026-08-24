@@ -74,9 +74,7 @@ class TestSourceWithFields:
         monday = jira_payload(rendered="<p>Batch failed</p>", views=12)
         tuesday = jira_payload(rendered="<div>Batch failed</div>", views=97)
 
-        assert normalise(monday, fields=JIRA_FIELDS) == normalise(
-            tuesday, fields=JIRA_FIELDS
-        )
+        assert normalise(monday, fields=JIRA_FIELDS) == normalise(tuesday, fields=JIRA_FIELDS)
 
     def test_a_field_inside_the_projection_does_change_the_hash(self):
         """The one that stops the projection from hiding everything.
@@ -95,9 +93,7 @@ class TestSourceWithFields:
             }
         ).encode()
 
-        assert normalise(before, fields=JIRA_FIELDS) != normalise(
-            after, fields=JIRA_FIELDS
-        )
+        assert normalise(before, fields=JIRA_FIELDS) != normalise(after, fields=JIRA_FIELDS)
 
     def test_the_order_fields_are_declared_in_does_not_matter(self):
         """R2.3 example 2: the projection is a set, ordered canonically."""
@@ -125,9 +121,7 @@ class TestSourceWithFields:
         different items hash alike.
         """
         without = json.dumps({"key": "INC-4821", "summary": "a"}).encode()
-        with_null = json.dumps(
-            {"key": "INC-4821", "summary": "a", "status": None}
-        ).encode()
+        with_null = json.dumps({"key": "INC-4821", "summary": "a", "status": None}).encode()
 
         assert normalise(without, fields=JIRA_FIELDS) != normalise(
             with_null, fields=JIRA_FIELDS

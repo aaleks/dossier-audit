@@ -159,8 +159,7 @@ def test_only_cli_exits_the_interpreter(path):
         if use.dotted in ("sys.exit", "os._exit")
     ]
     assert not offenders, "\n".join(
-        offenders
-        + ["  Raise ValueError for anything a caller could fix; cli/ picks the code."]
+        offenders + ["  Raise ValueError for anything a caller could fix; cli/ picks the code."]
     )
 
 

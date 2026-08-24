@@ -191,9 +191,8 @@ def test_a_supersession_points_at_a_rule_still_in_force(rule: Rule):
 def test_at_most_one_rule_is_in_progress():
     """One outer loop at a time. Two open slices is how neither gets finished."""
     in_progress = [rule for rule in RULES if rule.status == "IN PROGRESS"]
-    assert len(in_progress) <= 1, (
-        "more than one rule is IN PROGRESS: "
-        + ", ".join(rule.where for rule in in_progress)
+    assert len(in_progress) <= 1, "more than one rule is IN PROGRESS: " + ", ".join(
+        rule.where for rule in in_progress
     )
 
 
@@ -210,9 +209,7 @@ def test_the_in_progress_rule_owns_the_outer_loop_test():
         if OUTER_LOOP_MARKER in path.read_text(encoding="utf-8")
     )
     if not in_progress:
-        assert not marked, (
-            f"{marked} carries @{OUTER_LOOP_MARKER} but no rule is IN PROGRESS."
-        )
+        assert not marked, f"{marked} carries @{OUTER_LOOP_MARKER} but no rule is IN PROGRESS."
         return
     expected = sorted(in_progress[0].proved_by)
     assert marked == expected, (

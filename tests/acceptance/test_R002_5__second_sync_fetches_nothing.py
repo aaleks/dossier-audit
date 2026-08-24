@@ -91,9 +91,7 @@ class TestSecondSyncIsFree:
         _run_sync(workspace, monkeypatch)
         assert _snapshot_bytes(workspace) == after_first
 
-    def test_a_changed_document_is_the_only_one_refetched(
-        self, workspace: Path, monkeypatch
-    ):
+    def test_a_changed_document_is_the_only_one_refetched(self, workspace: Path, monkeypatch):
         """Example 4 (counter-example): the rule stops applying for one document.
 
         The counter-example is the half that matters. A sync that reported "0
