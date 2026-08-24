@@ -1,0 +1,15 @@
+# The smallest pipeline that validates (spec 003) and names a source to sync.
+#
+# `dossier sync incident-audit` reads this to find out what to hold (R2.12).
+# The step is here because a pipeline without one is not a valid pipeline -- the
+# sync slice never executes it.
+sources: [incidents-manual]
+
+model: anthropic:claude-sonnet-4-5-20250929
+
+steps:
+  - id: extract
+    prompt: prompts/01_extract.md
+    input: documents
+    mode: per_file
+    output: schemas/incident.json

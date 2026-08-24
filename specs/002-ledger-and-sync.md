@@ -1,7 +1,7 @@
 # 002 — Ledger and incremental sync
 
 **Status:** Proposed
-**Rules:** R2.1 – R2.9
+**Rules:** R2.1 – R2.13
 
 ## Purpose
 
@@ -54,6 +54,38 @@ the raw payload**; normalisation exists only to compute the hash.
 
 The set of fields is declared per source in `sources.yaml` and forms part of the
 source's configuration hash.
+
+### Sources that declare no fields
+
+A projection only means something for a structured payload. A markdown file or a
+PDF from a folder has no fields to project onto, and the whole payload is the
+content.
+
+So the rule is general rather than per connector:
+
+| The source declares | Hashed |
+|---|---|
+| `fields: [key, summary, …]` | the payload projected onto those fields, keys ordered canonically |
+| no `fields` | the payload exactly as received |
+
+Nothing is normalised away for a folder source — which is the correct behaviour
+for it, because every byte of the file is meaningful. It also means a folder
+source detects a change that alters only whitespace. That is deliberate: for a
+structured source, whitespace in the rendered HTML is noise; for a file someone
+dropped in a folder, an edit is an edit.
+
+## Storage
+
+Snapshots are content-addressed under the workspace's `.dossier/` directory
+(R0.8), sharded two levels deep so that a source with tens of thousands of items
+does not produce one enormous directory:
+
+```
+.dossier/snapshots/a3/f9/a3f9c1e2…      (64 hex characters, SHA-256, R0.7)
+```
+
+The shard is the first two pairs of characters of the hash itself, so the path is
+a pure function of the content and needs nothing else to compute.
 
 ## Must hold
 
@@ -138,7 +170,7 @@ proof that the ledger, the hashing and the store agree with each other.
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `dossier sync` run twice over `tests/fixtures/inbox/incidents/`, unchanged between runs | the second run reports `0 fetched`, `0 new snapshots`, `0 tombstoned` |
+| 1 | `dossier sync incident-audit` run twice, nothing changed between runs | the second run reports `0 fetched`, and the summary line reports `0 new snapshots · 0 tombstoned` |
 | 2 | the snapshot store after the second run | byte-identical to its state after the first |
 | 3 | the ledger after the second run | identical apart from `last_seen` and `last_sync_at` (R2.9) |
 | 4 | *counter-example* — one fixture file edited between the two runs | that one item is fetched and snapshotted; the others still report no work |
@@ -207,3 +239,71 @@ when rather than what.
 | 2 | the same, with the ledger serialised for comparison | identical bytes once the two time columns are excluded |
 | 3 | the two syncs run under different locales and timezones | still identical; no locale-formatted value is stored (R0.4) |
 | 4 | *counter-example* — `first_seen` on a row created by the first sync | set once and never rewritten, so it is identical by definition rather than by exclusion |
+
+### R2.10 — a source that declares no `fields` hashes its payload as received
+
+Normalisation projects a structured payload onto declared fields. A payload with
+no declared fields has nothing to project onto, and every byte of it counts.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.sync.normalise`)
+- **Proved by:** `tests/unit/test_R002_10__a_source_without_fields_hashes_raw_bytes.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents-manual`, a folder source with no `fields`, holding `audit-note.md` | the content hash is SHA-256 of the file's bytes, unchanged by any projection |
+| 2 | the same file with one trailing space added | a different hash, so a new snapshot; for a dropped file, an edit is an edit |
+| 3 | `incidents-jira`, which declares `fields`, whose rendered-HTML field changed | the same hash; the projection excluded that field (R2.2) |
+| 4 | *counter-example* — a source declaring `fields: []` | a load-time error, not "hash everything". An empty list is a projection onto nothing, which no payload can satisfy (R3.9) |
+
+### R2.11 — a snapshot's path is derived from its content hash alone
+
+`.dossier/snapshots/<first two>/<next two>/<full hash>`. Nothing else enters the
+path: not the source id, not the item key, not the fetch time.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.store.snapshot_path`)
+- **Proved by:** `tests/unit/test_R002_11__snapshot_path_is_derived_from_the_hash.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | content hashing to `a3f9c1e2…` | `.dossier/snapshots/a3/f9/a3f9c1e2…`, the full 64 characters as the filename |
+| 2 | the same bytes arriving from `incidents-jira` and from `incidents-manual` | one snapshot, referenced by two ledger rows; content addressing deduplicates (R1.6) |
+| 3 | the same bytes fetched a year apart | the same path; time is not part of it |
+| 4 | *counter-example* — two items with the same key in different sources | unrelated to the path; the ledger separates them by `source_id`, the store does not need to |
+
+### R2.12 — `dossier sync <pipeline>` syncs the sources that pipeline declares
+
+Sync takes a pipeline name, not a configuration path. A pipeline names both its
+`sources` and its `reference` sources, and both must be held before it can run.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.sync`)
+- **Proved by:** `tests/acceptance/test_R002_12__sync_takes_a_pipeline_name.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier sync incident-audit`, whose pipeline declares `sources: [incidents-manual]` | that source is synced |
+| 2 | a pipeline declaring `reference: [procedures-confluence]` as well | both are synced; reference documents are inputs and must be held too |
+| 3 | `dossier sync no-such-pipeline` | an error naming the pipeline and where it was looked for; nothing is fetched |
+| 4 | *counter-example* — a source in `sources.yaml` that no pipeline names | not synced; the pipeline decides what is worth holding, not the source list |
+
+### R2.13 — sync reports what it did, per source and in total
+
+The counts are the interface. "Tomorrow's 420 issues cost 20 downloads" is only
+credible if the command says so.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.sync`)
+- **Proved by:** `tests/acceptance/test_R002_13__sync_reports_counts_per_source.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents-jira` holding 420 items, 18 changed and 2 new | a line reading `incidents-jira  420 known · 18 changed · 2 new -> 20 fetched` |
+| 2 | the end of the run | a summary line reading `ledger updated · 21 new snapshots · 0 tombstoned` |
+| 3 | a source where nothing changed | still listed, reporting `-> 0 fetched`; a silent source is indistinguishable from a skipped one |
+| 4 | *counter-example* — a source that failed mid-sync | reported as failed with its error, and excluded from the fetched counts; a failure is not zero work (R1.9) |

@@ -1,7 +1,7 @@
 # 000 — Overview, vocabulary and global invariants
 
 **Status:** Proposed
-**Rules:** R0.1 – R0.6
+**Rules:** R0.1 – R0.8
 
 ## Purpose
 
@@ -54,6 +54,43 @@ reproduced exactly.
 In the code the boundary is a package boundary:
 `dossier.infrastructure.connectors` is the only place a network client may be
 imported. Everything else is right of the line. See `docs/architecture.md`.
+
+## Hashing
+
+One algorithm, everywhere: **SHA-256 over bytes, rendered as 64 lowercase hex
+characters**. It covers snapshot content hashes (spec 002), prompt, schema and
+config file hashes, and every cache key (spec 005).
+
+The choice is deliberately boring. `hashlib` ships with Python, so there is no
+dependency to pin and no build to reproduce; the digest is stable across
+versions, platforms and locales, which is what R0.4 and R5.6 require; and a
+stored snapshot can be verified with a standard `sha256sum` by someone who does
+not have `dossier` installed.
+
+Examples throughout these specs write hashes as **8-character prefixes** —
+`a3f9c1e2`, `77c1b40a`. That is a display convention for readability. The stored
+value, the ledger column and every cache key hold the full 64 characters.
+
+## Workspace layout
+
+A workspace is a directory holding `sources.yaml`. Commands operate on the
+current working directory as the workspace root.
+
+```
+sources.yaml                     configuration, committed
+pipelines/<name>/pipeline.yaml   configuration, committed
+gold/<name>/                     verified answers, committed
+runs/<run_id>/                   run outputs and manifest, reviewable
+.dossier/                        machine-local state, never committed
+  snapshots/ab/cd/<hash>         the immutable store
+  ledger.db                      what is held, at which version and hash
+  cache/                         stage and convert artifacts
+```
+
+The split is between what a human reads or reviews and what the machine
+regenerates. `runs/` holds the report and the manifest someone will open, so it
+sits in the open; `.dossier/` holds state that is derived, large, and meaningless
+without the tool.
 
 ## Must hold
 
@@ -166,6 +203,40 @@ re-point is rejected before any work begins.
 | 2 | `model: anthropic:claude-sonnet-4-5` | load-time error naming the file, the line and the alias |
 | 3 | `model: anthropic:claude-sonnet-latest` | load-time error |
 | 4 | *counter-example* — a run replayed from `runs/2026-08-06T14:22:03Z-4f1a/manifest.json` | the manifest's recorded identifier is used as-is; the check already happened when that run was resolved (R4.7) |
+
+### R0.7 — every hash is SHA-256 over bytes, rendered as 64 lowercase hex characters
+
+One algorithm for snapshot content hashes, file hashes and cache keys. No
+truncation is stored, and no other digest appears anywhere in the system.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.hashing`)
+- **Proved by:** `tests/unit/test_R000_7__hashes_are_sha256_lowercase_hex.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the bytes of `INC-4821.md` | the ledger `content_hash` equals `sha256sum` of that file, all 64 characters |
+| 2 | the same bytes hashed on Windows and on Linux | identical; the digest is over bytes, and `.gitattributes` keeps the bytes identical |
+| 3 | a hash rendered for a log line or a spec example | may be shortened to 8 characters for display; the stored value is never truncated |
+| 4 | *counter-example* — a run id such as `2026-08-06T14:22:03Z-4f1a` | not a hash; it is a timestamp and a suffix, and it is excluded from every key (R0.4) |
+
+### R0.8 — generated state lives under `.dossier/`, and run outputs under `runs/`
+
+Machine-local state is derived, large and regenerable; run outputs are read by
+people. The two are kept apart so that deleting the first is always safe.
+
+- **Kind:** deterministic
+- **Layer:** config (`dossier.config.workspace`)
+- **Proved by:** `tests/unit/test_R000_8__workspace_layout_separates_state_from_output.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a completed `dossier sync` in a workspace | snapshots under `.dossier/snapshots/`, the ledger at `.dossier/ledger.db`, and nothing written outside `.dossier/` |
+| 2 | a completed `dossier run` | the manifest and artifacts under `runs/<run_id>/`, which is not hidden and not gitignored |
+| 3 | `.dossier/` deleted, then the same pipeline re-run after a re-sync | byte-identical outputs; only the time taken differs (R5.9) |
+| 4 | *counter-example* — `sources.yaml`, `pipelines/`, `gold/` | configuration and verified answers, committed to git; they are inputs, and deleting them is not recoverable |
 
 ## Spec index
 

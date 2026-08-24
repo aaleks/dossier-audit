@@ -29,8 +29,13 @@ import pytest
 pytestmark = pytest.mark.outer_loop
 
 
-def _run_sync(workspace: Path):
-    """Invoke `dossier sync` over the fixture workspace.
+def _run_sync(workspace: Path, monkeypatch):
+    """Invoke `dossier sync incident-audit` with the workspace as the cwd.
+
+    The pipeline name is the argument, not a config path (R2.12): a pipeline
+    declares both its `sources` and its `reference` sources, and both have to be
+    held. Commands operate on the current working directory as the workspace
+    root (R0.8), which is why this chdirs rather than passing a path.
 
     Imported inside the helper rather than at module scope so that collecting the
     default suite does not fail on a package that does not exist yet. Until the
@@ -40,7 +45,8 @@ def _run_sync(workspace: Path):
     from dossier.cli.main import app
     from typer.testing import CliRunner
 
-    result = CliRunner().invoke(app, ["sync", "--config", str(workspace / "sources.yaml")])
+    monkeypatch.chdir(workspace)
+    result = CliRunner().invoke(app, ["sync", "incident-audit"])
     assert result.exit_code == 0, result.output
     return result
 
@@ -57,37 +63,43 @@ def _snapshot_bytes(workspace: Path) -> dict[str, bytes]:
 class TestSecondSyncIsFree:
     """R2.5 — the observable promise of incremental sync."""
 
-    def test_second_sync_reports_no_work(self, workspace: Path):
+    def test_second_sync_reports_no_work(self, workspace: Path, monkeypatch):
         """The one where nothing changed, so nothing should happen.
 
         Example 1: three fixture documents, synced twice, unchanged in between.
         """
-        _run_sync(workspace)
-        second = _run_sync(workspace)
+        _run_sync(workspace, monkeypatch)
+        second = _run_sync(workspace, monkeypatch)
 
         assert "0 fetched" in second.output
         assert "0 new snapshots" in second.output
         assert "0 tombstoned" in second.output
+        assert "incidents-manual" in second.output, (
+            "a source that did nothing is still listed (R2.13) -- a silent source "
+            "is indistinguishable from a skipped one"
+        )
 
-    def test_second_sync_writes_no_snapshot(self, workspace: Path):
+    def test_second_sync_writes_no_snapshot(self, workspace: Path, monkeypatch):
         """Example 2: the store is byte-identical after the second run.
 
         Asserted over content rather than over a count, because a store that
         rewrote a file with identical bytes would still violate R0.2.
         """
-        _run_sync(workspace)
+        _run_sync(workspace, monkeypatch)
         after_first = _snapshot_bytes(workspace)
 
-        _run_sync(workspace)
+        _run_sync(workspace, monkeypatch)
         assert _snapshot_bytes(workspace) == after_first
 
-    def test_a_changed_document_is_the_only_one_refetched(self, workspace: Path):
+    def test_a_changed_document_is_the_only_one_refetched(
+        self, workspace: Path, monkeypatch
+    ):
         """Example 4 (counter-example): the rule stops applying for one document.
 
         The counter-example is the half that matters. A sync that reported "0
         fetched" unconditionally would pass the two tests above and be useless.
         """
-        _run_sync(workspace)
+        _run_sync(workspace, monkeypatch)
 
         changed = workspace / "inbox" / "incidents" / "INC-4822.md"
         changed.write_text(
@@ -95,6 +107,6 @@ class TestSecondSyncIsFree:
             encoding="utf-8",
         )
 
-        second = _run_sync(workspace)
+        second = _run_sync(workspace, monkeypatch)
         assert "1 fetched" in second.output
         assert "1 new snapshot" in second.output

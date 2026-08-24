@@ -1,7 +1,7 @@
 # 003 — Configuration format
 
 **Status:** Proposed
-**Rules:** R3.1 – R3.8
+**Rules:** R3.1 – R3.9
 
 ## Purpose
 
@@ -32,7 +32,13 @@ sources:
     convert: [markdown, page_images]
 ```
 
-`fields` doubles as the normalisation projection for hashing (spec 002).
+`fields` doubles as the normalisation projection for hashing (spec 002). It is
+**optional**, and its absence is meaningful rather than a default: a source with
+no `fields` has its payload hashed exactly as received (R2.10). That is why the
+folder source above declares none — every byte of a dropped file counts.
+
+An empty list is not the same thing and is rejected: `fields: []` is a projection
+onto nothing, which no payload satisfies.
 
 ## `pipelines/<name>/pipeline.yaml`
 
@@ -220,3 +226,20 @@ every other step, so anything expensive here is paid on every command.
 | 2 | the same, with the model client stubbed to raise on any call | loads successfully |
 | 3 | `type: jira` with `JIRA_TOKEN` unset | loads successfully; credentials are checked when a connector is used, not when config is read |
 | 4 | *counter-example* — `dossier sync` immediately after loading | reaches the network, as it must; the rule constrains loading, not the command containing it |
+
+### R3.9 — `fields` is optional, and an empty `fields` list is rejected
+
+Omitting `fields` selects raw-payload hashing (R2.10). Declaring it empty selects
+a projection onto no fields, which is never what anyone means.
+
+- **Kind:** deterministic
+- **Layer:** config (`dossier.config.load`)
+- **Proved by:** `tests/unit/test_R003_9__fields_is_optional_and_never_empty.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents-manual` with `type: folder` and no `fields` | accepted; the source hashes payloads as received |
+| 2 | `incidents-jira` with `fields: [key, summary, status]` | accepted; those three form the projection and the configuration hash |
+| 3 | any source with `fields: []` | load-time error naming the file, the line and the source id |
+| 4 | *counter-example* — a source declaring `fields` whose payload turns out to be a PDF | not a load-time error; whether a projection can be applied to a payload is a sync-time concern, and load time never fetches one (R3.8) |

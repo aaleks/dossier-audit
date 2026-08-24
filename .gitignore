@@ -59,12 +59,11 @@ mlartifacts/
 mlflow.db
 
 # ---- dossier local state ----
-# Snapshots, ledger and run outputs are machine-local data, never source.
-# See specs/002-ledger-and-sync.md and specs/004-step-resolution.md.
-runs/
-snapshots/
+# .dossier/ holds the snapshot store, the ledger and the cache; runs/ holds
+# manifests and reports. Both are generated (R0.8). runs/ is deliberately not
+# hidden -- a person opens it -- but it is still not source.
 .dossier/
-*.ledger.db
+runs/
 
 # ---- Reports produced by the /quality skill ----
 quality-report.md
@@ -73,6 +72,8 @@ quality-report.md
 
 # ---- Claude Code local overrides ----
 .claude/settings.local.json
+.claude/worktrees/
+
 # ---- Editors and OS ----
 .idea/
 .vscode/

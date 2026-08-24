@@ -19,8 +19,9 @@ Do not invent a new incident key for a new example. Add to this file instead.
 
 ## Hashes
 
-Eight hex characters throughout. They are labels, not real digests, and are used
-consistently so a reader can follow one artifact across specs.
+Eight hex characters throughout. Real hashes are full 64-character SHA-256
+digests (R0.7); an 8-character prefix is the display convention, used
+consistently here so a reader can follow one artifact across specs.
 
 | Hash | Belongs to |
 |---|---|
