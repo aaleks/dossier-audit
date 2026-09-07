@@ -259,9 +259,10 @@ def test_coverage_summary_is_reportable(capsys):
     superseded = sum(1 for rule in RULES if rule.status == "SUPERSEDED")
     evaluated = sum(1 for rule in RULES if rule.kind == "evaluated")
     not_met = total - met - in_progress - superseded
+    specs = len({rule.spec_file for rule in RULES})
     with capsys.disabled():
         print(
-            f"\nspecs: {total} rules across 8 specs | "
+            f"\nspecs: {total} rules across {specs} specs | "
             f"{met} MET, {in_progress} IN PROGRESS, {not_met} NOT MET, "
             f"{superseded} SUPERSEDED | "
             f"{total - evaluated} deterministic, {evaluated} evaluated"

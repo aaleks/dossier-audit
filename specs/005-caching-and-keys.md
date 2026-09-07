@@ -49,7 +49,7 @@ Every artifact has a sibling `<name>.meta.json`:
   "step": "verify",
   "cache_key": "9f21c0a4",
   "inputs": [
-    {"role": "documents", "path": "converted/INC-4821.md", "hash": "a3f9c1e2"},
+    {"role": "documents", "path": "converted/INC-4821.md", "hash": "5d3ba0f7"},
     {"role": "extract",   "path": "extract/INC-4821.json", "hash": "77c1b40a"}
   ],
   "prompt": {"path": "prompts/02_verify.md", "hash": "0e52dd18"},
@@ -74,7 +74,7 @@ of the key. The two are generated from one structure, so they cannot drift.
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | the `verify` artifact for `INC-4821` | its record lists `a3f9c1e2`, `77c1b40a`, `0e52dd18`, `b81f0c6d` and the model, and the key is computed from those and nothing else |
+| 1 | the `verify` artifact for `INC-4821` | its record lists `5d3ba0f7`, `77c1b40a`, `0e52dd18`, `b81f0c6d` and the model, and the key is computed from those and nothing else |
 | 2 | any single entry in the record perturbed | the recomputed key differs |
 | 3 | an input added to the record but not to the key | rejected at construction; one structure produces both |
 | 4 | *counter-example* — `run_id` and `dossier_version` in the record | present for provenance, excluded from the key; neither may change an output (R0.4) |
