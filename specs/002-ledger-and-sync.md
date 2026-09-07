@@ -1,6 +1,6 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R2.1 – R2.15
 
 ## Purpose

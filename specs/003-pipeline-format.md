@@ -1,6 +1,6 @@
 # 003 — Configuration format
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R3.1 – R3.9
 
 ## Purpose

@@ -267,3 +267,47 @@ def test_coverage_summary_is_reportable(capsys):
             f"{total - evaluated} deterministic, {evaluated} evaluated"
         )
     assert total > 0
+
+
+def _declared_status(spec_file: Path) -> str | None:
+    """The `**Status:**` line in a spec's header, above its first rule."""
+    header = spec_file.read_text(encoding="utf-8").split("\n### ", 1)[0]
+    found = re.search(r"^\*\*Status:\*\*\s*(.+)$", header, re.MULTILINE)
+    return found.group(1).strip() if found else None
+
+
+def _implied_status(rules: list[Rule]) -> str:
+    """What a spec's own rules say about it, per the table in specs/README.md.
+
+    Superseded rules are left out of the count entirely. They are retired, not
+    outstanding, and a spec whose every live rule is built is `Implemented` even
+    if it retired one on the way.
+    """
+    live = [rule for rule in rules if rule.status != "SUPERSEDED"]
+    met = sum(1 for rule in live if rule.status == "MET")
+    if live and met == len(live):
+        return "Implemented"
+    return "Partially implemented" if met else "Proposed"
+
+
+@pytest.mark.parametrize(
+    "spec_file",
+    sorted({rule.spec_file for rule in RULES}),
+    ids=lambda path: path.name,
+)
+def test_a_spec_declares_the_status_its_rules_imply(spec_file: Path):
+    """A spec that misdescribes itself is the one document nobody can check against.
+
+    The header is the first thing read and the last thing updated, so it drifts
+    silently: eight specs sat at `Proposed` -- "written, not built" -- while five
+    of them had rules `MET`. Deriving the answer from the rules makes the header
+    a consequence of the work rather than a note about it.
+    """
+    rules = [rule for rule in RULES if rule.spec_file == spec_file]
+    implied = _implied_status(rules)
+
+    assert _declared_status(spec_file) == implied, (
+        f"{as_repo_path(spec_file)} declares "
+        f"{_declared_status(spec_file)!r} but its rules imply {implied!r}. "
+        "See the status table in specs/README.md."
+    )

@@ -1,6 +1,6 @@
 # 001 — Source connectors
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R1.1 – R1.9
 
 ## Purpose
