@@ -146,6 +146,7 @@ linear, and both are cheap to reject.
 | 2 | `extract` with `input: verify` | load-time error; `verify` appears later |
 | 3 | `report` with `input: enrich`, no such step | load-time error naming the unknown id |
 | 4 | *counter-example* — `verify` with `input: reference` | accepted; `documents` and `reference` are source keywords, not step ids |
+| 5 | *counter-example* — `verify` with `input: previous` | accepted; `previous` is sugar, not an id, and there is nothing here to resolve it against. Whether it has a predecessor is spec 004's question (R4.3) |
 
 ### R3.4 — a model value that is not fully version-pinned is rejected at load time
 

@@ -18,6 +18,17 @@ SOURCE_KEYWORDS = frozenset({"documents", "reference"})
 
 _STEP_ID = re.compile(r"^[a-z][a-z0-9_]*$")
 
+# `previous` and `previous(n)` are sugar for "the step(s) before this one". They
+# are not ids and nothing here can resolve them: this layer sees one pipeline
+# with no notion of a run. Spec 004 expands them, and R4.3 is where "previous
+# with nothing preceding it" becomes an error.
+_RELATIVE_REFERENCE = re.compile(r"^previous(\((?P<n>\d+)\))?$")
+
+
+def is_relative_reference(reference: str) -> bool:
+    """Whether an input is `previous` sugar rather than a concrete id (R4.2)."""
+    return _RELATIVE_REFERENCE.match(reference) is not None
+
 
 class SourceConfig(BaseModel):
     """One entry under `sources:`."""
@@ -109,6 +120,11 @@ def validate_references(pipeline: PipelineConfig) -> None:
     available: set[str] = set(SOURCE_KEYWORDS)
     for step in pipeline.steps:
         for reference in step.inputs:
+            if is_relative_reference(reference):
+                # Not an id, so there is nothing to look up. Rejecting it here
+                # would make every rule in spec 004 unreachable through the CLI:
+                # no pipeline written with the sugar could ever be loaded.
+                continue
             if reference not in available:
                 raise ValueError(
                     f"step {step.id!r} reads {reference!r}, which is not available at "
