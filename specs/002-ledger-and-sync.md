@@ -216,7 +216,7 @@ the answer comes out.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.sync`)
 - **Proved by:** `tests/acceptance/test_R002_15__version_marker_avoids_the_fetch.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
