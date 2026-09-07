@@ -1,6 +1,6 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R0.1 – R0.8
 
 ## Purpose

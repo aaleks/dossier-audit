@@ -66,8 +66,9 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. The sync slice closed with R2.14 and R2.15; the next
-outer loop is the first rule of spec 004 or 005, neither of which has any code yet.
+Currently open: **none**. `sync` and `run --plan` both work end to end. The next
+outer loop is R4.5, which needs `run` to write a manifest before a plan has
+anything to diff against.
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost

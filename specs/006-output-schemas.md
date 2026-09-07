@@ -1,6 +1,6 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R6.1 – R6.9
 
 ## Purpose
