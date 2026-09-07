@@ -58,12 +58,29 @@ consistently here so a reader can follow one artifact across specs.
 
 | Hash | Belongs to |
 |---|---|
-| `a3f9c1e2` | `INC-4821` snapshot; also its converted markdown |
+| `a3f9c1e2` | `INC-4821` snapshot |
 | `77c1b40a` | `INC-4822` snapshot, and `extract/INC-4821.json` |
 | `0e52dd18` | `INC-4901` snapshot, and `prompts/02_verify.md` |
 | `b81f0c6d` | `OPS-114` snapshot, and `schemas/incident.json` |
 | `c4a70b93` | `audit-note.pdf` snapshot |
 | `9f21c0a4` | the `verify` cache key for `INC-4821` |
+| `5d3ba0f7` | `INC-4821` converted to markdown — a *different* artifact from the snapshot it came from, and therefore a different hash |
+
+## Converters
+
+An id and a version, in the pair `(media type, kind)` each one claims. The
+versions are deliberately unequal and deliberately not `1.0.0`: R5.4 is about
+what happens when one of them moves, and a table of identical versions hides an
+example that reads the wrong field.
+
+| Converter | Claims | Version |
+|---|---|---|
+| `pdf-markdown` | `(application/pdf, markdown)` | `1.3.0` |
+| `pdf-images` | `(application/pdf, page_images)` | `0.9.1` |
+| `markdown-text` | `(text/markdown, markdown)` | `1.0.0` |
+
+`1.4.0` is `pdf-markdown` after an improvement — the raised version every R5.4
+example refers to.
 
 ## Times
 
