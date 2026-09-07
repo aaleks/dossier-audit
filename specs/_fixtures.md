@@ -15,6 +15,8 @@ Do not invent a new incident key for a new example. Add to this file instead.
 | `INC-4822` | `incidents-jira` | issue | Changed since last sync. Re-fetched. |
 | `INC-4901` | `incidents-jira` | issue | New since last sync. |
 | `OPS-114` | `procedures-confluence` | page | Reference material, PDF export, `remote_version` `v37`. |
+| `OPS-115` | `procedures-confluence` | page | Unchanged throughout. `remote_version` `v12`. The item R2.15 asserts is *not* read. |
+| `OPS-116` | `procedures-confluence` | page | Unchanged throughout. `remote_version` `v3`. |
 | `audit-note.pdf` | `incidents-manual` | file | Folder source. No `remote_version`. |
 
 ## Hashes
