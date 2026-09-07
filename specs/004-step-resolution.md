@@ -85,7 +85,7 @@ pipeline it came from.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.resolution.expand`)
 - **Proved by:** `tests/unit/test_R004_2__previous_expands_in_declaration_order.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -99,7 +99,7 @@ pipeline it came from.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.resolution.expand`)
 - **Proved by:** `tests/unit/test_R004_3__previous_without_a_predecessor_is_an_error.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -116,7 +116,7 @@ readable years later without the configuration that produced it.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.resolution`)
 - **Proved by:** `tests/unit/test_R004_4__manifest_holds_no_relative_references.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -146,7 +146,7 @@ every relative reference below it.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.plan`)
 - **Proved by:** `tests/acceptance/test_R004_6__plan_is_read_only.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -179,7 +179,7 @@ record when rather than what.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.resolution`)
 - **Proved by:** `tests/unit/test_R004_8__resolution_is_byte_identical.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
