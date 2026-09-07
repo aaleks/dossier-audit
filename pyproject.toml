@@ -64,6 +64,13 @@ addopts = "-m 'not outer_loop and not live' --strict-markers -q"
 line-length = 96
 target-version = "py312"
 src = ["src", "tests"]
+# Fixture-generation support code, excluded rather than fixed. Its import order
+# is load-bearing: _common.py sets SOURCE_DATE_EPOCH and reportlab's `invariant`
+# flag before the reportlab imports that read them, which is what makes the
+# committed PDFs byte-stable. Sorting those imports (I001) or hoisting them to
+# the top (E402) would silently break regeneration -- the determinism R0.4 and
+# R5.6 are about. The modules ship no code and are never imported by dossier.
+extend-exclude = ["tests/fixtures/documents/postmortems"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
