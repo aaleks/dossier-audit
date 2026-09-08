@@ -7,18 +7,23 @@ as arguments.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+from importlib.metadata import version
 from pathlib import Path
+from secrets import token_hex
 
 import typer
 
 from dossier.application.convert import ConvertReport, HeldDocument, convert_source
+from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.plan import (
     StepStatus,
     build_plan,
     latest_manifest,
     pinned_documents,
 )
+from dossier.application.run import MissingFromReplay, execute, replay
 from dossier.application.sync import SourceReport, sync_source
 from dossier.config.load import ConfigError, load_pipeline, load_sources
 from dossier.domain.conversion import NoConverter
@@ -135,14 +140,18 @@ def build_model_client(model_id: str):
 def run(
     pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
     plan: bool = typer.Option(False, "--plan", help="Report what would run. Do nothing."),
+    replay_from: str = typer.Option(
+        "", "--replay", help="Reproduce a past run from runs/<run_id>/", metavar="DIR"
+    ),
 ) -> None:
-    """Execute a pipeline, or report what executing it would do (spec 004)."""
+    """Execute a pipeline, report what executing it would do, or replay one (spec 004)."""
+    if replay_from:
+        _replay(Path.cwd(), Path(replay_from), pipeline)
+        return
+
     if not plan:
-        # Stated rather than half-built. Executing needs the cache and the
-        # provenance record that spec 005 defines, and a `run` that quietly did
-        # something less than that would be worse than one that says so.
-        typer.echo("only `--plan` is implemented so far; pass --plan", err=True)
-        raise typer.Exit(code=2)
+        _execute(Path.cwd(), pipeline)
+        return
 
     workspace = Path.cwd()
 
@@ -283,3 +292,170 @@ def _convert_line(report: ConvertReport) -> str:
         f"{report.cached} cached"
     )
     return line if not report.failed else f"{line} · {len(report.failed)} failed"
+
+
+def _replay(workspace: Path, directory: Path, pipeline: str) -> None:
+    """`dossier run <pipeline> --replay runs/<run_id>/` (R4.7).
+
+    The manifest is the only input. `pipeline.yaml` is not read -- not to check
+    it agrees, not to warn that it has changed -- because a replay that consulted
+    it would be reproducing today's configuration rather than the run.
+    """
+    path = directory / MANIFEST_NAME
+    if not path.is_file():
+        typer.echo(f"no manifest at {path}", err=True)
+        raise typer.Exit(code=2)
+
+    manifest = Manifest.read(path)
+    converters = installed_converters()
+    store = SnapshotStore(workspace)
+    cache = ArtifactCache(workspace, namespace="convert")
+
+    try:
+        # Converted from the snapshots this run pinned, not from what the ledger
+        # holds today. A source that has moved on, or been tombstoned, does not
+        # change what this run read (R4.9).
+        pinned = {
+            document.key: HeldDocument(snapshot=document.snapshot, media_type=_media_type(
+                workspace, document.key
+            ))
+            for document in manifest.plan.documents
+        }
+        converted = convert_source(
+            source_id=manifest.plan.pipeline,
+            documents=pinned,
+            kinds=None,
+            converters=converters,
+            store=store,
+            cache=cache,
+        )
+        report = replay(
+            manifest=manifest,
+            document_text=converted.text,
+            cache=ArtifactCache(workspace, namespace="stage"),
+        )
+    except (MissingFromReplay, FileNotFoundError, NoConverter) as error:
+        # A replay may fail; it may never substitute other content (R4.7 row 4).
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    typer.echo(f"replayed {manifest.run_id} · {manifest.plan.pipeline}")
+    for step in report.steps:
+        typer.echo(f"  {step.step}: {len(step.results)} artifact(s) from cache")
+    typer.echo(f"{report.cache_hits} artifact(s) reproduced · no model calls")
+
+
+def _media_type(workspace: Path, key: str) -> str:
+    """What the ledger recorded for this document (R2.16).
+
+    A replay reads the type from the ledger rather than from the manifest because
+    it is a property of the bytes, not of the run -- the same snapshot has the
+    same media type whenever it is read.
+    """
+    with Ledger(workspace) as ledger:
+        for source in ledger.sources():
+            row = ledger.row(source, key)
+            if row is not None:
+                return row.media_type
+    raise MissingFromReplay(
+        f"no ledger row for {key!r}; its media type is unknown and a replay may "
+        "not guess one."
+    )
+
+
+def _execute(workspace: Path, pipeline: str) -> None:
+    """`dossier run <pipeline>` (spec 004, spec 005)."""
+    try:
+        path = _pipeline_path(workspace, pipeline)
+        config = load_pipeline(path)
+        declared = {source.id: source for source in load_sources(workspace / "sources.yaml")}
+    except ConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    store = SnapshotStore(workspace)
+    converters = installed_converters()
+    text: dict[str, str] = {}
+    documents: dict[str, str] = {}
+
+    with Ledger(workspace) as ledger:
+        for name in config.synced_sources:
+            source = declared.get(name)
+            if source is None:
+                continue
+            held = {
+                row.key: HeldDocument(snapshot=row.content_hash, media_type=row.media_type)
+                for row in ledger.rows(name)
+                if row.state is not State.TOMBSTONED
+            }
+            try:
+                converted = convert_source(
+                    source_id=name,
+                    documents=held,
+                    kinds=source.convert,
+                    converters=converters,
+                    store=store,
+                    cache=ArtifactCache(workspace, namespace="convert"),
+                )
+            except NoConverter as error:
+                typer.echo(str(error), err=True)
+                raise typer.Exit(code=2) from error
+            text.update(converted.text)
+            documents.update(
+                {key: held[key].snapshot for key in converted.text}
+            )
+
+    started_at = datetime.now(UTC)
+    prompts = {
+        step.id: (path.parent / step.prompt).read_text(encoding="utf-8")
+        for step in config.steps
+    }
+    schemas = {
+        step.id: json.loads((path.parent / step.output).read_text(encoding="utf-8"))
+        for step in config.steps
+        if step.output is not None
+    }
+
+    try:
+        report = execute(
+            workspace=workspace,
+            pipeline=config,
+            pipeline_hash=content_hash(path.read_bytes()),
+            documents=documents,
+            document_text=text,
+            schemas=schemas,
+            prompts=prompts,
+            model=build_model_client(config.model),
+            cache=ArtifactCache(workspace, namespace="stage"),
+            run_id=_run_id(started_at),
+            started_at=started_at,
+            dossier_version=version("dossier"),
+        )
+    except ValueError as error:
+        # Resolution failed, so nothing ran and nothing was written (R4.1).
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+
+    typer.echo(f"run {report.run_id} · {report.manifest_path}")
+    for step in report.steps:
+        cached = len(step.served_from_cache)
+        typer.echo(
+            f"  {step.step}: {len(step.results)} document(s) · {cached} from cache · "
+            f"{len(step.failed)} failed"
+        )
+
+    for step, document in report.failed:
+        typer.echo(f"    {step} failed on {document}", err=True)
+    if report.failed:
+        raise typer.Exit(code=1)
+
+
+def _run_id(started_at: datetime) -> str:
+    """A sortable, filesystem-legal identifier for one run (R0.8).
+
+    ISO 8601 *basic* format: a run id is a directory name, and the extended
+    form's colons are illegal on Windows. The suffix distinguishes two runs
+    started in the same second.
+    """
+    stamp = started_at.strftime("%Y%m%dT%H%M%SZ")
+    return f"{stamp}-{token_hex(2)}"
