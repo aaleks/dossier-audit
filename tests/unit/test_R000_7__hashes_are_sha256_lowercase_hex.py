@@ -18,7 +18,7 @@ from dossier.domain.hashing import DISPLAY_LENGTH, content_hash, is_content_hash
 
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
-RUN_ID = "2026-08-06T14:22:03Z-4f1a"
+RUN_ID = "20260806T142203Z-4f1a"
 
 
 class TestContentHash:

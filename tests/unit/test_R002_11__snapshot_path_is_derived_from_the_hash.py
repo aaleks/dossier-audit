@@ -94,7 +94,7 @@ class TestSnapshotPath:
         "value",
         [
             pytest.param("a3f9c1e2", id="display-prefix"),
-            pytest.param("2026-08-06T14:22:03Z-4f1a", id="run-id"),
+            pytest.param("20260806T142203Z-4f1a", id="run-id"),
             pytest.param("", id="empty"),
         ],
     )

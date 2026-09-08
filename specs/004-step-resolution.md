@@ -68,7 +68,7 @@ state the system can be in.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R004_1__resolution_completes_before_execution.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -132,7 +132,7 @@ every relative reference below it.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.plan`)
 - **Proved by:** `tests/acceptance/test_R004_5__inserted_step_shows_as_inputs_changed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -166,7 +166,7 @@ Regardless of what `pipeline.yaml` says today.
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `runs/2026-08-06T14:22:03Z-4f1a/` replayed with the network stubbed to raise | completes; every artifact is byte-identical to the original |
+| 1 | `runs/20260806T142203Z-4f1a/` replayed with the network stubbed to raise | completes; every artifact is byte-identical to the original |
 | 2 | the same, with `pipeline.yaml` since edited to add a step | the edit is ignored; the manifest is the only input |
 | 3 | the same, with the pinned model no longer named in `pipeline.yaml` | the manifest's model identifier is used (R0.6) |
 | 4 | *counter-example* — a replay whose pinned snapshot is missing from the store | a clear error naming the missing hash; a replay may fail, but it may never silently substitute other content |

@@ -90,7 +90,7 @@ example refers to.
 | `2026-08-05T09:00:00Z` | the same, minus the default 24h overlap |
 | `2026-07-30T09:14:00Z` | `INC-4821` remote version marker |
 | `2026-08-05T16:02:00Z` | `INC-4822` remote version marker |
-| `2026-08-06T14:22:03Z-4f1a` | the run id used in provenance examples |
+| `20260806T142203Z-4f1a` | the run id used in provenance examples. ISO 8601 *basic* format on purpose: a run id is a directory name (`runs/<run_id>/`, R0.8), and the extended form's colons are illegal in a Windows filename |
 
 ## Configuration
 
