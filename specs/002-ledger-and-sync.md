@@ -357,3 +357,26 @@ credible if the command says so.
 | 2 | the end of the run | a summary line reading `ledger updated · 21 new snapshots · 0 tombstoned` |
 | 3 | a source where nothing changed | still listed, reporting `-> 0 fetched`; a silent source is indistinguishable from a skipped one |
 | 4 | *counter-example* — a source that failed mid-sync | reported as failed with its error, and excluded from the fetched counts; a failure is not zero work (R1.9) |
+
+### R2.16 — the ledger records the media type its connector reported
+
+A snapshot's media type is whatever its connector said it was, recorded when the
+payload was fetched. Nothing downstream re-derives it: a name on disk is not
+evidence about content (R8.3), and conversion may not re-fetch to ask (R0.1).
+
+The connector may have had to guess — a folder source has only the filename to go
+on — and that is fine. What matters is that the guess is made once, by the only
+component that saw the source, and is then a recorded fact rather than something
+each reader works out again and disagrees about.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.ledger`)
+- **Proved by:** `tests/unit/test_R002_16__the_ledger_records_the_media_type.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821` fetched from a folder source as `text/markdown` | the row records `text/markdown`, and conversion reads it from there (R8.5) |
+| 2 | a second sync where `OPS-114` is unchanged and never fetched | the recorded media type is unchanged, not cleared; nothing re-derives it (R2.15) |
+| 3 | `OPS-114` exported from Confluence as a PDF | `application/pdf`, whatever its key looks like |
+| 4 | *counter-example* — a file named `notes.pdf` whose connector reported `text/markdown` | `text/markdown` is recorded and used; the connector's answer is the record, and the name is never consulted again (R8.3 example 4) |

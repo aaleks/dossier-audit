@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS items (
     key            TEXT NOT NULL,
     remote_version TEXT,
     content_hash   TEXT NOT NULL,
+    media_type     TEXT NOT NULL,
     snapshot_path  TEXT NOT NULL,
     first_seen     TEXT NOT NULL,
     last_seen      TEXT NOT NULL,
@@ -88,11 +89,13 @@ class Ledger:
         self._connection.execute(
             """
             INSERT INTO items (source_id, key, remote_version, content_hash,
-                               snapshot_path, first_seen, last_seen, state)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                               media_type, snapshot_path, first_seen, last_seen,
+                               state)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (source_id, key) DO UPDATE SET
                 remote_version = excluded.remote_version,
                 content_hash   = excluded.content_hash,
+                media_type     = excluded.media_type,
                 snapshot_path  = excluded.snapshot_path,
                 last_seen      = excluded.last_seen,
                 state          = excluded.state
@@ -102,6 +105,7 @@ class Ledger:
                 row.key,
                 row.remote_version,
                 row.content_hash,
+                row.media_type,
                 row.snapshot_path,
                 _to_text(row.first_seen),
                 _to_text(row.last_seen),
@@ -153,6 +157,7 @@ def _to_row(record: sqlite3.Row) -> LedgerRow:
         key=record["key"],
         remote_version=record["remote_version"],
         content_hash=record["content_hash"],
+        media_type=record["media_type"],
         snapshot_path=record["snapshot_path"],
         first_seen=_from_text(record["first_seen"]),
         last_seen=_from_text(record["last_seen"]),

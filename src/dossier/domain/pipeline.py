@@ -42,17 +42,22 @@ class SourceConfig(BaseModel):
     type: str
     path: str | None = None
     fields: list[str] | None = None
+    # Which conversions this source wants (spec 003, and R8.3's `kinds`). Absent
+    # means the default kind for whatever media type each document turns out to
+    # be -- which is the normal case for a folder of notes.
+    convert: list[str] | None = None
 
-    @field_validator("fields")
+    @field_validator("fields", "convert")
     @classmethod
-    def _reject_empty_projection(cls, value: list[str] | None) -> list[str] | None:
+    def _reject_empty_list(cls, value: list[str] | None) -> list[str] | None:
         if value is not None and not value:
-            # Absent and empty are different declarations. Reading `[]` as "hash
-            # everything" would give a source the opposite of what it asked for,
-            # silently (R2.10, R3.9).
+            # Absent and empty are different declarations, for both of these.
+            # Reading `[]` as "hash everything" or "convert to everything" gives
+            # a source the opposite of what it asked for, silently (R2.10, R3.9).
             raise ValueError(
-                "fields is empty: a projection onto no fields matches nothing. "
-                "Omit `fields` entirely to hash the payload as received."
+                "an empty list matches nothing. Omit the key entirely to get the "
+                "default: the payload hashed as received, or the default kind for "
+                "the media type."
             )
         return value
 

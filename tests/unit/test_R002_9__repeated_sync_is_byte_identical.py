@@ -29,6 +29,7 @@ def row(*, key: str = "INC-4821", seen: datetime = FIRST, **overrides) -> Ledger
         "key": key,
         "remote_version": None,
         "content_hash": "a" * 64,
+        "media_type": "text/markdown",
         "snapshot_path": "aa/aa/" + "a" * 64,
         "first_seen": seen,
         "last_seen": seen,

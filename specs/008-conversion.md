@@ -225,7 +225,7 @@ says nothing is indistinguishable from one that was served entirely from cache.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.convert`)
 - **Proved by:** `tests/acceptance/test_R008_8__convert_reports_counts_per_source.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
