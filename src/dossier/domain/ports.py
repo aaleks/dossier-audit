@@ -149,6 +149,13 @@ class ArtifactStore(Protocol):
     back as authority for anything except "this work was already done".
     """
 
-    def get(self, key: str) -> bytes | None: ...
+    def get(self, key: str, *, require_record: bool = False) -> bytes | None:
+        """The artifact, or `None`. With `require_record`, a hit needs its record.
 
-    def put(self, key: str, payload: bytes) -> None: ...
+        An artifact whose provenance record is missing is not a cache entry: the
+        process was killed between the two writes, and nothing can say what
+        produced those bytes (R0.3, R5.8).
+        """
+        ...
+
+    def put(self, key: str, payload: bytes, *, record: dict | None = None) -> None: ...

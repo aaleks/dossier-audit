@@ -11,9 +11,11 @@ back as authority -- only as a way to avoid doing work again.
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 
 CACHE_ROOT = Path(".dossier") / "cache"
 
@@ -27,28 +29,55 @@ class ArtifactCache:
         # composition made them equal.
         self._root = Path(workspace) / CACHE_ROOT / namespace
 
-    def get(self, key: str) -> bytes | None:
-        """The artifact for `key`, or `None` if it was never stored.
+    def get(self, key: str, *, require_record: bool = False) -> bytes | None:
+        """The artifact for `key`, or `None` if it is not a complete entry.
 
         `None` rather than an exception: a miss is the normal case on a first run
         and is not a failure of anything.
+
+        `require_record` makes a hit conditional on the provenance record being
+        there too. A process killed between writing the artifact and writing its
+        record leaves bytes at a key that nothing can explain, and R5.8 says that
+        is a miss -- an artifact without provenance is not a cache entry (R0.3).
         """
-        path = self._path(key)
         try:
-            return path.read_bytes()
+            payload = self._path(key).read_bytes()
         except FileNotFoundError:
             return None
 
-    def put(self, key: str, payload: bytes) -> None:
-        """Store `payload` under `key`, atomically.
+        if require_record and self.record(key) is None:
+            return None
+        return payload
 
-        An interrupted write leaves nothing rather than a truncated file sitting
-        at a key that promises a complete artifact -- which is what R5.8 means by
-        "an interrupted stage leaves no cache entry".
+    def record(self, key: str) -> dict[str, Any] | None:
+        """The provenance record beside an artifact, if it was written."""
+        try:
+            return json.loads(self._record_path(key).read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
+
+    def put(self, key: str, payload: bytes, *, record: dict[str, Any] | None = None) -> None:
+        """Store `payload` under `key`, atomically, with its record if given.
+
+        Each file is written through a temporary name and renamed into place, so
+        an interruption leaves nothing rather than a truncated file at a key that
+        promises a complete artifact (R5.8 example 1).
+
+        The artifact is written before the record, deliberately. Killed between
+        the two, the entry reads back as a miss under `require_record` and is
+        recomputed. The other order would leave a record describing an artifact
+        that is not there, which is worse: it looks complete.
         """
-        destination = self._path(key)
-        destination.parent.mkdir(parents=True, exist_ok=True)
+        self._write(self._path(key), payload)
+        if record is not None:
+            self._write(
+                self._record_path(key),
+                json.dumps(record, sort_keys=True, indent=2).encode("utf-8"),
+            )
 
+    @staticmethod
+    def _write(destination: Path, payload: bytes) -> None:
+        destination.parent.mkdir(parents=True, exist_ok=True)
         handle, temporary = tempfile.mkstemp(dir=str(destination.parent), suffix=".part")
         try:
             with os.fdopen(handle, "wb") as file:
@@ -57,6 +86,10 @@ class ArtifactCache:
         except BaseException:
             Path(temporary).unlink(missing_ok=True)
             raise
+
+    def _record_path(self, key: str) -> Path:
+        """`<name>.meta.json`, the sibling record R0.3 requires."""
+        return self._path(key).with_suffix(".meta.json")
 
     def _path(self, key: str) -> Path:
         # Fanned out two levels, as the snapshot store is: a directory holding
