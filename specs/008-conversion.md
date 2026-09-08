@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R8.1 – R8.8
 
 ## Purpose
@@ -123,7 +123,7 @@ or is that media type's default when the source declares none.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.conversion.select`)
 - **Proved by:** `tests/unit/test_R008_3__converter_is_selected_by_media_type_and_kind.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
