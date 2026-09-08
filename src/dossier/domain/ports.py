@@ -124,3 +124,31 @@ class Converter(Protocol):
         and the cache serves text nothing can detect as stale.
         """
         ...
+
+
+@runtime_checkable
+class SnapshotReader(Protocol):
+    """Reading back what the store holds, by content hash.
+
+    Read-only on purpose. A use case that could write to the snapshot store
+    could break R0.2 by accident, and no caller right of the hash boundary has
+    any business storing a snapshot.
+    """
+
+    def get(self, digest: str) -> bytes:
+        """The stored bytes, or `FileNotFoundError` naming the hash."""
+        ...
+
+
+@runtime_checkable
+class ArtifactStore(Protocol):
+    """Where a computed artifact is kept against the key that describes it.
+
+    A cache and never a source of truth (R5.9): a miss is the normal case, so
+    `get` answers `None` rather than raising, and nothing may treat what comes
+    back as authority for anything except "this work was already done".
+    """
+
+    def get(self, key: str) -> bytes | None: ...
+
+    def put(self, key: str, payload: bytes) -> None: ...
