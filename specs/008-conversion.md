@@ -81,6 +81,27 @@ idempotent and cached, so running it early costs nothing. It exists so that the
 text a stage will actually see can be inspected before a single model call is
 made — which for a PDF-heavy corpus is usually where the surprises are.
 
+## Where a converted artifact lives
+
+`.dossier/cache/`, keyed by `K_convert`. This is not a preference: R5.9 says the
+cache is an optimisation and never a source of truth, and R5.4 says raising a
+converter version makes every document re-convert — which only means anything if
+conversions are otherwise reused *across runs*. An artifact stored under
+`runs/<run_id>/` would be a run output rather than a cache entry, every run would
+re-convert, and R5.4 would have nothing to act on.
+
+Spec 005's provenance example showing `converted/INC-4821.md` does not contradict
+this. The paths in a provenance record are relative to their own root, not to the
+workspace: `prompts/02_verify.md` in that same record resolves against the
+pipeline's directory, because a pipeline is self-contained and can be moved.
+`converted/INC-4821.md` is the artifact's *name*; spec 000's layout says where its
+bytes are kept. Those are different questions and the two specs each answer one.
+
+Whether a run also materialises readable copies under `runs/<run_id>/converted/`
+is deliberately not decided here. No rule needs it yet; it arrives with reporting
+(spec 007) or with a command for reading an artifact back, and the sensible
+answer depends on a corpus size nobody has measured.
+
 ## Must hold
 
 ### R8.1 — a converted artifact is a pure function of the snapshot bytes and the declared options
@@ -218,4 +239,3 @@ says nothing is indistinguishable from one that was served entirely from cache.
 | # | Question | Resolution |
 |---|----------|------------|
 | 1 | What is the default `kind` for each media type, beyond `application/pdf → markdown`? | OPEN — needs the converter set to exist. The rule (R8.3) holds whatever the table says; the table itself is a data question best answered once there is more than one PDF converter |
-| 2 | Where do converted artifacts live — `.dossier/cache/` per the workspace layout in spec 000, or `converted/` per the provenance example in spec 005? | OPEN — the two specs name different paths for the same thing. Needs a decision before R8.1 is built; it does not change any rule above |
