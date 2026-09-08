@@ -147,7 +147,7 @@ to touch the network.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R005_5__cache_hit_is_byte_identical.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -196,7 +196,7 @@ run poisons every run after it, and the symptom appears far from the cause.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R005_8__interrupted_stage_leaves_no_cache_entry.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -213,7 +213,7 @@ an answer, something is being remembered that should have been derived.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R005_9__cache_is_an_optimisation_only.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

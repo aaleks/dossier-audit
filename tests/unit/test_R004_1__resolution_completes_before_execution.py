@@ -24,9 +24,11 @@ from pathlib import Path
 import pytest
 from tests.fakes import FakeModelClient, NoModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
+from tests.pipelines import prompt_for
 
 from dossier.application.run import execute
 from dossier.domain.pipeline import PipelineConfig, StepConfig
+from dossier.infrastructure.cache import ArtifactCache
 
 RUN_ID = "20260806T142203Z-4f1a"
 STARTED_AT = datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC)
@@ -75,7 +77,10 @@ def run(workspace: Path, config: PipelineConfig, model, **overrides):
         "documents": DOCUMENTS,
         "document_text": STAGE_INPUTS,
         "schemas": dict.fromkeys([step.id for step in config.steps], SCHEMA),
-        "prompt_for": lambda step, document: f"<{step}>{{{{documents}}}}</{step}>",
+        # A prompt per step naming exactly that step's declared inputs, which
+        # is what R3.6 requires and what load_pipeline would have enforced.
+        "prompts": {step.id: prompt_for(step.inputs) for step in config.steps},
+        "cache": ArtifactCache(workspace, namespace="stage"),
         "model": model,
         "run_id": RUN_ID,
         "started_at": STARTED_AT,
