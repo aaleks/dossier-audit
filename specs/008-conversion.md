@@ -175,7 +175,7 @@ is misconfigured, and the fix is an installation rather than a retry.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.convert`)
 - **Proved by:** `tests/unit/test_R008_5__an_unclaimed_media_type_is_a_configuration_error.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -192,7 +192,7 @@ document failed and why.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.convert`)
 - **Proved by:** `tests/unit/test_R008_6__a_conversion_failure_is_isolated.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
