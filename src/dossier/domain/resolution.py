@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -26,12 +27,25 @@ _PREVIOUS = re.compile(r"^previous(?:\((?P<n>\d+)\))?$")
 
 
 class ResolvedStep(BaseModel):
-    """One step with every relative reference already expanded (R4.4)."""
+    """One step with every relative reference already expanded (R4.4).
+
+    The prompt and schema hashes are here because spec 004 requires a manifest to
+    record them, and because a replay needs them: they are two of the four things
+    a stage key is composed of (spec 005), so a run that recorded only its inputs
+    could not work out what it had already computed (R4.7).
+    """
 
     model_config = ConfigDict(frozen=True)
 
     id: str
     inputs: list[str]
+    # How the step ran. Recorded because a replay has only the manifest, and a
+    # step replayed in the wrong mode would look for artifacts that were never
+    # written -- one per document where there is one for the corpus, or the
+    # reverse (R4.7).
+    mode: Literal["per_file", "aggregate"] = "per_file"
+    prompt_hash: str = ""
+    schema_hash: str | None = None
 
 
 class PinnedDocument(BaseModel):
@@ -81,7 +95,12 @@ def previous_count(reference: str) -> int:
     return 1 if match.group("n") is None else int(match.group("n"))
 
 
-def expand(steps: Sequence[StepConfig]) -> list[ResolvedStep]:
+def expand(
+    steps: Sequence[StepConfig],
+    *,
+    prompt_hashes: Mapping[str, str] | None = None,
+    schema_hashes: Mapping[str, str | None] | None = None,
+) -> list[ResolvedStep]:
     """Every step's inputs, with `previous` replaced by the ids it stands for.
 
     Declaration order throughout: the ids a step reaches back to are returned in
@@ -98,7 +117,15 @@ def expand(steps: Sequence[StepConfig]) -> list[ResolvedStep]:
                 inputs.extend(_preceding(step.id, declared, previous_count(reference)))
             else:
                 inputs.append(reference)
-        resolved.append(ResolvedStep(id=step.id, inputs=inputs))
+        resolved.append(
+            ResolvedStep(
+                id=step.id,
+                inputs=inputs,
+                mode=step.mode,
+                prompt_hash=(prompt_hashes or {}).get(step.id, ""),
+                schema_hash=(schema_hashes or {}).get(step.id),
+            )
+        )
         declared.append(step.id)
 
     return resolved
@@ -130,6 +157,8 @@ def resolve(
     pipeline: PipelineConfig,
     pipeline_hash: str,
     documents: Mapping[str, str],
+    prompt_hashes: Mapping[str, str] | None = None,
+    schema_hashes: Mapping[str, str | None] | None = None,
 ) -> ResolvedPlan:
     """A pipeline and a set of snapshots, frozen into one plan (R4.4, R4.8).
 
@@ -147,7 +176,9 @@ def resolve(
         pipeline=pipeline.name,
         pipeline_hash=pipeline_hash,
         model=pipeline.model,
-        steps=expand(pipeline.steps),
+        steps=expand(
+            pipeline.steps, prompt_hashes=prompt_hashes, schema_hashes=schema_hashes
+        ),
         documents=[
             PinnedDocument(key=key, snapshot=documents[key]) for key in sorted(documents)
         ],

@@ -72,6 +72,15 @@ class Ledger:
         )
         return [_to_row(record) for record in cursor.fetchall()]
 
+    def sources(self) -> list[str]:
+        """Every source the ledger holds rows for, in a stable order.
+
+        Sorted, because a caller looking a key up across sources would otherwise
+        find it under whichever source the query happened to return first.
+        """
+        cursor = self._connection.execute("SELECT DISTINCT source_id FROM items")
+        return sorted(record[0] for record in cursor.fetchall())
+
     def row(self, source_id: str, key: str) -> LedgerRow | None:
         cursor = self._connection.execute(
             "SELECT * FROM items WHERE source_id = ? AND key = ?", (source_id, key)

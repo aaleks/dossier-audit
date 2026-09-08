@@ -127,7 +127,15 @@ def execute(
     Raises `ValueError` if resolution fails, having written nothing and called
     nothing. Returns a report if it succeeded, whatever individual documents did.
     """
-    plan = _resolve(pipeline=pipeline, pipeline_hash=pipeline_hash, documents=documents)
+    plan = _resolve(
+        pipeline=pipeline,
+        pipeline_hash=pipeline_hash,
+        documents=documents,
+        prompt_hashes={step: content_hash(text.encode()) for step, text in prompts.items()},
+        schema_hashes={
+            step.id: _schema_hash(schemas.get(step.id)) for step in pipeline.steps
+        },
+    )
 
     # Only now does anything touch the disk. Every check that could refuse this
     # run has already refused it.
@@ -224,16 +232,12 @@ def _run_one(
     )
     key_inputs = StageInputs(
         step=step.id,
-        prompt=ArtifactInput(
-            role="prompt", path=declared.prompt, hash=content_hash(prompt.encode())
-        ),
+        prompt=ArtifactInput(role="prompt", path=declared.prompt, hash=step.prompt_hash),
         output_schema=(
             None
-            if schema is None
+            if step.schema_hash is None
             else ArtifactInput(
-                role="schema",
-                path=declared.output or "",
-                hash=content_hash(json.dumps(schema, sort_keys=True).encode()),
+                role="schema", path=declared.output or "", hash=step.schema_hash
             )
         ),
         model=model.model_id,
@@ -382,8 +386,25 @@ def _targets(declared: StepConfig, resolved: ResolvedStep) -> list[str]:
     return list(resolved.inputs)
 
 
+def _schema_hash(schema: dict | None) -> str | None:
+    """The hash of a declared output schema, or `None` where none was declared.
+
+    `None` rather than the hash of `null`: a step with no schema is a different
+    thing from one whose schema happens to be empty, and R3.5 lets an aggregate
+    step be the former.
+    """
+    if schema is None:
+        return None
+    return content_hash(json.dumps(schema, sort_keys=True).encode())
+
+
 def _resolve(
-    *, pipeline: PipelineConfig, pipeline_hash: str, documents: Mapping[str, str]
+    *,
+    pipeline: PipelineConfig,
+    pipeline_hash: str,
+    documents: Mapping[str, str],
+    prompt_hashes: Mapping[str, str] | None = None,
+    schema_hashes: Mapping[str, str | None] | None = None,
 ) -> ResolvedPlan:
     """Every check that can refuse a run, run before a run exists.
 
@@ -395,4 +416,151 @@ def _resolve(
     """
     validate_step_ids(pipeline)
     validate_references(pipeline)
-    return resolve(pipeline=pipeline, pipeline_hash=pipeline_hash, documents=documents)
+    return resolve(
+        pipeline=pipeline,
+        pipeline_hash=pipeline_hash,
+        documents=documents,
+        prompt_hashes=prompt_hashes,
+        schema_hashes=schema_hashes,
+    )
+
+
+class MissingFromReplay(FileNotFoundError):
+    """A replay needs something the workspace no longer holds.
+
+    A replay may fail. What it may never do is quietly substitute other content
+    and present the result as the original run (R4.7 example 4), so whatever is
+    missing is named.
+    """
+
+
+def replay(
+    *,
+    manifest: Manifest,
+    document_text: Mapping[str, str],
+    cache: ArtifactStore,
+) -> RunReport:
+    """Reproduce a past run from its frozen manifest (R4.7).
+
+    Takes no model client, no pipeline and no workspace configuration. That is
+    not an omission: a replay that *could* reach a model could produce an answer
+    the original run never gave, and "touches no network" is a far stronger
+    promise when there is nothing to touch it with. Every result comes from the
+    cache entry the original run wrote.
+
+    `pipeline.yaml` is not read at all. Whatever it says today -- a step added, a
+    model swapped, the file deleted -- the manifest is the only input (R4.7
+    examples 2 and 3), and the snapshots it pinned are the only content, however
+    the ledger has moved since (R4.9).
+    """
+    plan = manifest.plan
+    keys = [document.key for document in plan.documents]
+    steps: list[StepReport] = []
+    produced: dict[str, dict[str, str]] = {}
+
+    for step in plan.steps:
+        over = [AGGREGATE_KEY] if step.mode == "aggregate" else keys
+        results = tuple(
+            _replay_one(
+                step=step,
+                document=document,
+                documents=keys,
+                model=plan.model,
+                document_text=document_text,
+                produced=produced,
+                cache=cache,
+            )
+            for document in over
+        )
+        steps.append(StepReport(step=step.id, results=results))
+        produced[step.id] = {
+            result.document: _as_text(result) for result in results if not result.failed
+        }
+
+    # No manifest path: a replay reads one and writes none. Reporting a path it
+    # did not write would invite someone to diff against a file this run had no
+    # hand in.
+    return RunReport(run_id=manifest.run_id, manifest_path=Path(), steps=tuple(steps))
+
+
+def _replay_one(
+    *,
+    step: ResolvedStep,
+    document: str,
+    documents: Sequence[str],
+    model: str,
+    document_text: Mapping[str, str],
+    produced: Mapping[str, Mapping[str, str]],
+    cache: ArtifactStore,
+) -> DocumentResult:
+    """One (step, document), served from the entry the original run wrote.
+
+    The key is recomposed from the manifest and from what the earlier steps of
+    *this replay* produced -- never from anything read out of the workspace
+    today. It is therefore the same key the original computation used, or the
+    entry is not found and the replay says so rather than pretending.
+    """
+    contents = [
+        _replayed_input(
+            target=target,
+            document=document,
+            documents=documents,
+            aggregate=step.mode == "aggregate",
+            document_text=document_text,
+            produced=produced,
+        )
+        for target in step.inputs
+    ]
+    key = cache_key(
+        StageInputs(
+            step=step.id,
+            prompt=ArtifactInput(role="prompt", path=step.id, hash=step.prompt_hash),
+            output_schema=(
+                None
+                if step.schema_hash is None
+                else ArtifactInput(role="schema", path=step.id, hash=step.schema_hash)
+            ),
+            model=model,
+            inputs=[
+                ArtifactInput(
+                    role=target, path=f"{target}/{document}", hash=content_hash(text.encode())
+                )
+                for target, text in zip(step.inputs, contents, strict=True)
+            ],
+        )
+    )
+
+    stored = cache.get(key, require_record=True)
+    if stored is None:
+        raise MissingFromReplay(
+            f"step {step.id!r} has no cached artifact for {document!r} "
+            f"at {key[:12]}...; this run cannot be reproduced from this "
+            "workspace, and nothing has been substituted for it."
+        )
+
+    return _from_cache(
+        document=document,
+        payload=stored,
+        document_text=document_text,
+        structured=step.schema_hash is not None,
+    )
+
+
+def _replayed_input(
+    *,
+    target: str,
+    document: str,
+    documents: Sequence[str],
+    aggregate: bool,
+    document_text: Mapping[str, str],
+    produced: Mapping[str, Mapping[str, str]],
+) -> str:
+    """The content behind one resolved input id, for this document.
+
+    The same content `execute` hashed, obtained the same way. `role` and `path`
+    do not enter a key (spec 005), so a replay needs the resolved ids and not the
+    declared names the prompt used -- which is fortunate, because a manifest
+    records the former and the whole point is that it is enough.
+    """
+    source = document_text if target in SOURCE_KEYWORDS else produced.get(target, {})
+    return _joined(source, documents) if aggregate else source.get(document, "")

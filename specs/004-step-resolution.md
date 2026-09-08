@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.9
 
 ## Purpose
@@ -162,7 +162,7 @@ Regardless of what `pipeline.yaml` says today.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/acceptance/test_R004_7__replay_reproduces_a_past_run.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -195,7 +195,7 @@ Newer snapshots are ignored. A past audit is defended by what it actually read.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R004_9__superseded_snapshots_do_not_affect_replay.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
