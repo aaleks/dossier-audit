@@ -1,6 +1,6 @@
 # 005 — Cache keys, cascade and provenance
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R5.1 – R5.9
 
 ## Purpose
@@ -102,7 +102,7 @@ The cascade in one sentence.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
 - **Proved by:** `tests/unit/test_R005_2__prompt_change_cascades_downstream_only.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
