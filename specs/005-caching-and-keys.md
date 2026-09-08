@@ -1,6 +1,6 @@
 # 005 — Cache keys, cascade and provenance
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R5.1 – R5.9
 
 ## Purpose
@@ -70,7 +70,7 @@ of the key. The two are generated from one structure, so they cannot drift.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
 - **Proved by:** `tests/unit/test_R005_1__provenance_and_key_cover_the_same_inputs.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -100,7 +100,7 @@ The cascade in one sentence.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
 - **Proved by:** `tests/unit/test_R005_3__model_change_invalidates_every_stage.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -149,7 +149,7 @@ has broken a cache in some project before.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
 - **Proved by:** `tests/unit/test_R005_6__keys_are_stable_across_environments.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
