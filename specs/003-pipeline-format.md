@@ -93,6 +93,23 @@ Multiple inputs are injected under distinct labelled tags, never concatenated:
 <procedure>{{reference}}</procedure>
 ```
 
+In a `per_file` step each placeholder holds one document's text. In an
+`aggregate` step the same placeholder holds every document, and each is wrapped
+in a tag naming the key it came from:
+
+```markdown
+<extraction>
+<document key="INC-4821">{...}</document>
+<document key="INC-4822">{...}</document>
+</extraction>
+```
+
+Wrapped rather than concatenated, for the same reason the inputs above are: a
+model asked to attribute a finding needs to know which document it read it in,
+and `source.document` must name one of them for the field to be grounded (R6.4).
+Documents appear in key order, so the same set of inputs produces the same prompt
+on every machine (R0.4).
+
 ## Must hold
 
 ### R3.1 — an invalid configuration file fails at load time, naming file, line and key
