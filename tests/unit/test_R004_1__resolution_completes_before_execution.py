@@ -209,3 +209,30 @@ class TestExecutionFailureIsNotTotal:
 
         assert report.manifest_path.is_file()
         assert report.failed == [("extract", "INC-4821")]
+
+
+class TestAnUnexecutableModeIsAlsoARefusal:
+    """R4.1 — "cannot be executed as written" has the same shape as "does not resolve"."""
+
+    def test_an_aggregate_step_is_refused_before_anything_runs(self, tmp_path: Path):
+        """The one where a declared mode is not silently reinterpreted.
+
+        `execute` runs every step over every document, which is `per_file`. An
+        aggregate step reaching that loop would become one call per document
+        instead of one over all of them -- a different question asked of the
+        model, a different bill, and an answer that looks entirely normal.
+
+        Refusing during resolution puts it where R4.1 wants it: nothing runs, and
+        no run directory appears.
+        """
+        config = pipeline(extract="documents")
+        aggregating = config.model_copy(
+            update={"steps": [config.steps[0].model_copy(update={"mode": "aggregate"})]}
+        )
+
+        with pytest.raises(ValueError) as error:
+            run(tmp_path, aggregating, NoModelClient())
+
+        assert "aggregate" in str(error.value)
+        assert "extract" in str(error.value)
+        assert not (tmp_path / "runs").exists()
