@@ -12,11 +12,11 @@ The rule forbids calling and writing, not reading.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.domain.resolution import ResolvedPlan, ResolvedStep, resolve
 from dossier.domain.sync import State
 
@@ -148,12 +148,15 @@ def latest_manifest(runs: Path, pipeline: str) -> tuple[ResolvedPlan | None, str
         return None, None
 
     for directory in sorted((path for path in runs.iterdir() if path.is_dir()), reverse=True):
-        manifest = directory / "manifest.json"
+        manifest = directory / MANIFEST_NAME
         if not manifest.is_file():
             continue
-        document = json.loads(manifest.read_text(encoding="utf-8"))
-        if document.get("plan", {}).get("pipeline") != pipeline:
+        # Read through the model that writes it, so a plan comparing against a
+        # past run and a run recording this one cannot drift into two shapes of
+        # the same file.
+        found = Manifest.read(manifest)
+        if found.plan.pipeline != pipeline:
             continue
-        return ResolvedPlan.model_validate(document["plan"]), directory.name
+        return found.plan, directory.name
 
     return None, None
