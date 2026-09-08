@@ -113,7 +113,7 @@ clock, no locale, no environment variable, no file outside its input, no network
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters`)
 - **Proved by:** `tests/unit/test_R008_1__conversion_is_a_pure_function_of_its_input.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -209,7 +209,7 @@ adding one means touching a file under `src/dossier/`, the interface has failed.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R008_7__converters_are_resolved_only_by_entry_point.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -7,7 +7,7 @@ implementation, which is what lets every use case run against a fake.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
@@ -91,4 +91,36 @@ class ModelClient(Protocol):
 
     def complete(self, prompt: str, *, schema: dict | None = None) -> str:
         """One completion, returned as text for the caller to validate."""
+        ...
+
+
+@runtime_checkable
+class Converter(Protocol):
+    """Turning one snapshot into one artifact a stage can read (spec 008).
+
+    The four identity attributes are not decoration. `media_type` and `kind` are
+    the pair a converter is selected by (R8.3); `id` and `version` enter every
+    convert key and every provenance record, so raising the version invalidates
+    exactly the artifacts this converter produced and nothing else (R5.4, R8.2).
+
+    The obligation on an author is precise and no test can enforce it: **raise
+    `version` whenever output could change for the same input.** A converter that
+    improves without doing so leaves a cache full of artifacts claiming to be
+    something they are not, and nothing anywhere will notice.
+    """
+
+    id: str
+    version: str
+    media_type: str
+    kind: str
+
+    def convert(self, payload: bytes, options: Mapping[str, str]) -> bytes:
+        """The artifact, as a pure function of `payload` and `options` (R8.1).
+
+        Reads nothing else: no clock, no locale, no environment variable, no file
+        outside its input, and no network (R0.1). `K_convert` claims the artifact
+        is determined by the snapshot hash, this converter's id and version, and
+        these options; a converter consulting anything else makes that key a lie
+        and the cache serves text nothing can detect as stale.
+        """
         ...
