@@ -131,6 +131,9 @@ def sync_source(
                 key=ref.key,
                 remote_version=ref.remote_version,
                 content_hash=digest,
+                # What the connector said these bytes are, recorded once here
+                # because nothing downstream may work it out again (R2.16).
+                media_type=item.media_type,
                 snapshot_path=snapshot_path(digest),
                 first_seen=recorded.first_seen if recorded else now,
                 last_seen=now,

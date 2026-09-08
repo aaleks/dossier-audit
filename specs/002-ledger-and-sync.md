@@ -372,7 +372,7 @@ each reader works out again and disagrees about.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.ledger`)
 - **Proved by:** `tests/unit/test_R002_16__the_ledger_records_the_media_type.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

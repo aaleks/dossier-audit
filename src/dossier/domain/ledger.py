@@ -23,6 +23,10 @@ class LedgerRow(BaseModel):
     key: str
     remote_version: str | None
     content_hash: str
+    # What the connector said these bytes are (R2.16). Recorded rather than
+    # re-derived: conversion may not re-fetch to ask (R0.1), and a name on disk
+    # is not evidence about content (R8.3).
+    media_type: str
     snapshot_path: str
     first_seen: datetime
     last_seen: datetime
@@ -41,6 +45,7 @@ class LedgerRow(BaseModel):
             self.key,
             self.remote_version,
             self.content_hash,
+            self.media_type,
             self.snapshot_path,
             self.first_seen,
             self.state,
