@@ -12,6 +12,7 @@ from pathlib import Path
 
 import typer
 
+from dossier.application.convert import ConvertReport, HeldDocument, convert_source
 from dossier.application.plan import (
     StepStatus,
     build_plan,
@@ -20,8 +21,12 @@ from dossier.application.plan import (
 )
 from dossier.application.sync import SourceReport, sync_source
 from dossier.config.load import ConfigError, load_pipeline, load_sources
+from dossier.domain.conversion import NoConverter
 from dossier.domain.hashing import content_hash
+from dossier.domain.sync import State
+from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.connectors.registry import UnknownSourceType, build_connector
+from dossier.infrastructure.converters.registry import installed_converters
 from dossier.infrastructure.ledger import Ledger
 from dossier.infrastructure.store import SnapshotStore
 
@@ -201,3 +206,80 @@ def _plan_lines(report) -> list[str]:
         f"{report.rerunning} of {len(report.steps)} step(s) would run · nothing written"
     )
     return lines
+
+
+@app.command()
+def convert(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/")) -> None:
+    """Convert what a pipeline needs, and report what that cost (R8.8).
+
+    Optional: `run` converts what it needs anyway, and conversion is idempotent
+    and cached, so running this early costs nothing. It exists so the text a
+    stage will actually see can be inspected before a single model call is made
+    -- which on a PDF-heavy corpus is usually where the surprises are.
+    """
+    workspace = Path.cwd()
+
+    try:
+        config = load_pipeline(_pipeline_path(workspace, pipeline))
+        declared = {source.id: source for source in load_sources(workspace / "sources.yaml")}
+    except ConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    converters = installed_converters()
+    store = SnapshotStore(workspace)
+    cache = ArtifactCache(workspace, namespace="convert")
+    reports: list[ConvertReport] = []
+
+    with Ledger(workspace) as ledger:
+        for name in config.synced_sources:
+            source = declared.get(name)
+            if source is None:
+                continue
+            held = {
+                row.key: HeldDocument(snapshot=row.content_hash, media_type=row.media_type)
+                for row in ledger.rows(name)
+                if row.state is not State.TOMBSTONED
+            }
+            try:
+                reports.append(
+                    convert_source(
+                        source_id=name,
+                        documents=held,
+                        kinds=source.convert,
+                        converters=converters,
+                        store=store,
+                        cache=cache,
+                    )
+                )
+            except NoConverter as error:
+                # A configuration error, not a per-document one: the pipeline is
+                # not set up to read what it was pointed at, so nothing converts
+                # and the fix is an installation (R8.5).
+                typer.echo(str(error), err=True)
+                raise typer.Exit(code=2) from error
+
+    for report in reports:
+        typer.echo(_convert_line(report))
+        for failure in report.failed:
+            typer.echo(f"    {failure.document}: {failure.error}")
+
+    converted = sum(report.converted for report in reports)
+    cached = sum(report.cached for report in reports)
+    typer.echo(f"cache updated · {converted} converted · {cached} cached")
+
+    failed = [failure for report in reports for failure in report.failed]
+    if failed:
+        # A failure is not zero work. Exiting zero here would make a run that
+        # converted nothing indistinguishable from one that had nothing to do
+        # (R8.6, R1.9's shape).
+        raise typer.Exit(code=1)
+
+
+def _convert_line(report: ConvertReport) -> str:
+    """One line per source, in the shape sync already uses (R2.13, R8.8)."""
+    line = (
+        f"{report.source_id}  {report.held} held · {report.converted} converted · "
+        f"{report.cached} cached"
+    )
+    return line if not report.failed else f"{line} · {len(report.failed)} failed"
