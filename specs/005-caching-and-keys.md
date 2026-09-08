@@ -60,6 +60,22 @@ Every artifact has a sibling `<name>.meta.json`:
 }
 ```
 
+### The root a path is relative to
+
+Each path above is relative to a different root, and `role` is what says which.
+A record whose paths all looked workspace-relative would be wrong in three
+places at once, and `--replay` (R4.7) has to resolve every one of them years
+later.
+
+| `role` | Relative to |
+|---|---|
+| `prompt`, `schema` | the pipeline's own directory — a pipeline is self-contained and can be moved |
+| `documents`, `reference` | the convert cache; the path is the artifact's name, not where its bytes are kept (spec 008) |
+| a step id | that run's outputs |
+
+No path is part of any key. Only hashes, identifiers and declared options are,
+which is what makes R5.6 hold without anything needing to be normalised first.
+
 ## Must hold
 
 ### R5.1 — the provenance record and the cache key describe exactly the same inputs
