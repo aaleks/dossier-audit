@@ -36,6 +36,12 @@ class DocumentResult:
     checks: tuple[FieldCheck, ...] = ()
     attempts: int = 0
     error: str | None = None
+    # The artifact this result *is*, verbatim, where that is not derivable from
+    # `records`. Two cases: a step with no output schema, which spec 003 allows an
+    # `aggregate` step to be (R3.5 example 4) and whose answer is prose; and a
+    # cache hit, which carries the stored bytes forward rather than re-deriving
+    # them.
+    text: str | None = None
 
     @property
     def failed(self) -> bool:
@@ -57,11 +63,22 @@ def run_stage(
     *,
     document: str,
     prompt: str,
-    schema: dict,
+    schema: dict | None,
     model: ModelClient,
     input_documents: Mapping[str, str],
 ) -> DocumentResult:
-    """Run one stage for one document, validating and grounding the answer."""
+    """Run one stage for one document, validating and grounding the answer.
+
+    `schema=None` means the step declared no output, which spec 003 permits an
+    `aggregate` step to do. There is then nothing to validate against and nothing
+    to retry for, so the first answer is the answer -- and R6.2's one retry stays
+    exactly what it is, a response to a *validation* failure.
+    """
+    if schema is None:
+        return DocumentResult(
+            document=document, attempts=1, text=model.complete(prompt, schema=None)
+        )
+
     attempts = 0
     correction: str | None = None
 

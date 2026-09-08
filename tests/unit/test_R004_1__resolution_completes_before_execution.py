@@ -216,28 +216,33 @@ class TestExecutionFailureIsNotTotal:
         assert report.failed == [("extract", "INC-4821")]
 
 
-class TestAnUnexecutableModeIsAlsoARefusal:
-    """R4.1 — "cannot be executed as written" has the same shape as "does not resolve"."""
+class TestAModeIsNeverSilentlyReinterpreted:
+    """R4.1 — a step runs the way it was declared, or the run does not start."""
 
-    def test_an_aggregate_step_is_refused_before_anything_runs(self, tmp_path: Path):
-        """The one where a declared mode is not silently reinterpreted.
+    def test_an_aggregate_step_asks_the_model_once(self, tmp_path: Path):
+        """The one where the declared mode is honoured rather than assumed.
 
-        `execute` runs every step over every document, which is `per_file`. An
-        aggregate step reaching that loop would become one call per document
-        instead of one over all of them -- a different question asked of the
-        model, a different bill, and an answer that looks entirely normal.
-
-        Refusing during resolution puts it where R4.1 wants it: nothing runs, and
-        no run directory appears.
+        This assertion replaces one that checked `aggregate` was *refused*. That
+        refusal was correct while the mode was unimplemented -- an aggregate step
+        falling into the per-file loop becomes one call per document instead of
+        one over all of them, which is a different question asked of the model and
+        a different bill. Now that the mode exists, the same concern is asserted
+        the other way round: one call, whatever the corpus size.
         """
         config = pipeline(extract="documents")
         aggregating = config.model_copy(
             update={"steps": [config.steps[0].model_copy(update={"mode": "aggregate"})]}
         )
+        model = FakeModelClient(responses=["A report over every document."])
 
-        with pytest.raises(ValueError) as error:
-            run(tmp_path, aggregating, NoModelClient())
+        report = run(
+            tmp_path,
+            aggregating,
+            model,
+            schemas={"extract": None},
+            documents={"INC-4821": "a" * 64, "INC-4822": "b" * 64},
+        )
 
-        assert "aggregate" in str(error.value)
-        assert "extract" in str(error.value)
-        assert not (tmp_path / "runs").exists()
+        assert model.call_count == 1
+        assert len(report.steps[0].results) == 1
+        assert report.failed == []

@@ -29,7 +29,7 @@ against `FakeModelClient` and lets the tests assert how many calls happened.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -50,6 +50,11 @@ from dossier.domain.ports import ArtifactStore, ModelClient
 from dossier.domain.prompts import render
 from dossier.domain.resolution import ResolvedPlan, ResolvedStep, resolve
 from dossier.domain.schemas import StageOutput
+
+# The `document` an aggregate result is reported under. An aggregate step has no
+# document -- it read all of them -- and a name that could collide with a real key
+# would make a report ambiguous exactly where it matters.
+AGGREGATE_KEY = "*"
 
 
 @dataclass(frozen=True)
@@ -143,21 +148,23 @@ def execute(
     produced: dict[str, dict[str, str]] = {}
 
     for step in plan.steps:
+        over = [AGGREGATE_KEY] if declared[step.id].mode == "aggregate" else keys
         results = tuple(
             _run_one(
                 step=step,
                 declared=declared[step.id],
                 document=key,
+                documents=keys,
                 document_text=document_text,
                 produced=produced,
-                schema=schemas[step.id],
+                schema=schemas.get(step.id),
                 prompt=prompts[step.id],
                 model=model,
                 cache=cache,
                 run_id=run_id,
                 dossier_version=dossier_version,
             )
-            for key in keys
+            for key in over
         )
         steps.append(StepReport(step=step.id, results=results))
         produced[step.id] = {
@@ -173,7 +180,12 @@ def _as_text(result: DocumentResult) -> str:
     Serialised from the validated records rather than from the model's raw reply,
     so a cache hit and a fresh run produce the same bytes even where the model
     answered with different whitespace (R5.5).
+
+    A step with no schema has no records to serialise, and its prose is the
+    artifact as written -- there is nothing to normalise it against.
     """
+    if result.text is not None:
+        return result.text
     return StageOutput(
         document=result.document, fields=list(result.records)
     ).model_dump_json()
@@ -184,9 +196,10 @@ def _run_one(
     step: ResolvedStep,
     declared: StepConfig,
     document: str,
+    documents: Sequence[str],
     document_text: Mapping[str, str],
     produced: Mapping[str, Mapping[str, str]],
-    schema: dict,
+    schema: dict | None,
     prompt: str,
     model: ModelClient,
     cache: ArtifactStore,
@@ -204,6 +217,8 @@ def _run_one(
         declared=declared,
         resolved=step,
         document=document,
+        documents=documents,
+        aggregate=declared.mode == "aggregate",
         document_text=document_text,
         produced=produced,
     )
@@ -212,10 +227,14 @@ def _run_one(
         prompt=ArtifactInput(
             role="prompt", path=declared.prompt, hash=content_hash(prompt.encode())
         ),
-        output_schema=ArtifactInput(
-            role="schema",
-            path=declared.output or "",
-            hash=content_hash(json.dumps(schema, sort_keys=True).encode()),
+        output_schema=(
+            None
+            if schema is None
+            else ArtifactInput(
+                role="schema",
+                path=declared.output or "",
+                hash=content_hash(json.dumps(schema, sort_keys=True).encode()),
+            )
         ),
         model=model.model_id,
         inputs=[
@@ -229,7 +248,12 @@ def _run_one(
 
     hit = cache.get(key, require_record=True)
     if hit is not None:
-        return _from_cache(document=document, payload=hit, document_text=document_text)
+        return _from_cache(
+            document=document,
+            payload=hit,
+            document_text=document_text,
+            structured=schema is not None,
+        )
 
     result = run_stage(
         document=document,
@@ -254,7 +278,11 @@ def _run_one(
 
 
 def _from_cache(
-    *, document: str, payload: bytes, document_text: Mapping[str, str]
+    *,
+    document: str,
+    payload: bytes,
+    document_text: Mapping[str, str],
+    structured: bool = True,
 ) -> DocumentResult:
     """Rebuild what a cached artifact stands for, with no model call.
 
@@ -262,12 +290,24 @@ def _from_cache(
     of the artifact and the documents (R6.4), so re-deriving costs microseconds
     and removes a second thing that could go stale.
     """
+    if not structured:
+        return DocumentResult(document=document, attempts=0, text=payload.decode())
+
     output = StageOutput.model_validate_json(payload.decode())
     checks = tuple(
         check_field(record, input_documents=document_text) for record in output.fields
     )
     return DocumentResult(
-        document=document, records=tuple(output.fields), checks=checks, attempts=0
+        document=document,
+        records=tuple(output.fields),
+        checks=checks,
+        attempts=0,
+        # The stored bytes travel on rather than being re-derived from the
+        # records. They are the same bytes for every document that shares this
+        # key, and two documents with identical content do share one -- so
+        # re-serialising under *this* document's name would hand the next step
+        # something the cache never held, and change its key (R5.5, R5.7 row 4).
+        text=payload.decode(),
     )
 
 
@@ -276,22 +316,52 @@ def _input_values(
     declared: StepConfig,
     resolved: ResolvedStep,
     document: str,
+    documents: Sequence[str],
+    aggregate: bool,
     document_text: Mapping[str, str],
     produced: Mapping[str, Mapping[str, str]],
 ) -> dict[str, str]:
-    """What each declared input holds, for this document.
+    """What each declared input holds, for this call.
 
     Keyed by the name the *prompt* uses, which is the name as declared -- sugar
     included, because that is the form R3.6 checked at load time. The resolved
     ids say where the content comes from.
+
+    In a `per_file` step each value is one document's text. In an `aggregate`
+    step it is every document, each wrapped in a tag naming its key (spec 003).
     """
     values: dict[str, str] = {}
     for name, target in zip(declared.inputs, _targets(declared, resolved), strict=True):
-        if target in SOURCE_KEYWORDS:
-            values[name] = document_text.get(document, "")
+        source = document_text if target in SOURCE_KEYWORDS else produced.get(target, {})
+        if aggregate:
+            values[name] = _joined(source, documents)
         else:
-            values[name] = produced.get(target, {}).get(document, "")
+            values[name] = source.get(document, "")
     return values
+
+
+def _joined(source: Mapping[str, str], documents: Sequence[str]) -> str:
+    """Every document's content, wrapped in a tag naming its key (spec 003).
+
+    Wrapped rather than concatenated: a model asked to attribute a finding needs
+    to know which document it read it in, and R6.4 will not ground a field whose
+    `source.document` names nothing.
+
+    Sorted here as well as in `resolve`, which already orders the plan's
+    documents -- so this sort is defence in depth rather than the thing making
+    the prompt deterministic, and no test kills it on its own. It is kept because
+    the function is then correct on its own terms: whatever order a caller passes,
+    the same set of documents produces the same prompt and the same key (R0.4,
+    R5.6).
+
+    A document the step produced nothing for is absent rather than empty: a blank
+    `<document>` invites an answer about a document nobody read.
+    """
+    return "\n".join(
+        f'<document key="{key}">{source[key]}</document>'
+        for key in sorted(documents)
+        if key in source
+    )
 
 
 def _targets(declared: StepConfig, resolved: ResolvedStep) -> list[str]:
@@ -325,27 +395,4 @@ def _resolve(
     """
     validate_step_ids(pipeline)
     validate_references(pipeline)
-    _refuse_unimplemented_modes(pipeline)
     return resolve(pipeline=pipeline, pipeline_hash=pipeline_hash, documents=documents)
-
-
-def _refuse_unimplemented_modes(pipeline: PipelineConfig) -> None:
-    """`aggregate` is declared in spec 003 and not built here.
-
-    Refused during resolution rather than ignored during execution. This loop
-    runs every step over every document, which *is* `per_file`; an aggregate step
-    reaching it would silently become one model call per document instead of one
-    over all of them -- a different question asked of the model, a different bill,
-    and an answer that looks entirely normal.
-
-    Refusing here makes it a resolution failure, so nothing runs and no run
-    directory appears (R4.1), which is the right shape for "this pipeline cannot
-    be executed as written".
-    """
-    aggregate = [step.id for step in pipeline.steps if step.mode == "aggregate"]
-    if aggregate:
-        raise ValueError(
-            f"steps {aggregate} declare mode 'aggregate', which is not implemented. "
-            "Only 'per_file' runs today; an aggregate step would silently become "
-            "one call per document."
-        )
