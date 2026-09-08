@@ -132,7 +132,7 @@ every relative reference below it.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.plan`)
 - **Proved by:** `tests/acceptance/test_R004_5__inserted_step_shows_as_inputs_changed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
