@@ -133,7 +133,7 @@ to touch the network.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
 - **Proved by:** `tests/unit/test_R005_4__converter_version_invalidates_conversions_only.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
