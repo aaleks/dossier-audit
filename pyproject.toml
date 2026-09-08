@@ -37,6 +37,11 @@ dossier = "dossier.cli.main:app"
 [project.entry-points."dossier.connectors"]
 folder = "dossier.infrastructure.connectors.folder:FolderConnector.from_config"
 
+# A converter is a package declaring one of these (R8.7). The one shipped here
+# registers through the same group a third party would use, with no special case.
+[project.entry-points."dossier.converters"]
+markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextConverter"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
