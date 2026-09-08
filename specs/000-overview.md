@@ -167,7 +167,7 @@ any locale or timezone.
 | 1 | `incident-audit` resolved twice in one process | identical manifest bytes apart from run id and start time (R4.8) |
 | 2 | the same inputs under `TZ=UTC` and under `TZ=Asia/Tokyo` | identical cache keys |
 | 3 | the same inputs in two processes with different `PYTHONHASHSEED` | identical cache keys; no reliance on `hash()` or set iteration order |
-| 4 | *counter-example* — the run id `2026-08-06T14:22:03Z-4f1a` | differs between runs by design, and is excluded from every key |
+| 4 | *counter-example* — the run id `20260806T142203Z-4f1a` | differs between runs by design, and is excluded from every key |
 
 ### R0.5 — anything that can change an output is part of that output's cache key
 
@@ -202,7 +202,7 @@ re-point is rejected before any work begins.
 | 1 | `model: anthropic:claude-sonnet-4-5-20250929` | accepted |
 | 2 | `model: anthropic:claude-sonnet-4-5` | load-time error naming the file, the line and the alias |
 | 3 | `model: anthropic:claude-sonnet-latest` | load-time error |
-| 4 | *counter-example* — a run replayed from `runs/2026-08-06T14:22:03Z-4f1a/manifest.json` | the manifest's recorded identifier is used as-is; the check already happened when that run was resolved (R4.7) |
+| 4 | *counter-example* — a run replayed from `runs/20260806T142203Z-4f1a/manifest.json` | the manifest's recorded identifier is used as-is; the check already happened when that run was resolved (R4.7) |
 
 ### R0.7 — every hash is SHA-256 over bytes, rendered as 64 lowercase hex characters
 
@@ -219,7 +219,7 @@ truncation is stored, and no other digest appears anywhere in the system.
 | 1 | the bytes of `INC-4821.md` | the ledger `content_hash` equals `sha256sum` of that file, all 64 characters |
 | 2 | the same bytes hashed on Windows and on Linux | identical; the digest is over bytes, and `.gitattributes` keeps the bytes identical |
 | 3 | a hash rendered for a log line or a spec example | may be shortened to 8 characters for display; the stored value is never truncated |
-| 4 | *counter-example* — a run id such as `2026-08-06T14:22:03Z-4f1a` | not a hash; it is a timestamp and a suffix, and it is excluded from every key (R0.4) |
+| 4 | *counter-example* — a run id such as `20260806T142203Z-4f1a` | not a hash; it is a timestamp and a suffix, and it is excluded from every key (R0.4) |
 
 ### R0.8 — generated state lives under `.dossier/`, and run outputs under `runs/`
 

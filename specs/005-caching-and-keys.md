@@ -55,7 +55,7 @@ Every artifact has a sibling `<name>.meta.json`:
   "prompt": {"path": "prompts/02_verify.md", "hash": "0e52dd18"},
   "schema": {"path": "schemas/incident.json", "hash": "b81f0c6d"},
   "model": "anthropic:claude-sonnet-4-5-20250929",
-  "run_id": "2026-08-06T14:22:03Z-4f1a",
+  "run_id": "20260806T142203Z-4f1a",
   "dossier_version": "0.1.0"
 }
 ```
