@@ -141,4 +141,27 @@ def _resolve(*, pipeline: PipelineConfig, pipeline_hash: str, documents: Mapping
     """
     validate_step_ids(pipeline)
     validate_references(pipeline)
+    _refuse_unimplemented_modes(pipeline)
     return resolve(pipeline=pipeline, pipeline_hash=pipeline_hash, documents=documents)
+
+
+def _refuse_unimplemented_modes(pipeline: PipelineConfig) -> None:
+    """`aggregate` is declared in spec 003 and not built here.
+
+    Refused during resolution rather than ignored during execution. This loop
+    runs every step over every document, which *is* `per_file`; an aggregate step
+    reaching it would silently become one model call per document instead of one
+    over all of them -- a different question asked of the model, a different bill,
+    and an answer that looks entirely normal.
+
+    Refusing here makes it a resolution failure, so nothing runs and no run
+    directory appears (R4.1), which is the right shape for "this pipeline cannot
+    be executed as written".
+    """
+    aggregate = [step.id for step in pipeline.steps if step.mode == "aggregate"]
+    if aggregate:
+        raise ValueError(
+            f"steps {aggregate} declare mode 'aggregate', which is not implemented. "
+            "Only 'per_file' runs today; an aggregate step would silently become "
+            "one call per document."
+        )

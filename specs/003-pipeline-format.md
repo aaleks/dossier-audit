@@ -188,7 +188,7 @@ literal braces.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.check_placeholders`)
 - **Proved by:** `tests/unit/test_R003_6__prompt_placeholders_match_declared_inputs.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -10,7 +10,29 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-PROMPT = "<source_document>{{documents}}</source_document>\n"
+# One tag per declared input, which is what R3.6 requires of a real prompt: every
+# `{{...}}` is a declared input and every declared input appears. Generated per
+# step rather than shared, because a single prompt naming only `{{documents}}` is
+# invalid for any step declaring anything else.
+TAGS = {"documents": "source_document", "reference": "procedure"}
+
+
+def prompt_for(inputs: list[str]) -> str:
+    """A prompt whose placeholders are exactly `inputs`, in declaration order."""
+    lines = ["Extract the requested fields from the inputs below.", ""]
+    for name in inputs:
+        tag = TAGS.get(name, name.replace("(", "_").replace(")", ""))
+        lines.append(f"<{tag}>{{{{{name}}}}}</{tag}>")
+    return "\n".join(lines) + "\n"
+
+
+def declared_names(declared: str) -> list[str]:
+    """The input names in a `input:` value, whether written as a scalar or a list."""
+    return [
+        name.strip()
+        for name in declared.strip().lstrip("[").rstrip("]").split(",")
+        if name.strip()
+    ]
 
 SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -40,7 +62,6 @@ def write_pipeline(
     directory = root / "pipelines" / name
     (directory / "prompts").mkdir(parents=True, exist_ok=True)
     (directory / "schemas").mkdir(parents=True, exist_ok=True)
-    (directory / "prompts" / "01_extract.md").write_text(PROMPT, encoding="utf-8")
 
     if write_schema:
         (directory / "schemas" / "incident.json").write_text(
@@ -56,9 +77,13 @@ def write_pipeline(
         lines.append(f"reference: {reference}")
     lines.append("steps:")
     for step in steps:
+        declared = inputs.get(step, "documents")
+        (directory / "prompts" / f"{step}.md").write_text(
+            prompt_for(declared_names(declared)), encoding="utf-8"
+        )
         lines.append(f"  - id: {step}")
-        lines.append("    prompt: prompts/01_extract.md")
-        lines.append(f"    input: {inputs.get(step, 'documents')}")
+        lines.append(f"    prompt: prompts/{step}.md")
+        lines.append(f"    input: {declared}")
         lines.append("    mode: per_file")
         output = outputs.get(step, "schemas/incident.json")
         if output is not None:

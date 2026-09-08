@@ -28,6 +28,7 @@ from dossier.domain.pipeline import (
     validate_references,
     validate_step_ids,
 )
+from dossier.domain.prompts import check_placeholders
 
 __all__ = [
     "ConfigError",
@@ -80,7 +81,32 @@ def load_pipeline(path: Path) -> PipelineConfig:
             raise ConfigError(f"{_name(path)}: {error}") from error
 
     _validate_output_schemas(pipeline, path)
+    _validate_prompt_placeholders(pipeline, path)
     return pipeline
+
+
+def _validate_prompt_placeholders(pipeline: PipelineConfig, path: Path) -> None:
+    """R3.6 — every prompt injects exactly the inputs its step declares.
+
+    Reading the file is this layer's job; deciding whether the two sides agree is
+    the domain's. The prompt is read as bytes-decoded text and not otherwise
+    touched, because its hash is part of that stage's key (R5.2).
+    """
+    for step in pipeline.steps:
+        prompt = path.parent / step.prompt
+        if not prompt.is_file():
+            raise ConfigError(
+                f"{_name(path)}: step {step.id!r} names a prompt that does not "
+                f"exist: {step.prompt}"
+            )
+        try:
+            check_placeholders(
+                step=step.id,
+                declared=step.inputs,
+                prompt=prompt.read_text(encoding="utf-8"),
+            )
+        except ValueError as error:
+            raise ConfigError(f"{_name(path)}: {error}") from error
 
 
 def _validate_output_schemas(pipeline: PipelineConfig, path: Path) -> None:
