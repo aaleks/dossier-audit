@@ -89,11 +89,15 @@ pytest -m live          # the evaluated rules. Real model calls, run deliberatel
 
 ## Non-negotiable technical constraints
 
-1. **No network outside the connectors.** Only
-   `dossier.infrastructure.connectors` may import a network client. Nothing in
-   convert, run or eval may reach the network, on any code path, including a
-   lazy import inside a function. This is R0.1, it is what makes a run
-   reproducible, and it is checked by an `ast` walk over every module.
+1. **Two packages reach the network, and no others.**
+   `dossier.infrastructure.connectors` fetches source payloads;
+   `dossier.infrastructure.models` asks a model. Nothing else may import a
+   network client, on any code path, including a lazy import inside a function.
+   This is R0.9 — it supersedes R0.1, which allowed only connectors and was
+   already untrue of a tool whose stages ask a model. The boundary does not
+   promise "no network"; it promises that everything right of it is
+   reproducible, which is why a model is reached only on a cache miss and never
+   during plan, replay or scoring. Checked by an `ast` walk over every module.
 2. **No live model calls in the default test suite.** Tests use
    `FakeModelClient`, which returns canned responses and **counts calls** —
    several rules are claims about how many calls happened. An autouse fixture

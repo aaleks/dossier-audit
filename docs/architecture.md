@@ -17,13 +17,19 @@ There are exactly two boundaries. Everything else is ordinary structure.
 ```
 
 In the code the boundary is a package: **`dossier.infrastructure.connectors` is
-the only package that may import a network client.** Everything else is right of
+the only packages that may import a network client.** Everything else is right of
 the line and is a pure function of content hashes.
 
-This is R0.1, and it is what makes a run from six months ago reproducible. It is
-checked by `tests/architecture/test_R000_1__no_network_right_of_the_hash_boundary.py`,
-which walks every module with `ast` — so a lazy import inside a function body is
-caught as readily as one at module scope.
+This is R0.9, which supersedes R0.1. It is checked by
+`tests/architecture/test_R000_9__only_two_packages_reach_the_network.py`, which
+walks every module with `ast` — so a lazy import inside a function body is caught
+as readily as one at module scope.
+
+The line is not "no network right of it". A stage asks a model, and asking is the
+point; R0.1 said otherwise and was true only while no model client existed. What
+makes a run from six months ago reproducible is that the answer was keyed, cached
+with its provenance record, and never asked again — so `models` joins `connectors`
+as the second and last package permitted across.
 
 ## Boundary 2 — the purity boundary
 

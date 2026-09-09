@@ -107,8 +107,8 @@ imports made lazily inside a function body.
 
 - **Kind:** deterministic
 - **Layer:** architecture
-- **Proved by:** `tests/architecture/test_R000_1__no_network_right_of_the_hash_boundary.py`
-- **Status:** MET
+- **Proved by:** `tests/architecture/test_R000_9__only_two_packages_reach_the_network.py`
+- **Status:** SUPERSEDED by R0.9
 
 | # | Given | Then |
 |---|-------|------|
@@ -241,3 +241,40 @@ people. The two are kept apart so that deleting the first is always safe.
 ## Spec index
 
 `specs/README.md` holds the index and the status of each spec.
+
+### R0.9 — exactly two packages may reach the network, and a model is asked only on a cache miss
+
+`dossier.infrastructure.connectors` fetches source payloads.
+`dossier.infrastructure.models` asks a model. Nothing else imports a network
+client, on any code path, including error paths and imports made lazily inside a
+function body.
+
+Supersedes R0.1, which said only connectors may reach the network and that `run`
+never does. That was already untrue of the system this project is building: a
+stage asks a model, and asking is the point. R0.1 was observably true only
+because no model client existed yet, and a rule that becomes false the moment the
+product works is a rule that would have been quietly deleted rather than
+reviewed.
+
+What the hash boundary actually promises is not "no network right of it". It is
+that **everything right of it is reproducible**: a stage's answer is pinned by a
+key over its prompt, schema, model identifier and input hashes (spec 005), stored
+with a provenance record (R0.3), and never asked again. So the boundary holds
+even though a model is on the far side of it, and the invariant that keeps it
+holding is the second half of this rule: a model is reached on a cache miss
+during execution and at no other time.
+
+- **Kind:** deterministic
+- **Layer:** architecture
+- **Proved by:** `tests/architecture/test_R000_9__only_two_packages_reach_the_network.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier/application/convert.py` imports `httpx` | violation, naming the file, the line and the import |
+| 2 | `dossier/domain/keys.py` imports `urllib.request` inside a function body | violation; a lazy import is still an import, and deferring one defers when the network becomes reachable, not whether |
+| 3 | `dossier/infrastructure/models/anthropic.py` imports `anthropic` | allowed; this package and `connectors` are the only two, and the SDK is a network client whatever it is named |
+| 4 | `dossier.application.replay` and `dossier.domain.scoring` given a model client | they take no such parameter; a replay reproduces what was cached and a non-judge scorer compares values (R4.7, R7.10) |
+| 5 | `dossier run --plan` over a pipeline where every step would re-run | zero model calls; planning reports work rather than doing it (R4.6) |
+| 6 | *counter-example* — `dossier/infrastructure/store.py` opens a file on local disk | allowed; local file IO is not network IO |
+| 7 | *counter-example* — a stage with no cache entry, during `dossier run` | reaches the model, once, and the answer is cached with its provenance record. That is the one permitted crossing, and R5.5 is the claim that it never happens twice for the same inputs |

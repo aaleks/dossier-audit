@@ -19,12 +19,20 @@ PACKAGE = SRC / "dossier"
 
 LAYERS = ("domain", "application", "infrastructure", "config", "cli")
 
-# The one package left of the hash boundary (R0.1).
+# The two packages permitted to reach the network (R0.9). Connectors fetch source
+# payloads; model clients ask a model. Everything else is reproducible from
+# frozen content, which is what the hash boundary promises.
 CONNECTORS = "dossier.infrastructure.connectors"
+MODELS = "dossier.infrastructure.models"
+REACH_THE_NETWORK = (CONNECTORS, MODELS)
 
 NETWORK_MODULES = frozenset(
     {
         "aiohttp",
+        # Model SDKs. Absent until R0.9, which meant the check would have passed
+        # green whatever a model client imported -- the one file it most needed
+        # to see. A vendor SDK is a network client whatever it is named.
+        "anthropic",
         "atlassian",
         "boto3",
         "ftplib",
@@ -32,11 +40,18 @@ NETWORK_MODULES = frozenset(
         "httpcore",
         "httplib2",
         "httpx",
+        "cohere",
+        "google",
         "jira",
+        "litellm",
+        "mistralai",
+        "ollama",
+        "openai",
         "requests",
         "smtplib",
         "socket",
         "telnetlib",
+        "together",
         "urllib3",
         "websocket",
         "websockets",
