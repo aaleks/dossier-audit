@@ -18,6 +18,7 @@ import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 from tests.fakes import FakeModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
@@ -194,3 +195,113 @@ class TestDeletingTheCacheChangesNothing:
 
         assert (snapshots / "marker").read_bytes() == b"a snapshot"
         assert not (tmp_path / ".dossier" / "cache").exists()
+
+
+class TestADamagedEntryIsNotAuthority:
+    """R5.9 — the cache is an optimisation and never a source of truth.
+
+    The rule as written covers *deletion*, which correctly misses and recomputes.
+    `/quality` found the neighbouring case the spec does not name: an entry that
+    is present and unreadable. `payload.decode()` and `model_validate_json` were
+    unguarded, and pydantic's `ValidationError` subclasses `ValueError` — so a
+    truncated or hand-edited entry propagated out of `execute` and was caught by
+    the CLI's resolution handler, which printed "Resolution failed, so nothing ran
+    and nothing was written" *after* the manifest was written and earlier stages
+    had run.
+
+    Both halves are wrong. A corrupt entry was treated as authority — the one
+    thing R5.9's sentence forbids — and the failure was reported as something it
+    was not.
+
+    The right answer differs by caller, which is why it is a decision rather than
+    a `try` block. For `execute` an unreadable entry is a miss: the work can be
+    redone. For `replay` it is fatal: there is nothing to fall back to, and
+    recomputing would be the substitution R4.7 row 4 forbids.
+    """
+
+    def _damage_every_entry(self, workspace: Path) -> None:
+        for entry in (workspace / ".dossier" / "cache" / "stage").rglob("*"):
+            if entry.is_file() and not entry.name.endswith(".meta.json"):
+                entry.write_bytes(b'{"document": "INC-4821", "fields": [')
+
+    def test_execute_treats_an_unreadable_entry_as_a_miss(self, tmp_path: Path):
+        """The one where the work can simply be redone.
+
+        The model is asked again and the answer replaces the damaged bytes. A
+        run that aborted here would make one corrupt file permanently fatal to a
+        workspace whose inputs are all still present.
+        """
+        config = pipeline(("extract", "documents"))
+        run(
+            tmp_path,
+            FakeModelClient(responses=[answer(k) for k in DOCUMENTS]),
+            config=config,
+            run_id="20260806T142203Z-4f1a",
+        )
+        self._damage_every_entry(tmp_path)
+
+        model = FakeModelClient(responses=[answer(k) for k in DOCUMENTS])
+        report = run(tmp_path, model, config=config, run_id="20260907T090000Z-bbbb")
+
+        assert model.call_count == len(DOCUMENTS), "recomputed rather than served"
+        assert report.failed == []
+        assert report.cache_hits == 0
+
+    def test_a_repaired_entry_is_served_again(self, tmp_path: Path):
+        """The one where the damage heals rather than lingering.
+
+        A miss that did not rewrite the entry would leave the workspace paying
+        for the same recomputation on every subsequent run.
+        """
+        config = pipeline(("extract", "documents"))
+        run(
+            tmp_path,
+            FakeModelClient(responses=[answer(k) for k in DOCUMENTS]),
+            config=config,
+            run_id="20260806T142203Z-4f1a",
+        )
+        self._damage_every_entry(tmp_path)
+        run(
+            tmp_path,
+            FakeModelClient(responses=[answer(k) for k in DOCUMENTS]),
+            config=config,
+            run_id="20260907T090000Z-bbbb",
+        )
+
+        model = FakeModelClient(responses=[])
+        third = run(tmp_path, model, config=config, run_id="20260908T090000Z-cccc")
+
+        assert model.call_count == 0
+        assert third.cache_hits == len(DOCUMENTS)
+
+    def test_a_replay_refuses_an_unreadable_entry(self, tmp_path: Path):
+        """The counter-example: the caller with nothing to fall back on.
+
+        A replay cannot recompute -- it has no model and, by design, nowhere to
+        put one. Serving damaged bytes would be presenting something other than
+        what the run produced, and recomputing would be the substitution R4.7
+        row 4 forbids. So it stops, and says which entry.
+        """
+        from dossier.application.manifest import Manifest
+        from dossier.application.run import MissingFromReplay, replay
+
+        config = pipeline(("extract", "documents"))
+        run(
+            tmp_path,
+            FakeModelClient(responses=[answer(k) for k in DOCUMENTS]),
+            config=config,
+            run_id="20260806T142203Z-4f1a",
+        )
+        manifest = Manifest.read(
+            tmp_path / "runs" / "20260806T142203Z-4f1a" / "manifest.json"
+        )
+        self._damage_every_entry(tmp_path)
+
+        with pytest.raises(MissingFromReplay) as error:
+            replay(
+                manifest=manifest,
+                document_text=TEXT,
+                cache=ArtifactCache(tmp_path, namespace="stage"),
+            )
+
+        assert "extract" in str(error.value)

@@ -60,6 +60,26 @@ Every artifact has a sibling `<name>.meta.json`:
 }
 ```
 
+### An entry that is present and unreadable
+
+R5.9 names deletion, which correctly misses and recomputes. The neighbouring case
+is an entry that is *there* and cannot be read — truncated by an interrupted
+write on a filesystem that did not honour the rename, or edited by hand.
+
+It is never authority. What it is instead depends on who asked, and the two
+answers are different because their options are:
+
+| Caller | A damaged entry is | Because |
+|---|---|---|
+| `run` | a miss | the inputs are all still present, so the work can simply be redone and the entry rewritten. Aborting would make one corrupt file permanently fatal to a healthy workspace |
+| `--replay` | fatal, naming the entry | a replay has no model and nowhere to put one. Serving the bytes would present something other than what the run produced, and recomputing would be the substitution R4.7 row 4 forbids |
+
+The failure this closes was not the corruption but the report of it. Because
+pydantic's `ValidationError` subclasses `ValueError`, an unreadable entry
+propagated out of execution and was caught by the handler for *resolution*
+failures — which prints that nothing ran and nothing was written, after the
+manifest had been written and earlier stages had run.
+
 ### How a text file is hashed
 
 A prompt, a schema and a `pipeline.yaml` are hashed over their decoded text with
