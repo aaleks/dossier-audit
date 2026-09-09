@@ -25,10 +25,22 @@ from tests.fakes import NoModelClient
 
 from dossier.domain.grounding import FieldCheck, FieldVerdict
 from dossier.domain.schemas import Evidence, FieldRecord
-from dossier.domain.scoring import GoldField, Verdict, score_document, score_field
+from dossier.domain.scoring import (
+    FieldKind,
+    GoldField,
+    Verdict,
+    score_document,
+    score_field,
+)
 
 SPAN = Evidence(document="INC-4821", span="total exposure CHF 48'200")
 GROUNDED = FieldCheck(FieldVerdict.VALID)
+
+KINDS = {
+    "loss_amount": FieldKind.AMOUNT,
+    "resolution_date": FieldKind.DATE,
+    "severity": FieldKind.ENUM,
+}
 
 DETERMINISTIC = {
     "loss_amount": (
@@ -61,6 +73,7 @@ class TestScoringIsOffline:
             records=[record for record, _ in DETERMINISTIC.values()],
             checks=dict.fromkeys(DETERMINISTIC, GROUNDED),
             gold={name: gold for name, (_, gold) in DETERMINISTIC.items()},
+            kinds=KINDS,
         )
 
         assert [result.verdict for result in report.results] == [Verdict.CORRECT] * 3
@@ -74,15 +87,15 @@ class TestScoringIsOffline:
         """
         client = NoModelClient()
 
-        for record, gold in DETERMINISTIC.values():
-            score_field(record=record, gold=gold, check=GROUNDED)
+        for name, (record, gold) in DETERMINISTIC.items():
+            score_field(record=record, gold=gold, check=GROUNDED, kind=KINDS[name])
 
         assert not hasattr(client, "calls") or client.calls == []
 
     def test_a_gold_set_with_no_free_text_field_scores_entirely_offline(self):
         """Example 3: the one where the whole evaluation is deterministic.
 
-        No field is marked `judged`, so nothing needs a judge and no part of the
+        No field's kind is `FREE_TEXT`, so nothing needs a judge and no part of the
         run is deferred. That is the common case for an amounts-and-dates
         pipeline, and it should cost nothing to re-run.
         """
@@ -91,6 +104,7 @@ class TestScoringIsOffline:
             records=[record for record, _ in DETERMINISTIC.values()],
             checks=dict.fromkeys(DETERMINISTIC, GROUNDED),
             gold={name: gold for name, (_, gold) in DETERMINISTIC.items()},
+            kinds=KINDS,
         )
 
         assert report.scored == report.results
@@ -105,8 +119,9 @@ class TestScoringIsOffline:
         """
         result = score_field(
             record=FieldRecord(field="root_cause", value="a cable failed", source=SPAN),
-            gold=GoldField(value="the cable failed", judged=True),
+            gold=GoldField(value="the cable failed"),
             check=GROUNDED,
+            kind=FieldKind.FREE_TEXT,
         )
 
         assert result.verdict is Verdict.NEEDS_JUDGE

@@ -47,6 +47,32 @@ _ISO = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 _LITTLE_ENDIAN = re.compile(r"^(\d{2})[./](\d{2})[./](\d{4})$")
 
 
+class FieldKind(Enum):
+    """What kind of answer a field holds, which is what picks its scorer.
+
+    The names and the groupings are spec 007's Scorers table. The kind comes from
+    the field's declared type -- "scorers are registered per field type in the
+    schema, not hard-coded per pipeline" -- so it is passed in rather than
+    inferred from the value, which would make the scorer's behaviour depend on
+    what the model happened to return.
+
+    There is deliberately no default. A field whose kind nobody stated is a field
+    nobody decided how to score, and quietly falling back to string equality is
+    how `FREE_TEXT` gets scored deterministically without anyone agreeing to it.
+    """
+
+    AMOUNT = "amount"
+    DATE = "date"
+    REFERENCE = "reference"
+    ENUM = "enum"
+    FREE_TEXT = "free_text"
+
+    @property
+    def needs_a_judge(self) -> bool:
+        """Whether this kind is R7.11's business rather than this module's."""
+        return self is FieldKind.FREE_TEXT
+
+
 class Verdict(Enum):
     """What scoring one field concluded."""
 
@@ -68,10 +94,6 @@ class GoldField(BaseModel):
     value: float | int | str | bool | None = None
     currency: str | None = None
     reason: str | None = None
-    # Free text, scored by a judge against a rubric rather than by comparison
-    # (R7.11). Declared on the gold entry because it is a property of the field,
-    # and the gold file is where a field's type is agreed.
-    judged: bool = False
 
 
 @dataclass(frozen=True)
@@ -107,7 +129,7 @@ class DocumentScore:
 
 
 def score_field(
-    *, record: FieldRecord, gold: GoldField, check: FieldCheck
+    *, record: FieldRecord, gold: GoldField, check: FieldCheck, kind: FieldKind
 ) -> FieldScore:
     """Score one produced field against one verified answer.
 
@@ -115,9 +137,6 @@ def score_field(
     recomputed: whether a span was locatable is a fact about the documents the
     stage read, which this function does not have and should not need (R7.4).
     """
-    if gold.judged:
-        return FieldScore(record.field, Verdict.NEEDS_JUDGE, "free text; scored by a judge")
-
     if check.verdict is FieldVerdict.UNGROUNDED:
         # Before any comparison, so a value that happens to match gold cannot
         # rescue a field with no evidence behind it (R7.4).
@@ -147,6 +166,15 @@ def score_field(
             "abstain too",
         )
 
+    # Only now, and only for a value that is present and grounded. The three
+    # checks above are deterministic whatever the field holds: whether a span was
+    # locatable, and whether the run abstained, are facts rather than judgements.
+    # R7.3's own examples are all `root_cause`, a free-text field -- so deferring
+    # to a judge first would leave the rule with nothing it could score, and R7.4
+    # admits no exception for free text either.
+    if kind.needs_a_judge:
+        return FieldScore(record.field, Verdict.NEEDS_JUDGE, "free text; scored by a judge")
+
     if not _same_currency(record.currency, gold.currency):
         return FieldScore(
             record.field,
@@ -154,7 +182,15 @@ def score_field(
             f"currency {record.currency!r} does not match gold {gold.currency!r}",
         )
 
-    if _matches(record.value, gold.value):
+    comparison = _compare(kind, record.value, gold.value)
+    if comparison is None:
+        return FieldScore(
+            record.field,
+            Verdict.INCORRECT,
+            f"{record.value!r} is not a well-formed {kind.value}, so it cannot be "
+            f"compared with {gold.value!r}",
+        )
+    if comparison:
         return FieldScore(record.field, Verdict.CORRECT)
     return FieldScore(
         record.field, Verdict.INCORRECT, f"{record.value!r} does not match {gold.value!r}"
@@ -167,6 +203,7 @@ def score_document(
     records: Sequence[FieldRecord],
     checks: Mapping[str, FieldCheck],
     gold: Mapping[str, GoldField],
+    kinds: Mapping[str, FieldKind],
 ) -> DocumentScore:
     """Score every field of one document that gold has an answer for.
 
@@ -178,7 +215,8 @@ def score_document(
         score_field(
             record=record,
             gold=gold[record.field],
-            check=checks.get(record.field, FieldCheck(FieldVerdict.VALID)),
+            check=checks[record.field],
+            kind=kinds[record.field],
         )
         for record in records
         if record.field in gold
@@ -203,26 +241,33 @@ def _same_currency(produced: str | None, expected: str | None) -> bool:
     return (produced or "").upper() == expected.upper()
 
 
-def _matches(produced: object, expected: object) -> bool:
-    """Whether two answers mean the same thing, after normalisation (R7.1).
+def _compare(kind: FieldKind, produced: object, expected: object) -> bool | None:
+    """Whether two answers of this kind mean the same thing.
 
-    Tried in order of how much interpretation each step costs: identical values
-    first, then numbers, then dates, then case-folded text. The first that
-    applies decides, and a form nothing recognises falls through to a plain
-    comparison rather than being guessed at.
+    `None` means "not a well-formed value of this kind", which is a third answer
+    and not a `False`: a date the scorer cannot read is a different finding from
+    a date that disagrees, and reporting it as a mismatch would send someone
+    looking for a discrepancy rather than a malformed field.
+
+    Dispatching on the declared kind rather than sniffing the value is what makes
+    this deterministic in the way R7.1 claims. A universal normaliser that tried
+    number, then date, then text would score the same pair differently depending
+    on what the model happened to return.
     """
-    if produced == expected:
-        return True
-
-    as_numbers = (_as_number(produced), _as_number(expected))
-    if None not in as_numbers:
-        return as_numbers[0] == as_numbers[1]
-
-    as_dates = (_as_date(produced), _as_date(expected))
-    if None not in as_dates:
-        return as_dates[0] == as_dates[1]
-
+    if kind is FieldKind.AMOUNT:
+        return _both(_as_number(produced), _as_number(expected))
+    if kind is FieldKind.DATE:
+        return _both(_as_date(produced), _as_date(expected))
+    # REFERENCE and ENUM are both closed vocabularies compared as text. Which
+    # case a model echoed a value back in is not information (R7.1).
     return _folded(produced) == _folded(expected)
+
+
+def _both(produced: object, expected: object) -> bool | None:
+    """Compare two parsed values, or `None` if either would not parse."""
+    if produced is None or expected is None:
+        return None
+    return produced == expected
 
 
 def _as_number(value: object) -> float | None:
@@ -267,7 +312,14 @@ def _as_date(value: object) -> date | None:
 
     little = _LITTLE_ENDIAN.match(text)
     if little:
-        return _date(int(little.group(3)), int(little.group(2)), int(little.group(1)))
+        first, second = int(little.group(1)), int(little.group(2))
+        if first <= 12 and second <= 12:
+            # `07/08/2026` is 7 August in one country and 8 July in another. The
+            # docstring above has always claimed this is refused rather than
+            # guessed; until /quality found it, the code guessed day-first.
+            # Refusing is the only answer that cannot be quietly wrong.
+            return None
+        return _date(int(little.group(3)), second, first)
     return None
 
 

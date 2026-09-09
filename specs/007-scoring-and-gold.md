@@ -41,6 +41,32 @@ generated text, and they are the exception the design works hard to keep small.
 
 Scorers are registered per field type in the schema, not hard-coded per pipeline.
 
+The field type is what picks the scorer, and it is stated rather than inferred
+from the value: a scorer that sniffed `"48200"` as a number and `"major"` as text
+would give the same pair different verdicts depending on what the model happened
+to return, which is the opposite of R7.1.
+
+`amount` and `date` are normalised before comparison; `reference` and `enum` are
+compared as text with case folded, because which case a model echoed a closed
+vocabulary back in is not information.
+
+A value that is not well formed for its type is **not** a mismatch. `13/45/2026`
+scored against a `date` is reported as unreadable, not as a disagreement, because
+the two need different work and a report that conflated them would send someone
+looking for a discrepancy that is not there.
+
+**An ambiguous date is refused rather than resolved.** `07/08/2026` is 7 August in
+one country and 8 July in another, and a scorer that picked one would be quietly
+wrong for half of every year. `28.07.2026` is unambiguous — no month is 28 — and
+is read. `2026-07-28` always is.
+
+Grounding and abstention are decided before the field's type is consulted. Both
+are facts rather than judgements: whether a span was locatable, and whether the
+run abstained, mean the same thing for a free-text field as for an amount. R7.3's
+own examples are all `root_cause`, which is free text — so deferring to a judge
+first would leave that rule with nothing it could score, and R7.4 admits no
+exception for free text either.
+
 ## Reporting
 
 Scores are reported **per field**. A single blended accuracy is never the
