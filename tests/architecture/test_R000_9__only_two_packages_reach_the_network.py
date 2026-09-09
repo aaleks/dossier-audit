@@ -1,12 +1,20 @@
-"""R0.1 — nothing right of the hash boundary performs network I/O.
+"""R0.9 — exactly two packages may reach the network, and a model is asked only
+on a cache miss.
 
-Only `dossier.infrastructure.connectors` may import a network client. Convert,
-run and eval never reach the network on any code path, including error paths and
-imports made lazily inside a function body.
+`dossier.infrastructure.connectors` fetches source payloads;
+`dossier.infrastructure.models` asks a model. Nothing else imports a network
+client, on any code path, including error paths and imports made lazily inside a
+function body.
 
-This is the invariant the whole system rests on: it is what makes a run from six
-months ago reproduce exactly, and it is the reason the default suite needs no
-services. A violation is silent until someone replays an old audit offline.
+Supersedes R0.1, which allowed only connectors and said `run` never reaches the
+network at all. That was already untrue of the system being built -- a stage asks
+a model, and asking is the point -- and was observably true only because no model
+client existed. `/quality` found it before the client landed rather than after.
+
+What the boundary promises is not "no network right of it" but that everything
+right of it is reproducible: a stage's answer is keyed, cached with a provenance
+record, and never asked twice. A violation of *that* is silent until someone
+replays an old audit offline.
 """
 
 from __future__ import annotations
@@ -16,7 +24,7 @@ from pathlib import Path
 import pytest
 
 from .imports_scan import (
-    CONNECTORS,
+    REACH_THE_NETWORK,
     Import,
     imports_of,
     is_network,
@@ -28,35 +36,73 @@ MODULES = module_files()
 
 
 def _left_of_the_boundary(path) -> bool:
-    return module_name(path).startswith(CONNECTORS)
+    return module_name(path).startswith(REACH_THE_NETWORK)
 
 
 @pytest.mark.parametrize("path", MODULES, ids=lambda p: module_name(p))
-def test_no_network_import_outside_the_connectors_package(path):
-    """Example 1 and 2: a network import anywhere else is a violation."""
+def test_no_network_import_outside_the_two_permitted_packages(path):
+    """Examples 1 and 2: a network import anywhere else is a violation."""
     if _left_of_the_boundary(path):
         return
     offenders: list[Import] = [i for i in imports_of(path) if is_network(i.module)]
     assert not offenders, "\n".join(
         f"{i.where}: imports {i.module!r}"
         + (" inside a function body -- a lazy import is still an import" if i.lazy else "")
-        + f"\n  {module_name(path)} is right of the hash boundary (R0.1)."
-        f"\n  Fix: move the call into {CONNECTORS} and pass the result across."
+        + f"\n  {module_name(path)} may not reach the network (R0.9)."
+        f"\n  Fix: move the call into one of {REACH_THE_NETWORK} and pass the "
+        "result across."
         for i in offenders
     )
 
 
-def test_the_connectors_package_is_the_only_exception():
-    """Example 3: the exception exists, is one package, and is named here.
+def test_exactly_two_packages_are_exempt_and_both_are_named_here():
+    """Example 3: the exemption is two packages, and widening it is a decision.
 
-    Asserting the shape of the exemption is the point. If a second package ever
-    becomes exempt, this test is where that decision has to be made explicitly.
+    The previous version of this test said the exemption was one package and
+    that a second becoming exempt is a decision to be made explicitly here. That
+    is exactly what happened: R0.9 admits `models`, and this is the line where
+    it was admitted.
     """
     exempt = {module_name(p) for p in MODULES if _left_of_the_boundary(p)}
-    assert all(name.startswith(CONNECTORS) for name in exempt)
+
+    assert all(name.startswith(REACH_THE_NETWORK) for name in exempt)
+    assert len(REACH_THE_NETWORK) == 2, (
+        "a third exempt package is a change to the hash boundary, not a detail"
+    )
     assert not any(
-        name.startswith(f"{CONNECTORS}.") and name.count(".") > 4 for name in exempt
-    ), "connectors are flat; a nested sub-package would widen the exemption unnoticed"
+        name.startswith(tuple(f"{p}." for p in REACH_THE_NETWORK)) and name.count(".") > 4
+        for name in exempt
+    ), "both are flat; a nested sub-package would widen the exemption unnoticed"
+
+
+def test_a_model_sdk_counts_as_a_network_client():
+    """Example 3, the half that had no teeth.
+
+    `NETWORK_MODULES` listed no model SDK, so the check would have passed green
+    whatever a model client imported -- the one file it most needed to see. A
+    vendor SDK is a network client whatever it is named.
+    """
+    for sdk in ("anthropic", "openai", "cohere", "litellm", "ollama"):
+        assert is_network(sdk), f"{sdk} must count as a network client"
+
+
+def test_the_paths_that_must_never_ask_a_model_cannot_be_handed_one():
+    """Examples 4 and 5, asserted structurally rather than behaviourally.
+
+    R4.6 and R4.7 already assert that `--plan` and `--replay` make no calls. This
+    asserts the stronger and cheaper thing: those paths have nowhere to put a
+    client. A signature cannot drift the way a code path can.
+    """
+    import inspect
+
+    from dossier.application.run import replay
+    from dossier.domain.scoring import score_document, score_field
+
+    for callable_ in (replay, score_field, score_document):
+        parameters = set(inspect.signature(callable_).parameters)
+        assert not parameters & {"model", "client", "model_client"}, (
+            f"{callable_.__name__} takes something that could be a model client"
+        )
 
 
 @pytest.mark.parametrize("path", MODULES, ids=lambda p: module_name(p))
