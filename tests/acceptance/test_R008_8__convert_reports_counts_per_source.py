@@ -16,6 +16,28 @@ import pytest
 PIPELINE = "incident-audit"
 
 
+def _artifact_names(workspace: Path) -> set[str]:
+    """Cached artifacts, excluding the provenance record beside each one.
+
+    Counting every file would count each artifact twice, and the claim here is
+    about how many *conversions* exist (R0.3, R5.4).
+    """
+    return {
+        path.name
+        for path in (workspace / ".dossier" / "cache").rglob("*")
+        if path.is_file() and not path.name.endswith(".meta.json")
+    }
+
+
+def _cache_state(workspace: Path) -> dict:
+    """Every cache file with its content and modification time."""
+    return {
+        path: (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in sorted((workspace / ".dossier" / "cache").rglob("*"))
+        if path.is_file()
+    }
+
+
 def _run(workspace: Path, monkeypatch, *args: str):
     from typer.testing import CliRunner
 
@@ -58,21 +80,13 @@ class TestConvertReportsWhatItDid:
         rewrote identical bytes would satisfy the first while breaking the second.
         """
         _run(synced, monkeypatch, "convert", PIPELINE)
-        before = {
-            path: (path.read_bytes(), path.stat().st_mtime_ns)
-            for path in sorted((synced / ".dossier" / "cache").rglob("*"))
-            if path.is_file()
-        }
+        before = _cache_state(synced)
 
         second = _run(synced, monkeypatch, "convert", PIPELINE)
 
         assert "0 converted" in second.output
         assert "3 cached" in second.output
-        assert {
-            path: (path.read_bytes(), path.stat().st_mtime_ns)
-            for path in sorted((synced / ".dossier" / "cache").rglob("*"))
-            if path.is_file()
-        } == before
+        assert _cache_state(synced) == before
 
     def test_raising_a_converter_version_reconverts_everything(
         self, synced: Path, monkeypatch
@@ -103,18 +117,14 @@ class TestConvertReportsWhatItDid:
         from dossier.infrastructure.converters.markdown_text import MarkdownTextConverter
 
         _run(synced, monkeypatch, "convert", PIPELINE)
-        first = {
-            path.name for path in (synced / ".dossier" / "cache").rglob("*") if path.is_file()
-        }
+        first = _artifact_names(synced)
 
         monkeypatch.setattr(MarkdownTextConverter, "version", "1.1.0")
         _run(synced, monkeypatch, "convert", PIPELINE)
 
-        after = {
-            path.name for path in (synced / ".dossier" / "cache").rglob("*") if path.is_file()
-        }
+        after = _artifact_names(synced)
         assert first < after
-        assert len(after) == 6
+        assert len(after) == 6, "three artifacts per version, and the old three survive"
 
     def test_a_source_whose_documents_all_fail_says_so_and_exits_non_zero(
         self, synced: Path, monkeypatch

@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel, ConfigDict
 
 from dossier.domain.conversion import NoConverter, select
-from dossier.domain.keys import ConvertInputs, cache_key
+from dossier.domain.keys import ConvertInputs, cache_key, provenance
 from dossier.domain.ports import ArtifactStore, Converter, SnapshotReader
 
 # The kind whose artifact is text a stage can ground a span in (R6.4).
@@ -136,6 +136,8 @@ def convert_source(
     store: SnapshotReader,
     cache: ArtifactStore,
     options: Mapping[str, str] | None = None,
+    run_id: str = "",
+    dossier_version: str = "",
 ) -> ConvertReport:
     """Convert every held document, or refuse the whole source (R8.5, R8.6)."""
     declared = dict(options or {})
@@ -149,6 +151,8 @@ def convert_source(
             store=store,
             cache=cache,
             options=declared,
+            run_id=run_id,
+            dossier_version=dossier_version,
         )
         for key in sorted(documents)
     )
@@ -199,6 +203,8 @@ def _convert_one(
     store: SnapshotReader,
     cache: ArtifactStore,
     options: Mapping[str, str],
+    run_id: str,
+    dossier_version: str,
 ) -> DocumentConversion:
     """One document, isolated from every other (R8.6).
 
@@ -219,6 +225,8 @@ def _convert_one(
                 payload=payload,
                 cache=cache,
                 options=options,
+                run_id=run_id,
+                dossier_version=dossier_version,
             )
             artifacts.append(artifact)
             if converter.kind == MARKDOWN:
@@ -239,6 +247,8 @@ def _one_artifact(
     payload: bytes,
     cache: ArtifactStore,
     options: Mapping[str, str],
+    run_id: str,
+    dossier_version: str,
 ) -> tuple[Artifact, bytes]:
     """One (document, kind) artifact, converted or served from cache.
 
@@ -247,19 +257,29 @@ def _one_artifact(
     (R5.4, R8.2). Nothing else can make an artifact differ, which is the promise
     the cache is trading on.
     """
-    key = cache_key(
-        ConvertInputs(
-            snapshot=held.snapshot,
-            converter_id=converter.id,
-            converter_version=converter.version,
-            options=dict(options),
-        )
+    inputs = ConvertInputs(
+        snapshot=held.snapshot,
+        converter_id=converter.id,
+        converter_version=converter.version,
+        options=dict(options),
     )
+    key = cache_key(inputs)
 
-    stored = cache.get(key)
+    stored = cache.get(key, require_record=True)
     if stored is None:
         stored = converter.convert(payload, options)
-        cache.put(key, stored)
+        # With its record, as a stage artifact is. It is the only diagnosis
+        # available for the hazard `domain/ports.py` warns about and says no test
+        # can enforce: an author who improves a converter without raising its
+        # version, leaving a cache of artifacts claiming to be something they are
+        # not (R0.3, R5.1).
+        cache.put(
+            key,
+            stored,
+            record=provenance(
+                inputs, run_id=run_id, dossier_version=dossier_version, step="convert"
+            ),
+        )
         served = False
     else:
         served = True

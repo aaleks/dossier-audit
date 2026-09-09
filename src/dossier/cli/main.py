@@ -341,24 +341,6 @@ def _replay(workspace: Path, directory: Path, pipeline: str) -> None:
     typer.echo(f"{report.cache_hits} artifact(s) reproduced · no model calls")
 
 
-def _media_type(workspace: Path, key: str) -> str:
-    """What the ledger recorded for this document (R2.16).
-
-    A replay reads the type from the ledger rather than from the manifest because
-    it is a property of the bytes, not of the run -- the same snapshot has the
-    same media type whenever it is read.
-    """
-    with Ledger(workspace) as ledger:
-        for source in ledger.sources():
-            row = ledger.row(source, key)
-            if row is not None:
-                return row.media_type
-    raise MissingFromReplay(
-        f"no ledger row for {key!r}; its media type is unknown and a replay may "
-        "not guess one."
-    )
-
-
 def _execute(workspace: Path, pipeline: str) -> None:
     """`dossier run <pipeline>` (spec 004, spec 005)."""
     try:
@@ -375,6 +357,8 @@ def _execute(workspace: Path, pipeline: str) -> None:
     documents: dict[str, str] = {}
     media_types: dict[str, str] = {}
     by_source: dict[str, list[str]] = {}
+    started_at = datetime.now(UTC)
+    this_run = run_id(started_at, token_hex(2))
     unreadable: list[tuple[str, str, str]] = []
 
     with Ledger(workspace) as ledger:
@@ -395,6 +379,8 @@ def _execute(workspace: Path, pipeline: str) -> None:
                     converters=converters,
                     store=store,
                     cache=ArtifactCache(workspace, namespace="convert"),
+                    run_id=this_run,
+                    dossier_version=version("dossier"),
                 )
             except NoConverter as error:
                 typer.echo(str(error), err=True)
@@ -412,7 +398,6 @@ def _execute(workspace: Path, pipeline: str) -> None:
                 for failure in converted.failed
             )
 
-    started_at = datetime.now(UTC)
     prompts = {
         step.id: (path.parent / step.prompt).read_text(encoding="utf-8")
         for step in config.steps
@@ -446,7 +431,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
             prompts=prompts,
             model=model,
             cache=ArtifactCache(workspace, namespace="stage"),
-            run_id=run_id(started_at, token_hex(2)),
+            run_id=this_run,
             started_at=started_at,
             dossier_version=version("dossier"),
             converters=[

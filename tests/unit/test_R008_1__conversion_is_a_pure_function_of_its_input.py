@@ -220,3 +220,71 @@ class TestNoConverterReadsTheWorld:
         assert not offenders, "\n".join(
             offenders + ["  A converted artifact is a pure function of its input (R8.1)."]
         )
+
+
+class TestAConvertedArtifactCanBeTracedToWhatMadeIt:
+    """R0.3's shape for conversions — an artifact with no record explains nothing.
+
+    Found by `/quality`. Stage artifacts get a sibling `.meta.json`; convert
+    artifacts did not, though `ConvertInputs.recorded()` and `provenance()` were
+    written for exactly this and never called.
+
+    That record is the only diagnosis available for the hazard `domain/ports.py`
+    warns about in as many words and says no test can enforce: a converter author
+    who improves output without raising `version`. The cache then holds artifacts
+    claiming to be something they are not. With a record you can at least find out
+    afterwards which converter and which version produced a given text; without
+    one there is nothing to look at.
+    """
+
+    def test_a_conversion_writes_a_record_naming_its_converter(self, tmp_path: Path):
+        """The one where the artifact can be traced afterwards."""
+        import json
+
+        from dossier.application.convert import HeldDocument, convert_source
+        from dossier.infrastructure.cache import ArtifactCache
+        from dossier.infrastructure.store import SnapshotStore
+
+        store = SnapshotStore(tmp_path)
+        cache = ArtifactCache(tmp_path, namespace="convert")
+        converter = next(c for c in INSTALLED if c.media_type == "text/markdown")
+
+        convert_source(
+            source_id="incidents-manual",
+            documents={
+                "INC-4821": HeldDocument(
+                    snapshot=store.put(PAYLOADS["text/markdown"]),
+                    media_type="text/markdown",
+                )
+            },
+            kinds=None,
+            converters=[converter],
+            store=store,
+            cache=cache,
+            run_id="20260806T142203Z-4f1a",
+            dossier_version="0.1.0",
+        )
+
+        records = [
+            json.loads(path.read_text(encoding="utf-8"))
+            for path in (tmp_path / ".dossier" / "cache").rglob("*.meta.json")
+        ]
+        assert len(records) == 1
+        assert records[0]["converter_id"] == converter.id
+        assert records[0]["converter_version"] == converter.version
+        assert records[0]["run_id"] == "20260806T142203Z-4f1a"
+
+    def test_a_cached_conversion_still_requires_its_record(self, tmp_path: Path):
+        """The one where an artifact without a record is not an entry (R5.8).
+
+        The same rule stage artifacts follow. A process killed between the two
+        writes leaves bytes nothing can explain, and serving them would be
+        serving something whose provenance is unknown.
+        """
+        from dossier.infrastructure.cache import ArtifactCache
+
+        cache = ArtifactCache(tmp_path, namespace="convert")
+        cache.put("e" * 64, b"# converted")
+
+        assert cache.get("e" * 64) is not None
+        assert cache.get("e" * 64, require_record=True) is None
