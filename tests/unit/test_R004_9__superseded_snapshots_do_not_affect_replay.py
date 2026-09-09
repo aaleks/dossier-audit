@@ -211,3 +211,90 @@ class TestAReplayReadsWhatItPinned:
 
         assert "extract" in str(error.value)
         assert "INC-4821" in str(error.value)
+
+
+class TestAReplayReproducesTheArtifactsByteForByte:
+    """R4.7 row 1 — "every artifact is byte-identical to the original".
+
+    Found unasserted by `/quality`. The acceptance test proved the replay exited
+    0, printed "no model calls" and wrote nothing new — all of which a replay
+    that reproduced *nothing* also satisfies, and did: a `replay` returning zero
+    results passed five of that file's six rows.
+
+    Byte-identity is a claim about what came back, so it is asserted where the
+    results are: against the original run's own report.
+    """
+
+    def test_the_replayed_artifacts_are_the_bytes_the_run_produced(self, tmp_path: Path):
+        """The one that compares the two runs' outputs directly."""
+        from dossier.application.run import _as_text
+
+        config = pipeline()
+        original = execute(
+            workspace=tmp_path,
+            pipeline=config,
+            pipeline_hash=PIPELINE_HASH,
+            documents={"INC-4821": PINNED},
+            document_text=ORIGINAL_TEXT,
+            schemas={"extract": SCHEMA},
+            prompts={"extract": prompt_for(["documents"])},
+            model=FakeModelClient(responses=[answer("INC-4821")]),
+            cache=ArtifactCache(tmp_path, namespace="stage"),
+            run_id="20260806T142203Z-4f1a",
+            started_at=STARTED_AT,
+            dossier_version="0.1.0",
+        )
+        manifest = Manifest.read(
+            tmp_path / "runs" / "20260806T142203Z-4f1a" / "manifest.json"
+        )
+
+        replayed = replay_it(tmp_path, manifest)
+
+        produced = [_as_text(r) for step in original.steps for r in step.results]
+        reproduced = [_as_text(r) for step in replayed.steps for r in step.results]
+        assert produced == reproduced
+        assert produced, "and there was something to reproduce"
+
+    def test_a_replay_that_reproduced_nothing_would_not_pass(self, tmp_path: Path):
+        """The one that names the shape of the gap that was there.
+
+        Counting is the cheapest thing that distinguishes "reproduced the run"
+        from "did nothing quietly", and it was the assertion missing everywhere.
+        """
+        manifest = first_run(tmp_path)
+
+        report = replay_it(tmp_path, manifest)
+
+        assert report.cache_hits == 1
+        assert [len(step.results) for step in report.steps] == [1]
+
+    def test_the_grounding_checks_come_back_too(self, tmp_path: Path):
+        """The one where the reproduced result is whole, not just its bytes.
+
+        A caller gets a `DocumentResult`, and the grounding checks in it are
+        re-derived on a hit. Being pure (R6.4), they must come out the same --
+        otherwise a replayed run could disagree with the original about which
+        fields were evidenced.
+        """
+        config = pipeline()
+        original = execute(
+            workspace=tmp_path,
+            pipeline=config,
+            pipeline_hash=PIPELINE_HASH,
+            documents={"INC-4821": PINNED},
+            document_text=ORIGINAL_TEXT,
+            schemas={"extract": SCHEMA},
+            prompts={"extract": prompt_for(["documents"])},
+            model=FakeModelClient(responses=[answer("INC-4821")]),
+            cache=ArtifactCache(tmp_path, namespace="stage"),
+            run_id="20260806T142203Z-4f1a",
+            started_at=STARTED_AT,
+            dossier_version="0.1.0",
+        )
+        manifest = Manifest.read(
+            tmp_path / "runs" / "20260806T142203Z-4f1a" / "manifest.json"
+        )
+
+        replayed = replay_it(tmp_path, manifest)
+
+        assert replayed.steps[0].results[0].checks == original.steps[0].results[0].checks

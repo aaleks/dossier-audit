@@ -108,6 +108,11 @@ class TestAReplayReproducesTheRun:
         assert result.exit_code == 0, result.output
         assert "no model calls" in result.output
         assert _artifacts(workspace) == before, "a replay writes no new artifact"
+        # The counts, because "wrote nothing" and "reproduced nothing" are both
+        # satisfied by a replay that did nothing at all -- which passed five of
+        # these six rows before `/quality` found it.
+        assert "3 artifact(s) reproduced" in result.output
+        assert "extract: 3 artifact(s) from cache" in result.output
 
     def test_an_edited_pipeline_is_ignored(
         self, workspace: Path, monkeypatch, completed: str
@@ -126,7 +131,7 @@ class TestAReplayReproducesTheRun:
         result = _cli(workspace, monkeypatch, "run", PIPELINE, "--replay", f"runs/{completed}")
 
         assert result.exit_code == 0, result.output
-        assert "extract:" in result.output
+        assert "extract: 3 artifact(s) from cache" in result.output
         assert "enrich" not in result.output
 
     def test_a_deleted_pipeline_is_ignored(
@@ -143,6 +148,7 @@ class TestAReplayReproducesTheRun:
         result = _cli(workspace, monkeypatch, "run", PIPELINE, "--replay", f"runs/{completed}")
 
         assert result.exit_code == 0, result.output
+        assert "3 artifact(s) reproduced" in result.output
 
     def test_the_manifests_model_is_the_one_used(
         self, workspace: Path, monkeypatch, completed: str
@@ -164,6 +170,7 @@ class TestAReplayReproducesTheRun:
         result = _cli(workspace, monkeypatch, "run", PIPELINE, "--replay", f"runs/{completed}")
 
         assert result.exit_code == 0, result.output
+        assert "3 artifact(s) reproduced" in result.output
         assert manifest["plan"]["model"] == "anthropic:claude-sonnet-4-5-20250929"
 
     def test_a_missing_snapshot_is_named_and_nothing_is_substituted(
@@ -185,6 +192,11 @@ class TestAReplayReproducesTheRun:
 
         assert result.exit_code == 2
         assert "no model calls" not in result.output
+        # Row 4 says "a clear error naming the missing hash". It used to name a
+        # stage cache key instead -- and the stage artifact was still on disk, so
+        # the message sent the reader to a directory holding exactly what it said
+        # was absent.
+        assert "no snapshot for" in result.output
 
     def test_a_missing_manifest_is_refused(self, workspace: Path, monkeypatch, completed: str):
         """The one where the run directory does not exist.
@@ -198,3 +210,62 @@ class TestAReplayReproducesTheRun:
 
         assert result.exit_code == 2
         assert "manifest" in result.output
+
+
+class TestAReplayIsPinnedToTheConvertersItUsed:
+    """R4.7 row 1 — "byte-identical" has to survive the tools moving on.
+
+    Spec 004's manifest section requires converter versions to be recorded, and
+    they were not. `/quality` found the consequence: `_replay` re-converted with
+    whatever `installed_converters()` returns *today*, so raising a converter
+    version broke the replay of every run ever made — and broke it as a missing
+    cache artifact, which names neither the converter nor the version and reads
+    like a corrupted cache.
+
+    A past audit is defended by what it actually read (R4.9). That has to include
+    the tool that read it.
+    """
+
+    def test_raising_a_converter_version_does_not_break_a_past_replay(
+        self, workspace: Path, monkeypatch, completed: str
+    ):
+        """The one where the converter improved after the run.
+
+        The artifact this run was built from was produced by `markdown-text`
+        1.0.0. Version 1.1.0 may well produce different text — that is why a
+        version is raised — but this run did not read that text, and replaying it
+        must not pretend otherwise.
+        """
+        from dossier.infrastructure.converters.markdown_text import MarkdownTextConverter
+
+        # Output *and* version, because a version is raised precisely when output
+        # could change. Bumping the number alone on a passthrough converter
+        # changes no bytes and so proves nothing.
+        monkeypatch.setattr(MarkdownTextConverter, "version", "1.1.0")
+        monkeypatch.setattr(
+            MarkdownTextConverter,
+            "convert",
+            lambda self, payload, options: b"# better extraction\n" + payload,
+        )
+
+        result = _cli(workspace, monkeypatch, "run", PIPELINE, "--replay", f"runs/{completed}")
+
+        assert result.exit_code == 0, result.output
+        assert "3 artifact(s) reproduced" in result.output
+
+    def test_the_manifest_records_the_converters_the_run_used(
+        self, workspace: Path, monkeypatch, completed: str
+    ):
+        """Spec 004: the manifest holds converter versions.
+
+        Recorded so the run is reproducible *without* the installed packages
+        agreeing — which is the difference between a manifest that describes a
+        run and one that merely describes a pipeline.
+        """
+        manifest = json.loads(
+            (workspace / "runs" / completed / "manifest.json").read_text(encoding="utf-8")
+        )
+
+        converters = manifest["plan"]["converters"]
+        assert {c["id"] for c in converters} == {"markdown-text"}
+        assert {c["version"] for c in converters} == {"1.0.0"}

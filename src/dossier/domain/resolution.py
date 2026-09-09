@@ -60,6 +60,29 @@ class PinnedDocument(BaseModel):
 
     key: str
     snapshot: str
+    # What the connector said these bytes were, at the time of this run (R2.16).
+    # Pinned here so a replay needs no ledger: the ledger describes what is held
+    # today, and a re-synced source would otherwise change which converter a past
+    # run appears to have used.
+    media_type: str = ""
+
+
+class PinnedConverter(BaseModel):
+    """A converter as this run used it (spec 004, R8.2).
+
+    Recorded so a run is reproducible without the installed packages agreeing,
+    which is the difference between a manifest that describes a *run* and one
+    that merely describes a pipeline. Raising a converter's version is the whole
+    mechanism R5.4 rests on; a replay that adopted today's version would be
+    reproducing today's tools rather than that afternoon's audit (R4.7, R4.9).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    version: str
+    media_type: str
+    kind: str
 
 
 class ResolvedPlan(BaseModel):
@@ -81,6 +104,7 @@ class ResolvedPlan(BaseModel):
     model: str
     steps: list[ResolvedStep]
     documents: list[PinnedDocument]
+    converters: list[PinnedConverter] = []
 
 
 def previous_count(reference: str) -> int:
@@ -157,8 +181,10 @@ def resolve(
     pipeline: PipelineConfig,
     pipeline_hash: str,
     documents: Mapping[str, str],
+    media_types: Mapping[str, str] | None = None,
     prompt_hashes: Mapping[str, str] | None = None,
     schema_hashes: Mapping[str, str | None] | None = None,
+    converters: Sequence[PinnedConverter] | None = None,
 ) -> ResolvedPlan:
     """A pipeline and a set of snapshots, frozen into one plan (R4.4, R4.8).
 
@@ -180,8 +206,19 @@ def resolve(
             pipeline.steps, prompt_hashes=prompt_hashes, schema_hashes=schema_hashes
         ),
         documents=[
-            PinnedDocument(key=key, snapshot=documents[key]) for key in sorted(documents)
+            PinnedDocument(
+                key=key,
+                snapshot=documents[key],
+                media_type=(media_types or {}).get(key, ""),
+            )
+            for key in sorted(documents)
         ],
+        # Sorted by the pair each claims, so two machines with the same
+        # converters installed in a different order write the same manifest
+        # (R4.8, R5.6).
+        converters=sorted(
+            converters or [], key=lambda c: (c.media_type, c.kind, c.id)
+        ),
     )
 
 
