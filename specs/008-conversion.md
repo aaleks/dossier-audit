@@ -191,7 +191,7 @@ document failed and why.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.convert`)
-- **Proved by:** `tests/unit/test_R008_6__a_conversion_failure_is_isolated.py`
+- **Proved by:** `tests/unit/test_R008_6__a_conversion_failure_is_isolated.py`, `tests/acceptance/test_R008_6__a_run_reports_documents_that_failed_to_convert.py`
 - **Status:** MET
 
 | # | Given | Then |

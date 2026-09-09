@@ -246,3 +246,48 @@ class TestAModeIsNeverSilentlyReinterpreted:
         assert model.call_count == 1
         assert len(report.steps[0].results) == 1
         assert report.failed == []
+
+
+class TestEveryRefusalHappensDuringResolution:
+    """R4.1 — a check that can refuse a run must refuse it before the run exists.
+
+    Found by `/quality`: the `previous(n)` arity check lived inside the execution
+    loop, so a pipeline it rejected still wrote a manifest and still spent model
+    calls on the steps above the offending one. The rule's example 2 is explicit
+    that a resolution failure leaves no `runs/<id>/` at all, and the CLI's error
+    message said as much while it was untrue.
+    """
+
+    def test_an_input_that_expands_to_several_ids_is_refused_before_anything_runs(
+        self, tmp_path: Path
+    ):
+        """The one where `previous(2)` is caught at resolution, not mid-run.
+
+        Two steps run cleanly before the third is reached, which is exactly what
+        makes this worth asserting: the failure is late in the loop and early in
+        the pipeline's declaration, so a check in the wrong place looks correct
+        on any single-step pipeline.
+        """
+        config = PipelineConfig(
+            name="incident-audit",
+            sources=["incidents-manual"],
+            model="anthropic:claude-sonnet-4-5-20250929",
+            steps=[
+                StepConfig(
+                    id=name, prompt=f"prompts/{name}.md", input=value, mode="per_file"
+                )
+                for name, value in (
+                    ("extract", "documents"),
+                    ("verify", "documents"),
+                    ("report", "previous(2)"),
+                )
+            ],
+        )
+
+        with pytest.raises(ValueError) as error:
+            run(tmp_path, config, NoModelClient())
+
+        assert "report" in str(error.value)
+        assert not (tmp_path / "runs").exists(), (
+            "a resolution failure leaves no run directory (R4.1 example 2)"
+        )

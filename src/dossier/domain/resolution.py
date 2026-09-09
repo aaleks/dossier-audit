@@ -183,3 +183,29 @@ def resolve(
             PinnedDocument(key=key, snapshot=documents[key]) for key in sorted(documents)
         ],
     )
+
+
+def validate_input_arity(
+    steps: Sequence[StepConfig], resolved: Sequence[ResolvedStep]
+) -> None:
+    """Every declared input must stand for exactly one resolved id (R4.1).
+
+    `previous(2)` expands to two ids, which is correct and is what R4.2 says.
+    What has no answer is how to *render* it: spec 003 puts multiple inputs under
+    distinct labelled tags, which is a statement about declared inputs, and one
+    placeholder cannot carry two values.
+
+    So the expansion stays faithful and the refusal lives here, called during
+    resolution. It was previously discovered inside the execution loop, which
+    meant a pipeline it rejected had already written its manifest and already
+    spent model calls on the steps above the offending one -- exactly the
+    half-executed run R4.1 exists to make impossible.
+    """
+    for declared, expanded in zip(steps, resolved, strict=True):
+        if len(declared.inputs) != len(expanded.inputs):
+            raise ValueError(
+                f"step {declared.id!r} declares {len(declared.inputs)} input(s) that "
+                f"expand to {len(expanded.inputs)}. `previous(n)` for n > 1 has no "
+                "agreed rendering: spec 003 puts multiple inputs under distinct "
+                "labelled tags, and one placeholder cannot carry several."
+            )

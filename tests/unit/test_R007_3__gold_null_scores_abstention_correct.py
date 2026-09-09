@@ -17,7 +17,13 @@ from __future__ import annotations
 
 from dossier.domain.grounding import FieldCheck, FieldVerdict
 from dossier.domain.schemas import Evidence, FieldRecord
-from dossier.domain.scoring import GoldField, Verdict, score_document, score_field
+from dossier.domain.scoring import (
+    FieldKind,
+    GoldField,
+    Verdict,
+    score_document,
+    score_field,
+)
 
 ABSTAINED = FieldCheck(FieldVerdict.ABSTAINED)
 GROUNDED = FieldCheck(FieldVerdict.VALID)
@@ -42,7 +48,10 @@ class TestAbstentionIsScored:
         never states a cause, and saying so is the correct answer.
         """
         result = score_field(
-            record=abstention("root_cause"), gold=GoldField(value=None), check=ABSTAINED
+            record=abstention("root_cause"),
+            gold=GoldField(value=None),
+            check=ABSTAINED,
+            kind=FieldKind.FREE_TEXT,
         )
 
         assert result.verdict is Verdict.CORRECT
@@ -58,6 +67,7 @@ class TestAbstentionIsScored:
             record=answered("root_cause", "cable fault"),
             gold=GoldField(value=None),
             check=GROUNDED,
+            kind=FieldKind.FREE_TEXT,
         )
 
         assert result.verdict is Verdict.INCORRECT
@@ -74,6 +84,7 @@ class TestAbstentionIsScored:
             record=abstention("root_cause"),
             gold=GoldField(value="cable fault"),
             check=ABSTAINED,
+            kind=FieldKind.FREE_TEXT,
         )
 
         assert result.verdict is Verdict.INCORRECT
@@ -90,6 +101,7 @@ class TestAbstentionIsScored:
             records=[answered("severity", "major"), answered("affected_systems", "api")],
             checks={"severity": GROUNDED, "affected_systems": GROUNDED},
             gold={"severity": GoldField(value="major")},
+            kinds={"severity": FieldKind.ENUM, "affected_systems": FieldKind.ENUM},
         )
 
         assert [result.field for result in report.results] == ["severity"]
@@ -106,6 +118,7 @@ class TestAbstentionIsScored:
             record=FieldRecord(field="root_cause", value=None),
             gold=GoldField(value=None),
             check=FieldCheck(FieldVerdict.INVALID, "value is null with no reason"),
+            kind=FieldKind.FREE_TEXT,
         )
 
         assert result.verdict is Verdict.INCORRECT
@@ -122,6 +135,7 @@ class TestAbstentionIsScored:
             records=[abstention("root_cause"), abstention("owner")],
             checks={"root_cause": ABSTAINED, "owner": ABSTAINED},
             gold={"root_cause": GoldField(value=None)},
+            kinds={"root_cause": FieldKind.FREE_TEXT, "owner": FieldKind.FREE_TEXT},
         )
 
         assert [(r.field, r.verdict) for r in report.results] == [

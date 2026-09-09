@@ -377,6 +377,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
     converters = installed_converters()
     text: dict[str, str] = {}
     documents: dict[str, str] = {}
+    unreadable: list[tuple[str, str, str]] = []
 
     with Ledger(workspace) as ledger:
         for name in config.synced_sources:
@@ -401,8 +402,14 @@ def _execute(workspace: Path, pipeline: str) -> None:
                 typer.echo(str(error), err=True)
                 raise typer.Exit(code=2) from error
             text.update(converted.text)
-            documents.update(
-                {key: held[key].snapshot for key in converted.text}
+            documents.update({key: held[key].snapshot for key in converted.text})
+            # A document that could not be read is not silently absent from the
+            # run. It is excluded from what gets audited -- the rest of the work
+            # survives it -- and it is named, with its reason, and the command
+            # exits non-zero (R8.6).
+            unreadable.extend(
+                (name, failure.document, failure.error or "conversion failed")
+                for failure in converted.failed
             )
 
     started_at = datetime.now(UTC)
@@ -436,6 +443,9 @@ def _execute(workspace: Path, pipeline: str) -> None:
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
 
+    for source, document, reason in unreadable:
+        typer.echo(f"  {source}: {document} could not be converted: {reason}", err=True)
+
     typer.echo(f"run {report.run_id} · {report.manifest_path}")
     for step in report.steps:
         cached = len(step.served_from_cache)
@@ -446,7 +456,10 @@ def _execute(workspace: Path, pipeline: str) -> None:
 
     for step, document in report.failed:
         typer.echo(f"    {step} failed on {document}", err=True)
-    if report.failed:
+
+    # Either kind of failure means this audit covered less than the corpus. A
+    # zero exit here would let anything reading `$?` quote it as clean.
+    if report.failed or unreadable:
         raise typer.Exit(code=1)
 
 

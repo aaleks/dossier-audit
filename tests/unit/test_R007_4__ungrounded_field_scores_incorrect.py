@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dossier.domain.grounding import FieldCheck, FieldVerdict
 from dossier.domain.schemas import Evidence, FieldRecord
-from dossier.domain.scoring import GoldField, Verdict, score_field
+from dossier.domain.scoring import FieldKind, GoldField, Verdict, score_field
 
 SPAN = Evidence(document="INC-4821", span="total exposure CHF 48'200")
 GROUNDED = FieldCheck(FieldVerdict.VALID)
@@ -42,7 +42,9 @@ class TestEvidenceIsRequired:
         document, so the model produced the right number from somewhere other
         than the evidence -- and this rule says that does not count.
         """
-        result = score_field(record=loss(), gold=GOLD, check=UNGROUNDED)
+        result = score_field(
+            record=loss(), gold=GOLD, check=UNGROUNDED, kind=FieldKind.AMOUNT
+        )
 
         assert result.verdict is Verdict.INCORRECT
 
@@ -54,8 +56,12 @@ class TestEvidenceIsRequired:
         A `review.jsonl` that called both "incorrect" would send someone hunting
         for a disagreement that does not exist.
         """
-        result = score_field(record=loss(), gold=GOLD, check=UNGROUNDED)
-        mismatch = score_field(record=loss(48250.00), gold=GOLD, check=GROUNDED)
+        result = score_field(
+            record=loss(), gold=GOLD, check=UNGROUNDED, kind=FieldKind.AMOUNT
+        )
+        mismatch = score_field(
+            record=loss(48250.00), gold=GOLD, check=GROUNDED, kind=FieldKind.AMOUNT
+        )
 
         assert "ungrounded" in (result.detail or "")
         assert "ungrounded" not in (mismatch.detail or "")
@@ -67,9 +73,11 @@ class TestEvidenceIsRequired:
         Same value, same gold, locatable span. Without this row the rule is
         satisfied by a scorer that marks everything incorrect.
         """
-        assert score_field(record=loss(), gold=GOLD, check=GROUNDED).verdict is (
-            Verdict.CORRECT
+        result = score_field(
+            record=loss(), gold=GOLD, check=GROUNDED, kind=FieldKind.AMOUNT
         )
+
+        assert result.verdict is Verdict.CORRECT
 
     def test_an_abstention_is_not_ungrounded(self):
         """Counter-example (row 4): the one where there is no span to find.
@@ -84,7 +92,10 @@ class TestEvidenceIsRequired:
         )
 
         result = score_field(
-            record=abstains, gold=GoldField(value=None), check=ABSTAINED
+            record=abstains,
+            gold=GoldField(value=None),
+            check=ABSTAINED,
+            kind=FieldKind.FREE_TEXT,
         )
 
         assert result.verdict is Verdict.CORRECT
@@ -97,7 +108,9 @@ class TestEvidenceIsRequired:
         as ungrounded, not as a mismatch. The missing evidence is the finding;
         the value disagreeing is a detail about a number nobody can trace.
         """
-        result = score_field(record=loss(48250.00), gold=GOLD, check=UNGROUNDED)
+        result = score_field(
+            record=loss(48250.00), gold=GOLD, check=UNGROUNDED, kind=FieldKind.AMOUNT
+        )
 
         assert result.verdict is Verdict.INCORRECT
         assert "ungrounded" in (result.detail or "")

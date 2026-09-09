@@ -21,7 +21,7 @@ import pytest
 
 from dossier.domain.grounding import FieldCheck, FieldVerdict
 from dossier.domain.schemas import Evidence, FieldRecord
-from dossier.domain.scoring import GoldField, Verdict, score_field
+from dossier.domain.scoring import FieldKind, GoldField, Verdict, score_field
 
 GROUNDED = FieldCheck(FieldVerdict.VALID)
 SPAN = Evidence(document="INC-4821", span="total exposure CHF 48'200")
@@ -31,8 +31,8 @@ def record(field: str, value, currency: str | None = None) -> FieldRecord:
     return FieldRecord(field=field, value=value, currency=currency, source=SPAN)
 
 
-def scored(produced: FieldRecord, gold: GoldField) -> Verdict:
-    return score_field(record=produced, gold=gold, check=GROUNDED).verdict
+def scored(produced: FieldRecord, gold: GoldField, kind=FieldKind.AMOUNT) -> Verdict:
+    return score_field(record=produced, gold=gold, check=GROUNDED, kind=kind).verdict
 
 
 class TestNonJudgeScoring:
@@ -62,6 +62,7 @@ class TestNonJudgeScoring:
         assert scored(
             record("resolution_date", "28.07.2026"),
             GoldField(value="2026-07-28"),
+            kind=FieldKind.DATE,
         ) is Verdict.CORRECT
 
     def test_a_free_text_field_is_not_scored_here(self):
@@ -73,8 +74,9 @@ class TestNonJudgeScoring:
         """
         result = score_field(
             record=record("root_cause", "a certificate expired"),
-            gold=GoldField(value="the TLS certificate expired", judged=True),
+            gold=GoldField(value="the TLS certificate expired"),
             check=GROUNDED,
+            kind=FieldKind.FREE_TEXT,
         )
 
         assert result.verdict is Verdict.NEEDS_JUDGE
@@ -128,7 +130,7 @@ class TestNonJudgeScoring:
         model happened to echo them back in is not information.
         """
         assert scored(
-            record("severity", "Major"), GoldField(value="major")
+            record("severity", "Major"), GoldField(value="major"), kind=FieldKind.ENUM
         ) is Verdict.CORRECT
 
     def test_scoring_the_same_pair_twice_gives_the_same_verdict(self):
@@ -140,7 +142,86 @@ class TestNonJudgeScoring:
         produced = record("loss_amount", "48'200.00 CHF", "CHF")
         gold = GoldField(value=48200.00, currency="CHF")
 
-        first = score_field(record=produced, gold=gold, check=GROUNDED)
-        second = score_field(record=produced, gold=gold, check=GROUNDED)
+        first = score_field(record=produced, gold=gold, check=GROUNDED, kind=FieldKind.AMOUNT)
+        second = score_field(record=produced, gold=gold, check=GROUNDED, kind=FieldKind.AMOUNT)
 
         assert first == second
+
+
+class TestAValueThatIsNotWellFormedIsNotAMismatch:
+    """R7.1 — an unreadable value and a disagreeing value are different findings.
+
+    Both were found by `/quality`. The scorer used to sniff each value's type,
+    which made the verdict depend on what the model returned rather than on what
+    the field is; and `_as_date` guessed day-first on ambiguous input while its
+    own docstring claimed it refused to.
+    """
+
+    def test_an_ambiguous_date_is_refused_rather_than_guessed(self):
+        """The one where `07/08/2026` could be either month.
+
+        7 August or 8 July, depending on the reader's country. Resolving it
+        silently would make the scorer quietly wrong for half of every year --
+        and the wrongness would look like a model error, not a scorer error.
+        """
+        result = score_field(
+            record=record("resolution_date", "07/08/2026"),
+            gold=GoldField(value="2026-08-07"),
+            check=GROUNDED,
+            kind=FieldKind.DATE,
+        )
+
+        assert result.verdict is Verdict.INCORRECT
+        assert "well-formed" in (result.detail or "")
+
+    def test_an_unambiguous_day_first_date_is_still_read(self):
+        """The counter-example to the row above: no month is 28.
+
+        Refusing everything with slashes would be safe and useless. The rule is
+        ambiguity, not format.
+        """
+        assert scored(
+            record("resolution_date", "28.07.2026"),
+            GoldField(value="2026-07-28"),
+            kind=FieldKind.DATE,
+        ) is Verdict.CORRECT
+
+    def test_an_unreadable_value_is_reported_as_unreadable(self):
+        """The one where a mismatch and a malformed value need different work.
+
+        `not a date at all` is not a disagreement with gold; it is a field that
+        cannot be compared. Reporting it as a mismatch would send someone hunting
+        for a discrepancy that does not exist.
+        """
+        result = score_field(
+            record=record("resolution_date", "not a date at all"),
+            gold=GoldField(value="2026-07-28"),
+            check=GROUNDED,
+            kind=FieldKind.DATE,
+        )
+        mismatch = score_field(
+            record=record("resolution_date", "2026-07-29"),
+            gold=GoldField(value="2026-07-28"),
+            check=GROUNDED,
+            kind=FieldKind.DATE,
+        )
+
+        assert result.verdict is mismatch.verdict is Verdict.INCORRECT
+        assert result.detail != mismatch.detail
+
+    def test_the_declared_kind_decides_and_not_the_value(self):
+        """The one that makes R7.1's determinism claim structural.
+
+        `"48200"` against `48200.0` is correct as an amount and incorrect as an
+        enum, because they are different questions. A scorer that sniffed the
+        value would answer whichever the model's formatting suggested.
+        """
+        as_amount = scored(
+            record("loss_amount", "48200"), GoldField(value=48200.0), kind=FieldKind.AMOUNT
+        )
+        as_enum = scored(
+            record("severity", "48200"), GoldField(value=48200.0), kind=FieldKind.ENUM
+        )
+
+        assert as_amount is Verdict.CORRECT
+        assert as_enum is Verdict.INCORRECT
