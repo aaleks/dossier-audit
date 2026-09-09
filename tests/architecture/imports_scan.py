@@ -109,6 +109,20 @@ def imports_of(path: Path) -> list[Import]:
                 found.append(Import(alias.name, path, node.lineno, node.lineno in lazy))
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             found.append(Import(node.module, path, node.lineno, node.lineno in lazy))
+            # `from urllib import request` names the module in the alias, not in
+            # `node.module` -- recording only the latter left the whole
+            # `from X import Y` form invisible to R0.1, which is the check every
+            # other guarantee in this project leans on. Each submodule is
+            # recorded too, so the pair is caught however it was spelled.
+            for alias in node.names:
+                found.append(
+                    Import(
+                        f"{node.module}.{alias.name}",
+                        path,
+                        node.lineno,
+                        node.lineno in lazy,
+                    )
+                )
     return found
 
 
