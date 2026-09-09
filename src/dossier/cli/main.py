@@ -34,7 +34,7 @@ from dossier.application.run import MissingFromReplay, execute, replay
 from dossier.application.sync import SourceReport, sync_source
 from dossier.config.load import ConfigError, load_pipeline, load_sources
 from dossier.domain.conversion import NoConverter
-from dossier.domain.hashing import content_hash
+from dossier.domain.hashing import text_hash
 from dossier.domain.keys import ConvertInputs, cache_key
 from dossier.domain.resolution import PinnedConverter
 from dossier.domain.sync import State
@@ -183,7 +183,7 @@ def run(
     try:
         report = build_plan(
             pipeline=config,
-            pipeline_hash=content_hash(path.read_bytes()),
+            pipeline_hash=text_hash(path),
             documents=documents,
             previous=previous,
             previous_id=previous_id,
@@ -426,7 +426,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
         report = execute(
             workspace=workspace,
             pipeline=config,
-            pipeline_hash=content_hash(path.read_bytes()),
+            pipeline_hash=text_hash(path),
             documents=documents,
             media_types=media_types,
             document_text=text,

@@ -138,3 +138,72 @@ class TestConverterSelection:
         )
 
         assert forwards == backwards
+
+
+class TestADuplicatedPairIsRefused:
+    """R8.3 — a pair matches at most one converter, and that is now enforced.
+
+    Found by `/quality`. `installed_converters()` sorts by `(media_type, kind)`,
+    which does not break a tie between two converters claiming the *same* pair --
+    their relative order is whatever `entry_points()` returned, which is
+    installation order on that machine. The lookup then silently kept the last.
+
+    The winner's id and version are in `K_convert`, so two machines with the same
+    packages installed in a different order computed different convert keys and
+    different stage keys above them. A registry docstring assumed the pair was
+    unique; nothing checked.
+    """
+
+    def test_two_converters_claiming_one_pair_are_refused_by_name(self):
+        """The one where the ambiguity is reported rather than resolved.
+
+        Picking either would be picking by installation order. Refusing names
+        both, so whoever installed the second one can uninstall it or the
+        maintainers can decide which claim is wrong.
+        """
+        rival = Converter(
+            id="pdf-markdown-fork", version="2.0.0",
+            media_type="application/pdf", kind="markdown",
+        )
+
+        with pytest.raises(ValueError) as error:
+            select(
+                media_type="application/pdf",
+                kinds=["markdown"],
+                available=[PDF_MARKDOWN, rival],
+            )
+
+        message = str(error.value)
+        assert "pdf-markdown" in message and "pdf-markdown-fork" in message
+        assert "application/pdf" in message
+
+    def test_the_refusal_does_not_depend_on_which_order_they_arrived(self):
+        """The one that makes the refusal itself deterministic.
+
+        A check that only fired for one ordering would reproduce the original bug
+        in a new place -- half the machines erroring and half quietly picking.
+        """
+        rival = Converter(
+            id="pdf-markdown-fork", version="2.0.0",
+            media_type="application/pdf", kind="markdown",
+        )
+
+        for order in ([PDF_MARKDOWN, rival], [rival, PDF_MARKDOWN]):
+            with pytest.raises(ValueError) as error:
+                select(media_type="application/pdf", kinds=["markdown"], available=order)
+            assert "pdf-markdown-fork" in str(error.value)
+
+    def test_the_same_converter_listed_twice_is_not_a_conflict(self):
+        """The counter-example: one converter is not two.
+
+        A package discovered through two entry-point paths is the same claim
+        made twice, not a disagreement. Refusing it would break an installation
+        that is merely untidy.
+        """
+        chosen = select(
+            media_type="application/pdf",
+            kinds=["markdown"],
+            available=[PDF_MARKDOWN, PDF_MARKDOWN],
+        )
+
+        assert chosen == [PDF_MARKDOWN]

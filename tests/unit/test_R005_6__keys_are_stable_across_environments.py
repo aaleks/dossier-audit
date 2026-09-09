@@ -149,3 +149,59 @@ class TestKeysAreStableAcrossEnvironments:
         other = CONVERTED.model_copy(update={"hash": "c4a70b93" * 8})
 
         assert cache_key(verify(inputs=[other, EXTRACTED])) != cache_key(verify())
+
+
+class TestTextFilesAreHashedOneWay:
+    """R5.6 — a text file read from the workspace hashes the same on every machine.
+
+    Found by `/quality`: `pipeline_hash` was taken over `read_bytes` and prompt
+    hashes over `read_text`, which performs universal-newline translation. Two
+    conventions for the same class of file, and the safer one applied to the file
+    that needed it less.
+
+    The consequence is a silent cost rather than a wrong answer. A team with a
+    Windows checkout and Linux CI has the same `pipeline.yaml` hashing two ways,
+    so no manifest ever matches and `--plan` reports everything as new forever.
+    The workspace is `Path.cwd()` -- a directory dossier does not control and
+    which may have no `.gitattributes` to save it.
+    """
+
+    def test_a_config_file_hashes_the_same_whatever_its_line_endings(
+        self, tmp_path: Path
+    ):
+        """The one where the same file arrives from two checkouts."""
+        from dossier.domain.hashing import text_hash
+
+        crlf = tmp_path / "crlf.yaml"
+        lf = tmp_path / "lf.yaml"
+        crlf.write_bytes(b"sources: [incidents-manual]\r\nmodel: x\r\n")
+        lf.write_bytes(b"sources: [incidents-manual]\nmodel: x\n")
+
+        assert text_hash(crlf) == text_hash(lf)
+
+    def test_a_real_edit_still_changes_the_hash(self, tmp_path: Path):
+        """The counter-example: normalising line endings is not normalising content.
+
+        R5.2's row 4 is the claim that matters here -- a "harmless" edit is not
+        distinguishable from a real one -- and trailing whitespace survives
+        newline translation, so it still moves the key.
+        """
+        from dossier.domain.hashing import text_hash
+
+        plain = tmp_path / "plain.md"
+        trailing = tmp_path / "trailing.md"
+        plain.write_bytes(b"{{documents}}\n")
+        trailing.write_bytes(b"{{documents}} \n")
+
+        assert text_hash(plain) != text_hash(trailing)
+
+    def test_a_snapshot_payload_is_still_hashed_byte_for_byte(self):
+        """The boundary: content is not config.
+
+        A fetched payload is hashed exactly as received (R1.2, R2.10). Newline
+        translation there would change the content hash of every file it touched
+        and make the store lie about what it holds.
+        """
+        from dossier.domain.hashing import content_hash
+
+        assert content_hash(b"a\r\nb\r\n") != content_hash(b"a\nb\n")
