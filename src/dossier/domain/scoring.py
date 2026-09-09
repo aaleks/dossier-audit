@@ -31,10 +31,17 @@ from pydantic import BaseModel, ConfigDict
 from dossier.domain.grounding import FieldCheck, FieldVerdict
 from dossier.domain.schemas import FieldRecord
 
-# Separators a person or a model puts in a number. Stripped before comparison,
-# because `48'200.00` and `48,200.00` and `48200.00` are one amount written three
-# ways and none of them is a different answer (R7.1 example 2).
-_THOUSANDS = re.compile(r"[\s'’, ]")
+# Unambiguous thousands separators: a Swiss apostrophe, or whitespace. Neither is
+# a decimal point in any convention, so `48'200.00` and `48 200.00` and
+# `48200.00` are one amount written three ways (R7.1 example 2).
+_THOUSANDS = re.compile(r"[\s'’ ]")
+
+# A comma is a thousands separator only where it groups exactly three digits all
+# the way down -- `48,200` and `1,234,567`. `48,20` and `1,5` are a decimal comma
+# in most of Europe and malformed elsewhere, and stripping them read `48,20` as
+# 4820.00: a hundredfold error, reported confidently, against gold nobody would
+# think to re-check. Refused for the same reason `07/08/2026` is.
+_COMMA_GROUPS = re.compile(r"^\d{1,3}(,\d{3})+$")
 
 # A currency written alongside the value rather than in its own field.
 _CURRENCY_PREFIX = re.compile(r"^([A-Z]{3})\s*")
@@ -287,6 +294,16 @@ def _as_number(value: object) -> float | None:
 
     text = _CURRENCY_SUFFIX.sub("", _CURRENCY_PREFIX.sub("", value.strip()))
     text = _THOUSANDS.sub("", text)
+
+    if "," in text:
+        whole, _, fraction = text.partition(".")
+        if not _COMMA_GROUPS.match(whole):
+            # A comma that does not group threes. `48,20` is 48.20 to most of
+            # Europe and 4820 to a naive stripper, and there is no way to tell
+            # from the value which was meant.
+            return None
+        text = whole.replace(",", "") + (f".{fraction}" if fraction else "")
+
     try:
         return float(text)
     except ValueError:

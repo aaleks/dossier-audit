@@ -8,6 +8,7 @@ The rows below are the rule's example table, transcribed.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import re
 from pathlib import Path
@@ -181,4 +182,94 @@ class TestARunIdIsFiledUnderATimeItActuallyWas:
 
         made = run_id(datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC), "4f1a")
 
-        assert not set(made) & set(':<>"|?*\/')
+        assert not set(made) & set(':<>"|?*') and "/" not in made and "\\" not in made
+
+
+class TestNoOtherDigestExistsAnywhere:
+    """R0.7's headline second sentence — "no other digest appears anywhere".
+
+    Found unchecked by `/quality`. R0.1 walks the tree for network imports; this
+    claim, which is just as structural, was proved only by the absence of any
+    other digest today. True now, unenforced tomorrow -- and the failure would be
+    silent, because a second hash function produces perfectly plausible hex.
+    """
+
+    OTHER_DIGESTS = {"md5", "sha1", "sha224", "sha384", "sha512", "blake2b", "blake2s",
+                     "shake_128", "shake_256", "sha3_256", "sha3_512"}
+
+    def modules(self) -> list[Path]:
+        package = Path(__file__).resolve().parents[2] / "src" / "dossier"
+        return sorted(package.rglob("*.py"))
+
+    def test_at_least_one_module_is_scanned(self):
+        """A scan over nothing would make the check below vacuous."""
+        assert self.modules()
+
+    def test_no_module_calls_another_digest(self):
+        """The one where `hashlib.md5(...)` anywhere would be caught.
+
+        Two hash functions in one system means two answers to "is this the same
+        content", and the one that is wrong is whichever a reader did not expect.
+        """
+        offenders: list[str] = []
+
+        for path in self.modules():
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                # `hashlib.md5(...)` and a bare `md5(...)` after a from-import
+                # are the same call spelled two ways.
+                called = getattr(node.func, "attr", None) or getattr(node.func, "id", None)
+                if called in self.OTHER_DIGESTS:
+                    offenders.append(f"{path.name}:{node.lineno}: {called}()")
+
+        assert not offenders, "\n".join(
+            offenders + ["  Every hash is SHA-256 (R0.7)."]
+        )
+
+    def test_builtin_hash_is_never_used_for_content(self):
+        """The one that catches `hash()`, which is salted per process.
+
+        `PYTHONHASHSEED` randomises it, so a key derived from it would differ on
+        every run of the same machine -- the most direct possible violation of
+        R0.4 and R5.6, and one that looks like a flaky cache rather than a bug.
+        """
+        offenders: list[str] = []
+
+        for path in self.modules():
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "hash"
+                ):
+                    offenders.append(f"{path.name}:{node.lineno}: hash()")
+
+        assert not offenders, "\n".join(
+            offenders + ["  `hash()` is salted per process (R0.4, R5.6)."]
+        )
+
+    def test_the_detector_detects(self, tmp_path: Path):
+        """The counter-example, and the lesson R0.1 taught two days ago.
+
+        A structural check proved only by its negative rows is a check nobody has
+        shown to work. This one is handed a violating module and must catch it.
+        """
+        module = tmp_path / "probe.py"
+        module.write_text(
+            "import hashlib\n\n\ndef digest(b):\n    return hashlib.md5(b).hexdigest()\n",
+            encoding="utf-8",
+        )
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+
+        found = [
+            node.func.attr
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in self.OTHER_DIGESTS
+        ]
+
+        assert found == ["md5"]

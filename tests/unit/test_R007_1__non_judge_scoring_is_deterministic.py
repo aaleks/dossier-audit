@@ -225,3 +225,62 @@ class TestAValueThatIsNotWellFormedIsNotAMismatch:
 
         assert as_amount is Verdict.CORRECT
         assert as_enum is Verdict.INCORRECT
+
+
+class TestAmountSeparatorsAreReadTheWayTheyAreWritten:
+    """R7.1 — an amount is normalised, not guessed at.
+
+    Two findings met here. `/quality` reported that `48,20` normalised to
+    `4820.0`: a hundredfold error, produced confidently, against gold nobody
+    would think to re-check. And fixing it surfaced that the separator character
+    class had been mojibake since it was written -- it held `â`, `€`, `™` and `Â`
+    where `’` and a non-breaking space were meant, so the two separators a
+    European document actually uses were never stripped at all.
+    """
+
+    def test_a_comma_grouping_threes_is_a_thousands_separator(self):
+        """The one where the comma is unambiguous."""
+        assert scored(
+            record("loss_amount", "48,200.00", "CHF"),
+            GoldField(value=48200.00, currency="CHF"),
+        ) is Verdict.CORRECT
+
+    def test_a_comma_not_grouping_threes_is_refused(self):
+        """The one that was a hundredfold error.
+
+        `48,20` is 48.20 to most of Europe and 4820 to a naive stripper, and
+        nothing in the value says which was meant. Refused, so it reports as
+        unreadable rather than as a wrong number that looks right.
+        """
+        result = score_field(
+            record=record("loss_amount", "48,20", "CHF"),
+            gold=GoldField(value=48.20, currency="CHF"),
+            check=GROUNDED,
+            kind=FieldKind.AMOUNT,
+        )
+
+        assert result.verdict is Verdict.INCORRECT
+        assert "well-formed" in (result.detail or "")
+
+    def test_a_curly_apostrophe_is_a_thousands_separator(self):
+        """The one the mojibake broke.
+
+        `48’200` with a typographic apostrophe is what a word processor produces
+        from a Swiss keyboard, and it is the form `specs/_fixtures.md` uses for
+        the worked example. It was not being stripped.
+        """
+        assert scored(
+            record("loss_amount", "48\u2019200.00", "CHF"),
+            GoldField(value=48200.00, currency="CHF"),
+        ) is Verdict.CORRECT
+
+    def test_a_non_breaking_space_is_a_thousands_separator(self):
+        """The other half of the same corruption.
+
+        A non-breaking space is the SI thousands separator and what a PDF
+        extractor commonly emits.
+        """
+        assert scored(
+            record("loss_amount", "48\u00a0200.00", "CHF"),
+            GoldField(value=48200.00, currency="CHF"),
+        ) is Verdict.CORRECT

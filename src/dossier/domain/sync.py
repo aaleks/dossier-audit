@@ -188,12 +188,18 @@ def tombstones(
     listed: set[str],
     already_tombstoned: set[str] = frozenset(),
     listing_was_complete: bool = True,
-) -> set[str]:
-    """Which held items have left the source's scope.
+) -> tuple[str, ...]:
+    """Which held items have left the source's scope, in key order.
 
     `held` is the active rows for one source; `listed` is what a full listing
     just returned. The answer is the difference -- items recorded as present that
     the source no longer offers.
+
+    Sorted, and a tuple rather than a set. This layer's whole contract is
+    determinism, and handing a set out of it exports an iteration order that
+    varies with `PYTHONHASHSEED`. It reaches an `executemany` today, where the
+    order happens not to matter -- but "happens not to matter" is a property of
+    the current caller, not of the value (R0.4).
     """
     if not listing_was_complete:
         # An incremental listing legitimately omits everything that did not
@@ -204,17 +210,19 @@ def tombstones(
             "tombstoning must be computed against a full listing. "
             "An incremental listing omits unchanged items, which are not departures."
         )
-    return set(held) - set(listed) - set(already_tombstoned)
+    return tuple(sorted(set(held) - set(listed) - set(already_tombstoned)))
 
 
-def reactivated(*, listed: set[str], already_tombstoned: set[str]) -> set[str]:
-    """Which tombstoned items the source is offering again.
+def reactivated(*, listed: set[str], already_tombstoned: set[str]) -> tuple[str, ...]:
+    """Which tombstoned items the source is offering again, in key order.
 
     Returned alongside `tombstones` rather than left to the caller: an item that
     comes back must go to `active`, and a sync that only handled departures would
     leave the ledger permanently wrong about it (R2.7 example 3).
+
+    Sorted for the same reason `tombstones` is.
     """
-    return set(listed) & set(already_tombstoned)
+    return tuple(sorted(set(listed) & set(already_tombstoned)))
 
 
 class DocumentCollision(ValueError):
