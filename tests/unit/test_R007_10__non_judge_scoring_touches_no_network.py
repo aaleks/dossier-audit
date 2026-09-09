@@ -19,9 +19,10 @@ The rows below are the rule's example table, transcribed.
 from __future__ import annotations
 
 import ast
+import inspect
 from pathlib import Path
 
-from tests.fakes import NoModelClient
+from tests.fakes import FakeModelClient
 
 from dossier.domain.grounding import FieldCheck, FieldVerdict
 from dossier.domain.schemas import Evidence, FieldRecord
@@ -85,12 +86,19 @@ class TestScoringIsOffline:
         thing a test can do is hold one, score, and observe it was never asked.
         Zero calls, on a client that raises on the first.
         """
-        client = NoModelClient()
+        # A counting fake, not `NoModelClient`. The previous version asserted
+        # `not hasattr(client, "calls") or client.calls == []` -- and
+        # `NoModelClient` has no `calls`, so the left disjunct was unconditionally
+        # true and the assertion could not fail under any implementation.
+        client = FakeModelClient(responses=[])
 
         for name, (record, gold) in DETERMINISTIC.items():
             score_field(record=record, gold=gold, check=GROUNDED, kind=KINDS[name])
 
-        assert not hasattr(client, "calls") or client.calls == []
+        assert client.call_count == 0
+        assert "model" not in inspect.signature(score_field).parameters, (
+            "and there is nowhere to pass one, which is the stronger claim"
+        )
 
     def test_a_gold_set_with_no_free_text_field_scores_entirely_offline(self):
         """Example 3: the one where the whole evaluation is deterministic.

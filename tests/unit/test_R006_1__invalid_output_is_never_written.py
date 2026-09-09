@@ -133,3 +133,92 @@ class TestInvalidOutputIsNeverWritten:
         same as abstaining and must not be treated as it.
         """
         assert run([response, response]).failed
+
+
+class TestTheCacheClaimsAreAssertedHere:
+    """R6.1 rows 1 and 4 are about the cache, and this file never had one.
+
+    Found by `/quality`. The test named `test_abstention_is_written_and_cached`
+    asserted neither writing nor caching -- it exercised `run_stage`, which has
+    no cache to look at. Row 1's negative half was in fact covered, but by
+    R5.8's test, so R6.1 was leaning on another rule to prove its own claim.
+    """
+
+    def _run(self, tmp_path, responses: list[str]):
+        from datetime import UTC, datetime
+
+        from tests.pipelines import prompt_for
+
+        from dossier.application.run import execute
+        from dossier.domain.pipeline import PipelineConfig, StepConfig
+        from dossier.infrastructure.cache import ArtifactCache
+
+        config = PipelineConfig(
+            name="incident-audit",
+            sources=["incidents-manual"],
+            model="anthropic:claude-sonnet-4-5-20250929",
+            steps=[
+                StepConfig(
+                    id="extract", prompt="prompts/01_extract.md", input="documents",
+                    mode="per_file",
+                )
+            ],
+        )
+        report = execute(
+            workspace=tmp_path,
+            pipeline=config,
+            pipeline_hash="0e52dd18" * 8,
+            documents={"INC-4821": "a3f9c1e2" * 8},
+            document_text=STAGE_INPUTS,
+            schemas={"extract": SCHEMA},
+            prompts={"extract": prompt_for(["documents"])},
+            model=FakeModelClient(responses=responses),
+            cache=ArtifactCache(tmp_path, namespace="stage"),
+            run_id="20260806T142203Z-4f1a",
+            started_at=datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC),
+            dossier_version="0.1.0",
+        )
+        artifacts = [
+            path
+            for path in (tmp_path / ".dossier" / "cache").rglob("*")
+            if path.is_file() and not path.name.endswith(".meta.json")
+        ]
+        return report, artifacts
+
+    def test_output_that_never_validates_leaves_no_cache_entry(self, tmp_path):
+        """Row 1: "no artifact on disk, no cache entry".
+
+        Two invalid answers, so the document fails after its one retry (R6.2).
+        Nothing is written, and the next run will ask again rather than serving
+        a failure as though it were an answer.
+        """
+        report, artifacts = self._run(tmp_path, ["not json", "still not json"])
+
+        assert report.failed == [("extract", "INC-4821")]
+        assert artifacts == []
+
+    def test_an_abstention_is_written_and_cached(self, tmp_path):
+        """Row 4: the counter-example, asserted on the cache this time.
+
+        `root_cause: null` with a reason is a conforming answer (R6.5), so it is
+        an artifact like any other -- and a second run serves it without asking.
+        """
+        abstained = json.dumps(
+            {
+                "document": "INC-4821",
+                "fields": [
+                    {
+                        "field": "root_cause",
+                        "value": None,
+                        "reason": "not stated in document",
+                        "confidence": "none",
+                    }
+                ],
+            }
+        )
+
+        report, artifacts = self._run(tmp_path, [abstained])
+
+        assert report.failed == []
+        assert len(artifacts) == 1
+        assert b"not stated in document" in artifacts[0].read_bytes()
