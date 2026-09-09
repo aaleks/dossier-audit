@@ -269,3 +269,52 @@ class TestAReplayIsPinnedToTheConvertersItUsed:
         converters = manifest["plan"]["converters"]
         assert {c["id"] for c in converters} == {"markdown-text"}
         assert {c["version"] for c in converters} == {"1.0.0"}
+
+
+class TestTheDocumentedInvocationWorks:
+    """Spec 004 writes `dossier run --replay runs/<run_id>/`, and it did not run.
+
+    Found by `/quality`. `pipeline` was a required argument, so the form the spec
+    documents failed on a missing value -- one that `_replay` then ignored
+    entirely, because a replay reads the pipeline name from the manifest and
+    consults no configuration at all.
+
+    Every test in this file used the working form, which is exactly why the
+    documented one stayed broken: the tests and the spec disagreed and neither
+    was reading the other.
+    """
+
+    def test_the_form_the_spec_documents_runs(
+        self, workspace: Path, monkeypatch, completed: str
+    ):
+        """The one copied verbatim out of spec 004."""
+        result = _cli(workspace, monkeypatch, "run", "--replay", f"runs/{completed}")
+
+        assert result.exit_code == 0, result.output
+        assert "3 artifact(s) reproduced" in result.output
+
+    def test_naming_the_pipeline_anyway_is_still_accepted(
+        self, workspace: Path, monkeypatch, completed: str
+    ):
+        """The one that keeps every existing invocation working.
+
+        The argument is optional, not forbidden. Someone with it in a script
+        should not have to change anything.
+        """
+        result = _cli(workspace, monkeypatch, "run", PIPELINE, "--replay", f"runs/{completed}")
+
+        assert result.exit_code == 0, result.output
+
+    def test_a_run_without_replay_still_requires_a_pipeline(
+        self, workspace: Path, monkeypatch
+    ):
+        """The counter-example: optional here does not mean optional everywhere.
+
+        Executing needs to know what to execute. Making the argument optional for
+        the replay path must not make `dossier run` with no arguments do
+        something surprising.
+        """
+        result = _cli(workspace, monkeypatch, "run")
+
+        assert result.exit_code == 2
+        assert "pipeline" in result.output.lower()
