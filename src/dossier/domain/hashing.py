@@ -55,3 +55,29 @@ def short(digest: str) -> str:
             "run ids, shortened hashes and uppercase digests are not hashes."
         )
     return digest[:DISPLAY_LENGTH]
+
+
+def text_hash(path) -> str:
+    """The hash of a text file the workspace supplies -- a prompt, a schema, a config.
+
+    Line endings are normalised before hashing, and that is the whole reason this
+    exists as a named function rather than two call sites choosing for
+    themselves. `pipeline_hash` was taken over raw bytes while prompt hashes were
+    taken over decoded text, so the same `pipeline.yaml` hashed two ways
+    depending on whether the checkout used CRLF -- and the workspace is the
+    user's own directory, which dossier does not control and which may have no
+    `.gitattributes` (R0.4, R5.6).
+
+    The failure that causes is silent rather than wrong: a team with a Windows
+    checkout and Linux CI never matches a manifest, so `--plan` reports every
+    step as new forever and the cache is paid for and never used.
+
+    Normalising newlines is not normalising content. Trailing whitespace, a
+    changed word, a reordered key all still move the hash -- which is what R5.2's
+    counter-example asks for.
+
+    Deliberately not used for payloads. A fetched snapshot is hashed exactly as
+    received (R1.2, R2.10); translating newlines there would change the content
+    hash of every file it touched and make the store lie about what it holds.
+    """
+    return content_hash(path.read_text(encoding="utf-8").encode("utf-8"))

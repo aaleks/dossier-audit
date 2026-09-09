@@ -60,6 +60,28 @@ Every artifact has a sibling `<name>.meta.json`:
 }
 ```
 
+### How a text file is hashed
+
+A prompt, a schema and a `pipeline.yaml` are hashed over their decoded text with
+line endings normalised. A fetched payload is not: a snapshot is hashed exactly
+as received (R1.2, R2.10), because translating newlines there would change the
+content hash of every file it touched and make the store lie about what it holds.
+
+The distinction is content versus configuration, and it is one named function
+rather than a convention each call site follows. `pipeline_hash` was taken over
+raw bytes while prompt hashes were taken over decoded text, so the same
+`pipeline.yaml` hashed two ways depending on whether the checkout used CRLF — and
+a workspace is the user's own directory, which `dossier` does not control and
+which may have no `.gitattributes`. The failure is silent rather than wrong: a
+team with a Windows checkout and Linux CI never matches a manifest, so `--plan`
+reports every step as new forever and the cache is paid for and never used.
+
+**Normalising line endings is not normalising content.** R5.2's counter-example
+still holds exactly as written: trailing whitespace, a changed word and a
+reordered key all move the hash. Its phrase "hashed as bytes" means the file is
+not interpreted or reformatted — not that a checkout convention is allowed to
+change a key.
+
 ### The root a path is relative to
 
 Each path above is relative to a different root, and `role` is what says which.

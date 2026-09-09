@@ -69,9 +69,7 @@ def select(
     converter.
     """
     wanted = [DEFAULT_KIND] if kinds is None else list(kinds)
-    claimed = {
-        (converter.media_type, converter.kind): converter for converter in available
-    }
+    claimed = _claims(available)
 
     chosen: list[Converter] = []
     for kind in wanted:
@@ -86,6 +84,42 @@ def select(
         chosen.append(converter)
 
     return chosen
+
+
+def _claims(available: Sequence[Converter]) -> dict[tuple[str, str], Converter]:
+    """One converter per pair, or a refusal naming the ones that disagree.
+
+    A dict comprehension would keep the last, which is installation order on that
+    machine -- and the winner's id and version are in `K_convert`, so two hosts
+    with the same packages would compute different keys and different stage keys
+    above them (R5.6). The registry sorts by pair, which does not break a tie
+    between two converters claiming the *same* pair.
+
+    Refusing rather than choosing, because either choice would be arbitrary and
+    only one of the two claims can be right. The same converter listed twice is
+    not a conflict: that is one claim made through two entry-point paths, which
+    is untidy rather than ambiguous.
+    """
+    claimed: dict[tuple[str, str], Converter] = {}
+    conflicts: list[str] = []
+
+    for converter in available:
+        pair = (converter.media_type, converter.kind)
+        held = claimed.get(pair)
+        if held is not None and (held.id, held.version) != (converter.id, converter.version):
+            conflicts.append(
+                f"({pair[0]}, {pair[1]}) is claimed by both "
+                f"{held.id} {held.version} and {converter.id} {converter.version}"
+            )
+            continue
+        claimed[pair] = converter
+
+    if conflicts:
+        raise NoConverter(
+            "two converters claim the same pair, and picking either would be "
+            "picking by installation order:\n  " + "\n  ".join(sorted(conflicts))
+        )
+    return claimed
 
 
 def _claimed_pairs(available: Sequence[Converter]) -> list[str]:
