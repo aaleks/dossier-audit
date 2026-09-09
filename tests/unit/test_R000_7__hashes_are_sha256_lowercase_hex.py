@@ -110,3 +110,75 @@ class TestDisplayPrefix:
     def test_only_a_full_lowercase_digest_counts_as_a_hash(self, value: str):
         """The one where a near-miss is rejected rather than passed along."""
         assert not is_content_hash(value)
+
+
+class TestARunIdIsFiledUnderATimeItActuallyWas:
+    """R0.7 example 4 pins the shape `20260806T142203Z-4f1a`; R0.8 makes it a path.
+
+    Moved out of a private CLI helper by `/quality`, which noted the format rule
+    is a pure decision with a spec behind it and was testable only through the
+    command line.
+    """
+
+    def test_the_shape_is_the_one_the_fixtures_name(self):
+        """The one where the id matches `specs/_fixtures.md` exactly."""
+        from datetime import UTC, datetime
+
+        from dossier.domain.resolution import run_id
+
+        made = run_id(datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC), "4f1a")
+
+        assert made == "20260806T142203Z-4f1a"
+
+    def test_ids_sort_in_the_order_the_runs_happened(self):
+        """The one `latest_manifest` depends on.
+
+        It finds the newest run by taking the last directory name in sorted
+        order. Basic ISO 8601 makes that true; almost any friendlier format
+        would not.
+        """
+        from datetime import UTC, datetime
+
+        from dossier.domain.resolution import run_id
+
+        earlier = run_id(datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC), "aaaa")
+        later = run_id(datetime(2026, 9, 8, 9, 0, 0, tzinfo=UTC), "0000")
+
+        assert sorted([later, earlier]) == [earlier, later]
+
+    def test_a_naive_timestamp_is_refused(self):
+        """The one where `Z` would be a lie.
+
+        `strftime` appends the `Z` literally whatever the tzinfo says, so a naive
+        or local time would be filed as if it were UTC -- silently, and only
+        visibly wrong once two machines' runs are sorted together.
+        """
+        from datetime import UTC, datetime, timedelta, timezone
+
+        import pytest
+
+        from dossier.domain.resolution import run_id
+
+        with pytest.raises(ValueError):
+            run_id(datetime(2026, 8, 6, 14, 22, 3), "4f1a")
+        with pytest.raises(ValueError):
+            run_id(
+                datetime(2026, 8, 6, 14, 22, 3, tzinfo=timezone(timedelta(hours=2))),
+                "4f1a",
+            )
+
+        assert run_id(datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC), "4f1a")
+
+    def test_the_id_is_a_legal_directory_name(self):
+        """The one found the hard way, by a manifest that could not be written.
+
+        A run id is a directory name (R0.8). The extended ISO form's colons are
+        illegal on Windows, so `runs/<run_id>/` could not exist there at all.
+        """
+        from datetime import UTC, datetime
+
+        from dossier.domain.resolution import run_id
+
+        made = run_id(datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC), "4f1a")
+
+        assert not set(made) & set(':<>"|?*\/')
