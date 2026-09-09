@@ -230,3 +230,31 @@ one document and reported the other.
 | 2 | the same, checked against the run directory | no `runs/<id>/` is created and no model call is made; a collision is a resolution failure (R4.1) |
 | 3 | two sources holding `INC-4821` and `OPS-114` respectively | accepted; distinct keys across sources are the normal case and are not a collision |
 | 4 | *counter-example* — the same source listed twice in `sources:` and `reference:` | not a collision; one source read twice is one document, and R2.12 already syncs it once |
+
+### R4.11 — `previous(n)` for n greater than one resolves, and is refused before it runs
+
+R4.2 expands `input: previous(2)` to the two preceding step ids, and a manifest
+records them. What has no answer is how to *render* it: spec 003 injects each
+declared input under its own labelled tag, and one placeholder cannot carry two
+steps' outputs. The two halves of the contract cannot both be satisfied.
+
+Refused during resolution, so a pipeline that cannot be rendered never writes a
+manifest and never spends a model call (R4.1). It was previously discovered
+inside the execution loop, which meant the steps above the offending one had
+already run.
+
+Naming the steps explicitly is the workaround and is also clearer:
+`input: [extract, verify]` with `{{extract}}` and `{{verify}}` says what the
+prompt receives. The sugar saves typing at the cost of a prompt nobody can write.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.resolution.validate_input_arity`)
+- **Proved by:** `tests/unit/test_R004_1__resolution_completes_before_execution.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `report` declaring `input: previous(2)` after two steps | refused during resolution; the error names the step and both counts |
+| 2 | the same, checked against the run directory | no `runs/<id>/` and no model call; a rendering that cannot exist is a resolution failure |
+| 3 | `report` declaring `input: [extract, verify]` with both placeholders | accepted; naming them is the workaround and is clearer than the sugar |
+| 4 | *counter-example* — `previous` and `previous(1)` | accepted; one declared input standing for one id renders exactly as R3.6 requires |

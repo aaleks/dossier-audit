@@ -146,16 +146,29 @@ def build_model_client(model_id: str):
 
 @app.command()
 def run(
-    pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
+    pipeline: str = typer.Argument(
+        "", help="Pipeline name under pipelines/. Not needed with --replay."
+    ),
     plan: bool = typer.Option(False, "--plan", help="Report what would run. Do nothing."),
     replay_from: str = typer.Option(
         "", "--replay", help="Reproduce a past run from runs/<run_id>/", metavar="DIR"
     ),
 ) -> None:
-    """Execute a pipeline, report what executing it would do, or replay one (spec 004)."""
+    """Execute a pipeline, report what executing it would do, or replay one (spec 004).
+
+    `pipeline` is optional with `--replay`, because a replay reads the pipeline
+    name from the manifest and consults no configuration at all (R4.7). Requiring
+    it made spec 004's own documented invocation --
+    `dossier run --replay runs/<run_id>/` -- fail on a missing argument that was
+    then ignored.
+    """
     if replay_from:
-        _replay(Path.cwd(), Path(replay_from), pipeline)
+        _replay(Path.cwd(), Path(replay_from))
         return
+
+    if not pipeline:
+        typer.echo("a pipeline name is required unless --replay is given", err=True)
+        raise typer.Exit(code=2)
 
     if not plan:
         _execute(Path.cwd(), pipeline)
@@ -302,7 +315,7 @@ def _convert_line(report: ConvertReport) -> str:
     return line if not report.failed else f"{line} · {len(report.failed)} failed"
 
 
-def _replay(workspace: Path, directory: Path, pipeline: str) -> None:
+def _replay(workspace: Path, directory: Path) -> None:
     """`dossier run <pipeline> --replay runs/<run_id>/` (R4.7).
 
     The manifest is the only input. `pipeline.yaml` is not read -- not to check
