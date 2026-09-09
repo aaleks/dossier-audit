@@ -203,3 +203,30 @@ Newer snapshots are ignored. A past audit is defended by what it actually read.
 | 2 | the same, with `INC-4821` since tombstoned | the replay still resolves (R2.7) |
 | 3 | a *new* run of the same pipeline | pins the newer snapshot; only replay is frozen |
 | 4 | *counter-example* — `dossier run` without `--replay`, after the source moved | resolves against current snapshots and warns that the source has moved since the last run |
+
+### R4.10 — a document key two sources both hold stops the run, naming both
+
+A run covers a set of documents, and a key identifies one of them. Two sources
+holding the same key make that untrue, and nothing downstream can tell which
+document a finding was about: `source.document` names a key (R6.3), a gold file
+is keyed by one (spec 007), and a manifest pins one snapshot per key (R4.4).
+
+Refused rather than qualified. Prefixing keys with their source would keep both
+documents, and would also change what every gold file, every provenance record
+and every report calls a document — a rename of the whole vocabulary to solve a
+collision that has not happened yet. Refusing costs the user one rename and
+cannot produce a wrong answer; the alternative that was there before, silently
+keeping whichever source `sources:` listed last, produces an audit that covered
+one document and reported the other.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R004_10__a_key_two_sources_hold_stops_the_run.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents-jira` and `incidents-manual` both holding `INC-4821` | the run stops; the error names the key and both sources |
+| 2 | the same, checked against the run directory | no `runs/<id>/` is created and no model call is made; a collision is a resolution failure (R4.1) |
+| 3 | two sources holding `INC-4821` and `OPS-114` respectively | accepted; distinct keys across sources are the normal case and are not a collision |
+| 4 | *counter-example* — the same source listed twice in `sources:` and `reference:` | not a collision; one source read twice is one document, and R2.12 already syncs it once |

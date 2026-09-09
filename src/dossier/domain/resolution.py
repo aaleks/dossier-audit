@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timedelta
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -246,3 +247,28 @@ def validate_input_arity(
                 "agreed rendering: spec 003 puts multiple inputs under distinct "
                 "labelled tags, and one placeholder cannot carry several."
             )
+
+
+def run_id(started_at: datetime, suffix: str) -> str:
+    """The identifier one run is filed under (R0.8, R0.7 example 4).
+
+    ISO 8601 *basic* format, because a run id is a directory name and the
+    extended form's colons are illegal on Windows -- found the hard way, by a
+    manifest that could not be written. Still sorts lexicographically, which
+    `plan.latest_manifest` depends on for "the newest is the last by name".
+
+    The suffix separates two runs started in the same second. It is passed in
+    rather than generated, because randomness belongs to the composition root.
+
+    A naive or non-UTC timestamp is refused. `strftime` appends a literal `Z`
+    whatever the tzinfo says, so a local time would be filed as if it were UTC --
+    silently, and only visibly wrong when two machines' runs are sorted together.
+    `infrastructure.ledger` already guards the same hazard; this is the other
+    place it lives.
+    """
+    if started_at.tzinfo is None or started_at.utcoffset() != timedelta(0):
+        raise ValueError(
+            f"a run id needs a UTC timestamp; got {started_at!r}. `Z` is appended "
+            "literally, so anything else would be filed as a time it was not."
+        )
+    return f"{started_at.strftime('%Y%m%dT%H%M%SZ')}-{suffix}"

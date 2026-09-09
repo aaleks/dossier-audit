@@ -8,6 +8,7 @@ rules be proved in milliseconds with a plain dict.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from enum import Enum
 
@@ -214,3 +215,47 @@ def reactivated(*, listed: set[str], already_tombstoned: set[str]) -> set[str]:
     leave the ledger permanently wrong about it (R2.7 example 3).
     """
     return set(listed) & set(already_tombstoned)
+
+
+class DocumentCollision(ValueError):
+    """Two sources hold the same document key (R4.10).
+
+    A `ValueError` because a caller can fix it -- by renaming a key, or by
+    dropping one of the sources from the pipeline. The application turns it into
+    a resolution failure, so nothing runs and no run directory appears (R4.1).
+    """
+
+
+def one_document_per_key(held: Mapping[str, Sequence[str]]) -> None:
+    """Refuse a run where two sources both hold a key (R4.10).
+
+    A key identifies a document: `source.document` names one (R6.3), a gold file
+    is keyed by one, and a manifest pins one snapshot per key. Two sources
+    holding `INC-4821` make all three untrue, and the previous behaviour --
+    keeping whichever source `sources:` listed last -- produced an audit that
+    covered one document and reported the other.
+
+    Sorted throughout, so the message is the same on every machine and does not
+    depend on the order the sources were declared or the ledger returned them
+    (R0.4, R5.6).
+    """
+    sources_by_key: dict[str, list[str]] = {}
+    for source in sorted(held):
+        for key in held[source]:
+            sources_by_key.setdefault(key, []).append(source)
+
+    collisions = {
+        key: sources for key, sources in sources_by_key.items() if len(sources) > 1
+    }
+    if not collisions:
+        return
+
+    raise DocumentCollision(
+        "a document key identifies one document, and these are held by more than "
+        "one source:\n"
+        + "\n".join(
+            f"  {key}: {', '.join(sorted(sources))}"
+            for key, sources in sorted(collisions.items())
+        )
+        + "\nRename one, or drop a source from this pipeline."
+    )

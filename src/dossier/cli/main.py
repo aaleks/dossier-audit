@@ -25,7 +25,6 @@ from dossier.application.convert import (
 )
 from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.plan import (
-    StepStatus,
     build_plan,
     latest_manifest,
     pinned_documents,
@@ -36,8 +35,8 @@ from dossier.config.load import ConfigError, load_pipeline, load_sources
 from dossier.domain.conversion import NoConverter
 from dossier.domain.hashing import text_hash
 from dossier.domain.keys import ConvertInputs, cache_key
-from dossier.domain.resolution import PinnedConverter
-from dossier.domain.sync import State
+from dossier.domain.resolution import PinnedConverter, run_id
+from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.connectors.registry import UnknownSourceType, build_connector
 from dossier.infrastructure.converters.registry import installed_converters
@@ -214,7 +213,7 @@ def _plan_lines(report) -> list[str]:
         lines.append(f"compared against {report.compared_against}")
 
     for step in report.steps:
-        marker = " " if step.status is StepStatus.CACHED else "!"
+        marker = "!" if step.rerunning else " "
         lines.append(f"{marker} {step.step.id}: {step.status.value}")
         if step.was is not None:
             lines.append(f"      was: [{', '.join(step.was)}]")
@@ -375,6 +374,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
     text: dict[str, str] = {}
     documents: dict[str, str] = {}
     media_types: dict[str, str] = {}
+    by_source: dict[str, list[str]] = {}
     unreadable: list[tuple[str, str, str]] = []
 
     with Ledger(workspace) as ledger:
@@ -399,6 +399,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
             except NoConverter as error:
                 typer.echo(str(error), err=True)
                 raise typer.Exit(code=2) from error
+            by_source[name] = sorted(converted.text)
             text.update(converted.text)
             documents.update({key: held[key].snapshot for key in converted.text})
             media_types.update({key: held[key].media_type for key in converted.text})
@@ -423,6 +424,17 @@ def _execute(workspace: Path, pipeline: str) -> None:
     }
 
     try:
+        # Bound before the call rather than inside its argument list. Python
+        # evaluates an argument before the function is entered, so constructing
+        # the client there ran it ahead of resolution -- and a pipeline with both
+        # a bad reference and an unreachable model reported the model (R4.1).
+        one_document_per_key(by_source)
+        model = build_model_client(config.model)
+    except (DocumentCollision, NotImplementedError) as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+
+    try:
         report = execute(
             workspace=workspace,
             pipeline=config,
@@ -432,9 +444,9 @@ def _execute(workspace: Path, pipeline: str) -> None:
             document_text=text,
             schemas=schemas,
             prompts=prompts,
-            model=build_model_client(config.model),
+            model=model,
             cache=ArtifactCache(workspace, namespace="stage"),
-            run_id=_run_id(started_at),
+            run_id=run_id(started_at, token_hex(2)),
             started_at=started_at,
             dossier_version=version("dossier"),
             converters=[
@@ -467,19 +479,6 @@ def _execute(workspace: Path, pipeline: str) -> None:
     # zero exit here would let anything reading `$?` quote it as clean.
     if report.failed or unreadable:
         raise typer.Exit(code=1)
-
-
-def _run_id(started_at: datetime) -> str:
-    """A sortable, filesystem-legal identifier for one run (R0.8).
-
-    ISO 8601 *basic* format: a run id is a directory name, and the extended
-    form's colons are illegal on Windows. The suffix distinguishes two runs
-    started in the same second.
-    """
-    stamp = started_at.strftime("%Y%m%dT%H%M%SZ")
-    return f"{stamp}-{token_hex(2)}"
-
-
 def _converters_for(manifest: Manifest):
     """The converters a past run used, as its manifest recorded them.
 
