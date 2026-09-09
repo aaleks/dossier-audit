@@ -34,6 +34,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from dossier.application.extract import DocumentResult, run_stage
 from dossier.application.manifest import Manifest
 from dossier.domain.grounding import check_field
@@ -262,12 +264,18 @@ def _run_one(
 
     hit = cache.get(key, require_record=True)
     if hit is not None:
-        return _from_cache(
+        served = _from_cache(
             document=document,
             payload=hit,
             document_text=document_text,
             structured=schema is not None,
         )
+        # A damaged entry is a miss, not authority. The cache is an optimisation
+        # and never a source of truth (R5.9), so the work is simply redone and
+        # the entry is rewritten below -- otherwise one corrupt file would be
+        # permanently fatal to a workspace whose inputs are all still present.
+        if served is not None:
+            return served
 
     result = run_stage(
         document=document,
@@ -297,17 +305,29 @@ def _from_cache(
     payload: bytes,
     document_text: Mapping[str, str],
     structured: bool = True,
-) -> DocumentResult:
+) -> DocumentResult | None:
     """Rebuild what a cached artifact stands for, with no model call.
 
     Grounding is re-derived rather than stored alongside. It is a pure function
     of the artifact and the documents (R6.4), so re-deriving costs microseconds
     and removes a second thing that could go stale.
     """
-    if not structured:
-        return DocumentResult(document=document, attempts=0, text=payload.decode())
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
 
-    output = StageOutput.model_validate_json(payload.decode())
+    if not structured:
+        return DocumentResult(document=document, attempts=0, text=text)
+
+    try:
+        output = StageOutput.model_validate_json(text)
+    except (ValidationError, ValueError):
+        # An entry that is present and unreadable. `None` rather than an
+        # exception, because the right answer differs by caller and neither
+        # should be decided here: `execute` can recompute, a replay cannot
+        # (R5.9, R4.7).
+        return None
     checks = tuple(
         check_field(record, input_documents=document_text) for record in output.fields
     )
@@ -549,12 +569,22 @@ def _replay_one(
             "workspace, and nothing has been substituted for it."
         )
 
-    return _from_cache(
+    served = _from_cache(
         document=document,
         payload=stored,
         document_text=document_text,
         structured=step.schema_hash is not None,
     )
+    if served is None:
+        # A replay has no model and nowhere to put one. Serving damaged bytes
+        # would present something other than what the run produced, and
+        # recomputing would be the substitution R4.7 row 4 forbids.
+        raise MissingFromReplay(
+            f"step {step.id!r} has a cached artifact for {document!r} that cannot "
+            f"be read at {key[:12]}...; this run cannot be reproduced from this "
+            "workspace, and nothing has been substituted for it."
+        )
+    return served
 
 
 def _replayed_input(
