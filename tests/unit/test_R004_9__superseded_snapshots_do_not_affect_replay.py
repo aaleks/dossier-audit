@@ -65,13 +65,29 @@ def pipeline() -> PipelineConfig:
 
 
 def first_run(workspace: Path, *, documents=None, text=None) -> Manifest:
-    """One completed run, pinned to `a3f9c1e2` unless told otherwise."""
+    """One completed run, pinned to `a3f9c1e2` unless told otherwise.
+
+    Records media types and converters, because a manifest without them cannot
+    drive a replay through the CLI -- which is where R4.9's "reads by the pinned
+    hash" guarantee actually lives.
+    """
+    from dossier.domain.resolution import PinnedConverter
+    from dossier.infrastructure.converters.registry import installed_converters
+
     config = pipeline()
+    held = documents or {"INC-4821": PINNED}
     execute(
         workspace=workspace,
         pipeline=config,
         pipeline_hash=PIPELINE_HASH,
-        documents=documents or {"INC-4821": PINNED},
+        documents=held,
+        media_types=dict.fromkeys(held, "text/markdown"),
+        converters=[
+            PinnedConverter(
+                id=c.id, version=c.version, media_type=c.media_type, kind=c.kind
+            )
+            for c in installed_converters()
+        ],
         document_text=text or ORIGINAL_TEXT,
         schemas={"extract": SCHEMA},
         prompts={"extract": prompt_for(["documents"])},
@@ -298,3 +314,90 @@ class TestAReplayReproducesTheArtifactsByteForByte:
         replayed = replay_it(tmp_path, manifest)
 
         assert replayed.steps[0].results[0].checks == original.steps[0].results[0].checks
+
+
+class TestTheReplayReadsByThePinnedHashNotJustRecordsIt:
+    """R4.9 row 1 — "the replay reads `a3f9c1e2`", not merely names it.
+
+    Found by `/quality`. The rows above assert the *manifest* still names the
+    pinned snapshot, and hand the original text to `replay()` by keyword. That
+    proves the pin survives; it does not prove anything reads by it.
+
+    The guarantee actually lives on the CLI path, which converts from
+    `manifest.plan.documents`. These rows drive that path with a superseded
+    snapshot sitting in the store beside the pinned one -- the situation the rule
+    is about, and the one nothing exercised.
+    """
+
+    def test_the_replay_reads_the_pinned_snapshot_not_the_newer_one(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """The one where both snapshots are present and one is newer.
+
+        A replay that resolved against "the current content for this key" would
+        find the amended document and reproduce a finding about text the run
+        never saw.
+        """
+        from typer.testing import CliRunner
+
+        from dossier.application.convert import HeldDocument, convert_source
+        from dossier.cli.main import app
+        from dossier.infrastructure.cache import ArtifactCache
+        from dossier.infrastructure.converters.registry import installed_converters
+        from dossier.infrastructure.store import SnapshotStore
+
+        store = SnapshotStore(tmp_path)
+        original = store.put(ORIGINAL_TEXT["INC-4821"].encode())
+        superseded = store.put((ORIGINAL_TEXT["INC-4821"] + "\n\nAmended.\n").encode())
+        assert original != superseded, "both are in the store, and they differ"
+
+        # Convert both, so the replay could in principle find either.
+        for digest in (original, superseded):
+            convert_source(
+                source_id="incidents-manual",
+                documents={
+                    "INC-4821": HeldDocument(snapshot=digest, media_type="text/markdown")
+                },
+                kinds=None,
+                converters=installed_converters(),
+                store=store,
+                cache=ArtifactCache(tmp_path, namespace="convert"),
+                run_id="20260806T142203Z-4f1a",
+                dossier_version="0.1.0",
+            )
+
+        manifest = first_run(tmp_path, documents={"INC-4821": original})
+
+        assert [d.snapshot for d in manifest.plan.documents] == [original]
+
+        monkeypatch.chdir(tmp_path)
+        result = CliRunner().invoke(
+            app, ["run", "--replay", f"runs/{manifest.run_id}"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "1 artifact(s) reproduced" in result.output
+
+    def test_a_replay_pinned_to_a_snapshot_that_was_never_converted_stops(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """The counter-example: reading by the hash means failing by it too.
+
+        If a replay genuinely reads by the pinned hash, pinning one whose
+        conversion was never cached must stop it. A replay that quietly used
+        whatever conversion it could find would pass this and be wrong.
+        """
+        from typer.testing import CliRunner
+
+        from dossier.cli.main import app
+        from dossier.infrastructure.store import SnapshotStore
+
+        store = SnapshotStore(tmp_path)
+        pinned = store.put(ORIGINAL_TEXT["INC-4821"].encode())
+        manifest = first_run(tmp_path, documents={"INC-4821": pinned})
+
+        monkeypatch.chdir(tmp_path)
+        result = CliRunner().invoke(app, ["run", "--replay", f"runs/{manifest.run_id}"])
+
+        assert result.exit_code == 2
+        assert "cannot be reproduced" in result.output

@@ -87,12 +87,36 @@ def outputs(report) -> list[tuple]:
 
     `attempts` is excluded on purpose: it is exactly the difference the rule
     permits, and including it would make the assertion trivially false.
+
+    The artifact bytes are included via `_as_text`, because R5.9 row 1 says
+    "byte-identical artifacts" and this helper previously compared parsed
+    records -- which two different serialisations of the same fields would
+    satisfy.
     """
+    from dossier.application.run import _as_text
+
     return [
-        (step.step, result.document, result.records, result.checks, result.error)
+        (
+            step.step,
+            result.document,
+            result.records,
+            result.checks,
+            result.error,
+            None if result.failed else _as_text(result),
+        )
         for step in report.steps
         for result in step.results
     ]
+
+
+def artifact_bytes(workspace: Path) -> dict[str, bytes]:
+    """Every cached artifact, by cache key, excluding provenance records."""
+    root = workspace / ".dossier" / "cache" / "stage"
+    return {
+        path.name: path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and not path.name.endswith(".meta.json")
+    }
 
 
 def scrub(workspace: Path) -> None:
@@ -114,6 +138,7 @@ class TestDeletingTheCacheChangesNothing:
             run_id="20260806T142203Z-4f1a",
         )
 
+        stored = artifact_bytes(tmp_path)
         scrub(tmp_path)
         again = run(
             tmp_path,
@@ -123,6 +148,11 @@ class TestDeletingTheCacheChangesNothing:
         )
 
         assert outputs(again) == outputs(first)
+        # And on disk: the same keys holding the same bytes, rebuilt from
+        # scratch. Row 1 says "byte-identical artifacts", and structural
+        # equality of parsed records is a weaker claim that two different
+        # serialisations of the same fields would satisfy.
+        assert artifact_bytes(tmp_path) == stored
 
     def test_the_only_difference_is_the_model_calls(self, tmp_path: Path):
         """Example 2: the one that measures what deleting it actually costs.
