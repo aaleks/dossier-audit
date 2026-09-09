@@ -15,7 +15,14 @@ from secrets import token_hex
 
 import typer
 
-from dossier.application.convert import ConvertReport, HeldDocument, convert_source
+from dossier.application.convert import (
+    MARKDOWN as MARKDOWN_KIND,
+)
+from dossier.application.convert import (
+    ConvertReport,
+    HeldDocument,
+    convert_source,
+)
 from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.plan import (
     StepStatus,
@@ -28,6 +35,8 @@ from dossier.application.sync import SourceReport, sync_source
 from dossier.config.load import ConfigError, load_pipeline, load_sources
 from dossier.domain.conversion import NoConverter
 from dossier.domain.hashing import content_hash
+from dossier.domain.keys import ConvertInputs, cache_key
+from dossier.domain.resolution import PinnedConverter
 from dossier.domain.sync import State
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.connectors.registry import UnknownSourceType, build_connector
@@ -307,34 +316,22 @@ def _replay(workspace: Path, directory: Path, pipeline: str) -> None:
         raise typer.Exit(code=2)
 
     manifest = Manifest.read(path)
-    converters = installed_converters()
-    store = SnapshotStore(workspace)
     cache = ArtifactCache(workspace, namespace="convert")
 
     try:
-        # Converted from the snapshots this run pinned, not from what the ledger
-        # holds today. A source that has moved on, or been tombstoned, does not
-        # change what this run read (R4.9).
-        pinned = {
-            document.key: HeldDocument(snapshot=document.snapshot, media_type=_media_type(
-                workspace, document.key
-            ))
-            for document in manifest.plan.documents
-        }
-        converted = convert_source(
-            source_id=manifest.plan.pipeline,
-            documents=pinned,
-            kinds=None,
-            converters=converters,
-            store=store,
-            cache=cache,
-        )
+        # The conversions this run produced, read back by their keys rather than
+        # recomputed. A replay therefore needs no converter installed at all --
+        # the same shape as needing no model client. Raising a converter version
+        # is how R5.4 invalidates conversions, so re-converting would produce
+        # text the original run never saw (R4.7, R4.9).
+        _require_pinned_snapshots(manifest, SnapshotStore(workspace))
+        text = _replayed_text(manifest, cache)
         report = replay(
             manifest=manifest,
-            document_text=converted.text,
+            document_text=text,
             cache=ArtifactCache(workspace, namespace="stage"),
         )
-    except (MissingFromReplay, FileNotFoundError, NoConverter) as error:
+    except MissingFromReplay as error:
         # A replay may fail; it may never substitute other content (R4.7 row 4).
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
@@ -377,6 +374,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
     converters = installed_converters()
     text: dict[str, str] = {}
     documents: dict[str, str] = {}
+    media_types: dict[str, str] = {}
     unreadable: list[tuple[str, str, str]] = []
 
     with Ledger(workspace) as ledger:
@@ -403,6 +401,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
                 raise typer.Exit(code=2) from error
             text.update(converted.text)
             documents.update({key: held[key].snapshot for key in converted.text})
+            media_types.update({key: held[key].media_type for key in converted.text})
             # A document that could not be read is not silently absent from the
             # run. It is excluded from what gets audited -- the rest of the work
             # survives it -- and it is named, with its reason, and the command
@@ -429,6 +428,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
             pipeline=config,
             pipeline_hash=content_hash(path.read_bytes()),
             documents=documents,
+            media_types=media_types,
             document_text=text,
             schemas=schemas,
             prompts=prompts,
@@ -437,6 +437,12 @@ def _execute(workspace: Path, pipeline: str) -> None:
             run_id=_run_id(started_at),
             started_at=started_at,
             dossier_version=version("dossier"),
+            converters=[
+                PinnedConverter(
+                    id=c.id, version=c.version, media_type=c.media_type, kind=c.kind
+                )
+                for c in converters
+            ],
         )
     except ValueError as error:
         # Resolution failed, so nothing ran and nothing was written (R4.1).
@@ -472,3 +478,106 @@ def _run_id(started_at: datetime) -> str:
     """
     stamp = started_at.strftime("%Y%m%dT%H%M%SZ")
     return f"{stamp}-{token_hex(2)}"
+
+
+def _converters_for(manifest: Manifest):
+    """The converters a past run used, as its manifest recorded them.
+
+    Not `installed_converters()`. Raising a converter's version is how R5.4
+    invalidates conversions, so a replay that adopted today's version would
+    convert the pinned snapshots into text the original run never saw, key
+    every stage differently, and report the result as a missing cache artifact --
+    naming neither the converter nor the version, and reading like a corrupted
+    cache.
+
+    An installed converter is matched by id *and* version, and a version the
+    workspace no longer has is refused by name. A replay may fail; it may never
+    substitute another tool's output for the one that was used (R4.7 row 4).
+    """
+    installed = {(c.id, c.version): c for c in installed_converters()}
+    missing = [
+        f"  {pinned.id} {pinned.version} (for {pinned.media_type} -> {pinned.kind})"
+        for pinned in manifest.plan.converters
+        if (pinned.id, pinned.version) not in installed
+    ]
+    if missing:
+        raise MissingFromReplay(
+            f"{manifest.run_id} used converters this workspace no longer has:\n"
+            + "\n".join(missing)
+            + "\nInstall them to reproduce this run. Nothing has been substituted."
+        )
+    return [installed[(pinned.id, pinned.version)] for pinned in manifest.plan.converters]
+
+
+def _replayed_text(manifest: Manifest, cache: ArtifactCache) -> dict[str, str]:
+    """The converted text a past run read, from the entries it wrote.
+
+    Each key is recomposed from the manifest alone -- the snapshot the run
+    pinned, and the id and version of the converter that claimed that document's
+    media type. Nothing is read from the ledger, from `pipeline.yaml`, or from
+    the converters installed today.
+
+    A conversion whose entry is gone stops the replay by name. Re-deriving it
+    would mean converting with whatever is installed now, which is precisely the
+    substitution R4.7 row 4 forbids.
+    """
+    claimed = {(c.media_type, c.kind): c for c in manifest.plan.converters}
+    text: dict[str, str] = {}
+    missing: list[str] = []
+
+    for document in manifest.plan.documents:
+        converter = claimed.get((document.media_type, MARKDOWN_KIND))
+        if converter is None:
+            missing.append(
+                f"  {document.key}: no converter recorded for {document.media_type!r}"
+            )
+            continue
+
+        key = cache_key(
+            ConvertInputs(
+                snapshot=document.snapshot,
+                converter_id=converter.id,
+                converter_version=converter.version,
+            )
+        )
+        stored = cache.get(key)
+        if stored is None:
+            missing.append(
+                f"  {document.key}: no cached conversion for snapshot "
+                f"{document.snapshot[:12]}... by {converter.id} {converter.version}"
+            )
+            continue
+        text[document.key] = stored.decode("utf-8")
+
+    if missing:
+        raise MissingFromReplay(
+            f"{manifest.run_id} cannot be reproduced:\n"
+            + "\n".join(missing)
+            + "\nNothing has been substituted."
+        )
+    return text
+
+
+def _require_pinned_snapshots(manifest: Manifest, store: SnapshotStore) -> None:
+    """Every snapshot this run read must still be held (R4.7 row 4).
+
+    Checked even though the conversions are served from cache and the bytes are
+    not needed. A replay that succeeded while the documents it audited were gone
+    would be reproducing a finding whose evidence no longer exists -- and R4.9's
+    whole claim is that a past audit is defended by what it actually read.
+
+    Snapshots are never deleted (R0.2), so a missing one means the workspace is
+    damaged. Naming the hash is what makes that diagnosable rather than merely
+    loud.
+    """
+    missing = [
+        f"  {document.key}: no snapshot for {document.snapshot[:12]}..."
+        for document in manifest.plan.documents
+        if not store.exists(document.snapshot)
+    ]
+    if missing:
+        raise MissingFromReplay(
+            f"{manifest.run_id} pinned snapshots this workspace no longer holds:\n"
+            + "\n".join(missing)
+            + "\nNothing has been substituted."
+        )

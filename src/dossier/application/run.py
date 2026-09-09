@@ -49,6 +49,7 @@ from dossier.domain.pipeline import (
 from dossier.domain.ports import ArtifactStore, ModelClient
 from dossier.domain.prompts import render
 from dossier.domain.resolution import (
+    PinnedConverter,
     ResolvedPlan,
     ResolvedStep,
     resolve,
@@ -118,6 +119,7 @@ def execute(
     pipeline: PipelineConfig,
     pipeline_hash: str,
     documents: Mapping[str, str],
+    media_types: Mapping[str, str] | None = None,
     document_text: Mapping[str, str],
     schemas: Mapping[str, dict],
     prompts: Mapping[str, str],
@@ -126,6 +128,7 @@ def execute(
     run_id: str,
     started_at: datetime,
     dossier_version: str,
+    converters: Sequence[PinnedConverter] | None = None,
 ) -> RunReport:
     """Resolve the pipeline, freeze it, then run it.
 
@@ -136,10 +139,12 @@ def execute(
         pipeline=pipeline,
         pipeline_hash=pipeline_hash,
         documents=documents,
+        media_types=media_types,
         prompt_hashes={step: content_hash(text.encode()) for step, text in prompts.items()},
         schema_hashes={
             step.id: _schema_hash(schemas.get(step.id)) for step in pipeline.steps
         },
+        converters=converters,
     )
 
     # Only now does anything touch the disk. Every check that could refuse this
@@ -401,8 +406,10 @@ def _resolve(
     pipeline: PipelineConfig,
     pipeline_hash: str,
     documents: Mapping[str, str],
+    media_types: Mapping[str, str] | None = None,
     prompt_hashes: Mapping[str, str] | None = None,
     schema_hashes: Mapping[str, str | None] | None = None,
+    converters: Sequence[PinnedConverter] | None = None,
 ) -> ResolvedPlan:
     """Every check that can refuse a run, run before a run exists.
 
@@ -418,8 +425,10 @@ def _resolve(
         pipeline=pipeline,
         pipeline_hash=pipeline_hash,
         documents=documents,
+        media_types=media_types,
         prompt_hashes=prompt_hashes,
         schema_hashes=schema_hashes,
+        converters=converters,
     )
     # Every remaining check that could refuse this run, run while refusing it is
     # still free (R4.1).
