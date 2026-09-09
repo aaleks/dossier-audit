@@ -96,3 +96,47 @@ def _claimed_pairs(available: Sequence[Converter]) -> list[str]:
     show either of them (R5.6).
     """
     return sorted(f"({c.media_type}, {c.kind})" for c in available)
+
+
+# What dossier calls a file, by extension. Owned here rather than read from the
+# host, which is the whole point: `mimetypes.guess_type` is seeded from
+# /etc/mime.types on Linux and from HKEY_CLASSES_ROOT on Windows, so the same
+# `.csv` is `text/csv` on one machine and `application/vnd.ms-excel` on another.
+# That answer reaches the ledger (R2.16), picks the converter (R8.3), and the
+# converter's id and version are in `K_convert` -- so a host-dependent guess forks
+# every artifact hash and every stage key above it, with nothing in any diff to
+# explain it (R0.4, R5.6).
+#
+# Deliberately small. An extension nobody has agreed on gets the honest answer
+# below rather than a plausible one, and R8.5 then reports it as unclaimed.
+MEDIA_TYPES = {
+    ".md": "text/markdown",
+    ".markdown": "text/markdown",
+    ".txt": "text/plain",
+    ".pdf": "application/pdf",
+    ".html": "text/html",
+    ".htm": "text/html",
+    ".json": "application/json",
+    ".csv": "text/csv",
+    ".xml": "application/xml",
+    ".yaml": "application/yaml",
+    ".yml": "application/yaml",
+}
+
+# What an unrecognised file is called. Not a guess: it says "bytes", which is
+# true of anything, and lets R8.5 refuse it by name rather than hand it to a
+# converter that was never meant to read it.
+UNKNOWN_MEDIA_TYPE = "application/octet-stream"
+
+
+def media_type_for(name: str) -> str:
+    """The media type dossier assigns to a filename, on every machine (R2.16).
+
+    Case-folded on the extension only: `INC-4821.MD` and `inc-4821.md` are the
+    same kind of file, and which case a filesystem preserved is not information
+    about content.
+    """
+    _, separator, extension = name.rpartition(".")
+    if not separator:
+        return UNKNOWN_MEDIA_TYPE
+    return MEDIA_TYPES.get(f".{extension.casefold()}", UNKNOWN_MEDIA_TYPE)

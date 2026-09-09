@@ -180,3 +180,74 @@ def test_any_media_type_a_connector_reports_survives_a_round_trip(
     sync(tmp_path, connector)
 
     assert rows(tmp_path) == {"item": media_type}
+
+
+class TestTheConnectorsAnswerDoesNotDependOnTheMachine:
+    """R2.16 — the guess is made once, and it is the same guess everywhere.
+
+    The rule permits a connector to guess from a filename, because a folder
+    source has nothing else. It does not permit the guess to differ by host --
+    that answer is recorded, picks the converter (R8.3), and the converter's id
+    and version reach every cache key above it (R0.4, R5.6).
+
+    Found by `/quality`: the folder connector used `mimetypes.guess_type`, which
+    is seeded from `/etc/mime.types` on Linux and `HKEY_CLASSES_ROOT` on Windows.
+    On the machine this was found on, `.csv` answered `application/vnd.ms-excel`.
+    """
+
+    def test_the_table_is_ours_and_not_the_hosts(self):
+        """The one where the two answers are shown to differ.
+
+        `mimetypes` is consulted here only to demonstrate that it disagrees with
+        us -- it is the evidence, not the expectation. If a future Python or a
+        future host happens to agree, the assertion below still holds because it
+        names our answer.
+        """
+        import mimetypes
+
+        from dossier.domain.conversion import media_type_for
+
+        assert media_type_for("figures.csv") == "text/csv"
+        host = mimetypes.guess_type("figures.csv")[0]
+        if host != "text/csv":
+            assert media_type_for("figures.csv") != host, (
+                "the host disagrees, and we do not follow it"
+            )
+
+    def test_an_unregistered_extension_gets_an_honest_answer(self):
+        """The one where guessing would be worse than admitting ignorance.
+
+        `application/octet-stream` says "bytes", which is true of anything. R8.5
+        then refuses it by name and tells the user which converter to install --
+        a plausible guess would instead hand the file to a converter never meant
+        to read it.
+        """
+        from dossier.domain.conversion import media_type_for
+
+        assert media_type_for("archive.zip") == "application/octet-stream"
+        assert media_type_for("no-extension") == "application/octet-stream"
+
+    def test_the_extension_is_matched_without_case(self):
+        """The one where a filesystem preserved a case nobody chose."""
+        from dossier.domain.conversion import media_type_for
+
+        assert media_type_for("INC-4821.MD") == media_type_for("inc-4821.md")
+
+    def test_a_dotted_name_uses_its_last_extension(self):
+        """The one where the name has more dots than extensions."""
+        from dossier.domain.conversion import media_type_for
+
+        assert media_type_for("incident.2026.07.28.md") == "text/markdown"
+
+    def test_the_folder_connector_reports_what_the_table_says(self, tmp_path: Path):
+        """The one that checks the connector actually uses it.
+
+        A pure table nothing consults would pass every row above.
+        """
+        from dossier.infrastructure.connectors.folder import FolderConnector
+
+        root = tmp_path / "inbox"
+        root.mkdir()
+        (root / "figures.csv").write_bytes(b"a,b\n1,2\n")
+
+        assert FolderConnector(root).fetch("figures.csv").media_type == "text/csv"

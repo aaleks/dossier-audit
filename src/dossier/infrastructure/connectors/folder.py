@@ -10,11 +10,11 @@ needs the network -- it does not touch it at all.
 
 from __future__ import annotations
 
-import mimetypes
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
+from dossier.domain.conversion import media_type_for
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 
 
@@ -94,8 +94,14 @@ class FolderConnector:
 
     @staticmethod
     def _media_type(path: Path) -> str:
-        media_type, _ = mimetypes.guess_type(path.name)
-        return media_type or "application/octet-stream"
+        """What this file is, decided by dossier and not by the host.
+
+        `mimetypes.guess_type` reads /etc/mime.types or the Windows registry, so
+        it answers differently on different machines -- and that answer is
+        recorded in the ledger, picks the converter, and reaches every cache key
+        above it (R0.4, R5.6). The table is ours.
+        """
+        return media_type_for(path.name)
 
     @classmethod
     def from_config(cls, config, *, workspace: Path) -> FolderConnector:
