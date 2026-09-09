@@ -48,7 +48,12 @@ from dossier.domain.pipeline import (
 )
 from dossier.domain.ports import ArtifactStore, ModelClient
 from dossier.domain.prompts import render
-from dossier.domain.resolution import ResolvedPlan, ResolvedStep, resolve
+from dossier.domain.resolution import (
+    ResolvedPlan,
+    ResolvedStep,
+    resolve,
+    validate_input_arity,
+)
 from dossier.domain.schemas import StageOutput
 
 # The `document` an aggregate result is reported under. An aggregate step has no
@@ -371,18 +376,11 @@ def _joined(source: Mapping[str, str], documents: Sequence[str]) -> str:
 def _targets(declared: StepConfig, resolved: ResolvedStep) -> list[str]:
     """The resolved id behind each declared input, positionally.
 
-    `previous(n)` for n > 1 expands one declared name into several ids, and there
-    is no agreed way to join several under one placeholder: spec 003 says
-    multiple inputs go under distinct labelled tags, which is a statement about
-    declared inputs. Refused rather than guessed.
+    A plain lookup. That the two lists are the same length is settled during
+    resolution by `validate_input_arity`, which is where a refusal is still free
+    -- it used to be discovered here, after the manifest was written and after
+    earlier steps had spent model calls (R4.1).
     """
-    if len(declared.inputs) != len(resolved.inputs):
-        raise ValueError(
-            f"step {resolved.id!r} declares {len(declared.inputs)} input(s) that expand "
-            f"to {len(resolved.inputs)}. `previous(n)` for n > 1 has no agreed "
-            "rendering: spec 003 puts multiple inputs under distinct labelled tags, "
-            "and one placeholder cannot carry several."
-        )
     return list(resolved.inputs)
 
 
@@ -416,13 +414,17 @@ def _resolve(
     """
     validate_step_ids(pipeline)
     validate_references(pipeline)
-    return resolve(
+    plan = resolve(
         pipeline=pipeline,
         pipeline_hash=pipeline_hash,
         documents=documents,
         prompt_hashes=prompt_hashes,
         schema_hashes=schema_hashes,
     )
+    # Every remaining check that could refuse this run, run while refusing it is
+    # still free (R4.1).
+    validate_input_arity(pipeline.steps, plan.steps)
+    return plan
 
 
 class MissingFromReplay(FileNotFoundError):
