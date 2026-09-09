@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R7.1 – R7.12
 
 ## Purpose
@@ -85,7 +85,7 @@ The same output and gold set always produce the same score.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring`)
 - **Proved by:** `tests/unit/test_R007_1__non_judge_scoring_is_deterministic.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -115,7 +115,7 @@ Abstention has to be scorable, or the system learns that guessing is free.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring`)
 - **Proved by:** `tests/unit/test_R007_3__gold_null_scores_abstention_correct.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -132,7 +132,7 @@ the grounding check decorative.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring`)
 - **Proved by:** `tests/unit/test_R007_4__ungrounded_field_scores_incorrect.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -231,7 +231,7 @@ be re-scored offline in seconds.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring`)
 - **Proved by:** `tests/unit/test_R007_10__non_judge_scoring_touches_no_network.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
