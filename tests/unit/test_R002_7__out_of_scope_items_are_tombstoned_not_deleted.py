@@ -19,11 +19,11 @@ class TestTombstones:
 
     def test_an_item_absent_from_a_full_listing_is_tombstoned(self):
         """Example 1: the one where `INC-4821` drops out of the query."""
-        assert tombstones(held=HELD, listed={"INC-4822", "audit-note.pdf"}) == {"INC-4821"}
+        assert tombstones(held=HELD, listed={"INC-4822", "audit-note.pdf"}) == ("INC-4821",)
 
     def test_an_item_still_listed_is_left_alone(self):
         """The one where nothing left, so nothing is marked."""
-        assert tombstones(held=HELD, listed=HELD) == set()
+        assert tombstones(held=HELD, listed=HELD) == ()
 
     def test_an_item_new_to_the_listing_is_not_a_tombstone(self):
         """The one where arrival is not departure.
@@ -32,7 +32,7 @@ class TestTombstones:
         rule's. Returning it here would tombstone an item on the sync that
         introduced it.
         """
-        assert tombstones(held=HELD, listed=HELD | {"INC-4901"}) == set()
+        assert tombstones(held=HELD, listed=HELD | {"INC-4901"}) == ()
 
     def test_an_already_tombstoned_item_is_not_returned_again(self):
         """The one where re-tombstoning would rewrite history.
@@ -40,9 +40,9 @@ class TestTombstones:
         `first_seen` and the original transition are recorded once. An item that
         left scope two syncs ago has not left it again.
         """
-        assert tombstones(held={"INC-4822"}, listed=set(), already_tombstoned={"INC-4821"}) == {
-            "INC-4822"
-        }
+        assert tombstones(
+            held={"INC-4822"}, listed=set(), already_tombstoned={"INC-4821"}
+        ) == ("INC-4822",)
 
     def test_an_item_returning_to_scope_is_not_tombstoned(self):
         """Example 3: the one where `INC-4821` comes back.
@@ -56,7 +56,7 @@ class TestTombstones:
                 listed={"INC-4821", "INC-4822"},
                 already_tombstoned={"INC-4821"},
             )
-            == set()
+            == ()
         )
 
     def test_reactivated_names_the_items_that_came_back(self):
@@ -69,7 +69,7 @@ class TestTombstones:
 
         assert reactivated(
             listed={"INC-4821", "INC-4822"}, already_tombstoned={"INC-4821"}
-        ) == {"INC-4821"}
+        ) == ("INC-4821",)
 
     def test_an_empty_listing_tombstones_everything_held(self):
         """The boundary: the one where the whole source went away.
@@ -78,7 +78,7 @@ class TestTombstones:
         its whole contents -- and because nothing is deleted, that is recoverable
         by fixing the configuration and syncing again.
         """
-        assert tombstones(held=HELD, listed=set()) == HELD
+        assert tombstones(held=HELD, listed=set()) == tuple(sorted(HELD))
 
     def test_an_incremental_listing_must_not_be_used(self):
         """Counter-example (row 4): the one where `since` was set.

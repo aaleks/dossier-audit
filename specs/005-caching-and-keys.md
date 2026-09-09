@@ -212,7 +212,7 @@ has broken a cache in some project before.
 | # | Given | Then |
 |---|-------|------|
 | 1 | the `verify` key computed in two processes with different `PYTHONHASHSEED` | identical |
-| 2 | the same computation from `/home/a/repo` and from `C:\repo` | identical; paths enter keys as repo-relative, with forward slashes |
+| 2 | the same computation from `/home/a/repo` and from `C:\repo` | identical; no path enters a key at all, so there is nothing for a working directory to change |
 | 3 | the same under `LC_ALL=tr_TR.UTF-8` and `TZ=Asia/Tokyo` | identical; no locale-cased or locale-formatted value is hashed |
 | 4 | *counter-example* — two inputs supplied in a different order | identical, because input hashes are sorted before hashing; order is not information here |
 

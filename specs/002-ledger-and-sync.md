@@ -281,7 +281,7 @@ when rather than what.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync`)
 - **Proved by:** `tests/unit/test_R002_9__repeated_sync_is_byte_identical.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
