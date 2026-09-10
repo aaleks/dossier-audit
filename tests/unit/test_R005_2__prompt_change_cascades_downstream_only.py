@@ -197,8 +197,16 @@ class TestThePromptCascade:
             snapshot="a3f9c1e2" * 8, converter_id="pdf-markdown", converter_version="1.3.0"
         )
 
-        assert cache_key(conversion) == cache_key(conversion)
+        # `cache_key(x) == cache_key(x)` used to stand here and could not fail.
+        # The claim is that a prompt has nowhere to go in a convert key, which is
+        # a statement about the structure rather than about two equal calls.
         assert "prompt" not in conversion.keyed()
+        assert set(conversion.keyed()) == {
+            "snapshot",
+            "converter_id",
+            "converter_version",
+            "options",
+        }
 
     def test_trailing_whitespace_changes_the_key(self):
         """Counter-example (row 4): the one where a "harmless" edit is not harmless.

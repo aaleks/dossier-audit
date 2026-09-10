@@ -58,11 +58,13 @@ from dossier.domain.resolution import (
     validate_input_arity,
 )
 from dossier.domain.schemas import StageOutput
+from dossier.domain.sync import RESERVED_KEY
 
-# The `document` an aggregate result is reported under. An aggregate step has no
-# document -- it read all of them -- and a name that could collide with a real key
-# would make a report ambiguous exactly where it matters.
-AGGREGATE_KEY = "*"
+# The `document` an aggregate result is reported under (spec 003). An aggregate
+# step has no document -- it read all of them -- so naming it after any one would
+# be wrong, and leaving it unnamed would give a report no way to say which step a
+# failure came from. Reserved: a source may not hold a document called `*`.
+AGGREGATE_KEY = RESERVED_KEY
 
 
 @dataclass(frozen=True)

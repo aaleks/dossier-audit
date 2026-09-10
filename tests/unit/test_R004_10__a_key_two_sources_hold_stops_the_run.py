@@ -94,3 +94,27 @@ class TestAKeyIdentifiesOneDocument:
             one_document_per_key(backwards)
 
         assert str(first.value) == str(second.value)
+
+
+class TestTheAggregateKeyIsReserved:
+    """Spec 003 — an aggregate step's artifact is filed under `*`.
+
+    Recorded by `/quality` as an unspecced convention that reaches users:
+    `RunReport.failed` surfaces it as `report failed on *`. A document actually
+    called `*` would make that line ambiguous in the one place it matters, so the
+    key is reserved rather than merely unlikely.
+    """
+
+    def test_a_source_may_not_hold_a_document_called_star(self):
+        """The one where a real document would collide with the convention."""
+        from dossier.application.run import AGGREGATE_KEY
+
+        with pytest.raises(DocumentCollision) as error:
+            one_document_per_key({"incidents-manual": ["INC-4821", AGGREGATE_KEY]})
+
+        assert AGGREGATE_KEY in str(error.value)
+        assert "reserved" in str(error.value).lower()
+
+    def test_an_ordinary_key_is_unaffected(self):
+        """The counter-example: reserving one key reserves only that key."""
+        one_document_per_key({"incidents-manual": ["INC-4821", "audit-note.pdf"]})

@@ -17,6 +17,7 @@ from enum import Enum
 from pathlib import Path
 
 from dossier.application.manifest import MANIFEST_NAME, Manifest
+from dossier.domain.pipeline import PipelineConfig
 from dossier.domain.resolution import ResolvedPlan, ResolvedStep, resolve
 from dossier.domain.sync import State
 
@@ -64,7 +65,7 @@ class Plan:
 
 def build_plan(
     *,
-    pipeline,
+    pipeline: PipelineConfig,
     pipeline_hash: str,
     documents: dict[str, str],
     previous: ResolvedPlan | None,

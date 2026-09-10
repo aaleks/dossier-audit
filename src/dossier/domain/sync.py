@@ -225,6 +225,12 @@ def reactivated(*, listed: set[str], already_tombstoned: set[str]) -> tuple[str,
     return tuple(sorted(set(listed) & set(already_tombstoned)))
 
 
+# How an aggregate step's single artifact is filed (spec 003). Reserved here
+# rather than in `application`, because "which keys may a source hold" is a
+# decision and the two places that care about it must not disagree.
+RESERVED_KEY = "*"
+
+
 class DocumentCollision(ValueError):
     """Two sources hold the same document key (R4.10).
 
@@ -247,6 +253,19 @@ def one_document_per_key(held: Mapping[str, Sequence[str]]) -> None:
     depend on the order the sources were declared or the ledger returned them
     (R0.4, R5.6).
     """
+    reserved = [
+        f"  {RESERVED_KEY}: reserved for an aggregate step's artifact (spec 003), "
+        f"held by {source}"
+        for source in sorted(held)
+        if RESERVED_KEY in held[source]
+    ]
+    if reserved:
+        raise DocumentCollision(
+            "a source holds a reserved document key:\n"
+            + "\n".join(reserved)
+            + "\nRename it; `*` is how an aggregate step's own artifact is filed."
+        )
+
     sources_by_key: dict[str, list[str]] = {}
     for source in sorted(held):
         for key in held[source]:

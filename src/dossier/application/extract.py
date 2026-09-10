@@ -26,6 +26,21 @@ from dossier.domain.schemas import FieldRecord, StageOutput
 # bad prompt into a bill (R6.2).
 MAX_ATTEMPTS = 2
 
+# What the retry tells the model. Model-facing text, so a change here changes what
+# is asked on every retry -- named rather than built inline so that shows up in a
+# diff rather than staying buried in a function body.
+#
+# Not in any cache key: a stage key covers the prompt template, not the rendered
+# prompt (spec 005), so editing this invalidates nothing. That is correct, and it
+# is also why it needs to be visible -- nothing else would notice it moved.
+CORRECTION_TEMPLATE = (
+    "<validation_error>\n"
+    "Your previous answer did not validate against the required schema. "
+    "Correct it and return only the corrected answer.\n"
+    "{error}\n"
+    "</validation_error>\n"
+)
+
 
 @dataclass(frozen=True)
 class DocumentResult:
@@ -120,10 +135,4 @@ def _with_correction(prompt: str, correction: str | None) -> str:
     """
     if correction is None:
         return prompt
-    return (
-        f"{prompt}\n\n"
-        "<validation_error>\n"
-        "Your previous answer did not validate against the required schema. "
-        f"Correct it and return only the corrected answer.\n{correction}\n"
-        "</validation_error>\n"
-    )
+    return f"{prompt}\n\n" + CORRECTION_TEMPLATE.format(error=correction)

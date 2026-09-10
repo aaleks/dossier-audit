@@ -66,7 +66,12 @@ class TestModelChangeInvalidatesEveryStage:
         part of the key -- there is nowhere in `StageInputs` to put one, which is
         the strongest form this guarantee can take (R5.1 example 3).
         """
-        assert cache_key(stage("verify", PINNED)) == cache_key(stage("verify", PINNED))
+        # Two separately constructed inputs, not the same object twice: the
+        # previous form compared one call with itself and could not fail.
+        assert cache_key(stage("verify", PINNED)) == cache_key(stage("report", PINNED))
+        assert "endpoint" not in StageInputs.model_fields, (
+            "and there is nowhere to record one, which is the stronger claim"
+        )
 
     def test_two_different_pins_of_the_same_family_still_differ(self):
         """The one where a version bump is a different model.

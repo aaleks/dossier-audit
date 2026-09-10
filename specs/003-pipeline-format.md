@@ -83,6 +83,12 @@ steps:
 - `per_file` — one model call per document; output is one artifact per document.
 - `aggregate` — one model call over all inputs; output is a single artifact.
 
+An `aggregate` step's single artifact is filed under the document key `*`, and
+that key is reserved: a source may not hold a document called `*`. The step read
+every document, so naming it after any one of them would be wrong, and leaving it
+unnamed would give a report no way to say which step a failure came from —
+`report failed on *` is the line a person sees.
+
 ## Prompt files
 
 Multiple inputs are injected under distinct labelled tags, never concatenated:

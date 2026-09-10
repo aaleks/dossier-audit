@@ -7,7 +7,7 @@ implementation, which is what lets every use case run against a fake.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
@@ -159,3 +159,42 @@ class ArtifactStore(Protocol):
         ...
 
     def put(self, key: str, payload: bytes, *, record: dict | None = None) -> None: ...
+
+
+@runtime_checkable
+class SnapshotWriter(Protocol):
+    """Storing and reading back snapshots, for the one use case that stores them.
+
+    Deliberately separate from `SnapshotReader`. Only `sync` writes snapshots;
+    everything right of the hash boundary reads. Handing convert or run a type
+    with `put` on it would be handing them a way to break R0.2 by accident.
+    """
+
+    def put(self, payload: bytes) -> str: ...
+
+    def get(self, digest: str) -> bytes: ...
+
+    def exists(self, digest: str) -> bool: ...
+
+
+@runtime_checkable
+class LedgerWriter(Protocol):
+    """What `sync` needs of a ledger.
+
+    Named so the seam is checkable rather than conventional: `sync_source` takes
+    its store and its ledger as arguments and constructs neither, which is what
+    lets the whole use case run against fakes -- and those two parameters were the
+    ones with no type.
+    """
+
+    def rows(self, source_id: str) -> list: ...
+
+    def row(self, source_id: str, key: str): ...
+
+    def record(self, row) -> None: ...
+
+    def touch(self, source_id: str, key: str, *, seen_at: datetime) -> None: ...
+
+    def set_state(self, source_id: str, keys: Iterable[str], state) -> None: ...
+
+    def set_watermark(self, source_id: str, when: datetime) -> None: ...

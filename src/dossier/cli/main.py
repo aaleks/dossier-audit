@@ -25,6 +25,7 @@ from dossier.application.convert import (
 )
 from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.plan import (
+    Plan,
     build_plan,
     latest_manifest,
     pinned_documents,
@@ -35,6 +36,7 @@ from dossier.config.load import ConfigError, load_pipeline, load_sources
 from dossier.domain.conversion import NoConverter
 from dossier.domain.hashing import text_hash
 from dossier.domain.keys import ConvertInputs, cache_key
+from dossier.domain.ports import ModelClient
 from dossier.domain.resolution import PinnedConverter, run_id
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.infrastructure.cache import ArtifactCache
@@ -130,7 +132,7 @@ def _pipeline_path(workspace: Path, name: str) -> Path:
     return path
 
 
-def build_model_client(model_id: str):
+def build_model_client(model_id: str) -> ModelClient:
     """Resolve a pinned model identifier to a client.
 
     Not implemented yet, and deliberately a named function rather than an inline
@@ -209,7 +211,7 @@ def run(
         typer.echo(line)
 
 
-def _plan_lines(report) -> list[str]:
+def _plan_lines(report: Plan) -> list[str]:
     """The plan as a person reads it: one step per line, evidence indented.
 
     A step whose inputs moved prints what they were and what they are now. That
@@ -372,6 +374,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
     by_source: dict[str, list[str]] = {}
     started_at = datetime.now(UTC)
     this_run = run_id(started_at, token_hex(2))
+    convert_cache = ArtifactCache(workspace, namespace="convert")
     unreadable: list[tuple[str, str, str]] = []
 
     with Ledger(workspace) as ledger:
@@ -391,7 +394,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
                     kinds=source.convert,
                     converters=converters,
                     store=store,
-                    cache=ArtifactCache(workspace, namespace="convert"),
+                    cache=convert_cache,
                     run_id=this_run,
                     dossier_version=version("dossier"),
                 )
