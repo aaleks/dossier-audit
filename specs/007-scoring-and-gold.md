@@ -209,7 +209,7 @@ edit to it is an unaudited change to the definition of correct.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.gold`)
 - **Proved by:** `tests/unit/test_R007_7__gold_corrections_are_attributed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
