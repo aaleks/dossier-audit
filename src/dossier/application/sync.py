@@ -17,7 +17,7 @@ from datetime import datetime
 from dossier.domain.hashing import content_hash
 from dossier.domain.ledger import LedgerRow
 from dossier.domain.pipeline import SourceConfig
-from dossier.domain.ports import Connector
+from dossier.domain.ports import Connector, LedgerWriter, SnapshotWriter
 from dossier.domain.store import snapshot_path
 from dossier.domain.sync import (
     DEFAULT_OVERLAP,
@@ -69,8 +69,8 @@ def sync_source(
     *,
     config: SourceConfig,
     connector: Connector,
-    store,
-    ledger,
+    store: SnapshotWriter,
+    ledger: LedgerWriter,
     now: datetime,
 ) -> SourceReport:
     """Bring one source up to date, and say what that cost."""
