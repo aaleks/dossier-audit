@@ -175,7 +175,7 @@ number is R7.11's problem.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.judges.is_eligible`)
 - **Proved by:** `tests/unit/test_R007_5__uncalibrated_judge_cannot_report.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -192,7 +192,7 @@ calibration measured against a different judge is not a calibration.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.judges.is_stale`)
 - **Proved by:** `tests/unit/test_R007_6__stale_calibration_is_an_error.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
