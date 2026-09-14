@@ -130,6 +130,12 @@ an existing schema" — or schemas need a declarative form.
 the one that changes the cost of use cases three through ten, which is the whole
 argument for building this.
 
+*Resolved by R6.10.* Schemas now have the declarative form: a step's `output`
+names a YAML field declaration (`schemas/contract.yaml`, not `contract.json`),
+and the JSON Schema and scorer list are generated from it. R6.7, which required
+the pydantic model, is superseded. The pipeline above still reads `contract.json`
+because it records what was true when this finding was written.
+
 ---
 
 ## What this exercise did not find

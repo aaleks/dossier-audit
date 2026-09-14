@@ -1,0 +1,9 @@
+# The fields `extract` asks for, and what kind of answer each holds (R6.10).
+# The JSON Schema shown to the model and the scorer's field list are both
+# generated from this file; neither is written anywhere else.
+fields:
+  loss_amount:      {kind: amount, currency: CHF}
+  resolution_date:  {kind: date}
+  severity:         {kind: enum, values: [minor, major, critical]}
+  affected_systems: {kind: reference}
+  root_cause:       {kind: free_text, judge: rubrics/root_cause.md}

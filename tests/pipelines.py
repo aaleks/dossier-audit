@@ -7,7 +7,6 @@ whose names have to encode their differences.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 # One tag per declared input, which is what R3.6 requires of a real prompt: every
@@ -34,11 +33,18 @@ def declared_names(declared: str) -> list[str]:
         if name.strip()
     ]
 
-SCHEMA = {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {"document": {"type": "string"}},
-}
+
+# Spec 006's field declaration: five fields, one of each kind (R6.10).
+DECLARATION = """\
+fields:
+  loss_amount:      {kind: amount, currency: CHF}
+  resolution_date:  {kind: date}
+  severity:         {kind: enum, values: [minor, major, critical]}
+  affected_systems: {kind: reference}
+  root_cause:       {kind: free_text, judge: rubrics/root_cause.md}
+"""
+
+RUBRIC = "Is the stated root cause supported by the named document?\n"
 
 
 def write_pipeline(
@@ -51,8 +57,7 @@ def write_pipeline(
     sources: list[str] | None = None,
     reference: list[str] | None = None,
     model: str = "anthropic:claude-sonnet-4-5-20250929",
-    write_schema: bool = True,
-    schema_text: str | None = None,
+    write_declaration: bool = True,
 ) -> Path:
     """Write `pipelines/<name>/pipeline.yaml` and return its path."""
     steps = ["extract"] if steps is None else steps
@@ -63,11 +68,10 @@ def write_pipeline(
     (directory / "prompts").mkdir(parents=True, exist_ok=True)
     (directory / "schemas").mkdir(parents=True, exist_ok=True)
 
-    if write_schema:
-        (directory / "schemas" / "incident.json").write_text(
-            schema_text if schema_text is not None else json.dumps(SCHEMA),
-            encoding="utf-8",
-        )
+    if write_declaration:
+        (directory / "schemas" / "incident.yaml").write_text(DECLARATION, encoding="utf-8")
+        (directory / "rubrics").mkdir(exist_ok=True)
+        (directory / "rubrics" / "root_cause.md").write_text(RUBRIC, encoding="utf-8")
 
     lines = [
         f"sources: {sources if sources is not None else ['incidents-manual']}",
@@ -85,7 +89,7 @@ def write_pipeline(
         lines.append(f"    prompt: prompts/{step}.md")
         lines.append(f"    input: {declared}")
         lines.append("    mode: per_file")
-        output = outputs.get(step, "schemas/incident.json")
+        output = outputs.get(step, "schemas/incident.yaml")
         if output is not None:
             lines.append(f"    output: {output}")
 

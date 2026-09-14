@@ -282,8 +282,8 @@ run has been paid for is the whole failure this rule exists to prevent.
 
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
-- **Proved by:** `tests/unit/test_R003_10__output_declarations_must_load_and_validate.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R003_10__output_declarations_must_load_and_validate.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

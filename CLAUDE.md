@@ -66,9 +66,11 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. `sync` and `run --plan` both work end to end. The next
-outer loop is R4.5, which needs `run` to write a manifest before a plan has
-anything to diff against.
+Currently open: **none**. R3.10 and R6.10 landed: a step's `output` names a YAML
+field declaration, the model-facing JSON Schema and the scorer's field list are
+generated from it, and `run --plan` refuses one that cannot be scored. Next is
+R6.11, which puts the declaration's text -- not the generated schema -- into the
+key. It is a `domain/keys` decision: unit cycles, no outer loop of its own.
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost
