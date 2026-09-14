@@ -74,6 +74,16 @@ def normalise(payload: bytes, *, fields: list[str] | None) -> bytes:
     return json.dumps(projected, **_CANONICAL).encode()
 
 
+def configured_overlap(configured: timedelta | None) -> timedelta:
+    """The overlap a source asks for, or the default where it names none (R2.4).
+
+    `is None`, not `or`: a configured `0h` is falsy, and replacing it with the
+    default would turn a mistake the author made into a different overlap they
+    never wrote. Passed through as it is, `window_start` refuses it by name.
+    """
+    return DEFAULT_OVERLAP if configured is None else configured
+
+
 def window_start(
     last_sync_at: datetime | None, *, overlap: timedelta = DEFAULT_OVERLAP
 ) -> datetime | None:
