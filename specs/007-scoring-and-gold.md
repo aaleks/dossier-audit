@@ -73,11 +73,12 @@ Scores are reported **per field**. A single blended accuracy is never the
 headline, because a field at 62% and a field at 99% need different work.
 
 ```
-52 documents · 9 fields · overall 94.1%
-  loss_amount       99.1%
-  resolution_date   98.2%
-  severity          97.6%
-  root_cause        62.4%   <- weakest
+4 documents · 5 fields · overall 80.0%
+  loss_amount        100.0%
+  resolution_date     75.0%
+  severity           100.0%
+  affected_systems    75.0%
+  root_cause          50.0%   <- weakest
 ```
 
 ## Judge calibration
@@ -122,6 +123,10 @@ The same output and gold set always produce the same score.
 
 ### R7.2 — results are reported per field, and never as an overall figure alone
 
+Every example here is deterministic: `root_cause`'s gold is `null` in all four
+documents, so it is scored on abstention (R7.3) and needs no judge. The values
+are `_fixtures.md`'s scoring example, which a person writes into the gold files.
+
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R007_2__scores_are_reported_per_field.py`
@@ -129,9 +134,9 @@ The same output and gold set always produce the same score.
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `dossier eval incident-audit --gold gold/incidents` over 52 documents | the output lists all 9 fields with their own percentages |
-| 2 | the same | `overall 94.1%` may appear, and never without the breakdown |
-| 3 | the same | the weakest field, `root_cause` at 62.4%, is marked as such |
+| 1 | `dossier eval incident-audit --gold gold/incidents` over `INC-4821`, `INC-4822`, `INC-4901` and `INC-5455` | every declared field is listed with its own percentage: `loss_amount` 100.0%, `resolution_date` 75.0%, `severity` 100.0%, `affected_systems` 75.0%, `root_cause` 50.0% |
+| 2 | the same | `overall 80.0%` may appear, and never without the breakdown |
+| 3 | the same | the weakest field, `root_cause` at 50.0%, is marked as such |
 | 4 | *counter-example* — a gold set covering one field | that one field is listed; the rule is about never collapsing, not about a minimum count |
 
 ### R7.3 — a gold null is correct when the run abstains and incorrect when it supplies a value
