@@ -8,7 +8,7 @@ in hand and no filesystem, which is why R3.2 and R3.3 name this layer.
 from __future__ import annotations
 
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -40,12 +40,16 @@ class SourceConfig(BaseModel):
 
     id: str
     type: str
-    path: str | None = None
     fields: list[str] | None = None
     # Which conversions this source wants (spec 003, and R8.3's `kinds`). Absent
     # means the default kind for whatever media type each document turns out to
     # be -- which is the normal case for a folder of notes.
     convert: list[str] | None = None
+    # The keys that belong to this source's type -- a folder's `path`, a Jira
+    # source's `query` -- as its connector declared and checked them (R1.10).
+    # Held here rather than as fields because the core may not name them: every
+    # new source type would otherwise be an edit to this model (R1.7).
+    options: dict[str, Any] = {}
 
     @field_validator("fields", "convert")
     @classmethod

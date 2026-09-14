@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from dossier.config.load import ConfigError, load_sources
+from dossier.infrastructure.connectors.folder import FolderKeys
 
 
 class TestInvalidConfigFailsNamingFileLineAndKey:
@@ -31,7 +32,7 @@ class TestInvalidConfigFailsNamingFileLineAndKey:
         )
 
         with pytest.raises(ConfigError) as error:
-            load_sources(path)
+            load_sources(path, connectors={"folder": FolderKeys})
 
         message = str(error.value)
         assert "sources.yaml" in message

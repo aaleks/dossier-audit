@@ -150,17 +150,23 @@ class _StubEntryPoint:
         return self._factory
 
 
-def register_connector(monkeypatch, type_name: str, factory) -> None:
+def register_connector(monkeypatch, type_name: str, factory, *, keys=None) -> None:
     """Make a source type available the way an installed package would (R1.7).
 
     The installed entry points are kept and the stub is appended, so a test using
     a fake source type can still sync a `folder` one alongside it. Registering
     rather than patching `build_connector` matters: it exercises the resolution
     path the rule under test actually runs through.
+
+    `keys` is the model of the keys its sources take beyond the shared ones, as
+    a real connector declares them (R1.10). Without it, the stub takes none.
     """
     from importlib.metadata import entry_points
 
     import dossier.infrastructure.connectors.registry as registry
+
+    if keys is not None:
+        factory.keys = keys
 
     stub = _StubEntryPoint(type_name, registry.ENTRY_POINT_GROUP, factory)
 

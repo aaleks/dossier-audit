@@ -39,7 +39,11 @@ from dossier.domain.ports import ModelClient
 from dossier.domain.resolution import PinnedConverter, run_id
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.infrastructure.cache import ArtifactCache
-from dossier.infrastructure.connectors.registry import UnknownSourceType, build_connector
+from dossier.infrastructure.connectors.registry import (
+    UnknownSourceType,
+    build_connector,
+    declared_keys,
+)
 from dossier.infrastructure.converters.registry import installed_converters
 from dossier.infrastructure.ledger import Ledger
 from dossier.infrastructure.store import SnapshotStore
@@ -65,7 +69,10 @@ def sync(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines
 
     try:
         config = load_pipeline(_pipeline_path(workspace, pipeline))
-        declared = {source.id: source for source in load_sources(workspace / "sources.yaml")}
+        declared = {source.id: source for source in load_sources(
+                workspace / "sources.yaml", connectors=declared_keys()
+            )
+        }
     except ConfigError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
@@ -180,7 +187,10 @@ def run(
     try:
         path = _pipeline_path(workspace, pipeline)
         config = load_pipeline(path)
-        declared = {source.id: source for source in load_sources(workspace / "sources.yaml")}
+        declared = {source.id: source for source in load_sources(
+                workspace / "sources.yaml", connectors=declared_keys()
+            )
+        }
     except ConfigError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
@@ -252,7 +262,10 @@ def convert(pipeline: str = typer.Argument(..., help="Pipeline name under pipeli
 
     try:
         config = load_pipeline(_pipeline_path(workspace, pipeline))
-        declared = {source.id: source for source in load_sources(workspace / "sources.yaml")}
+        declared = {source.id: source for source in load_sources(
+                workspace / "sources.yaml", connectors=declared_keys()
+            )
+        }
     except ConfigError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
@@ -360,7 +373,10 @@ def _execute(workspace: Path, pipeline: str) -> None:
     try:
         path = _pipeline_path(workspace, pipeline)
         config = load_pipeline(path)
-        declared = {source.id: source for source in load_sources(workspace / "sources.yaml")}
+        declared = {source.id: source for source in load_sources(
+                workspace / "sources.yaml", connectors=declared_keys()
+            )
+        }
     except ConfigError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error

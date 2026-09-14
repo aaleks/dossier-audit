@@ -14,8 +14,23 @@ from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
+from pydantic import BaseModel, ConfigDict
+
 from dossier.domain.conversion import media_type_for
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
+
+
+class FolderKeys(BaseModel):
+    """The keys a `folder` source takes beyond the shared ones (R1.10).
+
+    Declared here, by the connector, because only this connector knows a folder
+    needs a directory. The core checks a source against this at load time, so a
+    folder with no `path` -- or a `pth` -- is found before anything runs.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    path: str
 
 
 class FolderConnector:
@@ -111,9 +126,19 @@ class FolderConnector:
         portable and a relative path in it means the same thing wherever the
         workspace is checked out.
         """
-        if config.path is None:
+        # Loading has already refused a folder with no `path` (R1.10). Checked
+        # again because a connector is built from whatever `SourceConfig` it is
+        # handed, and one built by hand never went through the loader.
+        path = config.options.get("path")
+        if path is None:
             raise ValueError(
                 f"source {config.id!r} has type 'folder' and no `path`. "
                 "A folder source needs a directory to read."
             )
-        return cls(Path(workspace) / config.path)
+        return cls(Path(workspace) / path)
+
+
+# The entry point resolves to `FolderConnector.from_config`, and a bound method
+# reads its attributes from the function beneath it -- so this is where the
+# registry finds the declaration (R1.10), with no change to the entry point.
+FolderConnector.from_config.__func__.keys = FolderKeys
