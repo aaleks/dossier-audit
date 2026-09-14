@@ -239,7 +239,7 @@ no connection, no credential (R3.8, R1.8).
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R001_10__connectors_declare_their_keys.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

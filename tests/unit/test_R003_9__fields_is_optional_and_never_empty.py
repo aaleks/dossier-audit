@@ -81,6 +81,10 @@ class TestFieldsIsOptional:
         message = str(error.value)
         assert "sources.yaml" in message
         assert "incidents-jira" in message
+        # Example 3 has always said "naming the file, the line and the source
+        # id"; the line was never checked, and was never there until R3.1 gave
+        # every source key's error one.
+        assert "line 5" in message
 
     def test_absent_and_empty_reach_normalisation_differently(self, tmp_path: Path):
         """The one that ties the config rule to the behaviour it selects.

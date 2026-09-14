@@ -107,7 +107,12 @@ def _validate_source(
     if not isinstance(entry, dict):
         return _validate(SourceConfig, entry, path)
 
-    config = _validate(SourceConfig, {k: v for k, v in entry.items() if k in _SHARED}, path)
+    try:
+        config = SourceConfig.model_validate({k: v for k, v in entry.items() if k in _SHARED})
+    except ValidationError as error:
+        # Named at its line like any connector key: a wrong `watermark_overlap`
+        # is as hard to find in a long file as a misspelt `path` (R3.1 row 3).
+        raise _source_error(error, entry, index, path, known=_SHARED) from error
     own = {k: v for k, v in entry.items() if k not in _SHARED}
 
     if config.type not in connectors:
@@ -126,16 +131,19 @@ def _validate_source(
     try:
         declared = keys.model_validate(own)
     except ValidationError as error:
-        raise _keys_error(
+        raise _source_error(
             error, entry, index, path, known=_SHARED | set(keys.model_fields)
         ) from error
     return config.model_copy(update={"options": declared.model_dump()})
 
 
-def _keys_error(
+def _source_error(
     error: ValidationError, entry: dict, index: int, path: Path, *, known
 ) -> ConfigError:
-    """A connector key's problem, named at the line it is -- or should be -- written on.
+    """A problem with one of a source's keys, named at the line it is -- or should be -- on.
+
+    The same for a shared key and a connector's: which layer checked a key is
+    not something the person reading the message needs to know (R3.1).
 
     An unknown key is almost always a misspelt known one, so the message says
     what was probably meant. A missing key has no line of its own, so the
