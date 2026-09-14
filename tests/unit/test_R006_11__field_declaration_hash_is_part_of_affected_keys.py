@@ -21,6 +21,7 @@ from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import DECLARATION, prompt_for
 
 from dossier.application.run import execute
+from dossier.domain.keys import ConvertInputs
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
 
@@ -161,6 +162,25 @@ class TestFieldDeclarationHashIsPartOfAffectedKeys:
         assert extract.served_from_cache == ()
         assert verify.served_from_cache == ()
         assert len(summary.served_from_cache) == 1
+
+    def test_a_declaration_has_nowhere_to_go_in_a_convert_key(self):
+        """Example 2: the one where editing `incident.yaml` re-converts nothing.
+
+        Converting a document does not depend on what will be extracted from it
+        (R5.4). The strongest form of that is structural: not that a convert key
+        leaves the declaration out, but that it has no slot one could fill.
+        """
+        conversion = ConvertInputs(
+            snapshot="a3f9c1e2" * 8, converter_id="pdf-markdown", converter_version="1.3.0"
+        )
+
+        assert "schema" not in conversion.keyed()
+        assert set(conversion.keyed()) == {
+            "snapshot",
+            "converter_id",
+            "converter_version",
+            "options",
+        }
 
     def test_an_edit_the_generated_schema_cannot_see_still_moves_the_key(self, tmp_path: Path):
         """Example 3: the one where only the rubric `root_cause` is judged by changes.
