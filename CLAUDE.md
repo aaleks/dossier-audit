@@ -144,7 +144,9 @@ project like this, and no linter will find it.
 - `pytest` for tests
 - `mlflow` for run tracking, traces and judge scores (an optional extra; only
   `infrastructure/` may import it)
-- YAML for `sources.yaml` and `pipeline.yaml`
+- YAML for `sources.yaml`, `pipeline.yaml` and the field declarations a step's
+  `output` names. A pipeline is data end to end: `dossier` never imports an
+  author's module to find out what they are extracting (R6.10)
 - Connectors and converters registered via entry points, never hard-coded
 
 No `langchain`. `dossier` calls models through its own `ModelClient` protocol in

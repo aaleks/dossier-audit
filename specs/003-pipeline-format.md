@@ -1,7 +1,7 @@
 # 003 — Configuration format
 
 **Status:** Partially implemented
-**Rules:** R3.1 – R3.9
+**Rules:** R3.1 – R3.10
 
 ## Purpose
 
@@ -54,13 +54,13 @@ steps:
     prompt: prompts/01_extract.md
     input: documents
     mode: per_file
-    output: schemas/incident.json
+    output: schemas/incident.yaml
 
   - id: verify
     prompt: prompts/02_verify.md
     input: [documents, extract, reference]
     mode: per_file
-    output: schemas/incident.json
+    output: schemas/incident.yaml
 
   - id: report
     prompt: prompts/03_report.md
@@ -192,7 +192,7 @@ The load-time half of R0.6.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R003_5__output_schemas_must_load_and_validate.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R3.10
 
 | # | Given | Then |
 |---|-------|------|
@@ -267,3 +267,28 @@ a projection onto no fields, which is never what anyone means.
 | 2 | `incidents-jira` with `fields: [key, summary, status]` | accepted; those three form the projection and the configuration hash |
 | 3 | any source with `fields: []` | load-time error naming the file, the line and the source id |
 | 4 | *counter-example* — a source declaring `fields` whose payload turns out to be a PDF | not a load-time error; whether a projection can be applied to a payload is a sync-time concern, and load time never fetches one (R3.8) |
+
+### R3.10 — every `output` path resolves to a field declaration that loads and declares valid kinds
+
+Supersedes R3.5, which checked the same thing about a hand-written JSON Schema.
+A step's `output` now names a YAML field declaration and the JSON Schema is
+generated from it (R6.10), so what must be checked at load time changed with it:
+not "does this JSON parse" but "are these fields declared in a way that can be
+scored".
+
+Still at load time, and still before anything runs. A field declaration that
+cannot be read is a pipeline that cannot be scored, and finding that out after a
+run has been paid for is the whole failure this rule exists to prevent.
+
+- **Kind:** deterministic
+- **Layer:** config (`dossier.config.load`)
+- **Proved by:** `tests/unit/test_R003_10__output_declarations_must_load_and_validate.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `output: schemas/incident.yaml`, present and declaring five valid fields | accepted; its hash `6e0d4b27` is recorded for keying (R6.11) |
+| 2 | `output: schemas/missing.yaml` | load-time error naming the path and the step |
+| 3 | `output: schemas/incident.yaml` containing malformed YAML | load-time error naming the file and the parse position |
+| 4 | a field declaring a `kind` that is not one of the five | load-time error naming the field and listing the kinds that exist |
+| 5 | *counter-example* — the `report` step, which declares no `output` | accepted; `aggregate` steps may produce prose, and no declaration means no scoring for that step |

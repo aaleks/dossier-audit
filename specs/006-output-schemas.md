@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
 **Status:** Partially implemented
-**Rules:** R6.1 – R6.9
+**Rules:** R6.1 – R6.11
 
 ## Purpose
 
@@ -39,9 +39,9 @@ Abstention is a first-class answer:
 
 ## Obtaining valid output
 
-1. The schema is a pydantic model. Its JSON schema is passed to the model as a
-   structured-output or tool specification.
-2. The response is validated against the same model.
+1. A JSON Schema is generated from the step's field declaration (R6.10) and
+   passed to the model as a structured-output or tool specification.
+2. The response is validated against that same generated schema.
 3. On validation failure, the call is retried **once**, with the validation error
    appended to the prompt.
 4. A second failure is a stage error for that document. The run continues; the
@@ -162,8 +162,8 @@ eventually, and the disagreement shows up as a scoring bug months later.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.schemas`)
-- **Proved by:** `tests/unit/test_R006_7__one_model_generates_schema_validation_and_scorers.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R006_10__fields_are_declared_once_in_yaml.py`
+- **Status:** SUPERSEDED by R6.10
 
 | # | Given | Then |
 |---|-------|------|
@@ -176,8 +176,8 @@ eventually, and the disagreement shows up as a scoring bug months later.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
-- **Proved by:** `tests/unit/test_R006_8__schema_hash_is_part_of_affected_keys.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R006_11__field_declaration_hash_is_part_of_affected_keys.py`
+- **Status:** SUPERSEDED by R6.11
 
 | # | Given | Then |
 |---|-------|------|
@@ -199,3 +199,102 @@ eventually, and the disagreement shows up as a scoring bug months later.
 | 2 | the same | the run reports one failed document and exits non-zero |
 | 3 | the same, re-run after the prompt is fixed | the 20 are served from cache; only `INC-4822` is recomputed (R5.7) |
 | 4 | *counter-example* — a resolution error before any stage runs | aborts everything; resolution failures are total, per-document failures are not (R4.1) |
+
+## Declaring the fields a step extracts
+
+A step's `output` names a **field declaration**: one YAML file listing the fields
+being extracted and what kind of answer each holds.
+
+```yaml
+# pipelines/incident-audit/schemas/incident.yaml
+fields:
+  loss_amount:     {kind: amount, currency: CHF}
+  resolution_date: {kind: date}
+  severity:        {kind: enum, values: [minor, major, critical]}
+  affected_systems: {kind: reference}
+  root_cause:      {kind: free_text, judge: rubrics/root_cause.md}
+```
+
+Five kinds, and the kind is what picks the scorer (spec 007):
+
+| `kind` | Compared by | Needs a model |
+|---|---|---|
+| `amount` | the number, after normalising separators and currency | no |
+| `date` | the date, in unambiguous forms only | no |
+| `enum` | membership in `values`, case folded | no |
+| `reference` | text, case folded | no |
+| `free_text` | a judge against the named rubric | yes |
+
+Two things are generated from that one file and never written by hand: the JSON
+Schema shown to the model, and the field list a scorer works from. That is what
+"there is no second definition" now means — the guarantee R6.7 was protecting,
+kept, with the authoring language changed.
+
+### Why YAML and not a Python model
+
+R6.7 required a pydantic model. It was superseded because of who reads a
+pipeline. The people this tool exists for are the ones checking whether a
+finding is defensible, and under a Python declaration the file that says *what
+correct means* is the one they cannot read. Everything else a pipeline author
+writes — `sources.yaml`, `pipeline.yaml`, the prompts — is already a document.
+
+It also means `dossier` never imports an author's module to discover their
+fields. A pipeline stays inert data: opening someone else's runs nothing.
+
+The cost is real and small. `dossier` generates the JSON Schema itself rather
+than getting it from pydantic, and a field declaration is validated by `dossier`
+rather than by pydantic's own loader.
+
+## Must hold — added
+
+### R6.10 — a step's fields are declared once, in YAML, and everything else is generated
+
+The declaration is the only place a field's name and kind are written. The JSON
+Schema shown to the model and the field list a scorer works from are both
+derived from it, so neither can disagree with it or with the other.
+
+Supersedes R6.7, which required the one definition to be a pydantic model. The
+guarantee is unchanged and the authoring language is not: see "Why YAML and not
+a Python model" above.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.fields`)
+- **Proved by:** `tests/unit/test_R006_10__fields_are_declared_once_in_yaml.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a field added to `incident.yaml` | it appears in the generated JSON Schema and in the scorer field list, with no other edit |
+| 2 | the scorer field list compared against the declaration | equal sets; neither has an entry the other lacks |
+| 3 | the JSON Schema sent to the model | generated at load time, never read from a committed file |
+| 4 | a field declaring `kind: enum` with no `values` | load-time error naming the field; an enum with no vocabulary can match nothing |
+| 5 | a field declaring `kind: free_text` with no `judge` | load-time error; free text is scored by a judge against a rubric, and there is no default rubric to fall back on (spec 007, "Scorers") |
+| 6 | *counter-example* — a field's scorer *choice*, `amount` versus `free_text` | configuration of the one declaration, not a second definition; that is what `kind` is |
+
+### R6.11 — a step's field declaration is part of every key that step's output depends on
+
+Supersedes R6.8, which put the hash of a hand-written JSON Schema into the key.
+Under R6.10 the file a step's `output` names is a YAML field declaration and the
+JSON Schema is generated from it, so the declaration is what is hashed. It fills
+the `schema_hash` slot of the stage key (spec 005) and is hashed the way spec 005
+hashes every configuration file: decoded text, line endings normalised, never
+interpreted. R6.8's word "versioned" had no example and nothing to test beyond
+the hash, and is not carried over.
+
+**Open:** the generated JSON Schema is produced by `dossier`'s own code, so a
+change to that generator can change what the model is shown without one byte of
+the declaration moving. R0.5 says that must move a key. Whether it does so
+through a generator version in the key or by hashing the generated schema as well
+is not decided here, and does not block this rule.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.keys`)
+- **Proved by:** `tests/unit/test_R006_11__field_declaration_hash_is_part_of_affected_keys.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `schemas/incident.yaml` edited, hash moving from `6e0d4b27` | the `extract` and `verify` keys change; `report`'s changes through its inputs |
+| 2 | the same | conversions are unchanged; a field declaration does not affect converting a document (R5.4) |
+| 3 | `incident.yaml` edited where the generated JSON Schema cannot see it, such as the rubric path `root_cause` names as its `judge` | the key still changes; the declaration is hashed as text, not as what is generated from it |
+| 4 | *counter-example* — a field declaration present in the pipeline directory but named by no step's `output` | its hash is in no key; only declarations a step names are part of anything |
