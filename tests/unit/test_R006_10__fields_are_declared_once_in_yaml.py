@@ -92,6 +92,20 @@ class TestFieldsAreDeclaredOnce:
         assert "severity" in message
         assert "values" in message
 
+    def test_free_text_with_no_judge_is_refused_naming_the_field(self):
+        """Example 5: the one where `root_cause` names no rubric to be judged by.
+
+        Free text is scored by a judge against a written rubric (spec 007,
+        "Scorers"), and there is no default rubric to fall back on. Without one
+        the field could only be string-compared -- the defect this prevents.
+        """
+        with pytest.raises(ValueError) as error:
+            declare_fields({"fields": {"root_cause": {"kind": "free_text"}}})
+
+        message = str(error.value)
+        assert "root_cause" in message
+        assert "judge" in message
+
     def test_an_unknown_kind_names_the_field_and_the_kinds_that_exist(self):
         """The one where `loss_amount` declares a kind nobody can score (R3.10 row 4).
 

@@ -17,6 +17,13 @@ from collections.abc import Mapping
 from dossier.domain.schemas import StageOutput
 from dossier.domain.scoring import FieldKind
 
+# What a kind cannot be scored without. An enum with no vocabulary can match
+# nothing, so every answer to it would score incorrect -- confidently, months
+# from now (R6.10 example 4). Free text is scored by a judge against a written
+# rubric, and there is no default rubric to fall back on: without one it could
+# only be string-compared, which is the defect this refuses (R6.10 example 5).
+_REQUIRES = {FieldKind.ENUM: "values", FieldKind.FREE_TEXT: "judge"}
+
 
 def json_schema(kinds: Mapping[str, FieldKind]) -> dict:
     """The JSON Schema shown to the model, generated from a declaration.
@@ -56,8 +63,10 @@ def declare_fields(
             raise ValueError(
                 f"field {name!r} declares kind {kind!r}, which is not one of: {known}"
             ) from None
-        if kinds[name] is FieldKind.ENUM and not declared.get("values"):
-            # An enum with no vocabulary can match nothing: every answer would
-            # score incorrect, confidently, months from now (R6.10 example 4).
-            raise ValueError(f"field {name!r} is an enum with no `values` to match against")
+        required = _REQUIRES.get(kinds[name])
+        if required is not None and not declared.get(required):
+            raise ValueError(
+                f"field {name!r} is {kinds[name].value} with no `{required}`, "
+                "and cannot be scored without one"
+            )
     return kinds
