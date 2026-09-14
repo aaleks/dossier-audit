@@ -192,6 +192,13 @@ changed.
 A `model` value must name an exact, immutable version. An alias a provider may
 re-point is rejected before any work begins.
 
+An id is pinned when it is in its provider's immutable form -- for `anthropic`,
+a dated snapshot ending `-YYYYMMDD`; each other provider's form is its own and is
+stated when that provider is added -- or when `dossier.domain.model_id` names it
+as an id the provider documents as fixed. That list is short and reviewed: each
+entry is a claim about a provider, and a wrong one is a floating alias let
+through.
+
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.model_id`)
 - **Proved by:** `tests/unit/test_R000_6__floating_model_aliases_are_rejected.py`
@@ -203,6 +210,7 @@ re-point is rejected before any work begins.
 | 2 | `model: anthropic:claude-sonnet-4-5` | load-time error naming the file, the line and the alias |
 | 3 | `model: anthropic:claude-sonnet-latest` | load-time error |
 | 4 | *counter-example* — a run replayed from `runs/20260806T142203Z-4f1a/manifest.json` | the manifest's recorded identifier is used as-is; the check already happened when that run was resolved (R4.7) |
+| 5 | `model: anthropic:claude-opus-5`, undated and listed in `dossier.domain.model_id` | accepted; a date suffix is how most ids are pinned, not what pinned means |
 
 ### R0.7 — every hash is SHA-256 over bytes, rendered as 64 lowercase hex characters
 
