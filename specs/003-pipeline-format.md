@@ -40,6 +40,11 @@ folder source above declares none — every byte of a dropped file counts.
 An empty list is not the same thing and is rejected: `fields: []` is a projection
 onto nothing, which no payload satisfies.
 
+The keys every source takes are `id`, `type`, `fields`, `convert` and
+`watermark_overlap`. Anything else -- `path`, `query`, `space` -- belongs to the
+source's type, and its connector declares it; the loader checks a source against
+both before anything runs (R1.10).
+
 ## `pipelines/<name>/pipeline.yaml`
 
 ```yaml
