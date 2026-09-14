@@ -129,6 +129,28 @@ class TestFieldsAreDeclaredOnce:
         assert "root_cause" in message
         assert "judge" in message
 
+    def test_changing_a_kind_is_configuration_not_a_second_definition(self):
+        """Counter-example (row 6): the one where `loss_amount` is judged instead of compared.
+
+        Moving a field from `amount` to `free_text` is an edit to the one
+        declaration. The scorer's choice follows it, and nothing else names the
+        field's kind to disagree -- that is what `kind` is.
+        """
+        judged = {
+            "fields": {
+                **INCIDENT["fields"],
+                "loss_amount": {"kind": "free_text", "judge": "rubrics/loss_amount.md"},
+            }
+        }
+
+        before = declare_fields(INCIDENT)
+        after = declare_fields(judged)
+
+        assert after["loss_amount"] is FieldKind.FREE_TEXT
+        assert {name: kind for name, kind in after.items() if name != "loss_amount"} == {
+            name: kind for name, kind in before.items() if name != "loss_amount"
+        }
+
     def test_an_unknown_kind_names_the_field_and_the_kinds_that_exist(self):
         """The one where `loss_amount` declares a kind nobody can score (R3.10 row 4).
 

@@ -260,7 +260,7 @@ a Python model" above.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.fields`)
 - **Proved by:** `tests/unit/test_R006_10__fields_are_declared_once_in_yaml.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
