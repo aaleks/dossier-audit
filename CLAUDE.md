@@ -68,12 +68,12 @@ marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**. Spec 006 is implemented: a step's `output` names a YAML
 field declaration (R6.10, R3.10), and the stage key hashes both the declaration's
-text (R6.11) and the JSON Schema generated from it (R6.12). `run --plan` refuses
-a floating model alias at load time (R3.4). Next, as unit cycles: R0.6's named
-list of undated pinned ids; R1.10 with the rest of R3.1 (its branch,
-`tdd/R003_1-config-errors-name-file-line-key`, has row 1); then spec 009,
-starting with R9.3. R7.2's outer loop waits for the gold files `_fixtures.md`
-lists, which a person writes.
+text (R6.11) and the JSON Schema generated from it (R6.12). A model is pinned or
+refused at load (R0.6, R3.4), and a source's keys are checked against what its
+connector declares, every error named at its line (R1.10, R3.1). Under way:
+spec 009, model providers, starting with R9.3 -- unit cycles, no outer loop of
+their own. R7.2's outer loop waits for the gold files `_fixtures.md` lists,
+which a person writes.
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost

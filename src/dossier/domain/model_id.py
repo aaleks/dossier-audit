@@ -20,6 +20,12 @@ _DATED = re.compile(r"-\d{8}$")
 # list is short, and an entry is added only once someone has confirmed it.
 _FIXED = frozenset({"anthropic:claude-opus-5"})
 
+# An Ollama tag moves when the model is re-pulled; its digest does not. The tag
+# only names what to ask the server for, so `ollama:qwen2.5:latest@sha256:...` is
+# pinned and `ollama:qwen2.5:7b` is not (R9.3). All 64 lowercase hex characters,
+# as every hash in dossier is (R0.7): a prefix could match more than one model.
+_OLLAMA_DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
+
 
 def check_pinned(model: str) -> None:
     """Raise `ValueError` naming `model` if it is a floating alias."""
@@ -30,4 +36,9 @@ def check_pinned(model: str) -> None:
         raise ValueError(
             f"model {model!r} is a floating alias; name a dated snapshot such as "
             "'anthropic:claude-sonnet-4-5-20250929'"
+        )
+    if provider == "ollama" and not _OLLAMA_DIGEST.search(name):
+        raise ValueError(
+            f"model {model!r} is an Ollama tag with no digest, and a tag moves when "
+            "the model is re-pulled. Pin it as 'ollama:<name>:<tag>@sha256:<digest>'"
         )

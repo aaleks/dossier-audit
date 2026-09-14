@@ -1,6 +1,6 @@
 # 009 — Model providers
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R9.1 – R9.8
 
 ## Purpose
@@ -81,7 +81,7 @@ first cache miss an hour into a run.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.model_id`)
 - **Proved by:** `tests/unit/test_R009_3__an_ollama_model_is_pinned_by_digest.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

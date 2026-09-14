@@ -17,7 +17,7 @@ spec assumes.
 | `006-output-schemas.md` | Structured output, grounding, abstention, validation | R6.1 – R6.12 | Implemented |
 | `007-scoring-and-gold.md` | Gold sets, scorers, judge calibration, the change gate | R7.1 – R7.12 | Partially implemented |
 | `008-conversion.md` | The converter interface, its registration, versioning and selection | R8.1 – R8.8 | Partially implemented |
-| `009-model-providers.md` | Model providers, their pinned forms, and where each is reached | R9.1 – R9.8 | Proposed |
+| `009-model-providers.md` | Model providers, their pinned forms, and where each is reached | R9.1 – R9.8 | Partially implemented |
 
 Supporting files:
 
