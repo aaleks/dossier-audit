@@ -17,12 +17,20 @@ from collections.abc import Mapping
 from dossier.domain.scoring import FieldKind
 
 
-def declare_fields(document: Mapping[str, Mapping[str, Mapping[str, object]]]) -> None:
-    """Check a parsed declaration, raising `ValueError` naming what is wrong."""
+def declare_fields(
+    document: Mapping[str, Mapping[str, Mapping[str, object]]],
+) -> dict[str, FieldKind]:
+    """The kind of every declared field, in declared order.
+
+    This is the scorer's field list, in the shape `score_document` takes: derived
+    from the declaration, never written anywhere else (R6.10 example 2). Raises
+    `ValueError` naming what is wrong.
+    """
+    kinds: dict[str, FieldKind] = {}
     for name, declared in document["fields"].items():
         kind = declared["kind"]
         try:
-            FieldKind(kind)
+            kinds[name] = FieldKind(kind)
         except ValueError:
             # The kind picks the scorer (spec 007), so a kind outside the five is
             # a field nobody decided how to score. Naming the five turns the
@@ -31,3 +39,4 @@ def declare_fields(document: Mapping[str, Mapping[str, Mapping[str, object]]]) -
             raise ValueError(
                 f"field {name!r} declares kind {kind!r}, which is not one of: {known}"
             ) from None
+    return kinds

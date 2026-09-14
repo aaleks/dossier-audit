@@ -10,12 +10,40 @@ from __future__ import annotations
 import pytest
 
 from dossier.domain.fields import declare_fields
+from dossier.domain.scoring import FieldKind
 
 KINDS = ("amount", "date", "enum", "reference", "free_text")
+
+# Spec 006's declaration, parsed: five fields, one of each kind.
+INCIDENT = {
+    "fields": {
+        "loss_amount": {"kind": "amount", "currency": "CHF"},
+        "resolution_date": {"kind": "date"},
+        "severity": {"kind": "enum", "values": ["minor", "major", "critical"]},
+        "affected_systems": {"kind": "reference"},
+        "root_cause": {"kind": "free_text", "judge": "rubrics/root_cause.md"},
+    }
+}
 
 
 class TestFieldsAreDeclaredOnce:
     """R6.10 — the declaration is the only place a field's name and kind are written."""
+
+    def test_the_scorer_field_list_is_exactly_the_declaration(self):
+        """Example 2: the one where neither side has an entry the other lacks.
+
+        Compared as the mapping `score_document` takes, so the scorer consumes
+        what the declaration produced and never a list written anywhere else.
+        """
+        kinds = declare_fields(INCIDENT)
+
+        assert kinds == {
+            "loss_amount": FieldKind.AMOUNT,
+            "resolution_date": FieldKind.DATE,
+            "severity": FieldKind.ENUM,
+            "affected_systems": FieldKind.REFERENCE,
+            "root_cause": FieldKind.FREE_TEXT,
+        }
 
     def test_an_unknown_kind_names_the_field_and_the_kinds_that_exist(self):
         """The one where `loss_amount` declares a kind nobody can score (R3.10 row 4).
