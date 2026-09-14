@@ -46,6 +46,7 @@ from dossier.infrastructure.connectors.registry import (
 )
 from dossier.infrastructure.converters.registry import installed_converters
 from dossier.infrastructure.ledger import Ledger
+from dossier.infrastructure.models.registry import available_providers
 from dossier.infrastructure.store import SnapshotStore
 
 app = typer.Typer(add_completion=False)
@@ -68,7 +69,9 @@ def sync(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines
     started_at = datetime.now(UTC)
 
     try:
-        config = load_pipeline(_pipeline_path(workspace, pipeline))
+        config = load_pipeline(
+            _pipeline_path(workspace, pipeline), providers=available_providers()
+        )
         declared = {source.id: source for source in load_sources(
                 workspace / "sources.yaml", connectors=declared_keys()
             )
@@ -186,7 +189,7 @@ def run(
 
     try:
         path = _pipeline_path(workspace, pipeline)
-        config = load_pipeline(path)
+        config = load_pipeline(path, providers=available_providers())
         declared = {source.id: source for source in load_sources(
                 workspace / "sources.yaml", connectors=declared_keys()
             )
@@ -261,7 +264,9 @@ def convert(pipeline: str = typer.Argument(..., help="Pipeline name under pipeli
     workspace = Path.cwd()
 
     try:
-        config = load_pipeline(_pipeline_path(workspace, pipeline))
+        config = load_pipeline(
+            _pipeline_path(workspace, pipeline), providers=available_providers()
+        )
         declared = {source.id: source for source in load_sources(
                 workspace / "sources.yaml", connectors=declared_keys()
             )
@@ -372,7 +377,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
     """`dossier run <pipeline>` (spec 004, spec 005)."""
     try:
         path = _pipeline_path(workspace, pipeline)
-        config = load_pipeline(path)
+        config = load_pipeline(path, providers=available_providers())
         declared = {source.id: source for source in load_sources(
                 workspace / "sources.yaml", connectors=declared_keys()
             )

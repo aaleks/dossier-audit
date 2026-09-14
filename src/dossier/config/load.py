@@ -18,7 +18,7 @@ loading -- a connector asks for its credential when it is actually used (R1.8).
 from __future__ import annotations
 
 import difflib
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from pathlib import Path
 
 import yaml
@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from dossier.domain.fields import OutputSchema, declare_fields, json_schema
 from dossier.domain.hashing import text_hash
-from dossier.domain.model_id import check_pinned
+from dossier.domain.model_id import check_pinned, provider_of
 from dossier.domain.pipeline import (
     PipelineConfig,
     SourceConfig,
@@ -177,16 +177,33 @@ def _suggestion(key: str, known) -> str:
     return f" -- did you mean {matches[0]!r}?" if matches else ""
 
 
-def load_pipeline(path: Path) -> PipelineConfig:
+def load_pipeline(path: Path, *, providers: Collection[str]) -> PipelineConfig:
     """Load and validate one pipeline, with its schemas.
 
     Relative paths inside the file are resolved against the pipeline's own
     directory, so a pipeline is self-contained and can be moved.
+
+    `providers` is every model provider an installed package declares. It is
+    passed in because this layer may import only the domain, and the registry
+    is infrastructure: the CLI reads it from the entry points, and a test
+    passes a set (R9.1).
     """
     document = _read_yaml(path)
     document["name"] = path.parent.name
 
     pipeline = _validate(PipelineConfig, document, path)
+
+    # Before the pinned check: whether an id is pinned depends on its
+    # provider's form, and a provider nobody installed has none to check
+    # against. Found now rather than at the first cache miss (R9.1).
+    provider = provider_of(pipeline.model)
+    if provider not in providers:
+        line = _line_of(path.read_text(encoding="utf-8"), "model")
+        available = ", ".join(sorted(providers)) or "none"
+        raise ConfigError(
+            f"{_name(path)}, line {line}: model {pipeline.model!r} names provider "
+            f"{provider!r}, which no installed package provides. Available: {available}"
+        )
 
     # Whether the model is pinned is the domain's decision (R0.6); which line it
     # was written on is this layer's, because only this layer has the file (R3.4).
