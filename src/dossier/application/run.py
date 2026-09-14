@@ -28,7 +28,6 @@ against `FakeModelClient` and lets the tests assert how many calls happened.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -38,6 +37,7 @@ from pydantic import ValidationError
 
 from dossier.application.extract import DocumentResult, run_stage
 from dossier.application.manifest import Manifest
+from dossier.domain.fields import OutputSchema
 from dossier.domain.grounding import check_field
 from dossier.domain.hashing import content_hash
 from dossier.domain.keys import ArtifactInput, StageInputs, cache_key, provenance
@@ -125,7 +125,7 @@ def execute(
     documents: Mapping[str, str],
     media_types: Mapping[str, str] | None = None,
     document_text: Mapping[str, str],
-    schemas: Mapping[str, dict],
+    schemas: Mapping[str, OutputSchema | None],
     prompts: Mapping[str, str],
     model: ModelClient,
     cache: ArtifactStore,
@@ -145,8 +145,11 @@ def execute(
         documents=documents,
         media_types=media_types,
         prompt_hashes={step: content_hash(text.encode()) for step, text in prompts.items()},
+        # The declaration's text, not the schema generated from it: the generated
+        # schema names fields and nothing else, so a key over it would miss every
+        # edit it cannot see (R6.11).
         schema_hashes={
-            step.id: _schema_hash(schemas.get(step.id)) for step in pipeline.steps
+            step.id: _declaration_hash(schemas.get(step.id)) for step in pipeline.steps
         },
         converters=converters,
     )
@@ -171,6 +174,7 @@ def execute(
 
     for step in plan.steps:
         over = [AGGREGATE_KEY] if declared[step.id].mode == "aggregate" else keys
+        output = schemas.get(step.id)
         results = tuple(
             _run_one(
                 step=step,
@@ -179,7 +183,7 @@ def execute(
                 documents=keys,
                 document_text=document_text,
                 produced=produced,
-                schema=schemas.get(step.id),
+                schema=None if output is None else output.schema,
                 prompt=prompts[step.id],
                 model=model,
                 cache=cache,
@@ -411,16 +415,14 @@ def _targets(declared: StepConfig, resolved: ResolvedStep) -> list[str]:
     return list(resolved.inputs)
 
 
-def _schema_hash(schema: dict | None) -> str | None:
-    """The hash of a declared output schema, or `None` where none was declared.
+def _declaration_hash(output: OutputSchema | None) -> str | None:
+    """The hash a step's declaration puts in its key, or `None` where none was declared.
 
-    `None` rather than the hash of `null`: a step with no schema is a different
-    thing from one whose schema happens to be empty, and R3.5 lets an aggregate
-    step be the former.
+    `None` rather than the hash of nothing: a step with no declaration is a
+    different thing from one whose declaration happens to be empty, and R3.10
+    lets an aggregate step be the former.
     """
-    if schema is None:
-        return None
-    return content_hash(json.dumps(schema, sort_keys=True).encode())
+    return None if output is None else output.declaration_hash
 
 
 def _resolve(

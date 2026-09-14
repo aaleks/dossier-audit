@@ -22,7 +22,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ValidationError
 
-from dossier.domain.fields import declare_fields
+from dossier.domain.fields import OutputSchema, declare_fields, json_schema
+from dossier.domain.hashing import text_hash
 from dossier.domain.pipeline import (
     PipelineConfig,
     SourceConfig,
@@ -37,6 +38,8 @@ __all__ = [
     "PipelineConfig",
     "SourceConfig",
     "load_fields",
+    "load_output_schema",
+    "load_output_schemas",
     "load_pipeline",
     "load_sources",
 ]
@@ -99,6 +102,32 @@ def load_fields(path: Path) -> dict[str, FieldKind]:
         return declare_fields(document)
     except ValueError as error:
         raise ConfigError(f"{_name(path)}: {error}") from error
+
+
+def load_output_schema(path: Path) -> OutputSchema:
+    """What one declaration contributes to a run (R6.10, R6.11).
+
+    The schema shown to the model is generated from the declaration. The key
+    takes the declaration's own text, hashed the way spec 005 hashes every
+    configuration file -- so an edit the generated schema cannot see still moves
+    the key.
+    """
+    return OutputSchema(schema=json_schema(load_fields(path)), declaration_hash=text_hash(path))
+
+
+def load_output_schemas(pipeline: PipelineConfig, path: Path) -> dict[str, OutputSchema]:
+    """What each step's declaration contributes to a run, by step id.
+
+    Only the declarations a step's `output` names. A file beside them that no
+    step names is in no key (R6.11 row 4), and a step that names none has no
+    entry at all (R3.10 row 5). `path` is the pipeline's own `pipeline.yaml`,
+    which every `output` is relative to.
+    """
+    return {
+        step.id: load_output_schema(path.parent / step.output)
+        for step in pipeline.steps
+        if step.output is not None
+    }
 
 
 def _validate_prompt_placeholders(pipeline: PipelineConfig, path: Path) -> None:
