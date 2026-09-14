@@ -7,7 +7,6 @@ as arguments.
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
@@ -32,8 +31,9 @@ from dossier.application.plan import (
 )
 from dossier.application.run import MissingFromReplay, execute, replay
 from dossier.application.sync import SourceReport, sync_source
-from dossier.config.load import ConfigError, load_pipeline, load_sources
+from dossier.config.load import ConfigError, load_fields, load_pipeline, load_sources
 from dossier.domain.conversion import NoConverter
+from dossier.domain.fields import json_schema
 from dossier.domain.hashing import text_hash
 from dossier.domain.keys import ConvertInputs, cache_key
 from dossier.domain.ports import ModelClient
@@ -418,8 +418,10 @@ def _execute(workspace: Path, pipeline: str) -> None:
         step.id: (path.parent / step.prompt).read_text(encoding="utf-8")
         for step in config.steps
     }
+    # Generated from each step's field declaration, never read from a committed
+    # file: the declaration is the one definition (R6.10 example 3).
     schemas = {
-        step.id: json.loads((path.parent / step.output).read_text(encoding="utf-8"))
+        step.id: json_schema(load_fields(path.parent / step.output))
         for step in config.steps
         if step.output is not None
     }

@@ -283,7 +283,7 @@ run has been paid for is the whole failure this rule exists to prevent.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/acceptance/test_R003_10__output_declarations_must_load_and_validate.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

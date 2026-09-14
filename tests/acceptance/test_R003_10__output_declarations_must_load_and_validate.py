@@ -1,6 +1,6 @@
-"""R3.10 — every `output` path resolves to a field declaration that loads and declares valid kinds.
+"""R3.10 — every `output` path resolves to a field declaration that loads with valid kinds.
 
-The outer loop for the fields slice. A step's `output` used to name a
+The acceptance test for the fields slice. A step's `output` used to name a
 hand-written JSON Schema; under R6.10 it names a YAML field declaration, and the
 JSON Schema is generated from it. What a user observes is the load: a pipeline
 whose declaration is sound gets as far as a plan, and one whose declaration
@@ -23,8 +23,6 @@ from pathlib import Path
 
 import pytest
 from tests.pipelines import write_pipeline
-
-pytestmark = pytest.mark.outer_loop
 
 PIPELINE = "incident-audit"
 DECLARATION = "schemas/incident.yaml"
@@ -100,7 +98,7 @@ def _declare(
         steps=steps or ["extract"],
         inputs=inputs,
         outputs={"extract": output, **(outputs or {})},
-        write_schema=False,
+        write_declaration=False,
     )
     directory = workspace / "pipelines" / PIPELINE
     rubrics = directory / "rubrics"

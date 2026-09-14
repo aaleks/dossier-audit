@@ -8,7 +8,8 @@ mistake is cheap to catch now.
 The *shapes*, and the checks that need nothing but a value in hand, live in
 `dossier.domain.pipeline` -- R3.2 and R3.3 name that layer. What is here is the
 part that touches the filesystem: reading YAML, resolving paths against the
-pipeline directory, and opening the schemas a step declares (R3.5).
+pipeline directory, and opening the field declaration a step's `output` names
+(R3.10).
 
 This is the only package that may read `os.environ`, and it does not do so while
 loading -- a connector asks for its credential when it is actually used (R1.8).
@@ -16,12 +17,12 @@ loading -- a connector asks for its credential when it is actually used (R1.8).
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from dossier.domain.fields import declare_fields
 from dossier.domain.pipeline import (
     PipelineConfig,
     SourceConfig,
@@ -29,11 +30,13 @@ from dossier.domain.pipeline import (
     validate_step_ids,
 )
 from dossier.domain.prompts import check_placeholders
+from dossier.domain.scoring import FieldKind
 
 __all__ = [
     "ConfigError",
     "PipelineConfig",
     "SourceConfig",
+    "load_fields",
     "load_pipeline",
     "load_sources",
 ]
@@ -80,9 +83,22 @@ def load_pipeline(path: Path) -> PipelineConfig:
         except ValueError as error:
             raise ConfigError(f"{_name(path)}: {error}") from error
 
-    _validate_output_schemas(pipeline, path)
+    _validate_output_declarations(pipeline, path)
     _validate_prompt_placeholders(pipeline, path)
     return pipeline
+
+
+def load_fields(path: Path) -> dict[str, FieldKind]:
+    """The fields one declaration states, and each one's kind (R6.10).
+
+    Reading and parsing is this layer's job; whether the declaration can be
+    scored is the domain's.
+    """
+    document = _read_yaml(path)
+    try:
+        return declare_fields(document)
+    except ValueError as error:
+        raise ConfigError(f"{_name(path)}: {error}") from error
 
 
 def _validate_prompt_placeholders(pipeline: PipelineConfig, path: Path) -> None:
@@ -109,25 +125,28 @@ def _validate_prompt_placeholders(pipeline: PipelineConfig, path: Path) -> None:
             raise ConfigError(f"{_name(path)}: {error}") from error
 
 
-def _validate_output_schemas(pipeline: PipelineConfig, path: Path) -> None:
-    """R3.5 — every declared output schema exists and parses."""
+def _validate_output_declarations(pipeline: PipelineConfig, path: Path) -> None:
+    """R3.10 — every `output` is a field declaration that loads and declares valid kinds.
+
+    Checked here, before anything runs: a declaration that cannot be read is a
+    pipeline that cannot be scored, and finding that out after a run has been
+    paid for is the failure this exists to prevent.
+    """
     for step in pipeline.steps:
         if step.output is None:
-            # An `aggregate` step may produce prose. No schema means no check.
+            # An `aggregate` step may produce prose. No declaration, no check --
+            # and no scoring for that step (R3.10 row 5).
             continue
-        schema = path.parent / step.output
-        try:
-            json.loads(schema.read_text(encoding="utf-8"))
-        except FileNotFoundError as error:
+        declaration = path.parent / step.output
+        if not declaration.is_file():
             raise ConfigError(
                 f"{_name(path)}: step {step.id!r} declares output {step.output!r}, "
-                f"which does not exist ({schema})"
-            ) from error
-        except json.JSONDecodeError as error:
-            raise ConfigError(
-                f"{_name(path)}: step {step.id!r} output schema {step.output!r} is not "
-                f"valid JSON -- line {error.lineno}, column {error.colno}: {error.msg}"
-            ) from error
+                f"which does not exist ({declaration})"
+            )
+        try:
+            load_fields(declaration)
+        except ConfigError as error:
+            raise ConfigError(f"{_name(path)}: step {step.id!r}: {error}") from error
 
 
 def _reject_duplicate_ids(sources: list[SourceConfig], path: Path) -> None:

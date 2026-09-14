@@ -1,9 +1,10 @@
 """The shape of an extracted field (spec 006).
 
-One pydantic model generates the schema shown to the model, the validation
-applied to its answer, and the field list a scorer works from. There is no second
-definition anywhere -- two definitions of one schema disagree eventually, and the
-disagreement surfaces as a scoring bug months later (R6.7).
+These models are the shape of a record, not the list of fields. Which fields a
+step extracts, and what kind each one is, is written once in the step's YAML
+declaration; `dossier.domain.fields` combines the two into the schema shown to
+the model (R6.10). Two definitions of one schema disagree eventually, and the
+disagreement surfaces as a scoring bug months later.
 """
 
 from __future__ import annotations
@@ -41,10 +42,8 @@ class FieldRecord(BaseModel):
 class StageOutput(BaseModel):
     """What one `per_file` stage returns for one document (spec 006).
 
-    The same model generates the JSON schema shown to the model and the
-    validation applied to its answer. There is no second definition: two
-    definitions of one schema disagree eventually, and the disagreement surfaces
-    as a scoring bug months later (R6.7).
+    Its JSON schema, with `field` limited to the declared names, is what the
+    model is shown; the answer is validated against the same model (R6.10).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

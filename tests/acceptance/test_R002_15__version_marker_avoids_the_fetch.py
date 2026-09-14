@@ -47,7 +47,7 @@ steps:
     prompt: prompts/01_extract.md
     input: documents
     mode: per_file
-    output: schemas/incident.json
+    output: schemas/incident.yaml
 """
 
 SOURCES = """\

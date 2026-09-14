@@ -66,10 +66,11 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **R3.10**. A step's `output` names a YAML field declaration
-(R6.10) that must load and declare valid kinds, observed through
-`dossier run --plan`. The inner cycles build `dossier.domain.fields`, then point
-the config loader at it; R3.5's test retires when this goes green.
+Currently open: **none**. R3.10 landed: a step's `output` names a YAML field
+declaration, and `run --plan` refuses one that cannot be scored. What is left of
+R6.10 is two domain refusals (an enum with no `values`, free text with no
+`judge`) -- unit cycles, no outer loop of their own. After that, R6.11 puts the
+declaration's hash into the key.
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost
