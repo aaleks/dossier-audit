@@ -66,9 +66,10 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. `sync` and `run --plan` both work end to end. The next
-outer loop is R4.5, which needs `run` to write a manifest before a plan has
-anything to diff against.
+Currently open: **R3.10**. A step's `output` names a YAML field declaration
+(R6.10) that must load and declare valid kinds, observed through
+`dossier run --plan`. The inner cycles build `dossier.domain.fields`, then point
+the config loader at it; R3.5's test retires when this goes green.
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost
