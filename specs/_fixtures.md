@@ -68,6 +68,9 @@ consistently here so a reader can follow one artifact across specs.
 | `c4a70b93` | `audit-note.pdf` snapshot |
 | `9f21c0a4` | the `verify` cache key for `INC-4821` |
 | `5d3ba0f7` | `INC-4821` converted to markdown — a *different* artifact from the snapshot it came from, and therefore a different hash |
+| `7f3c29a1` | the Ollama digest `qwen2.5:7b` is pinned to (R9.3). A real identifier carries all 64 characters |
+| `e04b6d52` | the digest the same Ollama tag reports after a re-pull — the one R9.4 stops a run on |
+| `1c0f8e6b` | the Hugging Face revision `Qwen/Qwen2.5-7B-Instruct` is pinned to (R9.5). A real one is a 40-character commit |
 
 ## Converters
 
@@ -102,6 +105,12 @@ example refers to.
 | `anthropic:claude-sonnet-4-5-20250929` | the pinned model identifier |
 | `anthropic:claude-sonnet-4-5` | a floating alias — rejected at load time (R0.6) |
 | `anthropic:claude-opus-5` | undated, and pinned: listed in `dossier.domain.model_id` as an id the provider documents as fixed (R0.6 row 5) |
+| `ollama:qwen2.5:7b@sha256:7f3c29a1` | a local model, pinned by its digest (R9.3) |
+| `ollama:qwen2.5:7b` | an Ollama tag with no digest — refused; a tag moves on re-pull (R9.3) |
+| `hf:Qwen/Qwen2.5-7B-Instruct@1c0f8e6b` | a model served by vLLM, pinned by repository and revision (R9.5) |
+| `http://localhost:11434` | `DOSSIER_OLLAMA_URL` on a laptop, and Ollama's default (R9.2) |
+| `http://gpu-01:11434` | `DOSSIER_OLLAMA_URL` on a GPU server — same identifier, same keys (R9.2) |
+| `https://ai.example.internal/ollama` | OpenWebUI's Ollama passthrough — an endpoint, not a provider (R9.7) |
 | `incident-audit` | the pipeline name |
 | `extract` → `verify` → `report` | the three steps |
 
