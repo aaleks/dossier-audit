@@ -192,10 +192,12 @@ changed.
 A `model` value must name an exact, immutable version. An alias a provider may
 re-point is rejected before any work begins.
 
-An id is pinned when it is the provider's dated snapshot -- for `anthropic`, a
-`-YYYYMMDD` suffix -- or when `dossier.domain.model_id` names it as an id the
-provider documents as fixed. That list is short and reviewed: each entry is a
-claim about a provider, and a wrong one is a floating alias let through.
+An id is pinned when it is in its provider's immutable form -- for `anthropic`,
+a dated snapshot ending `-YYYYMMDD`; each other provider's form is its own and is
+stated when that provider is added -- or when `dossier.domain.model_id` names it
+as an id the provider documents as fixed. That list is short and reviewed: each
+entry is a claim about a provider, and a wrong one is a floating alias let
+through.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.model_id`)
