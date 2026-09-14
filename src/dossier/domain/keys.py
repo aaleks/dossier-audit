@@ -9,8 +9,8 @@ convention.
 The composition is spec 005's, verbatim:
 
     K_convert = H( snapshot_content_hash + converter_id + converter_version + options )
-    K_stage   = H( prompt_hash + schema_hash + model_id + stage_options
-                   + sorted(input_artifact_hashes) )
+    K_stage   = H( prompt_hash + schema_hash + generated_schema_hash + model_id
+                   + stage_options + sorted(input_artifact_hashes) )
 
 Everything entering a key is a hash, an identifier or a declared option. No
 paths, no clock, no absolute anything -- R5.6 is the claim that a key is the same
@@ -87,6 +87,10 @@ class StageInputs(BaseModel):
     # Not `schema`: that name shadows a BaseModel attribute. The record still
     # writes it as `schema`, because that is what spec 005's example shows.
     output_schema: ArtifactInput | None = None
+    # The hash of the JSON Schema the model is shown, beside the declaration's.
+    # A change to dossier's own generator changes what the model is asked with no
+    # byte of the declaration moving, and R0.5 says that must move a key (R6.12).
+    generated_schema: str | None = None
     model: str
     options: dict[str, str] = {}
     inputs: list[ArtifactInput] = []
@@ -102,6 +106,7 @@ class StageInputs(BaseModel):
         return {
             "prompt": self.prompt.hash,
             "schema": self.output_schema.hash if self.output_schema else None,
+            "generated_schema": self.generated_schema,
             "model": self.model,
             "options": self.options,
             "inputs": sorted(artifact.hash for artifact in self.inputs),
@@ -112,6 +117,9 @@ class StageInputs(BaseModel):
         return {
             "prompt": self.prompt.model_dump(),
             "schema": self.output_schema.model_dump() if self.output_schema else None,
+            "generated_schema": (
+                {"hash": self.generated_schema} if self.generated_schema else None
+            ),
             "model": self.model,
             "options": self.options,
             "inputs": [artifact.model_dump() for artifact in self.inputs],
