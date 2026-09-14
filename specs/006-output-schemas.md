@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
 **Status:** Partially implemented
-**Rules:** R6.1 – R6.9
+**Rules:** R6.1 – R6.11
 
 ## Purpose
 
@@ -39,9 +39,9 @@ Abstention is a first-class answer:
 
 ## Obtaining valid output
 
-1. The schema is a pydantic model. Its JSON schema is passed to the model as a
-   structured-output or tool specification.
-2. The response is validated against the same model.
+1. A JSON Schema is generated from the step's field declaration (R6.10) and
+   passed to the model as a structured-output or tool specification.
+2. The response is validated against that same generated schema.
 3. On validation failure, the call is retried **once**, with the validation error
    appended to the prompt.
 4. A second failure is a stage error for that document. The run continues; the
@@ -176,8 +176,8 @@ eventually, and the disagreement shows up as a scoring bug months later.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
-- **Proved by:** `tests/unit/test_R006_8__schema_hash_is_part_of_affected_keys.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R006_11__field_declaration_hash_is_part_of_affected_keys.py`
+- **Status:** SUPERSEDED by R6.11
 
 | # | Given | Then |
 |---|-------|------|
@@ -268,5 +268,33 @@ a Python model" above.
 | 2 | the scorer field list compared against the declaration | equal sets; neither has an entry the other lacks |
 | 3 | the JSON Schema sent to the model | generated at load time, never read from a committed file |
 | 4 | a field declaring `kind: enum` with no `values` | load-time error naming the field; an enum with no vocabulary can match nothing |
-| 5 | a field declaring `kind: free_text` with no `judge` | load-time error; free text is scored by a judge against a rubric, and there is no default rubric to fall back on (R7.11) |
+| 5 | a field declaring `kind: free_text` with no `judge` | load-time error; free text is scored by a judge against a rubric, and there is no default rubric to fall back on (spec 007, "Scorers") |
 | 6 | *counter-example* — a field's scorer *choice*, `amount` versus `free_text` | configuration of the one declaration, not a second definition; that is what `kind` is |
+
+### R6.11 — a step's field declaration is part of every key that step's output depends on
+
+Supersedes R6.8, which put the hash of a hand-written JSON Schema into the key.
+Under R6.10 the file a step's `output` names is a YAML field declaration and the
+JSON Schema is generated from it, so the declaration is what is hashed. It fills
+the `schema_hash` slot of the stage key (spec 005) and is hashed the way spec 005
+hashes every configuration file: decoded text, line endings normalised, never
+interpreted. R6.8's word "versioned" had no example and nothing to test beyond
+the hash, and is not carried over.
+
+**Open:** the generated JSON Schema is produced by `dossier`'s own code, so a
+change to that generator can change what the model is shown without one byte of
+the declaration moving. R0.5 says that must move a key. Whether it does so
+through a generator version in the key or by hashing the generated schema as well
+is not decided here, and does not block this rule.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.keys`)
+- **Proved by:** `tests/unit/test_R006_11__field_declaration_hash_is_part_of_affected_keys.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `schemas/incident.yaml` edited, hash moving from `6e0d4b27` | the `extract` and `verify` keys change; `report`'s changes through its inputs |
+| 2 | the same | conversions are unchanged; a field declaration does not affect converting a document (R5.4) |
+| 3 | `incident.yaml` edited where the generated JSON Schema cannot see it, such as the rubric path `root_cause` names as its `judge` | the key still changes; the declaration is hashed as text, not as what is generated from it |
+| 4 | *counter-example* — a field declaration present in the pipeline directory but named by no step's `output` | its hash is in no key; only declarations a step names are part of anything |

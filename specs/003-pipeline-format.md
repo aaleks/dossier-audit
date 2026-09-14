@@ -1,7 +1,7 @@
 # 003 — Configuration format
 
 **Status:** Partially implemented
-**Rules:** R3.1 – R3.9
+**Rules:** R3.1 – R3.10
 
 ## Purpose
 
@@ -287,7 +287,7 @@ run has been paid for is the whole failure this rule exists to prevent.
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `output: schemas/incident.yaml`, present and declaring five valid fields | accepted; its hash is recorded for keying (R6.8) |
+| 1 | `output: schemas/incident.yaml`, present and declaring five valid fields | accepted; its hash `6e0d4b27` is recorded for keying (R6.11) |
 | 2 | `output: schemas/missing.yaml` | load-time error naming the path and the step |
 | 3 | `output: schemas/incident.yaml` containing malformed YAML | load-time error naming the file and the parse position |
 | 4 | a field declaring a `kind` that is not one of the five | load-time error naming the field and listing the kinds that exist |
