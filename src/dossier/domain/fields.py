@@ -12,9 +12,11 @@ decision here be tested without a file.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from dossier.domain.hashing import content_hash
 from dossier.domain.schemas import StageOutput
 from dossier.domain.scoring import FieldKind
 
@@ -38,6 +40,21 @@ class OutputSchema:
 
     schema: dict
     declaration_hash: str
+
+    @property
+    def generated_schema_hash(self) -> str:
+        """The hash of what the model is shown, over canonical JSON (R6.12).
+
+        Sorted keys, fixed separators, UTF-8: the same schema gives the same
+        bytes on every machine however its dict happened to be built (R5.6).
+        Derived rather than stored, so it cannot disagree with the schema it
+        describes.
+        """
+        return content_hash(
+            json.dumps(
+                self.schema, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+            ).encode("utf-8")
+        )
 
 
 def json_schema(kinds: Mapping[str, FieldKind]) -> dict:

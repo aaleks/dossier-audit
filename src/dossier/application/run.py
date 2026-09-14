@@ -151,6 +151,11 @@ def execute(
         schema_hashes={
             step.id: _declaration_hash(schemas.get(step.id)) for step in pipeline.steps
         },
+        # And what the model is shown, beside it: a change to dossier's own
+        # generator moves no byte of the declaration (R6.12).
+        generated_schema_hashes={
+            step.id: _generated_schema_hash(schemas.get(step.id)) for step in pipeline.steps
+        },
         converters=converters,
     )
 
@@ -258,6 +263,7 @@ def _run_one(
                 role="schema", path=declared.output or "", hash=step.schema_hash
             )
         ),
+        generated_schema=step.generated_schema_hash,
         model=model.model_id,
         inputs=[
             ArtifactInput(
@@ -425,6 +431,11 @@ def _declaration_hash(output: OutputSchema | None) -> str | None:
     return None if output is None else output.declaration_hash
 
 
+def _generated_schema_hash(output: OutputSchema | None) -> str | None:
+    """The hash of the schema a step's model is shown, or `None` where it has none (R6.12)."""
+    return None if output is None else output.generated_schema_hash
+
+
 def _resolve(
     *,
     pipeline: PipelineConfig,
@@ -433,6 +444,7 @@ def _resolve(
     media_types: Mapping[str, str] | None = None,
     prompt_hashes: Mapping[str, str] | None = None,
     schema_hashes: Mapping[str, str | None] | None = None,
+    generated_schema_hashes: Mapping[str, str | None] | None = None,
     converters: Sequence[PinnedConverter] | None = None,
 ) -> ResolvedPlan:
     """Every check that can refuse a run, run before a run exists.
@@ -452,6 +464,7 @@ def _resolve(
         media_types=media_types,
         prompt_hashes=prompt_hashes,
         schema_hashes=schema_hashes,
+        generated_schema_hashes=generated_schema_hashes,
         converters=converters,
     )
     # Every remaining check that could refuse this run, run while refusing it is
@@ -555,6 +568,7 @@ def _replay_one(
                 if step.schema_hash is None
                 else ArtifactInput(role="schema", path=step.id, hash=step.schema_hash)
             ),
+            generated_schema=step.generated_schema_hash,
             model=model,
             inputs=[
                 ArtifactInput(

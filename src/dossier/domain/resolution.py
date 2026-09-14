@@ -47,6 +47,9 @@ class ResolvedStep(BaseModel):
     mode: Literal["per_file", "aggregate"] = "per_file"
     prompt_hash: str = ""
     schema_hash: str | None = None
+    # Recorded for the same reason as `schema_hash`: it is part of the stage key
+    # (R6.12), and a replay has only the manifest to rebuild that key from.
+    generated_schema_hash: str | None = None
 
 
 class PinnedDocument(BaseModel):
@@ -125,6 +128,7 @@ def expand(
     *,
     prompt_hashes: Mapping[str, str] | None = None,
     schema_hashes: Mapping[str, str | None] | None = None,
+    generated_schema_hashes: Mapping[str, str | None] | None = None,
 ) -> list[ResolvedStep]:
     """Every step's inputs, with `previous` replaced by the ids it stands for.
 
@@ -149,6 +153,7 @@ def expand(
                 mode=step.mode,
                 prompt_hash=(prompt_hashes or {}).get(step.id, ""),
                 schema_hash=(schema_hashes or {}).get(step.id),
+                generated_schema_hash=(generated_schema_hashes or {}).get(step.id),
             )
         )
         declared.append(step.id)
@@ -185,6 +190,7 @@ def resolve(
     media_types: Mapping[str, str] | None = None,
     prompt_hashes: Mapping[str, str] | None = None,
     schema_hashes: Mapping[str, str | None] | None = None,
+    generated_schema_hashes: Mapping[str, str | None] | None = None,
     converters: Sequence[PinnedConverter] | None = None,
 ) -> ResolvedPlan:
     """A pipeline and a set of snapshots, frozen into one plan (R4.4, R4.8).
@@ -204,7 +210,10 @@ def resolve(
         pipeline_hash=pipeline_hash,
         model=pipeline.model,
         steps=expand(
-            pipeline.steps, prompt_hashes=prompt_hashes, schema_hashes=schema_hashes
+            pipeline.steps,
+            prompt_hashes=prompt_hashes,
+            schema_hashes=schema_hashes,
+            generated_schema_hashes=generated_schema_hashes,
         ),
         documents=[
             PinnedDocument(
