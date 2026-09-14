@@ -14,7 +14,24 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from dossier.domain.schemas import StageOutput
 from dossier.domain.scoring import FieldKind
+
+
+def json_schema(kinds: Mapping[str, FieldKind]) -> dict:
+    """The JSON Schema shown to the model, generated from a declaration.
+
+    The record's shape comes from `StageOutput`, the model the answer is
+    validated against, and the names a record may carry come from the
+    declaration. Neither is written a second time, so a field declared once is
+    a field the model is asked for (R6.10 example 1).
+    """
+    schema = StageOutput.model_json_schema()
+    schema["$defs"]["FieldRecord"]["properties"]["field"] = {
+        "title": "Field",
+        "enum": list(kinds),
+    }
+    return schema
 
 
 def declare_fields(
