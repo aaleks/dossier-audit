@@ -26,6 +26,12 @@ _FIXED = frozenset({"anthropic:claude-opus-5"})
 # as every hash in dossier is (R0.7): a prefix could match more than one model.
 _OLLAMA_DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
 
+# A Hugging Face repository is whatever `main` points at today; a revision is a
+# commit, and does not move (R9.5). `@main` looks like a pin and is not one, so
+# only a full 40-character commit counts. vLLM does not report which revision
+# it loaded -- this pin is declared, and R9.6 checks only the repository.
+_HF_REVISION = re.compile(r"^[^/@\s]+/[^/@\s]+@[0-9a-f]{40}$")
+
 
 def check_pinned(model: str) -> None:
     """Raise `ValueError` naming `model` if it is a floating alias."""
@@ -41,4 +47,9 @@ def check_pinned(model: str) -> None:
         raise ValueError(
             f"model {model!r} is an Ollama tag with no digest, and a tag moves when "
             "the model is re-pulled. Pin it as 'ollama:<name>:<tag>@sha256:<digest>'"
+        )
+    if provider == "hf" and not _HF_REVISION.match(name):
+        raise ValueError(
+            f"model {model!r} names no fixed revision, and a repository or branch "
+            "moves with every push. Pin it as 'hf:<org>/<repo>@<40-character commit>'"
         )

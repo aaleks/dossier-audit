@@ -112,7 +112,7 @@ reached at all (R0.9).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.model_id`)
 - **Proved by:** `tests/unit/test_R009_5__a_vllm_model_is_pinned_by_repo_and_revision.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
