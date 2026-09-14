@@ -1,6 +1,6 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R6.1 – R6.11
 
 ## Purpose
@@ -290,7 +290,7 @@ is not decided here, and does not block this rule.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
 - **Proved by:** `tests/unit/test_R006_11__field_declaration_hash_is_part_of_affected_keys.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

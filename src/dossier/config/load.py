@@ -39,6 +39,7 @@ __all__ = [
     "SourceConfig",
     "load_fields",
     "load_output_schema",
+    "load_output_schemas",
     "load_pipeline",
     "load_sources",
 ]
@@ -112,6 +113,21 @@ def load_output_schema(path: Path) -> OutputSchema:
     the key.
     """
     return OutputSchema(schema=json_schema(load_fields(path)), declaration_hash=text_hash(path))
+
+
+def load_output_schemas(pipeline: PipelineConfig, path: Path) -> dict[str, OutputSchema]:
+    """What each step's declaration contributes to a run, by step id.
+
+    Only the declarations a step's `output` names. A file beside them that no
+    step names is in no key (R6.11 row 4), and a step that names none has no
+    entry at all (R3.10 row 5). `path` is the pipeline's own `pipeline.yaml`,
+    which every `output` is relative to.
+    """
+    return {
+        step.id: load_output_schema(path.parent / step.output)
+        for step in pipeline.steps
+        if step.output is not None
+    }
 
 
 def _validate_prompt_placeholders(pipeline: PipelineConfig, path: Path) -> None:

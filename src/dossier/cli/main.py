@@ -31,7 +31,7 @@ from dossier.application.plan import (
 )
 from dossier.application.run import MissingFromReplay, execute, replay
 from dossier.application.sync import SourceReport, sync_source
-from dossier.config.load import ConfigError, load_output_schema, load_pipeline, load_sources
+from dossier.config.load import ConfigError, load_output_schemas, load_pipeline, load_sources
 from dossier.domain.conversion import NoConverter
 from dossier.domain.hashing import text_hash
 from dossier.domain.keys import ConvertInputs, cache_key
@@ -419,11 +419,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
     }
     # What each step's declaration contributes: the JSON Schema generated from it
     # for the model (R6.10), and the declaration's own hash for the key (R6.11).
-    schemas = {
-        step.id: load_output_schema(path.parent / step.output)
-        for step in config.steps
-        if step.output is not None
-    }
+    schemas = load_output_schemas(config, path)
 
     try:
         # Bound before the call rather than inside its argument list. Python

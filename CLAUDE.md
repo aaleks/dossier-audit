@@ -66,11 +66,13 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. R3.10 and R6.10 landed: a step's `output` names a YAML
+Currently open: **none**. Spec 006 is implemented: a step's `output` names a YAML
 field declaration, the model-facing JSON Schema and the scorer's field list are
-generated from it, and `run --plan` refuses one that cannot be scored. Next is
-R6.11, which puts the declaration's text -- not the generated schema -- into the
-key. It is a `domain/keys` decision: unit cycles, no outer loop of its own.
+generated from it (R6.10), `run --plan` refuses one that cannot be scored
+(R3.10), and the declaration's own text -- not the generated schema -- is what
+the stage key hashes (R6.11). R6.11's Open question, how a change to dossier's
+schema generator moves a key, is still open. Next: R7.2, now that a scorer can
+take its field list from the declaration.
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost

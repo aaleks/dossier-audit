@@ -18,7 +18,7 @@ from pathlib import Path
 
 from tests.fakes import FakeModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
-from tests.pipelines import DECLARATION, prompt_for
+from tests.pipelines import DECLARATION, prompt_for, write_pipeline
 
 from dossier.application.run import execute
 from dossier.domain.keys import ConvertInputs
@@ -162,6 +162,35 @@ class TestFieldDeclarationHashIsPartOfAffectedKeys:
         assert extract.served_from_cache == ()
         assert verify.served_from_cache == ()
         assert len(summary.served_from_cache) == 1
+
+    def test_a_declaration_no_step_names_is_in_no_key(self, tmp_path: Path):
+        """Counter-example (row 4): the one where `schemas/contract.yaml` sits unused.
+
+        Only the declarations a step's `output` names are loaded, so a file
+        beside them -- a draft, another use case's fields -- moves nothing until
+        a step names it. `report`, which names none, gets none (R3.10 row 5).
+        """
+        from dossier.config.load import load_output_schemas, load_pipeline
+
+        path = write_pipeline(
+            tmp_path,
+            steps=["extract", "report"],
+            inputs={"report": "extract"},
+            outputs={"report": None},
+        )
+        contract = path.parent / "schemas" / "contract.yaml"
+        contract.write_text(DECLARATION, encoding="utf-8")
+        config = load_pipeline(path)
+        before = load_output_schemas(config, path)
+
+        contract.write_text(
+            DECLARATION.replace("rubrics/root_cause.md", "rubrics/contract.md"),
+            encoding="utf-8",
+        )
+        after = load_output_schemas(config, path)
+
+        assert set(after) == {"extract"}
+        assert after == before
 
     def test_a_declaration_has_nowhere_to_go_in_a_convert_key(self):
         """Example 2: the one where editing `incident.yaml` re-converts nothing.
