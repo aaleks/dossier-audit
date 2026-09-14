@@ -16,10 +16,40 @@ from tests.pipelines import write_pipeline
 from dossier.config.load import ConfigError, load_pipeline
 
 ALIAS = "anthropic:claude-sonnet-4-5"
+PINNED = "anthropic:claude-sonnet-4-5-20250929"
 
 
 class TestUnpinnedModelIsRejectedAtLoadTime:
     """R3.4 — a model that names no exact version is found now, not after a run."""
+
+    def test_a_dated_snapshot_is_accepted(self, tmp_path: Path):
+        """Example 1: the one where the model is exactly one snapshot, and stays one.
+
+        Without this, a check that refused every model would pass the rest of
+        this file.
+        """
+        path = write_pipeline(tmp_path, model=PINNED)
+
+        assert load_pipeline(path).model == PINNED
+
+    def test_a_pipeline_with_no_model_is_refused(self, tmp_path: Path):
+        """Example 3: the one where `model:` is missing, and nothing fills it in.
+
+        There is no default model. A default would be a choice the author never
+        made, keyed into every stage as if they had.
+        """
+        path = write_pipeline(tmp_path, model=PINNED)
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(f"model: {PINNED}\n", ""),
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ConfigError) as error:
+            load_pipeline(path)
+
+        message = str(error.value)
+        assert "pipeline.yaml" in message
+        assert "model" in message
 
     def test_a_floating_alias_is_refused_naming_the_file_the_line_and_the_alias(
         self, tmp_path: Path
