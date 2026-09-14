@@ -20,10 +20,10 @@ from dossier.domain.pipeline import SourceConfig
 from dossier.domain.ports import Connector, LedgerWriter, SnapshotWriter
 from dossier.domain.store import snapshot_path
 from dossier.domain.sync import (
-    DEFAULT_OVERLAP,
     Change,
     State,
     classify,
+    configured_overlap,
     needs_fetch,
     normalise,
     reactivated,
@@ -75,7 +75,11 @@ def sync_source(
 ) -> SourceReport:
     """Bring one source up to date, and say what that cost."""
     started_at = now
-    since = window_start(ledger.watermark(config.id), overlap=DEFAULT_OVERLAP)
+    # The source's own overlap where it set one (R2.4, "configurable per source"):
+    # a key the loader accepts and sync then ignores is configuration that lies.
+    since = window_start(
+        ledger.watermark(config.id), overlap=configured_overlap(config.watermark_overlap)
+    )
 
     # Tombstoning may only be computed against a full listing (R1.3, R2.7).
     listing_is_complete = since is None

@@ -84,7 +84,16 @@ def versioned(workspace: Path, monkeypatch) -> VersionedFolderConnector:
     connector = VersionedFolderConnector(root, manifest)
     # One instance across both runs, so a test can clear `fetched` in between and
     # read the second run's count on its own.
-    register_connector(monkeypatch, SOURCE_TYPE, lambda config, *, workspace: connector)
+    # It takes a `path`, as a folder does, and declares it the way a real
+    # connector would, so the loader checks it like any other source (R1.10).
+    from dossier.infrastructure.connectors.folder import FolderKeys
+
+    register_connector(
+        monkeypatch,
+        SOURCE_TYPE,
+        lambda config, *, workspace: connector,
+        keys=FolderKeys,
+    )
     return connector
 
 

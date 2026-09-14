@@ -132,7 +132,7 @@ work begins. The message names all three, because a schema error that says only
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R003_1__invalid_config_fails_naming_file_line_and_key.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

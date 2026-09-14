@@ -8,7 +8,8 @@ in hand and no filesystem, which is why R3.2 and R3.3 name this layer.
 from __future__ import annotations
 
 import re
-from typing import Literal
+from datetime import timedelta
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -30,6 +31,12 @@ def is_relative_reference(reference: str) -> bool:
     return _RELATIVE_REFERENCE.match(reference) is not None
 
 
+# `24h`, `48h`, `0h`: the only form the specs use (spec 003, R2.4). Hours alone,
+# because a unit that has to be guessed is how an overlap ends up a different
+# length from the one its author wrote.
+_DURATION = re.compile(r"^(\d+)h$")
+
+
 class SourceConfig(BaseModel):
     """One entry under `sources:`."""
 
@@ -40,12 +47,20 @@ class SourceConfig(BaseModel):
 
     id: str
     type: str
-    path: str | None = None
     fields: list[str] | None = None
     # Which conversions this source wants (spec 003, and R8.3's `kinds`). Absent
     # means the default kind for whatever media type each document turns out to
     # be -- which is the normal case for a folder of notes.
     convert: list[str] | None = None
+    # How far before its last sync a source asks from (R2.4). Shared by every
+    # type, so the core checks it and no connector has to declare it (R1.10).
+    # `None` is "not said", and the default applies.
+    watermark_overlap: timedelta | None = None
+    # The keys that belong to this source's type -- a folder's `path`, a Jira
+    # source's `query` -- as its connector declared and checked them (R1.10).
+    # Held here rather than as fields because the core may not name them: every
+    # new source type would otherwise be an edit to this model (R1.7).
+    options: dict[str, Any] = {}
 
     @field_validator("fields", "convert")
     @classmethod
@@ -60,6 +75,23 @@ class SourceConfig(BaseModel):
                 "the media type."
             )
         return value
+
+    @field_validator("watermark_overlap", mode="before")
+    @classmethod
+    def _parse_duration(cls, value: object) -> object:
+        """`24h` as a duration. A bare number is refused rather than read.
+
+        `24` has no unit. Pydantic would take it as seconds, and a day's overlap
+        would silently become twenty-four seconds of one (R3.1 row 3).
+        """
+        if value is None or isinstance(value, timedelta):
+            return value
+        if isinstance(value, bool | int | float):
+            raise ValueError("a duration such as 24h, not a bare number")
+        match = _DURATION.match(str(value).strip())
+        if match is None:
+            raise ValueError(f"{value!r} is not a duration; write it in hours, such as 24h")
+        return timedelta(hours=int(match.group(1)))
 
 
 class StepConfig(BaseModel):

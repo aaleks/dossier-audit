@@ -89,7 +89,7 @@ class TestResolutionGoesThroughEntryPoints:
         (tmp_path / "inbox" / "INC-4821.md").write_bytes(b"x")
 
         connector = build_connector(
-            SourceConfig(id="incidents-manual", type="folder", path="inbox"),
+            SourceConfig(id="incidents-manual", type="folder", options={"path": "inbox"}),
             workspace=tmp_path,
         )
 

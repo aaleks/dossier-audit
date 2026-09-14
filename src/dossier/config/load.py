@@ -17,10 +17,12 @@ loading -- a connector asks for its credential when it is actually used (R1.8).
 
 from __future__ import annotations
 
+import difflib
+from collections.abc import Mapping
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from dossier.domain.fields import OutputSchema, declare_fields, json_schema
 from dossier.domain.hashing import text_hash
@@ -55,17 +57,124 @@ class ConfigError(Exception):
     """
 
 
-def load_sources(path: Path) -> list[SourceConfig]:
-    """Every source declared in `sources.yaml`, validated."""
+class _NoKeys(BaseModel):
+    """What a connector that declares nothing accepts beyond the shared keys: nothing."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+# The keys every source has, whatever its type. Everything else is its
+# connector's to declare (R1.10).
+_SHARED = frozenset(SourceConfig.model_fields) - {"options"}
+
+
+def load_sources(
+    path: Path, *, connectors: Mapping[str, type[BaseModel] | None]
+) -> list[SourceConfig]:
+    """Every source declared in `sources.yaml`, checked against its connector's keys.
+
+    `connectors` maps each installed source type to the keys model its connector
+    declares (`None` for one that declares none). It is passed in because this
+    layer may import only the domain, and the registry is infrastructure: the CLI
+    builds it from the entry points, and a test passes one directly (R1.10).
+    """
     document = _read_yaml(path)
 
     raw = document.get("sources")
     if not isinstance(raw, list):
         raise ConfigError(f"{_name(path)}: expected a `sources:` list")
 
-    sources = [_validate(SourceConfig, entry, path) for entry in raw]
+    sources = [
+        _validate_source(entry, index, path, connectors) for index, entry in enumerate(raw)
+    ]
     _reject_duplicate_ids(sources, path)
     return sources
+
+
+def _validate_source(
+    entry: object,
+    index: int,
+    path: Path,
+    connectors: Mapping[str, type[BaseModel] | None],
+) -> SourceConfig:
+    """One `sources:` entry: the shared keys checked here, the rest by its connector.
+
+    A type's own keys -- a folder's `path` -- are known only to the connector
+    that declares them, so a folder with no `path` is found now rather than at
+    the first sync (R1.10). A problem with one of them is named where it is
+    written (R3.1).
+    """
+    if not isinstance(entry, dict):
+        return _validate(SourceConfig, entry, path)
+
+    try:
+        config = SourceConfig.model_validate({k: v for k, v in entry.items() if k in _SHARED})
+    except ValidationError as error:
+        # Named at its line like any connector key: a wrong `watermark_overlap`
+        # is as hard to find in a long file as a misspelt `path` (R3.1 row 3).
+        raise _source_error(error, entry, index, path, known=_SHARED) from error
+    own = {k: v for k, v in entry.items() if k not in _SHARED}
+
+    if config.type not in connectors:
+        # A source cannot be checked against a declaration that does not exist,
+        # so an uninstalled type is found now rather than at the first sync
+        # (R1.10 row 5).
+        line = _line_of(path.read_text(encoding="utf-8"), "sources", index, "type")
+        where = f", line {line}" if line is not None else ""
+        available = ", ".join(sorted(connectors)) or "none"
+        raise ConfigError(
+            f"{_name(path)}{where}: in {config.id!r}, type {config.type!r} is provided "
+            f"by no installed package. Available: {available}"
+        )
+
+    keys = connectors[config.type] or _NoKeys
+    try:
+        declared = keys.model_validate(own)
+    except ValidationError as error:
+        raise _source_error(
+            error, entry, index, path, known=_SHARED | set(keys.model_fields)
+        ) from error
+    return config.model_copy(update={"options": declared.model_dump()})
+
+
+def _source_error(
+    error: ValidationError, entry: dict, index: int, path: Path, *, known
+) -> ConfigError:
+    """A problem with one of a source's keys, named at the line it is -- or should be -- on.
+
+    The same for a shared key and a connector's: which layer checked a key is
+    not something the person reading the message needs to know (R3.1).
+
+    An unknown key is almost always a misspelt known one, so the message says
+    what was probably meant. A missing key has no line of its own, so the
+    message names the line the source starts on.
+    """
+    text = path.read_text(encoding="utf-8")
+    problems = error.errors()
+    # A misspelt key shows up twice: as the key it was meant to be, missing, and
+    # as itself, unknown. The unknown one is what the person wrote and can fix,
+    # so it is named first -- `pth`, with `path` suggested (R3.1 row 1).
+    problem = next((p for p in problems if p["type"] == "extra_forbidden"), problems[0])
+    key = str(problem["loc"][0]) if problem["loc"] else ""
+    if problem["type"] == "extra_forbidden":
+        line = _line_of(text, "sources", index, key)
+        detail = f"unknown key {key!r}{_suggestion(key, known)}"
+    elif problem["type"] == "missing":
+        line = _line_of(text, "sources", index)
+        detail = f"missing key {key!r}, which its type requires"
+    else:
+        line = _line_of(text, "sources", index, key)
+        detail = f"{key!r} -- {problem['msg']}"
+    where = f", line {line}" if line is not None else ""
+    identifier = entry.get("id")
+    owner = f" in {identifier!r}," if identifier else ""
+    return ConfigError(f"{_name(path)}{where}:{owner} {detail}")
+
+
+def _suggestion(key: str, known) -> str:
+    """` -- did you mean 'path'?`, or nothing when no known key is close."""
+    matches = difflib.get_close_matches(key, sorted(known), n=1)
+    return f" -- did you mean {matches[0]!r}?" if matches else ""
 
 
 def load_pipeline(path: Path) -> PipelineConfig:
@@ -239,17 +348,29 @@ def _name(path: Path) -> str:
     return path.name
 
 
-def _line_of(text: str, key: str) -> int | None:
-    """The 1-based line a top-level key is written on, or `None` if it is not there.
+def _line_of(text: str, *keys: str | int) -> int | None:
+    """The 1-based line the last of `keys` is written on, or `None` if it is not there.
 
-    Composed rather than loaded: `safe_load` discards where a value came from,
-    and a message that names the key without the line leaves a person searching
-    a file for something the loader already found (R3.1).
+    `keys` is a path into the document: a string names a mapping key, an int an
+    item in a list -- `("sources", 0, "pth")`. Composed rather than loaded:
+    `safe_load` discards where a value came from, and a message that names the
+    key without the line leaves a person searching a file for something the
+    loader already found (R3.1).
     """
     node = yaml.compose(text)
-    if not isinstance(node, yaml.MappingNode):
-        return None
-    for name, _ in node.value:
-        if name.value == key:
-            return name.start_mark.line + 1
-    return None
+    line = None
+    for key in keys:
+        if isinstance(key, int):
+            if not isinstance(node, yaml.SequenceNode) or key >= len(node.value):
+                return None
+            node = node.value[key]
+            line = node.start_mark.line + 1
+            continue
+        if not isinstance(node, yaml.MappingNode):
+            return None
+        match = next(((name, value) for name, value in node.value if name.value == key), None)
+        if match is None:
+            return None
+        line = match[0].start_mark.line + 1
+        node = match[1]
+    return line

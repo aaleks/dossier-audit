@@ -13,6 +13,17 @@ from pathlib import Path
 import pytest
 
 from dossier.config.load import ConfigError, load_sources
+from dossier.infrastructure.connectors.folder import FolderKeys
+
+# The types these examples use, and the keys each declares (R1.10). No Jira
+# connector ships in dossier; this stands in for one that declares no keys
+# beyond the shared ones, which is all these examples give it.
+CONNECTORS = {"folder": FolderKeys, "jira": None}
+
+
+def load(path: Path):
+    return load_sources(path, connectors=CONNECTORS)
+
 
 FOLDER_SOURCE = """
 sources:
@@ -47,14 +58,14 @@ class TestFieldsIsOptional:
 
     def test_a_source_may_declare_no_fields(self, tmp_path: Path):
         """Example 1: the one where a folder source hashes what it is given."""
-        (source,) = load_sources(write(tmp_path, FOLDER_SOURCE))
+        (source,) = load(write(tmp_path, FOLDER_SOURCE))
 
         assert source.id == "incidents-manual"
         assert source.fields is None
 
     def test_a_source_may_declare_fields(self, tmp_path: Path):
         """Example 2: the one where the projection is configured."""
-        (source,) = load_sources(write(tmp_path, WITH_FIELDS))
+        (source,) = load(write(tmp_path, WITH_FIELDS))
 
         assert source.fields == ["key", "summary", "status"]
 
@@ -65,11 +76,15 @@ class TestFieldsIsOptional:
         it would hand a source the exact opposite of what it declared (R2.10).
         """
         with pytest.raises(ConfigError) as error:
-            load_sources(write(tmp_path, EMPTY_FIELDS))
+            load(write(tmp_path, EMPTY_FIELDS))
 
         message = str(error.value)
         assert "sources.yaml" in message
         assert "incidents-jira" in message
+        # Example 3 has always said "naming the file, the line and the source
+        # id"; the line was never checked, and was never there until R3.1 gave
+        # every source key's error one.
+        assert "line 5" in message
 
     def test_absent_and_empty_reach_normalisation_differently(self, tmp_path: Path):
         """The one that ties the config rule to the behaviour it selects.
@@ -79,7 +94,7 @@ class TestFieldsIsOptional:
         """
         from dossier.domain.sync import normalise
 
-        (source,) = load_sources(write(tmp_path, FOLDER_SOURCE))
+        (source,) = load(write(tmp_path, FOLDER_SOURCE))
 
         assert normalise(b"raw bytes", fields=source.fields) == b"raw bytes"
 
@@ -93,7 +108,7 @@ class TestLoadingTouchesNothingExternal:
         The autouse `no_network` fixture already blocks sockets for this test, so
         a load that reached out would fail here rather than in production.
         """
-        assert load_sources(write(tmp_path, FOLDER_SOURCE))
+        assert load(write(tmp_path, FOLDER_SOURCE))
 
     def test_loading_a_jira_source_does_not_need_its_credentials(self, tmp_path: Path):
         """R3.8 example 3: the one where `JIRA_TOKEN` is nowhere to be seen.
@@ -101,19 +116,19 @@ class TestLoadingTouchesNothingExternal:
         Credentials are checked when a connector is used, not when config is
         read. The autouse `clean_env` fixture has already removed them.
         """
-        assert load_sources(write(tmp_path, WITH_FIELDS))
+        assert load(write(tmp_path, WITH_FIELDS))
 
     def test_a_missing_file_names_itself(self, tmp_path: Path):
         """The one where the error is actionable rather than a traceback."""
         with pytest.raises(ConfigError) as error:
-            load_sources(tmp_path / "sources.yaml")
+            load(tmp_path / "sources.yaml")
 
         assert "sources.yaml" in str(error.value)
 
     def test_malformed_yaml_names_the_file(self, tmp_path: Path):
         """The one where a tab in the wrong place is explained, not dumped."""
         with pytest.raises(ConfigError) as error:
-            load_sources(write(tmp_path, "sources: [unclosed\n"))
+            load(write(tmp_path, "sources: [unclosed\n"))
 
         assert "sources.yaml" in str(error.value)
 
@@ -124,4 +139,4 @@ class TestLoadingTouchesNothingExternal:
         sources sharing an id would silently interleave their rows.
         """
         with pytest.raises(ConfigError):
-            load_sources(write(tmp_path, FOLDER_SOURCE + FOLDER_SOURCE.split("sources:")[1]))
+            load(write(tmp_path, FOLDER_SOURCE + FOLDER_SOURCE.split("sources:")[1]))

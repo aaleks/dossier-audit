@@ -98,3 +98,78 @@ class TestWindowStart:
         """
         with pytest.raises(ValueError):
             window_start(LAST_SYNC, overlap=timedelta(0))
+
+
+class _Recording:
+    """A connector that lists nothing and remembers what it was asked for."""
+
+    def __init__(self) -> None:
+        self.asked: list[datetime | None] = []
+
+    def list(self, since: datetime | None = None):
+        self.asked.append(since)
+        return iter(())
+
+    def fetch(self, key: str):
+        raise AssertionError(f"nothing was listed, so {key!r} should not be fetched")
+
+    def attachments(self, key: str):
+        return iter(())
+
+
+def _sync_once(tmp_path, connector: _Recording, overlap: timedelta | None) -> None:
+    """One sync of `incidents-jira`, watermarked at `LAST_SYNC`, with `overlap` configured."""
+    from dossier.application.sync import sync_source
+    from dossier.domain.pipeline import SourceConfig
+    from dossier.infrastructure.ledger import Ledger
+    from dossier.infrastructure.store import SnapshotStore
+
+    config = SourceConfig(id="incidents-jira", type="jira", watermark_overlap=overlap)
+    with Ledger(tmp_path) as ledger:
+        ledger.set_watermark("incidents-jira", LAST_SYNC)
+        sync_source(
+            config=config,
+            connector=connector,
+            store=SnapshotStore(tmp_path),
+            ledger=ledger,
+            now=datetime(2026, 8, 7, 9, 0, 0, tzinfo=UTC),
+        )
+
+
+class TestSyncAsksWithTheConfiguredOverlap:
+    """R2.4 — "configurable per source": the overlap a source sets is the one sync uses."""
+
+    def test_a_source_configuring_48h_is_asked_from_two_days_back(self, tmp_path):
+        """Example 2, through sync: the one where the configured 48h reaches the connector.
+
+        `window_start` has always honoured the overlap it is given. What was
+        missing is that sync gave it the source's: a key the loader accepts and
+        sync then ignores is configuration that lies about what will happen.
+        """
+        connector = _Recording()
+
+        _sync_once(tmp_path, connector, timedelta(hours=48))
+
+        assert connector.asked == [TWO_DAYS_EARLIER]
+
+    def test_a_source_that_sets_no_overlap_gets_the_default(self, tmp_path):
+        """Example 1, through sync: the one where nothing is configured and a day is used."""
+        connector = _Recording()
+
+        _sync_once(tmp_path, connector, None)
+
+        assert connector.asked == [ONE_DAY_EARLIER]
+
+    def test_a_configured_zero_is_refused_not_replaced_by_the_default(self, tmp_path):
+        """The one where `watermark_overlap: 0h` is a mistake to report, not a gap to fill.
+
+        Swapping it for the default would sync with an overlap nobody wrote.
+        Passed through, `window_start` refuses it by name -- the zero boundary
+        R2.4 draws -- before the connector is asked anything.
+        """
+        connector = _Recording()
+
+        with pytest.raises(ValueError):
+            _sync_once(tmp_path, connector, timedelta(0))
+
+        assert connector.asked == []

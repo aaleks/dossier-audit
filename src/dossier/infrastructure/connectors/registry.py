@@ -41,6 +41,20 @@ def available_types() -> list[str]:
     return sorted(point.name for point in entry_points(group=ENTRY_POINT_GROUP))
 
 
+def declared_keys() -> dict[str, type | None]:
+    """Each installed source type, and the keys model its connector declares (R1.10).
+
+    Read from a `keys` attribute on whatever the entry point resolves to; `None`
+    for a connector that declares none, which then takes nothing beyond the
+    shared keys. Loading an entry point imports its package and does nothing
+    else -- no connection, no credential (R3.8, R1.8).
+    """
+    return {
+        point.name: getattr(point.load(), "keys", None)
+        for point in sorted(entry_points(group=ENTRY_POINT_GROUP), key=lambda p: p.name)
+    }
+
+
 def build_connector(config: SourceConfig, *, workspace: Path) -> Connector:
     """The connector for one source, resolved through the entry point group."""
     for point in entry_points(group=ENTRY_POINT_GROUP):
