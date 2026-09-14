@@ -22,7 +22,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ValidationError
 
-from dossier.domain.fields import declare_fields
+from dossier.domain.fields import OutputSchema, declare_fields, json_schema
+from dossier.domain.hashing import text_hash
 from dossier.domain.pipeline import (
     PipelineConfig,
     SourceConfig,
@@ -37,6 +38,7 @@ __all__ = [
     "PipelineConfig",
     "SourceConfig",
     "load_fields",
+    "load_output_schema",
     "load_pipeline",
     "load_sources",
 ]
@@ -99,6 +101,17 @@ def load_fields(path: Path) -> dict[str, FieldKind]:
         return declare_fields(document)
     except ValueError as error:
         raise ConfigError(f"{_name(path)}: {error}") from error
+
+
+def load_output_schema(path: Path) -> OutputSchema:
+    """What one declaration contributes to a run (R6.10, R6.11).
+
+    The schema shown to the model is generated from the declaration. The key
+    takes the declaration's own text, hashed the way spec 005 hashes every
+    configuration file -- so an edit the generated schema cannot see still moves
+    the key.
+    """
+    return OutputSchema(schema=json_schema(load_fields(path)), declaration_hash=text_hash(path))
 
 
 def _validate_prompt_placeholders(pipeline: PipelineConfig, path: Path) -> None:

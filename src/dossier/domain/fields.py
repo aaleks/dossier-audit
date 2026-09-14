@@ -13,6 +13,7 @@ decision here be tested without a file.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 
 from dossier.domain.schemas import StageOutput
 from dossier.domain.scoring import FieldKind
@@ -23,6 +24,20 @@ from dossier.domain.scoring import FieldKind
 # rubric, and there is no default rubric to fall back on: without one it could
 # only be string-compared, which is the defect this refuses (R6.10 example 5).
 _REQUIRES = {FieldKind.ENUM: "values", FieldKind.FREE_TEXT: "judge"}
+
+
+@dataclass(frozen=True)
+class OutputSchema:
+    """What one declaration contributes to a run: the schema shown, and the hash keyed.
+
+    Held together so the two cannot come from different declarations. The schema
+    is generated from the declaration (R6.10); the hash is of the declaration's
+    own text, so an edit the generated schema cannot see -- a rubric path, a
+    comment -- still moves every key that depends on it (R6.11).
+    """
+
+    schema: dict
+    declaration_hash: str
 
 
 def json_schema(kinds: Mapping[str, FieldKind]) -> dict:

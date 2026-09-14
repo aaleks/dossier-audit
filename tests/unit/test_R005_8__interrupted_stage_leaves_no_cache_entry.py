@@ -25,13 +25,14 @@ from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
 from dossier.application.run import execute
+from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
 
 RUN_ID = "20260806T142203Z-4f1a"
 STARTED_AT = datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC)
 PIPELINE_HASH = "0e52dd18" * 8
-SCHEMA = {"type": "object"}
+SCHEMA = OutputSchema(schema={"type": "object"}, declaration_hash="6e0d4b27" * 8)
 FIVE = ["INC-4821", "INC-4822", "INC-4901", "INC-5044", "INC-5102"]
 
 

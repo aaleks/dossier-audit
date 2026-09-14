@@ -13,9 +13,13 @@ from tests.fakes import FakeModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 
 from dossier.application.extract import run_stage
+from dossier.domain.fields import OutputSchema
 
 PROMPT = "<source_document>{{documents}}</source_document>"
 SCHEMA = {"type": "object"}
+# The same schema as a declaration hands it to `execute`: `run_stage` takes the
+# schema alone, a run takes it with the declaration's hash for the key (R6.11).
+OUTPUT = OutputSchema(schema=SCHEMA, declaration_hash="6e0d4b27" * 8)
 
 
 def valid(**overrides) -> str:
@@ -170,7 +174,7 @@ class TestTheCacheClaimsAreAssertedHere:
             pipeline_hash="0e52dd18" * 8,
             documents={"INC-4821": "a3f9c1e2" * 8},
             document_text=STAGE_INPUTS,
-            schemas={"extract": SCHEMA},
+            schemas={"extract": OUTPUT},
             prompts={"extract": prompt_for(["documents"])},
             model=FakeModelClient(responses=responses),
             cache=ArtifactCache(tmp_path, namespace="stage"),
