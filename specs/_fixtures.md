@@ -63,6 +63,7 @@ consistently here so a reader can follow one artifact across specs.
 | `0e52dd18` | `INC-4901` snapshot, and `prompts/02_verify.md` |
 | `b81f0c6d` | `OPS-114` snapshot, and `schemas/incident.json` — the hand-written JSON Schema of R3.5 and R6.8, both superseded |
 | `6e0d4b27` | `schemas/incident.yaml` — the field declaration that replaced it (R6.10) |
+| `d24c86e1` | the JSON Schema generated from `incident.yaml` and shown to the model, as canonical JSON (R6.12) |
 | `c4a70b93` | `audit-note.pdf` snapshot |
 | `9f21c0a4` | the `verify` cache key for `INC-4821` |
 | `5d3ba0f7` | `INC-4821` converted to markdown — a *different* artifact from the snapshot it came from, and therefore a different hash |
