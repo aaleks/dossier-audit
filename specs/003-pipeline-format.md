@@ -178,7 +178,7 @@ The load-time half of R0.6.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R003_4__unpinned_model_is_rejected_at_load_time.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

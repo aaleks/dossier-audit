@@ -51,6 +51,27 @@ class TestUnpinnedModelIsRejectedAtLoadTime:
         assert "pipeline.yaml" in message
         assert "model" in message
 
+    def test_planning_refuses_it_too_though_a_plan_asks_no_model(
+        self, workspace: Path, monkeypatch
+    ):
+        """Counter-example (row 4): the one where `--plan` would never call the model.
+
+        Validity does not depend on whether the model is used (R4.6). A plan
+        that accepted an alias would preview a run that could not be started --
+        or worse, one keyed on whatever the alias points at today.
+        """
+        from typer.testing import CliRunner
+
+        from dossier.cli.main import app
+
+        write_pipeline(workspace, model=ALIAS)
+        monkeypatch.chdir(workspace)
+
+        result = CliRunner().invoke(app, ["run", "incident-audit", "--plan"])
+
+        assert result.exit_code != 0
+        assert ALIAS in result.output
+
     def test_a_floating_alias_is_refused_naming_the_file_the_line_and_the_alias(
         self, tmp_path: Path
     ):
