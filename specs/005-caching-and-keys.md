@@ -19,9 +19,14 @@ K_convert = H( snapshot_content_hash + converter_id + converter_version + option
 **Stage, per_file**
 
 ```
-K_stage = H( prompt_hash + schema_hash + model_id + stage_options
-             + sorted(input_artifact_hashes) )
+K_stage = H( prompt_hash + schema_hash + generated_schema_hash + model_id
+             + stage_options + sorted(input_artifact_hashes) )
 ```
+
+`schema_hash` is the hash of the field declaration a step's `output` names, taken
+over its text (R6.11). `generated_schema_hash` is the hash of the JSON Schema
+generated from it and shown to the model, taken over canonical JSON (R6.12). A
+step with no `output` has neither.
 
 **Stage, aggregate** — as above, over the sorted hashes of all input artifacts.
 
@@ -53,7 +58,8 @@ Every artifact has a sibling `<name>.meta.json`:
     {"role": "extract",   "path": "extract/INC-4821.json", "hash": "77c1b40a"}
   ],
   "prompt": {"path": "prompts/02_verify.md", "hash": "0e52dd18"},
-  "schema": {"path": "schemas/incident.json", "hash": "b81f0c6d"},
+  "schema": {"path": "schemas/incident.yaml", "hash": "6e0d4b27"},
+  "generated_schema": {"hash": "d24c86e1"},
   "model": "anthropic:claude-sonnet-4-5-20250929",
   "run_id": "20260806T142203Z-4f1a",
   "dossier_version": "0.1.0"

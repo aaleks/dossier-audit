@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Implemented
-**Rules:** R6.1 – R6.11
+**Status:** Partially implemented
+**Rules:** R6.1 – R6.12
 
 ## Purpose
 
@@ -281,14 +281,13 @@ hashes every configuration file: decoded text, line endings normalised, never
 interpreted. R6.8's word "versioned" had no example and nothing to test beyond
 the hash, and is not carried over.
 
-**Open:** the generated JSON Schema is produced by `dossier`'s own code, so a
-change to that generator can change what the model is shown without one byte of
-the declaration moving. R0.5 says that must move a key. Whether it does so
-through a generator version in the key or by hashing the generated schema as well
-is not decided here, and does not block this rule.
+**Closed by R6.12.** The generated JSON Schema is produced by `dossier`'s own
+code, so a change to that generator can change what the model is shown without
+one byte of the declaration moving. R0.5 says that must move a key; R6.12 hashes
+the generated schema as well, rather than keying a generator version.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.keys`)
+- **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R006_11__field_declaration_hash_is_part_of_affected_keys.py`
 - **Status:** MET
 
@@ -298,3 +297,30 @@ is not decided here, and does not block this rule.
 | 2 | the same | conversions are unchanged; a field declaration does not affect converting a document (R5.4) |
 | 3 | `incident.yaml` edited where the generated JSON Schema cannot see it, such as the rubric path `root_cause` names as its `judge` | the key still changes; the declaration is hashed as text, not as what is generated from it |
 | 4 | *counter-example* — a field declaration present in the pipeline directory but named by no step's `output` | its hash is in no key; only declarations a step names are part of anything |
+
+### R6.12 — the schema the model is shown is part of every key its step's output depends on
+
+Closes R6.11's open question. R6.11 keys the declaration's text, and the JSON
+Schema shown to the model is generated from it by `dossier`'s own code -- so a
+change to that code, a property added to the record model or a library that
+renders the schema differently, changes what the model is asked with no byte of
+the declaration moving. R0.5 says that must move a key.
+
+The generated schema is hashed alongside the declaration rather than replaced by
+a generator version: a version someone has to remember to raise is a key that
+stays still on exactly the change nobody thought mattered. It is hashed as
+canonical JSON -- sorted keys, no insignificant whitespace, UTF-8 -- so the same
+schema gives the same bytes on every machine (R5.6), and it appears in the
+provenance record as well as the key (R5.1).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.keys`)
+- **Proved by:** `tests/unit/test_R006_12__generated_schema_is_part_of_affected_keys.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a property added to the field record model, `incident.yaml` unchanged at `6e0d4b27` | the `extract` and `verify` keys change; the model is shown a different schema |
+| 2 | the same generated schema with its keys built in a different order | the same key; the schema is hashed as canonical JSON, not as a dict happened to be built |
+| 3 | only the rubric `root_cause` names as its `judge` edited | the key changes through the declaration's hash (R6.11 row 3), while the generated schema's hash does not |
+| 4 | *counter-example* — the `report` step, which declares no `output` | no generated schema and nothing in either schema slot; its key moves only through its inputs (R6.11 row 1) |
