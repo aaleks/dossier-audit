@@ -47,6 +47,37 @@ def answer(document: str) -> str:
     )
 
 
+PROSE = "INC-4821: a loss of CHF 48'200. The root cause is not stated.\n"
+
+
+def chain() -> PipelineConfig:
+    """`extract` -> `verify` -> `report`. The first two declare fields; `report` is prose."""
+    return PipelineConfig(
+        name="incident-audit",
+        sources=["incidents-manual"],
+        model="anthropic:claude-sonnet-4-5-20250929",
+        steps=[
+            StepConfig(
+                id="extract",
+                prompt="prompts/01_extract.md",
+                input="documents",
+                mode="per_file",
+                output=OUTPUT,
+            ),
+            StepConfig(
+                id="verify",
+                prompt="prompts/02_verify.md",
+                input="extract",
+                mode="per_file",
+                output=OUTPUT,
+            ),
+            StepConfig(
+                id="report", prompt="prompts/03_report.md", input="verify", mode="per_file"
+            ),
+        ],
+    )
+
+
 def pipeline() -> PipelineConfig:
     return PipelineConfig(
         name="incident-audit",
@@ -64,22 +95,30 @@ def pipeline() -> PipelineConfig:
     )
 
 
-def run(workspace: Path, model, *, declaration: str, run_id: str):
-    """One run of `extract`, its schema loaded from `declaration` the way the CLI loads it."""
+def run(
+    workspace: Path,
+    model,
+    *,
+    declaration: str,
+    run_id: str,
+    config: PipelineConfig | None = None,
+):
+    """One run, every declaring step's schema loaded from `declaration` as the CLI loads it."""
     from dossier.config.load import load_output_schema
 
     path = workspace / "pipelines" / "incident-audit" / OUTPUT
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(declaration, encoding="utf-8")
 
-    config = pipeline()
+    config = config or pipeline()
+    output = load_output_schema(path)
     return execute(
         workspace=workspace,
         pipeline=config,
         pipeline_hash=PIPELINE_HASH,
         documents=DOCUMENTS,
         document_text=TEXT,
-        schemas={"extract": load_output_schema(path)},
+        schemas={step.id: output for step in config.steps if step.output is not None},
         prompts={step.id: prompt_for(step.inputs) for step in config.steps},
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
@@ -91,6 +130,37 @@ def run(workspace: Path, model, *, declaration: str, run_id: str):
 
 class TestFieldDeclarationHashIsPartOfAffectedKeys:
     """R6.11 — the declaration, hashed as text, fills the stage key's schema slot."""
+
+    def test_editing_the_declaration_reruns_the_steps_that_declare_it(self, tmp_path: Path):
+        """Example 1: the one where `extract` and `verify` move, and `report` does not.
+
+        Both declare `schemas/incident.yaml`, so both keys carry its hash.
+        `report` declares nothing: its key moves only when what it reads moves,
+        so an edit that leaves `verify`'s answer unchanged leaves `report` cached.
+        """
+        run(
+            tmp_path,
+            FakeModelClient(responses=[answer("INC-4821"), answer("INC-4821"), PROSE]),
+            declaration=DECLARATION,
+            run_id="20260806T142203Z-4f1a",
+            config=chain(),
+        )
+
+        edited = "".join(
+            line
+            for line in DECLARATION.splitlines(keepends=True)
+            if "affected_systems" not in line
+        )
+        model = FakeModelClient(responses=[answer("INC-4821"), answer("INC-4821")])
+        report = run(
+            tmp_path, model, declaration=edited, run_id="20260907T090000Z-bbbb", config=chain()
+        )
+
+        extract, verify, summary = report.steps
+        assert model.call_count == 2, "`extract` and `verify` asked again, `report` not"
+        assert extract.served_from_cache == ()
+        assert verify.served_from_cache == ()
+        assert len(summary.served_from_cache) == 1
 
     def test_an_edit_the_generated_schema_cannot_see_still_moves_the_key(self, tmp_path: Path):
         """Example 3: the one where only the rubric `root_cause` is judged by changes.
