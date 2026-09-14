@@ -78,6 +78,20 @@ class TestFieldsAreDeclaredOnce:
             "root_cause": FieldKind.FREE_TEXT,
         }
 
+    def test_an_enum_with_no_values_is_refused_naming_the_field(self):
+        """Example 4: the one where `severity` is an enum with no vocabulary.
+
+        An enum with no `values` can match nothing, so every answer to it would
+        score incorrect -- confidently, and months later. Refused at load time
+        instead, naming the field and what it is missing.
+        """
+        with pytest.raises(ValueError) as error:
+            declare_fields({"fields": {"severity": {"kind": "enum"}}})
+
+        message = str(error.value)
+        assert "severity" in message
+        assert "values" in message
+
     def test_an_unknown_kind_names_the_field_and_the_kinds_that_exist(self):
         """The one where `loss_amount` declares a kind nobody can score (R3.10 row 4).
 

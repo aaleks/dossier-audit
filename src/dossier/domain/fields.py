@@ -56,4 +56,8 @@ def declare_fields(
             raise ValueError(
                 f"field {name!r} declares kind {kind!r}, which is not one of: {known}"
             ) from None
+        if kinds[name] is FieldKind.ENUM and not declared.get("values"):
+            # An enum with no vocabulary can match nothing: every answer would
+            # score incorrect, confidently, months from now (R6.10 example 4).
+            raise ValueError(f"field {name!r} is an enum with no `values` to match against")
     return kinds
