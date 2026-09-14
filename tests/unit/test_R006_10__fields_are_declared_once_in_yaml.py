@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from dossier.domain.fields import declare_fields, json_schema
+from dossier.domain.schemas import StageOutput
 from dossier.domain.scoring import FieldKind
 
 KINDS = ("amount", "date", "enum", "reference", "free_text")
@@ -26,17 +27,22 @@ INCIDENT = {
 }
 
 
-def _field_names(schema: object) -> list[str] | None:
-    """The names a generated schema allows in a field record's `field`, wherever it sits."""
+def _record_properties(schema: object) -> dict | None:
+    """The properties of a field record, wherever a schema nests it."""
     if isinstance(schema, dict):
-        field = schema.get("properties", {}).get("field")
-        if isinstance(field, dict) and "enum" in field:
-            return field["enum"]
+        properties = schema.get("properties")
+        if isinstance(properties, dict) and "field" in properties:
+            return properties
         for value in schema.values():
-            found = _field_names(value)
+            found = _record_properties(value)
             if found is not None:
                 return found
     return None
+
+
+def _field_names(schema: object) -> list[str] | None:
+    """The names a generated schema allows in a field record's `field`."""
+    return _record_properties(schema)["field"].get("enum")
 
 
 class TestFieldsAreDeclaredOnce:
@@ -77,6 +83,23 @@ class TestFieldsAreDeclaredOnce:
             "affected_systems": FieldKind.REFERENCE,
             "root_cause": FieldKind.FREE_TEXT,
         }
+
+    def test_the_schema_shown_to_the_model_is_derived_not_written_by_hand(self):
+        """Example 3: the one where there is no committed JSON Schema to drift.
+
+        Every property the answer is validated against appears, unchanged, in
+        the schema the model is shown -- except `field`, narrowed to the declared
+        names. A hand-written copy is a second definition, and the first property
+        added to the record model would be one the model was never asked for.
+        """
+        generated = _record_properties(json_schema(declare_fields(INCIDENT)))
+        validated = _record_properties(StageOutput.model_json_schema())
+
+        assert set(generated) == set(validated)
+        for name, spec in validated.items():
+            if name != "field":
+                assert generated[name] == spec, name
+        assert generated["field"]["enum"] == list(INCIDENT["fields"])
 
     def test_an_enum_with_no_values_is_refused_naming_the_field(self):
         """Example 4: the one where `severity` is an enum with no vocabulary.
