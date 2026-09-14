@@ -17,6 +17,7 @@ loading -- a connector asks for its credential when it is actually used (R1.8).
 
 from __future__ import annotations
 
+import difflib
 from pathlib import Path
 
 import yaml
@@ -63,9 +64,43 @@ def load_sources(path: Path) -> list[SourceConfig]:
     if not isinstance(raw, list):
         raise ConfigError(f"{_name(path)}: expected a `sources:` list")
 
-    sources = [_validate(SourceConfig, entry, path) for entry in raw]
+    sources = [_validate_source(entry, index, path) for index, entry in enumerate(raw)]
     _reject_duplicate_ids(sources, path)
     return sources
+
+
+def _validate_source(entry: object, index: int, path: Path) -> SourceConfig:
+    """One `sources:` entry, an unknown key in it named where it is written (R3.1).
+
+    An unknown key is almost always a misspelt known one, so the message says
+    which line it is on and what was probably meant -- the two things a person
+    otherwise has to go and find.
+    """
+    try:
+        return SourceConfig.model_validate(entry)
+    except ValidationError as error:
+        unknown = [
+            str(problem["loc"][-1])
+            for problem in error.errors()
+            if problem["type"] == "extra_forbidden"
+        ]
+        if not unknown:
+            raise ConfigError(f"{_name(path)}: {_describe(error, entry)}") from error
+        key = unknown[0]
+        line = _line_of(path.read_text(encoding="utf-8"), "sources", index, key)
+        where = f", line {line}" if line is not None else ""
+        identifier = entry.get("id") if isinstance(entry, dict) else None
+        owner = f" in {identifier!r}," if identifier else ""
+        raise ConfigError(
+            f"{_name(path)}{where}:{owner} unknown key {key!r}"
+            f"{_suggestion(key, SourceConfig.model_fields)}"
+        ) from error
+
+
+def _suggestion(key: str, known) -> str:
+    """` -- did you mean 'path'?`, or nothing when no known key is close."""
+    matches = difflib.get_close_matches(key, sorted(known), n=1)
+    return f" -- did you mean {matches[0]!r}?" if matches else ""
 
 
 def load_pipeline(path: Path) -> PipelineConfig:
@@ -239,17 +274,29 @@ def _name(path: Path) -> str:
     return path.name
 
 
-def _line_of(text: str, key: str) -> int | None:
-    """The 1-based line a top-level key is written on, or `None` if it is not there.
+def _line_of(text: str, *keys: str | int) -> int | None:
+    """The 1-based line the last of `keys` is written on, or `None` if it is not there.
 
-    Composed rather than loaded: `safe_load` discards where a value came from,
-    and a message that names the key without the line leaves a person searching
-    a file for something the loader already found (R3.1).
+    `keys` is a path into the document: a string names a mapping key, an int an
+    item in a list -- `("sources", 0, "pth")`. Composed rather than loaded:
+    `safe_load` discards where a value came from, and a message that names the
+    key without the line leaves a person searching a file for something the
+    loader already found (R3.1).
     """
     node = yaml.compose(text)
-    if not isinstance(node, yaml.MappingNode):
-        return None
-    for name, _ in node.value:
-        if name.value == key:
-            return name.start_mark.line + 1
-    return None
+    line = None
+    for key in keys:
+        if isinstance(key, int):
+            if not isinstance(node, yaml.SequenceNode) or key >= len(node.value):
+                return None
+            node = node.value[key]
+            line = node.start_mark.line + 1
+            continue
+        if not isinstance(node, yaml.MappingNode):
+            return None
+        match = next(((name, value) for name, value in node.value if name.value == key), None)
+        if match is None:
+            return None
+        line = match[0].start_mark.line + 1
+        node = match[1]
+    return line
