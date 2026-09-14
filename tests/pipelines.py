@@ -46,6 +46,10 @@ fields:
 
 RUBRIC = "Is the stated root cause supported by the named document?\n"
 
+# The model providers dossier ships (R9.1), as `load_pipeline` is told about
+# them. Every fixture names an `anthropic` model.
+PROVIDERS = frozenset({"anthropic", "hf", "ollama"})
+
 
 def write_pipeline(
     root: Path,

@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from tests.pipelines import write_pipeline
+from tests.pipelines import PROVIDERS, write_pipeline
 
 from dossier.config.load import ConfigError, load_pipeline
 
@@ -30,7 +30,7 @@ class TestUnpinnedModelIsRejectedAtLoadTime:
         """
         path = write_pipeline(tmp_path, model=PINNED)
 
-        assert load_pipeline(path).model == PINNED
+        assert load_pipeline(path, providers=PROVIDERS).model == PINNED
 
     def test_a_pipeline_with_no_model_is_refused(self, tmp_path: Path):
         """Example 3: the one where `model:` is missing, and nothing fills it in.
@@ -45,7 +45,7 @@ class TestUnpinnedModelIsRejectedAtLoadTime:
         )
 
         with pytest.raises(ConfigError) as error:
-            load_pipeline(path)
+            load_pipeline(path, providers=PROVIDERS)
 
         message = str(error.value)
         assert "pipeline.yaml" in message
@@ -83,7 +83,7 @@ class TestUnpinnedModelIsRejectedAtLoadTime:
         path = write_pipeline(tmp_path, model=ALIAS)
 
         with pytest.raises(ConfigError) as error:
-            load_pipeline(path)
+            load_pipeline(path, providers=PROVIDERS)
 
         message = str(error.value)
         assert "pipeline.yaml" in message

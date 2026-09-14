@@ -33,6 +33,15 @@ _OLLAMA_DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
 _HF_REVISION = re.compile(r"^[^/@\s]+/[^/@\s]+@[0-9a-f]{40}$")
 
 
+def provider_of(model: str) -> str:
+    """The provider a model identifier names: whatever precedes its first `:` (R9.1).
+
+    The first, not the last: an Ollama tag keeps its own colon, so
+    `ollama:qwen2.5:7b@sha256:...` is the `ollama` provider's.
+    """
+    return model.partition(":")[0]
+
+
 def check_pinned(model: str) -> None:
     """Raise `ValueError` naming `model` if it is a floating alias."""
     if model in _FIXED:

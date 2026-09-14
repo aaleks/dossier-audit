@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-from tests.pipelines import write_pipeline
+from tests.pipelines import PROVIDERS, write_pipeline
 
 from dossier.application.manifest import Manifest
 from dossier.config.load import load_pipeline
@@ -50,7 +50,7 @@ def _record_a_run(workspace: Path) -> None:
     """
     path = workspace / "pipelines" / PIPELINE / "pipeline.yaml"
     plan = resolve(
-        pipeline=load_pipeline(path),
+        pipeline=load_pipeline(path, providers=PROVIDERS),
         pipeline_hash=content_hash(path.read_bytes()),
         documents={},
     )

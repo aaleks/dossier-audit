@@ -18,7 +18,7 @@ from pathlib import Path
 
 from tests.fakes import FakeModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
-from tests.pipelines import DECLARATION, prompt_for, write_pipeline
+from tests.pipelines import DECLARATION, PROVIDERS, prompt_for, write_pipeline
 
 from dossier.application.run import execute
 from dossier.domain.keys import ConvertInputs
@@ -180,7 +180,7 @@ class TestFieldDeclarationHashIsPartOfAffectedKeys:
         )
         contract = path.parent / "schemas" / "contract.yaml"
         contract.write_text(DECLARATION, encoding="utf-8")
-        config = load_pipeline(path)
+        config = load_pipeline(path, providers=PROVIDERS)
         before = load_output_schemas(config, path)
 
         contract.write_text(

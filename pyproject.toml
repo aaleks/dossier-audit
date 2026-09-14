@@ -42,6 +42,14 @@ folder = "dossier.infrastructure.connectors.folder:FolderConnector.from_config"
 [project.entry-points."dossier.converters"]
 markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextConverter"
 
+# A model provider is a package declaring one of these (spec 009, R9.1). The
+# prefix of a `model:` value before its first `:` names one. Registered here so
+# a pipeline naming them loads; their clients are wired in by R9.2 and after.
+[project.entry-points."dossier.models"]
+anthropic = "dossier.infrastructure.models.placeholder:not_wired"
+hf = "dossier.infrastructure.models.placeholder:not_wired"
+ollama = "dossier.infrastructure.models.placeholder:not_wired"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

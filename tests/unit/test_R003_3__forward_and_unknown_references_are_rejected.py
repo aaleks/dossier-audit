@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from tests.pipelines import write_pipeline
+from tests.pipelines import PROVIDERS, write_pipeline
 
 from dossier.config.load import ConfigError, load_pipeline
 
@@ -27,7 +27,9 @@ class TestStepReferences:
             inputs={"verify": "[documents, extract]"},
         )
 
-        assert load_pipeline(path).steps[1].inputs == ["documents", "extract"]
+        config = load_pipeline(path, providers=PROVIDERS)
+
+        assert config.steps[1].inputs == ["documents", "extract"]
 
     @pytest.mark.parametrize("sugar", ["previous", "previous(1)", "previous(2)"])
     def test_relative_sugar_survives_loading(self, tmp_path: Path, sugar: str):
@@ -46,7 +48,7 @@ class TestStepReferences:
             tmp_path, steps=["extract", "verify"], inputs={"verify": sugar}
         )
 
-        assert load_pipeline(path).steps[1].inputs == [sugar]
+        assert load_pipeline(path, providers=PROVIDERS).steps[1].inputs == [sugar]
 
     def test_sugar_mixed_with_a_keyword_survives_loading(self, tmp_path: Path):
         """Example 5, mixed: the one R4.2 example 3 depends on being loadable."""
@@ -56,7 +58,9 @@ class TestStepReferences:
             inputs={"verify": "[documents, previous]"},
         )
 
-        assert load_pipeline(path).steps[1].inputs == ["documents", "previous"]
+        config = load_pipeline(path, providers=PROVIDERS)
+
+        assert config.steps[1].inputs == ["documents", "previous"]
 
     def test_a_step_may_not_read_a_later_step(self, tmp_path: Path):
         """Example 2: the one where `extract` reads `verify`."""
@@ -65,7 +69,7 @@ class TestStepReferences:
         )
 
         with pytest.raises(ConfigError) as error:
-            load_pipeline(path)
+            load_pipeline(path, providers=PROVIDERS)
 
         assert "verify" in str(error.value)
 
@@ -76,7 +80,7 @@ class TestStepReferences:
         )
 
         with pytest.raises(ConfigError) as error:
-            load_pipeline(path)
+            load_pipeline(path, providers=PROVIDERS)
 
         assert "enrich" in str(error.value)
 
@@ -90,7 +94,7 @@ class TestStepReferences:
         path = write_pipeline(tmp_path, steps=["extract"], inputs={"extract": "extract"})
 
         with pytest.raises(ConfigError):
-            load_pipeline(path)
+            load_pipeline(path, providers=PROVIDERS)
 
     @pytest.mark.parametrize("keyword", ["documents", "reference"])
     def test_source_keywords_are_always_available(self, tmp_path: Path, keyword: str):
@@ -101,7 +105,7 @@ class TestStepReferences:
         """
         path = write_pipeline(tmp_path, steps=["extract"], inputs={"extract": keyword})
 
-        assert load_pipeline(path).steps[0].inputs == [keyword]
+        assert load_pipeline(path, providers=PROVIDERS).steps[0].inputs == [keyword]
 
     def test_the_error_lists_what_was_available(self, tmp_path: Path):
         """The one where the message is actionable rather than merely correct.
@@ -117,7 +121,7 @@ class TestStepReferences:
         )
 
         with pytest.raises(ConfigError) as error:
-            load_pipeline(path)
+            load_pipeline(path, providers=PROVIDERS)
 
         message = str(error.value)
         assert "extract" in message and "verify" in message

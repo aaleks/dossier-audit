@@ -51,7 +51,7 @@ first cache miss an hour into a run.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R009_1__an_unknown_provider_is_refused_at_load_time.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
