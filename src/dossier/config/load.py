@@ -24,6 +24,7 @@ from pydantic import BaseModel, ValidationError
 
 from dossier.domain.fields import OutputSchema, declare_fields, json_schema
 from dossier.domain.hashing import text_hash
+from dossier.domain.model_id import check_pinned
 from dossier.domain.pipeline import (
     PipelineConfig,
     SourceConfig,
@@ -77,6 +78,14 @@ def load_pipeline(path: Path) -> PipelineConfig:
     document["name"] = path.parent.name
 
     pipeline = _validate(PipelineConfig, document, path)
+
+    # Whether the model is pinned is the domain's decision (R0.6); which line it
+    # was written on is this layer's, because only this layer has the file (R3.4).
+    try:
+        check_pinned(pipeline.model)
+    except ValueError as error:
+        line = _line_of(path.read_text(encoding="utf-8"), "model")
+        raise ConfigError(f"{_name(path)}, line {line}: {error}") from error
 
     # The pure checks live in domain and raise ValueError; this layer is what
     # knows which file the value came out of.
@@ -228,3 +237,19 @@ def _describe(error: ValidationError, entry: object) -> str:
 
 def _name(path: Path) -> str:
     return path.name
+
+
+def _line_of(text: str, key: str) -> int | None:
+    """The 1-based line a top-level key is written on, or `None` if it is not there.
+
+    Composed rather than loaded: `safe_load` discards where a value came from,
+    and a message that names the key without the line leaves a person searching
+    a file for something the loader already found (R3.1).
+    """
+    node = yaml.compose(text)
+    if not isinstance(node, yaml.MappingNode):
+        return None
+    for name, _ in node.value:
+        if name.value == key:
+            return name.start_mark.line + 1
+    return None
