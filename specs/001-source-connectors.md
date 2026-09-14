@@ -1,7 +1,7 @@
 # 001 — Source connectors
 
 **Status:** Partially implemented
-**Rules:** R1.1 – R1.9
+**Rules:** R1.1 – R1.10
 
 ## Purpose
 
@@ -58,6 +58,10 @@ statement inside `dossier`.
 [project.entry-points."dossier.connectors"]
 jira = "dossier_jira:JiraConnector"
 ```
+
+A connector also declares the keys its sources take (R1.10). The keys every
+source has -- `id`, `type`, `fields`, `convert`, `watermark_overlap` -- are the
+core's. Everything else belongs to one type, and only its connector knows it.
 
 ## Connector types in scope
 
@@ -219,3 +223,29 @@ Partial sync never records an item it did not successfully store.
 | 2 | `INC-4901` is new and raises during `fetch` | no ledger row is created for it |
 | 3 | `INC-4821` succeeds, then `INC-4822` fails | `INC-4821` is committed; the sync reports one failure and a non-zero exit code |
 | 4 | *counter-example* — the failure happens after the snapshot is written but before the ledger row is updated | the ledger stays unchanged; the orphan snapshot is inert and is not referenced (R0.2, R2.8) |
+
+### R1.10 — a connector declares the keys its sources take, and a source is checked against them at load time
+
+A folder has a `path`, a Jira source a `query`. Those keys belong to one source
+type, so its connector declares them -- as a model that refuses unknown keys --
+and the loader checks each source against the shared keys plus its connector's
+declaration before anything runs. The core never names a type's keys (R1.7), and
+a misspelt key is still refused (R3.1): the declaration is what makes "unknown"
+knowable for each type.
+
+Checking a declaration imports the connector's package and does nothing else --
+no connection, no credential (R3.8, R1.8).
+
+- **Kind:** deterministic
+- **Layer:** config (`dossier.config.load`)
+- **Proved by:** `tests/unit/test_R001_10__connectors_declare_their_keys.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents-manual` with `type: folder` and `path: inbox/incidents/` | accepted; `path` is a key the folder connector declares |
+| 2 | `incidents-manual` with `type: folder` and no `path` | load-time error naming `sources.yaml`, the line and the missing `path` -- not a failure at the first sync (R3.1 row 2) |
+| 3 | `incidents-manual` with `pth: inbox/incidents/` | load-time error naming `pth` and suggesting `path`, from the folder connector's declaration (R3.1 row 1) |
+| 4 | a package declaring entry point `sharepoint` with its own keys | its sources load and are checked, with no edit to `dossier` (R1.7 row 2) |
+| 5 | `type: sharepoint` with no package providing it | load-time error naming the type and the types available; a source cannot be checked against a declaration that does not exist |
+| 6 | *counter-example* — `incidents-jira` with `watermark_overlap: 24h` | checked by the core as a duration, not by the connector; it is a shared key every source may carry (R2.4, R3.1 row 3) |

@@ -45,10 +45,11 @@ be wrong, and so that abstention has real absences to be scored against (spec
 | `INC-5455` | `INC-5455-intermittent-upload-stalls.pdf` | defective -- root cause explicitly undetermined; only competing hypotheses |
 | *(none)* | `prod-incident-note-2026-02-11-scan.pdf` | defective -- several at once: no Jira ID, an undated two-line timeline, no root cause section, an action plan with no owners or dates |
 
-**Per-field gold answers are deliberately not recorded here.** Spec 007 has fixed
-no gold format yet and every one of its rules is `NOT MET`; writing expected
-values before that is inventing a threshold by another name. What is recorded is
-which document is defective and how, which is what the corpus was built to say.
+**Per-field gold answers are not recorded for the corpus as a whole.** Writing
+expected values nobody verified is inventing a threshold by another name. What is
+recorded is which document is defective and how, which is what the corpus was
+built to say. The one exception is `INC-5455` in the scoring example below, whose
+`root_cause` of `null` is exactly its recorded defect.
 
 ## Hashes
 
@@ -63,6 +64,7 @@ consistently here so a reader can follow one artifact across specs.
 | `0e52dd18` | `INC-4901` snapshot, and `prompts/02_verify.md` |
 | `b81f0c6d` | `OPS-114` snapshot, and `schemas/incident.json` — the hand-written JSON Schema of R3.5 and R6.8, both superseded |
 | `6e0d4b27` | `schemas/incident.yaml` — the field declaration that replaced it (R6.10) |
+| `d24c86e1` | the JSON Schema generated from `incident.yaml` and shown to the model, as canonical JSON (R6.12) |
 | `c4a70b93` | `audit-note.pdf` snapshot |
 | `9f21c0a4` | the `verify` cache key for `INC-4821` |
 | `5d3ba0f7` | `INC-4821` converted to markdown — a *different* artifact from the snapshot it came from, and therefore a different hash |
@@ -102,6 +104,7 @@ example refers to.
 |---|---|
 | `anthropic:claude-sonnet-4-5-20250929` | the pinned model identifier |
 | `anthropic:claude-sonnet-4-5` | a floating alias — rejected at load time (R0.6) |
+| `anthropic:claude-opus-5` | undated, and pinned: listed in `dossier.domain.model_id` as an id the provider documents as fixed (R0.6 row 5) |
 | `ollama:qwen2.5:7b@sha256:7f3c29a1` | a local model, pinned by its digest (R9.3) |
 | `ollama:qwen2.5:7b` | an Ollama tag with no digest — refused; a tag moves on re-pull (R9.3) |
 | `hf:Qwen/Qwen2.5-7B-Instruct@1c0f8e6b` | a model served by vLLM, pinned by repository and revision (R9.5) |
@@ -120,3 +123,31 @@ example refers to.
 | `severity` | `major` | enum |
 | `root_cause` | `null`, reason `not stated in document` | the abstention example |
 | `affected_systems` | `["payments-api", "ledger-batch"]` | the field that regressed in the deck's comparison table |
+
+## Scoring example (R7.2)
+
+Four documents, the five fields `incident.yaml` declares. The gold table is what
+a person writes into `gold/incidents/<document>.json`, in spec 007's format; the
+tests do not write it. `affected_systems` is one reference string, because a
+field record's value is a scalar (spec 006). `root_cause` is `null` throughout,
+so it is scored on abstention (R7.3) and every verdict is deterministic.
+
+| Document | `loss_amount` | `resolution_date` | `severity` | `affected_systems` | `root_cause` |
+|---|---|---|---|---|---|
+| `INC-4821` | `48200.00` CHF | `2026-07-28` | `major` | `payments-api, ledger-batch` | `null` |
+| `INC-4822` | `12500.00` CHF | `2026-08-04` | `minor` | `ledger-batch` | `null` |
+| `INC-4901` | `0.00` CHF | `2026-08-11` | `critical` | `payments-api` | `null` |
+| `INC-5455` | `3100.00` CHF | `2026-08-19` | `major` | `upload-service` | `null` |
+
+The run agrees with gold everywhere except here:
+
+| Document | Field | Run answers | Verdict |
+|---|---|---|---|
+| `INC-4901` | `resolution_date` | `2026-08-12` | incorrect; does not match |
+| `INC-5455` | `affected_systems` | `payments-api` | incorrect; does not match |
+| `INC-4822` | `root_cause` | `disk pressure on the batch host` | incorrect; gold abstains (R7.3) |
+| `INC-5455` | `root_cause` | `an unbounded retry loop` | incorrect; gold abstains -- the run picked one of the competing hypotheses |
+
+Per field: `loss_amount` 100.0%, `resolution_date` 75.0%, `severity` 100.0%,
+`affected_systems` 75.0%, `root_cause` 50.0% -- the weakest. Overall 80.0%, 16
+of 20. Every figure is exact, so no rounding rule is needed to state it.
