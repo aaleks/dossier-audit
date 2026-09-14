@@ -202,7 +202,7 @@ through.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.model_id`)
 - **Proved by:** `tests/unit/test_R000_6__floating_model_aliases_are_rejected.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
