@@ -7,6 +7,7 @@ as arguments.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
@@ -226,9 +227,63 @@ def build_tracker(settings: TrackingSettings) -> Tracker:
     return connect(settings.uri)
 
 
+class _BestEffortTracker:
+    """A tracker whose failures, once a command is under way, cost the record only.
+
+    The startup check has already refused a server nobody can reach (R10.5).
+    After it, a server that stops answering is a record lost, not a run lost: the
+    work completes, the answers are cached, and the command exits as it would
+    have untracked (R10.6). So every call is sent, and any failure is swallowed
+    -- a trace any of whose calls failed is counted as lost, and the command
+    says how many at the end, since a silent gap in MLflow would read as
+    documents that were never processed.
+    """
+
+    def __init__(self, inner: Tracker) -> None:
+        self._inner = inner
+        self.lost_traces = 0
+        self._this_trace_lost = False
+
+    def _sent(self, call, /, *args, **kwargs) -> bool:
+        try:
+            call(*args, **kwargs)
+        except Exception:
+            return False
+        return True
+
+    def start_run(self, *, experiment: str, name: str, tags: Mapping[str, str]) -> None:
+        self._sent(self._inner.start_run, experiment=experiment, name=name, tags=tags)
+
+    def log_params(self, params: Mapping[str, str]) -> None:
+        self._sent(self._inner.log_params, params)
+
+    def log_metrics(self, metrics: Mapping[str, float]) -> None:
+        self._sent(self._inner.log_metrics, metrics)
+
+    def log_artifact(self, name: str, content: bytes) -> None:
+        self._sent(self._inner.log_artifact, name, content)
+
+    def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
+        self._this_trace_lost = not self._sent(self._inner.start_trace, name=name, tags=tags)
+
+    def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None:
+        if not self._sent(self._inner.span, kind=kind, name=name, attributes=attributes):
+            self._this_trace_lost = True
+
+    def end_trace(self, *, status: str, error: str | None = None) -> None:
+        if not self._sent(self._inner.end_trace, status=status, error=error):
+            self._this_trace_lost = True
+        if self._this_trace_lost:
+            self.lost_traces += 1
+        self._this_trace_lost = False
+
+    def end_run(self, *, status: str) -> None:
+        self._sent(self._inner.end_run, status=status)
+
+
 def _tracking_for(
     workspace: Path, pipeline: str, *, kind: str
-) -> tuple[Tracker | None, str | None]:
+) -> tuple[_BestEffortTracker | None, str | None]:
     """The tracker and experiment a `dossier <kind>` records to, or `(None, None)`.
 
     Read and checked before any work: a typo in the switch or the template, the
@@ -242,7 +297,7 @@ def _tracking_for(
         if tracking is None:
             return None, None
         experiment = experiment_name(kind=kind, pipeline=pipeline, gold=None, environ=environ)
-        return build_tracker(tracking), experiment
+        return _BestEffortTracker(build_tracker(tracking)), experiment
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
@@ -616,6 +671,12 @@ def _execute(workspace: Path, pipeline: str) -> None:
         # The one thing tracking changes: what a person reads, never what is
         # written to disk (R10.4 row 3). The MLflow run is named after this run.
         typer.echo(f"recorded to MLflow: {experiment} · run {report.run_id}")
+        if tracker.lost_traces:
+            # The record has a gap; the run does not. Said, so the gap is not
+            # read as documents that were never processed (R10.6).
+            typer.echo(
+                f"warning: {tracker.lost_traces} trace(s) could not be recorded", err=True
+            )
     for step in report.steps:
         cached = len(step.served_from_cache)
         typer.echo(

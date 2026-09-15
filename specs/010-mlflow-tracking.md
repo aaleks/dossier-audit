@@ -1,6 +1,6 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R10.1 – R10.8
 
 ## Purpose
@@ -180,7 +180,7 @@ the failure this prevents.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.main`)
 - **Proved by:** `tests/acceptance/test_R010_6__a_lost_record_never_changes_the_outcome.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
