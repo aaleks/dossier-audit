@@ -24,8 +24,6 @@ from tests.fakes import NoModelClient, register_connector
 from tests.pipelines import write_pipeline
 from tests.scoring_example import ISSUES, PIPELINE, SOURCE_ID, SOURCE_TYPE, IssueTracker
 
-pytestmark = pytest.mark.outer_loop
-
 URI = "http://localhost:5000"
 
 
