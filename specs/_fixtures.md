@@ -119,6 +119,14 @@ example refers to.
 | `http://localhost:11434` | `DOSSIER_OLLAMA_URL` on a laptop, and Ollama's default (R9.2) |
 | `http://gpu-01:11434` | `DOSSIER_OLLAMA_URL` on a GPU server — same identifier, same keys (R9.2) |
 | `https://ai.example.internal/ollama` | OpenWebUI's Ollama passthrough — an endpoint, not a provider (R9.7) |
+| `openai:gpt-4o-2024-08-06` | an OpenAI model, pinned by its dated snapshot (R9.9) |
+| `openai:gpt-4o` | an OpenAI alias — refused; it moves to each new snapshot (R9.9) |
+| `gemini:gemini-3.5-flash-lite` | the project's default model: a Gemini stable code (R9.10), reached through a local OpenWebUI |
+| `gemini:gemini-flash-lite-latest` | a Gemini alias Google re-points — refused (R9.10) |
+| `gemini:gemini-3-flash-preview` | a Gemini preview — refused (R9.10) |
+| `http://localhost:8080/api` | `DOSSIER_GEMINI_URL` pointed at a local OpenWebUI's OpenAI-compatible route (R9.7, R9.11) |
+| `http://localhost:8080/ollama` | `DOSSIER_OLLAMA_URL` pointed at the same OpenWebUI's Ollama passthrough |
+| `https://generativelanguage.googleapis.com/v1beta/openai` | Google's OpenAI-compatible endpoint, and `DOSSIER_GEMINI_URL`'s default |
 | `incident-audit` | the pipeline name |
 | `extract` → `verify` → `report` | the three steps |
 

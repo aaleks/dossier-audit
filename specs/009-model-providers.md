@@ -1,16 +1,17 @@
 # 009 — Model providers
 
 **Status:** Partially implemented
-**Rules:** R9.1 – R9.8
+**Rules:** R9.1 – R9.11
 
 ## Purpose
 
-`dossier` asks models from more than one provider: Anthropic's API, and local
-models -- Ollama, and models such as Qwen served by vLLM, reached directly or
-through OpenWebUI. None of that may break R0.5. A stage key holds the model
-identifier and not the endpoint (R5.3 row 4), so the identifier has to pin the
-weights. Without that, re-pulling a model changes the answers under an unchanged
-key, and a cache hit stops meaning that nothing relevant changed.
+`dossier` asks models from more than one provider: hosted APIs -- Anthropic,
+OpenAI and Google's Gemini -- and local models -- Ollama, and models such as Qwen
+served by vLLM. Any of them may be reached directly or through OpenWebUI. None
+of that may break R0.5. A stage key holds the model identifier and not the
+endpoint (R5.3 row 4), so the identifier has to pin the weights. Without that,
+re-pulling a model changes the answers under an unchanged key, and a cache hit
+stops meaning that nothing relevant changed.
 
 ## Naming a model, and where it is served
 
@@ -18,22 +19,34 @@ key, and a cache hit stops meaning that nothing relevant changed.
 from the environment, and is part of no key -- so the same pipeline shares one
 cache between a laptop and a GPU server.
 
-| Provider | Pinned identifier | Reached at | Checked before the first call |
-|---|---|---|---|
-| `anthropic` | `anthropic:claude-sonnet-4-5-20250929` (R0.6) | `DOSSIER_ANTHROPIC_URL`, default Anthropic's API | nothing |
-| `ollama` | `ollama:qwen2.5:7b@sha256:7f3c29a1` | `DOSSIER_OLLAMA_URL`, default `http://localhost:11434` | the tag's digest (R9.4) |
-| `hf`, served by vLLM | `hf:Qwen/Qwen2.5-7B-Instruct@1c0f8e6b` | `DOSSIER_HF_URL`, no default | the served repo (R9.6); the revision is declared |
+| Provider | Pinned identifier | Reached at | API key | Checked before the first call |
+|---|---|---|---|---|
+| `anthropic` | `anthropic:claude-sonnet-4-5-20250929` (R0.6) | `DOSSIER_ANTHROPIC_URL`, default Anthropic's API | `DOSSIER_ANTHROPIC_API_KEY` | nothing |
+| `openai` | `openai:gpt-4o-2024-08-06` (R9.9) | `DOSSIER_OPENAI_URL`, default `https://api.openai.com/v1` | `DOSSIER_OPENAI_API_KEY` | nothing |
+| `gemini` | `gemini:gemini-3.5-flash-lite` (R9.10) | `DOSSIER_GEMINI_URL`, default `https://generativelanguage.googleapis.com/v1beta/openai` | `DOSSIER_GEMINI_API_KEY` | nothing |
+| `ollama` | `ollama:qwen2.5:7b@sha256:7f3c29a1` | `DOSSIER_OLLAMA_URL`, default `http://localhost:11434` | `DOSSIER_OLLAMA_API_KEY` | the tag's digest (R9.4) |
+| `hf`, served by vLLM | `hf:Qwen/Qwen2.5-7B-Instruct@1c0f8e6b` | `DOSSIER_HF_URL`, no default | `DOSSIER_HF_API_KEY` | the served repo (R9.6); the revision is declared |
 
 The provider is whatever precedes the first `:`. A provider is a package
 declaring a `dossier.models` entry point, the same way connectors and converters
-register (R1.7, R8.7); the three above ship in `dossier` through that group with
+register (R1.7, R8.7); the five above ship in `dossier` through that group with
 no special case. Each provider states its own pinned form here, as R0.6 leaves it
 to do.
 
-**OpenWebUI is a URL, not a provider.** It passes requests through to Ollama or
-to vLLM, and the identifier still names the backend's pinned form. An OpenWebUI
-model name is an alias its administrator can re-point, which is exactly what
-R0.6 refuses.
+**OpenWebUI is a URL, not a provider.** It passes requests through to Ollama, to
+vLLM, or to a hosted provider such as Gemini, and the identifier still names the
+backend's pinned form. An OpenWebUI model name is an alias its administrator can
+re-point, which is exactly what R0.6 refuses. Reaching a model through OpenWebUI
+is a matter of pointing that provider's URL at it -- `DOSSIER_GEMINI_URL` at its
+OpenAI-compatible route, `http://localhost:8080/api`, and `DOSSIER_OLLAMA_URL` at
+its Ollama passthrough, `http://localhost:8080/ollama` -- and putting OpenWebUI's
+API key in that provider's key variable. The provider's own name for the model is
+sent as-is; for Gemini, as for Anthropic, nothing checks what it is routed to.
+
+**The project's default is `gemini:gemini-3.5-flash-lite`, reached through a
+local OpenWebUI.** A default is a value written into a pipeline's `model:` and
+into `.env.example`, not a fallback in code: `model:` stays required, so a
+committed pipeline always says which model answered it.
 
 **A vLLM revision is declared, not verified.** vLLM reports which repository it
 loaded and not which revision, so `dossier` checks the first and records the
@@ -162,3 +175,59 @@ R1.8's promise, for model endpoints.
 | 2 | a completed run | no manifest or provenance field holds the key |
 | 3 | `api_key:` in `pipeline.yaml` | load-time error naming the key |
 | 4 | *counter-example* — "`DOSSIER_OLLAMA_API_KEY` is not set" in an error | allowed; naming the variable is not disclosing its value |
+
+### R9.9 — an OpenAI model is pinned only by a dated snapshot
+
+`gpt-4o` is an alias OpenAI moves to each new snapshot. The snapshot ends in its
+release date, written `-YYYY-MM-DD` -- not Anthropic's `-YYYYMMDD` (R0.6).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.model_id`)
+- **Proved by:** `tests/unit/test_R009_9__an_openai_model_is_pinned_by_a_dated_snapshot.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `openai:gpt-4o-2024-08-06` | accepted |
+| 2 | `openai:gpt-4o` | refused, naming the identifier; an alias moves to each new snapshot |
+| 3 | `openai:chatgpt-4o-latest` | refused |
+| 4 | *counter-example* — `anthropic:claude-sonnet-4-5-20250929` | not this rule's form; R0.6 pins it |
+
+### R9.10 — a Gemini model is pinned by a stable model code, never by a `latest`, preview or experimental name
+
+Google names a model three ways: a stable code, which it documents as not
+changing; a `-latest` name, which it re-points to each release; and preview and
+experimental names, which it may replace under the same name. Only the first is a
+pin. Gemini reports no digest, so this pin -- like Anthropic's -- rests on the
+provider's documentation, and nothing is checked before the first call.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.model_id`)
+- **Proved by:** `tests/unit/test_R009_10__a_gemini_model_is_pinned_by_a_stable_code.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `gemini:gemini-3.5-flash-lite` | accepted |
+| 2 | `gemini:gemini-flash-lite-latest` | refused, naming the identifier; `-latest` is re-pointed at each release |
+| 3 | `gemini:gemini-3-flash-preview` | refused; a preview can be replaced under the same name |
+| 4 | *counter-example* — `openai:gpt-4o-2024-08-06` | not this rule's form; R9.9 pins it |
+
+### R9.11 — a `.env` file in the working directory supplies only what the environment leaves unset
+
+Endpoints and keys are per-machine (R9.2, R9.8), and a `.env` file saves
+exporting them by hand. `dossier.config` reads it into what that package reads
+the environment through; it never writes the process environment. `.env` is
+git-ignored, and `.env.example` is its committed template.
+
+- **Kind:** deterministic
+- **Layer:** config (`dossier.config.environment`)
+- **Proved by:** `tests/unit/test_R009_11__a_dotenv_file_fills_only_what_the_environment_leaves_unset.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `.env` holds `DOSSIER_GEMINI_URL=http://localhost:8080/api`, and the shell sets nothing | requests go to `http://localhost:8080/api` |
+| 2 | the same `.env`, and the shell sets `DOSSIER_GEMINI_URL=https://generativelanguage.googleapis.com/v1beta/openai` | requests go to Google; the shell wins |
+| 3 | no `.env` in the working directory | not an error; each provider's default applies (R9.2) |
+| 4 | *counter-example* — `.env` sets `PATH=/opt/other/bin` | ignored; only `DOSSIER_` variables are read from it, and the process environment is unchanged |
