@@ -134,6 +134,11 @@ def sync(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines
             )
             reports.append(report)
             typer.echo(_source_line(report))
+            for key, error in report.failures:
+                # With the error the source gave: "failed" alone sends someone to
+                # guess whether it was a timeout, a permission or a bad item
+                # (R2.13 row 4).
+                typer.echo(f"  {report.source_id}: {key} failed: {error}", err=True)
 
     written = sum(report.snapshots_written for report in reports)
     tombstoned = sum(report.tombstoned for report in reports)

@@ -66,9 +66,10 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **R2.13** -- sync reports what it did, per source and in total,
-and a failed item with the error its source gave. Spec 010 is implemented. R10.6
-is met: a record lost
+Currently open: **none**. R2.12 and R2.13 are met: `dossier sync <pipeline>`
+syncs what that pipeline declares, and reports what it did per source and in
+total, with each failed item named alongside the error its source gave. Spec 010
+is implemented. R10.6 is met: a record lost
 after the startup check never changes a command's outcome -- the run completes,
 its answers are cached, it exits as it would untracked, and one warning says how
 many traces are missing. R10.5 is met:
