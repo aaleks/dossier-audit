@@ -45,7 +45,7 @@ from dossier.domain.conversion import NoConverter
 from dossier.domain.hashing import text_hash
 from dossier.domain.keys import ConvertInputs, cache_key
 from dossier.domain.model_id import provider_of
-from dossier.domain.ports import ModelClient
+from dossier.domain.ports import ModelClient, Tracker
 from dossier.domain.resolution import PinnedConverter, run_id
 from dossier.domain.scoring import (
     check_same_documents,
@@ -55,6 +55,8 @@ from dossier.domain.scoring import (
     weakest,
 )
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
+from dossier.domain.tracking import TrackingSettings, experiment_name
+from dossier.domain.tracking import settings as tracking_settings
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.connectors.registry import (
     UnknownSourceType,
@@ -180,6 +182,20 @@ def build_model_client(model_id: str) -> ModelClient:
         environ=environment(Path.cwd()),
     )
     return factory(model_id, url=endpoint.url, api_key=endpoint.api_key)
+
+
+def build_tracker(settings: TrackingSettings) -> Tracker:
+    """The tracker a command records to, for this machine's settings (spec 010).
+
+    Not implemented yet, and a named function for the reason
+    `build_model_client` is one: it is the seam the composition root hands to a
+    use case, and a test replaces it with a `FakeTracker`. The MLflow adapter,
+    and the startup check that its server answers, land with R10.5.
+    """
+    raise NotImplementedError(
+        f"tracking is enabled, recording to {settings.uri}, and no MLflow tracker is "
+        "wired up yet. Set DOSSIER_MLFLOW_ENABLED=false until it is."
+    )
 
 
 class _BuiltOnFirstCall:
@@ -436,6 +452,22 @@ def _execute(workspace: Path, pipeline: str) -> None:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
 
+    # Read before any work: a typo in the switch, or tracking on with nowhere to
+    # record to, is refused now rather than found after an hour of model calls
+    # nobody can inspect (R10.1, R10.2).
+    environ = environment(workspace)
+    try:
+        tracking = tracking_settings(environ)
+        experiment = (
+            None
+            if tracking is None
+            else experiment_name(kind="run", pipeline=pipeline, gold=None, environ=environ)
+        )
+        tracker = None if tracking is None else build_tracker(tracking)
+    except (ValueError, NotImplementedError) as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+
     store = SnapshotStore(workspace)
     converters = installed_converters()
     text: dict[str, str] = {}
@@ -513,6 +545,8 @@ def _execute(workspace: Path, pipeline: str) -> None:
             # bad reference and an unreachable model reported the model (R4.1).
             model=_BuiltOnFirstCall(config.model),
             cache=ArtifactCache(workspace, namespace="stage"),
+            tracker=tracker,
+            experiment=experiment,
             run_id=this_run,
             started_at=started_at,
             dossier_version=version("dossier"),

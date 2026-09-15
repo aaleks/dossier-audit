@@ -66,11 +66,13 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **R11.1** -- a `dossier run` is one MLflow run, named after its
-run id, with one trace per (step, document), recorded through a `Tracker` port
-that reads nothing back (R0.10). The pure tracking decisions are met: the
-switch (R10.1), the experiment template (R10.2), the tags (R10.3), what a span
-may carry (R10.8) and the per-source counts (R11.4).
+Currently open: **none**. R11.1 is met: a `dossier run` with tracking on is one
+MLflow run, named after its run id, with one trace per (step, document),
+recorded through a `Tracker` port that reads nothing back (R0.10); `--plan` and
+`--replay` record nothing. The pure tracking decisions are met too: the switch
+(R10.1), the experiment template (R10.2), the tags (R10.3), what a span may
+carry (R10.8) and the per-source counts (R11.4). The MLflow adapter itself, and
+its startup check, come with R10.5.
 R7.8 is met: `dossier eval <pipeline> --gold <dir>
 --compare <run> <run>` reproduces both runs from their own caches, refuses two
 runs over different documents, and prints each field's two scores and delta,

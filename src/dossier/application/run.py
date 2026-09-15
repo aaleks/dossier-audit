@@ -48,7 +48,7 @@ from dossier.domain.pipeline import (
     validate_references,
     validate_step_ids,
 )
-from dossier.domain.ports import ArtifactStore, ModelClient
+from dossier.domain.ports import ArtifactStore, ModelClient, Tracker
 from dossier.domain.prompts import render
 from dossier.domain.resolution import (
     PinnedConverter,
@@ -59,6 +59,7 @@ from dossier.domain.resolution import (
 )
 from dossier.domain.schemas import StageOutput
 from dossier.domain.sync import RESERVED_KEY
+from dossier.domain.tracking import tags as tracking_tags
 
 # The `document` an aggregate result is reported under (spec 003). An aggregate
 # step has no document -- it read all of them -- so naming it after any one would
@@ -133,12 +134,22 @@ def execute(
     started_at: datetime,
     dossier_version: str,
     converters: Sequence[PinnedConverter] | None = None,
+    tracker: Tracker | None = None,
+    experiment: str | None = None,
 ) -> RunReport:
     """Resolve the pipeline, freeze it, then run it.
 
     Raises `ValueError` if resolution fails, having written nothing and called
     nothing. Returns a report if it succeeded, whatever individual documents did.
+
+    With a `tracker`, the run is also recorded to `experiment`: one MLflow run
+    named after `run_id`, one trace per (step, document), and the counts and the
+    manifest once the steps are done (R11.1). Recording starts only after
+    resolution, so a run that resolution refused records nothing either.
+    Tracking observes; nothing it holds is read back into this run (R0.10).
     """
+    if tracker is not None and not experiment:
+        raise ValueError("a tracker records to an experiment, and none was named")
     plan = _resolve(
         pipeline=pipeline,
         pipeline_hash=pipeline_hash,
@@ -177,32 +188,81 @@ def execute(
     # mid-run cannot strand a later stage (R5.9 example 3).
     produced: dict[str, dict[str, str]] = {}
 
-    for step in plan.steps:
-        over = [AGGREGATE_KEY] if declared[step.id].mode == "aggregate" else keys
-        output = schemas.get(step.id)
-        results = tuple(
-            _run_one(
-                step=step,
-                declared=declared[step.id],
-                document=key,
-                documents=keys,
-                document_text=document_text,
-                produced=produced,
-                schema=None if output is None else output.schema,
-                prompt=prompts[step.id],
-                model=model,
-                cache=cache,
-                run_id=run_id,
-                dossier_version=dossier_version,
-            )
-            for key in over
+    if tracker is not None:
+        tracker.start_run(
+            experiment=experiment or "",
+            name=run_id,
+            tags=tracking_tags(kind="run", pipeline=pipeline.name),
         )
-        steps.append(StepReport(step=step.id, results=results))
-        produced[step.id] = {
-            result.document: _as_text(result) for result in results if not result.failed
-        }
+        tracker.log_params(
+            {
+                "pipeline": pipeline.name,
+                "model": plan.model,
+                "pipeline_hash": plan.pipeline_hash,
+            }
+        )
 
-    return RunReport(run_id=run_id, manifest_path=manifest, steps=tuple(steps))
+    try:
+        for step in plan.steps:
+            over = [AGGREGATE_KEY] if declared[step.id].mode == "aggregate" else keys
+            output = schemas.get(step.id)
+            results: list[DocumentResult] = []
+            for key in over:
+                # One trace per (step, document): the unit of a cache key, so one
+                # trace is one key computed or served (spec 011). Opened before
+                # the work, so what happens inside it is recorded inside it.
+                if tracker is not None:
+                    tracker.start_trace(
+                        name=f"{step.id} · {key}",
+                        tags={"dossier.step": step.id, "dossier.document": key},
+                    )
+                result = _run_one(
+                    step=step,
+                    declared=declared[step.id],
+                    document=key,
+                    documents=keys,
+                    document_text=document_text,
+                    produced=produced,
+                    schema=None if output is None else output.schema,
+                    prompt=prompts[step.id],
+                    model=model,
+                    cache=cache,
+                    run_id=run_id,
+                    dossier_version=dossier_version,
+                )
+                if tracker is not None:
+                    tracker.end_trace(
+                        status="ERROR" if result.failed else "OK", error=result.error
+                    )
+                results.append(result)
+            steps.append(StepReport(step=step.id, results=tuple(results)))
+            produced[step.id] = {
+                result.document: _as_text(result) for result in results if not result.failed
+            }
+    except BaseException:
+        # A run that stopped -- an unreachable model, an interrupt -- is recorded
+        # as failed rather than left looking as if it were still running.
+        if tracker is not None:
+            tracker.end_run(status="FAILED")
+        raise
+
+    report = RunReport(run_id=run_id, manifest_path=manifest, steps=tuple(steps))
+    if tracker is not None:
+        # The figures the command already knows and prints; MLflow is a second
+        # place to read them, never a second way of computing them (spec 011).
+        tracker.log_metrics(
+            {
+                "documents": len(plan.documents),
+                "cache_hits": report.cache_hits,
+                "model_calls": sum(
+                    result.attempts for done in report.steps for result in done.results
+                ),
+                "failed": len(report.failed),
+            }
+        )
+        tracker.log_artifact(manifest.name, manifest.read_bytes())
+        tracker.end_run(status="FAILED" if report.failed else "FINISHED")
+    return report
 
 
 def _as_text(result: DocumentResult) -> str:
