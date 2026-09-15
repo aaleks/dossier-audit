@@ -1,6 +1,6 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R10.1 – R10.8
 
 ## Purpose
@@ -105,7 +105,7 @@ should have recorded.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.settings`)
 - **Proved by:** `tests/unit/test_R010_1__tracking_is_off_unless_enabled.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
