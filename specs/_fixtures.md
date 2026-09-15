@@ -36,7 +36,7 @@ be wrong, and so that abstention has real absences to be scored against (spec
 
 | Key | File | State |
 |---|---|---|
-| `INC-4821` | `INC-4821-postmortem-checkout-tls-expiry.pdf` | complete. The same incident as the table above, at `CHF 48,200` |
+| `INC-4830` | `INC-4830-postmortem-checkout-tls-expiry.pdf` | complete. Not the same incident as `INC-4821` above: this one states its root cause, and that one does not (R4.10 -- one key, one document) |
 | `INC-5102` | `INC-5102-orders-api-oom-postmortem.pdf` | complete |
 | `INC-4977` | `INC-4977-postgres-wal-disk-full.pdf` | complete |
 | `INC-5230` | `INC-5230-dns-cutover-eu-west-outage.pdf` | complete |

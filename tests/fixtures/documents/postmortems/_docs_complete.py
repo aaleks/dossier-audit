@@ -39,7 +39,7 @@ TIGHT_MONO = ParagraphStyle("tightmono", parent=MONO_S, fontSize=6.8, leading=8.
 
 
 def doc_01():
-    path = OUT / "INC-4821-postmortem-checkout-tls-expiry.pdf"
+    path = OUT / "INC-4830-postmortem-checkout-tls-expiry.pdf"
     W = A4[0] - 40 * mm
 
     def decorate(canvas, doc):
@@ -53,7 +53,7 @@ def doc_01():
         canvas.drawString(20 * mm, A4[1] - 18 * mm,
                           "Service Reliability  |  Post-Incident Review")
         canvas.setFont("Helvetica-Bold", 9)
-        canvas.drawRightString(A4[0] - 20 * mm, A4[1] - 13 * mm, "INC-4821")
+        canvas.drawRightString(A4[0] - 20 * mm, A4[1] - 13 * mm, "INC-4830")
         canvas.setFont("Helvetica", 7.5)
         canvas.drawRightString(A4[0] - 20 * mm, A4[1] - 18 * mm, "SEV-1  |  CLOSED")
         canvas.setStrokeColor(RULE)
@@ -69,7 +69,7 @@ def doc_01():
     doc = SimpleDocTemplate(str(path), pagesize=A4, topMargin=28 * mm,
                             bottomMargin=20 * mm, leftMargin=20 * mm,
                             rightMargin=20 * mm,
-                            title="INC-4821 Post-Incident Review",
+                            title="INC-4830 Post-Incident Review",
                             author="s.hartmann", subject="Postmortem")
     s = []
     s.append(P("Checkout unavailable in production &mdash; expired TLS "
@@ -78,7 +78,7 @@ def doc_01():
                "reviewed by the Payments guild on 2026-08-04", SMALL))
     s.append(Spacer(1, 6))
     s.append(kv_table([
-        ("Jira issue", "INC-4821 &nbsp;(linked: OPS-3312 &lsquo;Certificate "
+        ("Jira issue", "INC-4830 &nbsp;(linked: OPS-3312 &lsquo;Certificate "
                        "inventory&rsquo;, PAY-1190)"),
         ("Severity", "SEV-1 &mdash; complete loss of a revenue-critical function"),
         ("Environment", "Production &mdash; eu-central-1, eu-west-1"),
