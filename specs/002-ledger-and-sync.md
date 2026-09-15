@@ -393,7 +393,7 @@ declared `fields` -- that hash addresses a projection nothing ever stored.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.ledger`)
 - **Proved by:** `tests/unit/test_R002_17__a_held_document_is_its_raw_snapshot.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
