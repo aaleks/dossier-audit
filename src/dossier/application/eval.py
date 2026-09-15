@@ -9,12 +9,21 @@ miss, and scoring is never one.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from dossier.application.run import StepReport
-from dossier.domain.gold import GoldDocument
-from dossier.domain.scoring import DocumentScore, FieldKind, GoldField, score_document
+from dossier.domain.gold import GoldDocument, gold_set_hash
+from dossier.domain.ports import Tracker
+from dossier.domain.scoring import (
+    DocumentScore,
+    FieldKind,
+    FieldTotal,
+    GoldField,
+    overall,
+    score_document,
+)
+from dossier.domain.tracking import tags as tracking_tags
 
 # What a gold field entry holds that scoring reads. A reviewer's correction also
 # records who made it, when, and what it superseded (R7.7) -- the audit trail of
@@ -61,6 +70,46 @@ def score_run(
             )
         )
     return tuple(scores)
+
+
+def record_eval(
+    tracker: Tracker,
+    *,
+    experiment: str,
+    pipeline: str,
+    run_id: str,
+    model: str,
+    gold: str,
+    gold_files: Mapping[str, bytes],
+    totals: Sequence[FieldTotal],
+) -> None:
+    """Record one `dossier eval` as one MLflow run, one metric per scored field (R11.3).
+
+    The metrics are the percentages the report prints -- `75.0`, not `0.75` --
+    so the terminal and MLflow cannot disagree. Only scored fields are
+    recorded: a field gold never verified has no total, and a 0.0 for it would
+    read as a field that was always wrong (R7.3 row 4).
+
+    The gold set is named, and tagged with a hash of its contents, since two
+    evals over different gold sets are not comparable; the run it scored is
+    tagged by id, so the eval can be followed back to what it measured.
+    """
+    tracker.start_run(
+        experiment=experiment,
+        name=f"eval of {run_id}",
+        tags={
+            **tracking_tags(kind="eval", pipeline=pipeline),
+            "dossier.run_id": run_id,
+            "dossier.gold_hash": gold_set_hash(gold_files),
+        },
+    )
+    tracker.log_params({"model": model, "gold": Path(gold).name})
+    metrics = {f"accuracy/{total.field}": total.percentage for total in totals}
+    summed = overall(totals)
+    if summed is not None:
+        metrics["accuracy/overall"] = summed.percentage
+    tracker.log_metrics(metrics)
+    tracker.end_run(status="FINISHED")
 
 
 def _gold_fields(document: GoldDocument) -> dict[str, GoldField]:
