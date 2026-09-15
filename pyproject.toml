@@ -48,8 +48,10 @@ markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextCon
 # real client replaces its placeholder as one is written.
 [project.entry-points."dossier.models"]
 anthropic = "dossier.infrastructure.models.placeholder:anthropic"
+gemini = "dossier.infrastructure.models.placeholder:gemini"
 hf = "dossier.infrastructure.models.placeholder:hf"
 ollama = "dossier.infrastructure.models.placeholder:ollama"
+openai = "dossier.infrastructure.models.placeholder:openai"
 
 [build-system]
 requires = ["hatchling"]

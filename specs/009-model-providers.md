@@ -204,7 +204,7 @@ provider's documentation, and nothing is checked before the first call.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.model_id`)
 - **Proved by:** `tests/unit/test_R009_10__a_gemini_model_is_pinned_by_a_stable_code.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

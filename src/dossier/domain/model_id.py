@@ -32,6 +32,14 @@ _OLLAMA_DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
 # and is not accepted as one here.
 _OPENAI_DATED = re.compile(r"-\d{4}-\d{2}-\d{2}$")
 
+# Google names a Gemini model three ways, and only the stable code is a pin. A
+# `-latest` name is re-pointed at each release; preview and experimental names
+# may be replaced under the same name (R9.10). Matched as whole `-`-separated
+# words, so a code that merely contains the letters is not refused. Gemini
+# reports no digest, so the pin rests on Google's documentation, as Anthropic's
+# does.
+_GEMINI_MOVING = re.compile(r"(^|-)(latest|preview|exp|experimental)(-|$)")
+
 # A Hugging Face repository is whatever `main` points at today; a revision is a
 # commit, and does not move (R9.5). `@main` looks like a pin and is not one, so
 # only a full 40-character commit counts. vLLM does not report which revision
@@ -62,6 +70,12 @@ def check_pinned(model: str) -> None:
         raise ValueError(
             f"model {model!r} is an OpenAI alias, which moves to each new snapshot; "
             "name a dated snapshot such as 'openai:gpt-4o-2024-08-06'"
+        )
+    if provider == "gemini" and _GEMINI_MOVING.search(name):
+        raise ValueError(
+            f"model {model!r} is a latest, preview or experimental name, which Google "
+            "may re-point or replace; name a stable code such as "
+            "'gemini:gemini-3.5-flash-lite'"
         )
     if provider == "ollama" and not _OLLAMA_DIGEST.search(name):
         raise ValueError(

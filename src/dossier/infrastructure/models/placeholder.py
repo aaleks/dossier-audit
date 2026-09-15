@@ -27,6 +27,8 @@ class NotWired:
 
 
 anthropic = NotWired("https://api.anthropic.com")
+openai = NotWired("https://api.openai.com/v1")
+gemini = NotWired("https://generativelanguage.googleapis.com/v1beta/openai")
 ollama = NotWired("http://localhost:11434")
 # vLLM has no default: a run that needs it stops, naming DOSSIER_HF_URL (R9.2).
 hf = NotWired(None)
