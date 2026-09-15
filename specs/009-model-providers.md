@@ -1,6 +1,6 @@
 # 009 — Model providers
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R9.1 – R9.13
 
 ## Purpose
@@ -167,7 +167,7 @@ R1.8's promise, for model endpoints.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.credentials`)
 - **Proved by:** `tests/unit/test_R009_8__model_api_keys_are_never_disclosed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
