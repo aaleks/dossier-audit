@@ -71,8 +71,11 @@ MLflow run, named after its run id, with one trace per (step, document),
 recorded through a `Tracker` port that reads nothing back (R0.10); `--plan` and
 `--replay` record nothing. The pure tracking decisions are met too: the switch
 (R10.1), the experiment template (R10.2), the tags (R10.3), what a span may
-carry (R10.8) and the per-source counts (R11.4). The MLflow adapter itself, and
-its startup check, come with R10.5.
+carry (R10.8) and the per-source counts (R11.4). Each model call is one LLM
+span, and a cache hit is a trace with none (R11.2). R0.10 admits the third
+network package, `dossier.infrastructure.tracking`, and counts `mlflow` as a
+network client; the MLflow adapter itself, and its startup check, come with
+R10.5.
 R7.8 is met: `dossier eval <pipeline> --gold <dir>
 --compare <run> <run>` reproduces both runs from their own caches, refuses two
 runs over different documents, and prints each field's two scores and delta,
@@ -122,12 +125,15 @@ pytest -m live          # the evaluated rules. Real model calls, run deliberatel
 
 ## Non-negotiable technical constraints
 
-1. **Two packages reach the network, and no others.**
+1. **Three packages reach the network, and no others.**
    `dossier.infrastructure.connectors` fetches source payloads;
-   `dossier.infrastructure.models` asks a model. Nothing else may import a
-   network client, on any code path, including a lazy import inside a function.
-   This is R0.9 — it supersedes R0.1, which allowed only connectors and was
-   already untrue of a tool whose stages ask a model. The boundary does not
+   `dossier.infrastructure.models` asks a model;
+   `dossier.infrastructure.tracking` sends records to MLflow, and only sends.
+   Nothing else may import a network client -- `mlflow` included -- on any code
+   path, including a lazy import inside a function. This is R0.10 -- it
+   supersedes R0.9, which admitted two, and R0.1, which allowed only
+   connectors and was already untrue of a tool whose stages ask a model. The
+   boundary does not
    promise "no network"; it promises that everything right of it is
    reproducible, which is why a model is reached only on a cache miss and never
    during plan, replay or scoring. Checked by an `ast` walk over every module.
@@ -148,8 +154,9 @@ pytest -m live          # the evaluated rules. Real model calls, run deliberatel
 Two boundaries, described in `docs/architecture.md` and enforced by
 `tests/architecture/`:
 
-- **The hash boundary** — `infrastructure/connectors/` is the only package that
-  may touch the network.
+- **The hash boundary** — `infrastructure/connectors/`, `infrastructure/models/`
+  and `infrastructure/tracking/` are the only packages that may touch the
+  network (R0.10).
 - **The purity boundary** — `domain/` imports the standard library and
   `pydantic`, and nothing else.
 
@@ -158,7 +165,7 @@ src/dossier/
   domain/          decisions: keys, resolution, normalisation, grounding, scoring
   application/     use cases: sync, convert, run, plan, eval
   infrastructure/  converters, store, ledger, model clients, tracking
-    connectors/    the only package left of the hash boundary
+    connectors/    left of the hash boundary, with models/ and tracking/ (R0.10)
   config/          sources.yaml, pipeline.yaml, credentials — the only reader of os.environ
   cli/             typer app — the only place sys.exit lives
 ```
