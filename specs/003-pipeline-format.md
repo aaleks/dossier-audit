@@ -227,6 +227,12 @@ literal braces.
 
 ### R3.7 — a pipeline declaring `gold` must point at a directory that exists and conforms to spec 007
 
+`gold` is resolved against the workspace -- the directory `dossier` runs in --
+and not against the pipeline's own directory, as `prompts/` and `output` are. A
+gold set is a workspace asset: spec 007 keeps it at `gold/<name>/`, one set can
+serve several pipelines, and `dossier eval --gold` names the same directory the
+same way.
+
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R003_7__gold_directory_is_validated_at_load_time.py`
