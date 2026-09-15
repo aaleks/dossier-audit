@@ -33,8 +33,6 @@ from tests.scoring_example import (
     RoutedModel,
 )
 
-pytestmark = pytest.mark.outer_loop
-
 # R7.8 examples 1, 2 and 4, transcribed from `_fixtures.md`: `a`, `b`, delta.
 EXPECTED = {
     "loss_amount": ("100.0%", "100.0%", "+0.0"),

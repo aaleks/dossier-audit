@@ -237,7 +237,7 @@ document keys.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
 - **Proved by:** `tests/acceptance/test_R007_8__compare_reports_per_field_deltas.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

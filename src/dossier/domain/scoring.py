@@ -21,7 +21,7 @@ collapsing any of them loses something:
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
@@ -315,6 +315,72 @@ def weakest(totals: Sequence[FieldTotal]) -> tuple[str, ...]:
         if total.correct * lowest.scored == lowest.correct * total.scored
     )
     return () if len(tied) == len(totals) else tied
+
+
+@dataclass(frozen=True)
+class FieldDelta:
+    """One field's score in two runs, for the change gate (R7.8)."""
+
+    field: str
+    before: FieldTotal | None
+    after: FieldTotal | None
+
+    @property
+    def delta(self) -> float | None:
+        """How many points the field moved, or `None` where one run did not score it."""
+        if self.before is None or self.after is None:
+            return None
+        return self.after.percentage - self.before.percentage
+
+    @property
+    def regressed(self) -> bool:
+        """Whether the field got worse. Compared by cross-multiplying the counts,
+        so a field at 2/3 and one at 4/6 did not move however floating point
+        rounds them."""
+        if self.before is None or self.after is None:
+            return False
+        return self.after.correct * self.before.scored < self.before.correct * self.after.scored
+
+
+def compare_totals(
+    before: Sequence[FieldTotal], after: Sequence[FieldTotal]
+) -> tuple[FieldDelta, ...]:
+    """Every field either run scored, in the order `before` lists them (R7.8).
+
+    A field that did not move is reported with a delta of zero rather than left
+    out: a silent row is indistinguishable from a missing one (R7.8 row 4). A
+    field only one run scored is still listed, with no delta.
+    """
+    earlier = {total.field: total for total in before}
+    later = {total.field: total for total in after}
+    fields = [total.field for total in before] + [
+        total.field for total in after if total.field not in earlier
+    ]
+    return tuple(FieldDelta(field, earlier.get(field), later.get(field)) for field in fields)
+
+
+def check_same_documents(
+    before: Collection[str], after: Collection[str], *, runs: tuple[str, str]
+) -> None:
+    """Raise `ValueError` naming what differs if two runs covered different documents.
+
+    Scores over different documents are not comparable: a field can move because
+    the documents did, and a delta would report that as the change's effect
+    (R7.8 row 3). Sorted, so the message is the same on every machine.
+    """
+    only_before = sorted(set(before) - set(after))
+    only_after = sorted(set(after) - set(before))
+    if only_before or only_after:
+        differences = [
+            f"only in {run}: {', '.join(keys)}"
+            for run, keys in zip(runs, (only_before, only_after), strict=True)
+            if keys
+        ]
+        raise ValueError(
+            f"runs {runs[0]} and {runs[1]} cover different documents -- "
+            + "; ".join(differences)
+            + ". A comparison over different documents is not a comparison."
+        )
 
 
 def _same_currency(produced: str | None, expected: str | None) -> bool:
