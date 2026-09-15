@@ -12,7 +12,7 @@ cannot prove any of them.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -70,6 +70,98 @@ class NoModelClient:
         raise FakeModelClientError(
             "a model call was made where the rule under test permits none"
         )
+
+
+class FakeTrackerError(AssertionError):
+    """Something was recorded out of order -- to a run or trace never started.
+
+    An AssertionError, like `FakeModelClientError`: recording into nothing is
+    a finding about the code under test, not an infrastructure problem.
+    """
+
+
+@dataclass
+class FakeTrace:
+    """One (step, document), as a tracker was told about it (spec 011)."""
+
+    name: str
+    tags: dict[str, str]
+    spans: list[dict[str, object]] = field(default_factory=list)
+    status: str | None = None
+    error: str | None = None
+
+
+@dataclass
+class FakeRun:
+    """One MLflow run, as a tracker was told about it."""
+
+    experiment: str
+    name: str
+    tags: dict[str, str]
+    params: dict[str, str] = field(default_factory=dict)
+    metrics: dict[str, float] = field(default_factory=dict)
+    artifacts: dict[str, bytes] = field(default_factory=dict)
+    traces: list[FakeTrace] = field(default_factory=list)
+    status: str | None = None
+
+
+class FakeTracker:
+    """A tracker that records what it is told and sends it nowhere.
+
+    It **counts runs, traces and spans**, as `FakeModelClient` counts calls:
+    R11.1 and R11.2 are claims about how many were recorded, and a tracker that
+    only accepted calls could prove neither (spec 010). Every method returns
+    `None` -- the port reads nothing back from a server, so nothing a tracker
+    holds can reach a key, a manifest or a score (R0.10 row 5).
+    """
+
+    def __init__(self) -> None:
+        self.runs: list[FakeRun] = []
+
+    @property
+    def traces(self) -> list[FakeTrace]:
+        return [trace for run in self.runs for trace in run.traces]
+
+    @property
+    def spans(self) -> list[dict[str, object]]:
+        return [span for trace in self.traces for span in trace.spans]
+
+    def start_run(self, *, experiment: str, name: str, tags: Mapping[str, str]) -> None:
+        self.runs.append(FakeRun(experiment=experiment, name=name, tags=dict(tags)))
+
+    def log_params(self, params: Mapping[str, str]) -> None:
+        self._run.params.update(params)
+
+    def log_metrics(self, metrics: Mapping[str, float]) -> None:
+        self._run.metrics.update(metrics)
+
+    def log_artifact(self, name: str, content: bytes) -> None:
+        self._run.artifacts[name] = content
+
+    def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
+        self._run.traces.append(FakeTrace(name=name, tags=dict(tags)))
+
+    def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None:
+        self._trace.spans.append({"kind": kind, "name": name, **attributes})
+
+    def end_trace(self, *, status: str, error: str | None = None) -> None:
+        self._trace.status = status
+        self._trace.error = error
+
+    def end_run(self, *, status: str) -> None:
+        self._run.status = status
+
+    @property
+    def _run(self) -> FakeRun:
+        if not self.runs:
+            raise FakeTrackerError("recorded to an MLflow run that was never started")
+        return self.runs[-1]
+
+    @property
+    def _trace(self) -> FakeTrace:
+        if not self._run.traces:
+            raise FakeTrackerError("recorded to a trace that was never started")
+        return self._run.traces[-1]
 
 
 class VersionedFolderConnector:

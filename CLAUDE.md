@@ -66,7 +66,12 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. R7.8 is met: `dossier eval <pipeline> --gold <dir>
+Currently open: **R11.1** -- a `dossier run` is one MLflow run, named after its
+run id, with one trace per (step, document), recorded through a `Tracker` port
+that reads nothing back (R0.10). The pure tracking decisions are met: the
+switch (R10.1), the experiment template (R10.2), the tags (R10.3), what a span
+may carry (R10.8) and the per-source counts (R11.4).
+R7.8 is met: `dossier eval <pipeline> --gold <dir>
 --compare <run> <run>` reproduces both runs from their own caches, refuses two
 runs over different documents, and prints each field's two scores and delta,
 every regression flagged even under a better overall figure. R9.2 is met: where
@@ -93,9 +98,8 @@ the shell leaves unset (R9.11). The project's default model is
 vLLM serving another repository, or an Ollama tag re-pulled to another digest,
 stops the run before its first call (R9.6, R9.4), and a key reaches a request
 header and nothing a run writes or prints (R9.8). A declared `gold` directory,
-resolved against the workspace, is checked at load (R3.7). Next is R7.8,
-`dossier eval <pipeline> --compare <run> <run>`, as an outer loop; an Anthropic
-client waits for a rule of its own.
+resolved against the workspace, is checked at load (R3.7). An Anthropic client
+waits for a rule of its own.
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost
