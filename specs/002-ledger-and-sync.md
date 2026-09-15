@@ -258,13 +258,14 @@ A run from March must still resolve the documents it used.
 ### R2.8 — an interrupted sync leaves a consistent ledger
 
 Every row present refers, through its `snapshot_path`, to a snapshot that exists
-and hashes to the address that path gives (R2.17). The failure mode this rules out is a ledger claiming content the store
-does not hold, which turns into an unresolvable run months later.
+and hashes to the address that path gives (R2.17). The failure mode this rules
+out is a ledger claiming content the store does not hold, which turns into an
+unresolvable run months later.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.sync`)
 - **Proved by:** `tests/unit/test_R002_8__interrupted_sync_leaves_a_consistent_ledger.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
