@@ -88,9 +88,10 @@ the shell leaves unset (R9.11). The project's default model is
 `gemini:gemini-3.5-flash-lite` through a local OpenWebUI (`.env.example`). A
 vLLM serving another repository, or an Ollama tag re-pulled to another digest,
 stops the run before its first call (R9.6, R9.4), and a key reaches a request
-header and nothing a run writes or prints (R9.8). Next: an Anthropic client
-needs a rule of its own; elsewhere, R7.8 (`eval --compare`), R3.7 (a pipeline's
-`gold` directory) and the other NOT MET rules are fully specified.
+header and nothing a run writes or prints (R9.8). A declared `gold` directory,
+resolved against the workspace, is checked at load (R3.7). Next is R7.8,
+`dossier eval <pipeline> --compare <run> <run>`, as an outer loop; an Anthropic
+client waits for a rule of its own.
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost

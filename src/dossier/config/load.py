@@ -18,6 +18,7 @@ loading -- a connector asks for its credential when it is actually used (R1.8).
 from __future__ import annotations
 
 import difflib
+import json
 from collections.abc import Collection, Mapping
 from pathlib import Path
 
@@ -25,6 +26,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from dossier.domain.fields import OutputSchema, declare_fields, json_schema
+from dossier.domain.gold import GoldDocument
 from dossier.domain.hashing import text_hash
 from dossier.domain.model_id import check_pinned, provider_of
 from dossier.domain.pipeline import (
@@ -223,6 +225,7 @@ def load_pipeline(path: Path, *, providers: Collection[str]) -> PipelineConfig:
 
     _validate_output_declarations(pipeline, path)
     _validate_prompt_placeholders(pipeline, path)
+    _validate_gold(pipeline, path)
     return pipeline
 
 
@@ -263,6 +266,42 @@ def load_output_schemas(pipeline: PipelineConfig, path: Path) -> dict[str, Outpu
         for step in pipeline.steps
         if step.output is not None
     }
+
+
+def _validate_gold(pipeline: PipelineConfig, path: Path) -> None:
+    """R3.7 — a declared gold set exists, and every file in it conforms to spec 007.
+
+    Checked here, before anything runs: a gold set that cannot be read is a run
+    that cannot be scored, and an unattributed answer in it is an unaudited
+    definition of correct (R7.7). A pipeline with no `gold` is fine -- only
+    `dossier eval` needs one.
+
+    Resolved against the workspace, not the pipeline's own directory as
+    `prompts/` and `output` are: a gold set is a workspace asset that several
+    pipelines may share, and `dossier eval --gold` names it the same way. A
+    pipeline is always `<workspace>/pipelines/<name>/pipeline.yaml` (spec 003).
+    """
+    if pipeline.gold is None:
+        return
+    directory = path.parents[2] / pipeline.gold
+    if not directory.is_dir():
+        line = _line_of(path.read_text(encoding="utf-8"), "gold")
+        where = f", line {line}" if line is not None else ""
+        raise ConfigError(
+            f"{_name(path)}{where}: gold {pipeline.gold!r} is not a directory ({directory})"
+        )
+    for gold_file in sorted(directory.glob("*.json")):
+        try:
+            document = json.loads(gold_file.read_text(encoding="utf-8"))
+            GoldDocument.model_validate(document)
+        except ValidationError as error:
+            raise ConfigError(
+                f"{_name(path)}: gold file {gold_file.name}: {_describe(error, {})}"
+            ) from error
+        except ValueError as error:
+            raise ConfigError(
+                f"{_name(path)}: gold file {gold_file.name} is not valid JSON -- {error}"
+            ) from error
 
 
 def _validate_prompt_placeholders(pipeline: PipelineConfig, path: Path) -> None:
