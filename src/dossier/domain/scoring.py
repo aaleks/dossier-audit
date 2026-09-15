@@ -237,6 +237,86 @@ def score_document(
     )
 
 
+@dataclass(frozen=True)
+class FieldTotal:
+    """One field's deterministic verdicts, summed across every scored document (R7.2)."""
+
+    field: str
+    correct: int
+    scored: int
+
+    @property
+    def percentage(self) -> float:
+        return 100.0 * self.correct / self.scored
+
+
+def per_field(
+    scores: Sequence[DocumentScore], *, declared: Sequence[str]
+) -> tuple[FieldTotal, ...]:
+    """Each declared field's total across the documents, in declared order.
+
+    Per field, because that is the headline R7.2 requires: a field at 50% and one
+    at 100% need different work, and a single blended figure hides which is
+    which. Declared order rather than sorted, so the report reads the way the
+    declaration does.
+
+    A field no document scored has no total, rather than a total of zero -- a
+    0.0% would read as a field that was always wrong.
+    """
+    totals: list[FieldTotal] = []
+    for field in declared:
+        results = [r for score in scores for r in score.scored if r.field == field]
+        if results:
+            totals.append(
+                FieldTotal(
+                    field=field,
+                    correct=sum(1 for r in results if r.correct),
+                    scored=len(results),
+                )
+            )
+    return tuple(totals)
+
+
+def overall(totals: Sequence[FieldTotal]) -> FieldTotal | None:
+    """Every verdict in `totals` as one figure, or `None` when nothing was scored.
+
+    R7.2 lets this be printed, and only beside the breakdown it sums: 16 of 20
+    reads as 80.0% and says nothing about the field at 50.0%. It is a sum of
+    verdicts rather than a mean of percentages, so a field scored on four
+    documents weighs what four verdicts weigh.
+    """
+    if not totals:
+        return None
+    return FieldTotal(
+        field="overall",
+        correct=sum(total.correct for total in totals),
+        scored=sum(total.scored for total in totals),
+    )
+
+
+def weakest(totals: Sequence[FieldTotal]) -> tuple[str, ...]:
+    """The fields at the lowest score, when there is a lowest (R7.2 example 3).
+
+    Compared by cross-multiplying the counts rather than as percentages, so 1/3
+    and 2/6 tie however floating point rounds them. Every field tied at the
+    minimum is named, since picking one of them would be arbitrary. And when
+    every field scores the same, none is: a marker on each line, or on one line
+    chosen at random, says nothing about where the work is.
+    """
+    if not totals:
+        return ()
+    lowest = totals[0]
+    for total in totals[1:]:
+        if total.correct * lowest.scored < lowest.correct * total.scored:
+            lowest = total
+    tied = tuple(
+        total.field
+        for total in totals
+        if total.correct * lowest.scored == lowest.correct * total.scored
+    )
+    return () if len(tied) == len(totals) else tied
+
+
 def _same_currency(produced: str | None, expected: str | None) -> bool:
     """Currencies match, or neither field has one.
 

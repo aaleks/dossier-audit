@@ -30,8 +30,6 @@ from tests.pipelines import write_pipeline
 
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 SOURCE_ID = "incidents-jira"
 SOURCE_TYPE = "issue-tracker"
