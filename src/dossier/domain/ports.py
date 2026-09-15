@@ -95,6 +95,41 @@ class ModelClient(Protocol):
 
 
 @runtime_checkable
+class Tracker(Protocol):
+    """Where a command's record is sent (spec 010, spec 011).
+
+    Every method **sends and returns nothing**. That is the whole of R0.10's
+    third package: tracking only reports, so nothing MLflow holds can enter a
+    key, a manifest or a score, and a run is reproducible whether tracking is on
+    or off (R10.4). A method that returned something read from the server would
+    be the first way for it to become an input.
+
+    Declared here so that `application/` records without importing MLflow, and
+    so the default suite can hand it a `FakeTracker` that counts runs, traces and
+    spans -- R11.1 and R11.2 are claims about how many were recorded.
+
+    A run holds traces; a trace is one (step, document), the unit of a cache key
+    (spec 011), and holds spans.
+    """
+
+    def start_run(self, *, experiment: str, name: str, tags: Mapping[str, str]) -> None: ...
+
+    def log_params(self, params: Mapping[str, str]) -> None: ...
+
+    def log_metrics(self, metrics: Mapping[str, float]) -> None: ...
+
+    def log_artifact(self, name: str, content: bytes) -> None: ...
+
+    def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None: ...
+
+    def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None: ...
+
+    def end_trace(self, *, status: str, error: str | None = None) -> None: ...
+
+    def end_run(self, *, status: str) -> None: ...
+
+
+@runtime_checkable
 class Converter(Protocol):
     """Turning one snapshot into one artifact a stage can read (spec 008).
 

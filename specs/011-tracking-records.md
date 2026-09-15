@@ -40,7 +40,7 @@ with no LLM span in it: seeing that a document cost nothing is information.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/acceptance/test_R011_1__a_run_records_one_trace_per_step_and_document.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
