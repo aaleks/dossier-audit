@@ -576,6 +576,10 @@ def _execute(workspace: Path, pipeline: str) -> None:
         typer.echo(f"  {source}: {document} could not be converted: {reason}", err=True)
 
     typer.echo(f"run {report.run_id} · {report.manifest_path}")
+    if tracker is not None:
+        # The one thing tracking changes: what a person reads, never what is
+        # written to disk (R10.4 row 3). The MLflow run is named after this run.
+        typer.echo(f"recorded to MLflow: {experiment} · run {report.run_id}")
     for step in report.steps:
         cached = len(step.served_from_cache)
         typer.echo(
