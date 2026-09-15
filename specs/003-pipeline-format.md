@@ -1,6 +1,6 @@
 # 003 — Configuration format
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R3.1 – R3.10
 
 ## Purpose
@@ -253,7 +253,7 @@ every other step, so anything expensive here is paid on every command.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R003_8__config_loading_touches_nothing_external.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
