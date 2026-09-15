@@ -332,7 +332,7 @@ Sync takes a pipeline name, not a configuration path. A pipeline names both its
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.sync`)
 - **Proved by:** `tests/acceptance/test_R002_12__sync_takes_a_pipeline_name.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
