@@ -18,10 +18,13 @@ human in it by design.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
+
+from dossier.domain.hashing import content_hash
 
 
 class AnonymousCorrection(ValueError):
@@ -114,3 +117,16 @@ def apply_correction(
     return document.model_copy(
         update={"fields": {**document.fields, correction.field: entry}}
     )
+
+
+def gold_set_hash(files: Mapping[str, bytes]) -> str:
+    """One hash for a whole gold set: every file's name and content (R11.3, R0.7).
+
+    Two evals over gold sets that differ by one answer are not comparable, and
+    this is what says so. Sorted by name before hashing, so the same set gives
+    the same hash on every machine however its files were listed (R5.6); each
+    file contributes its name and the hash of its content, so renaming a file
+    moves the hash as surely as editing one.
+    """
+    lines = "".join(f"{name}\0{content_hash(files[name])}\n" for name in sorted(files))
+    return content_hash(lines.encode("utf-8"))
