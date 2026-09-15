@@ -16,6 +16,11 @@ dependencies = [
     "typer>=0.12",
     # sources.yaml and pipeline.yaml (spec 003).
     "pyyaml>=6.0",
+    # The OpenAI-compatible model client (spec 009, R9.12). Imported only by
+    # dossier.infrastructure.models, one of the two packages that may reach the
+    # network (R0.9). Its MockTransport answers a request with no socket, which
+    # is what lets the default suite test the client offline.
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]
@@ -48,10 +53,10 @@ markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextCon
 # real client replaces its placeholder as one is written.
 [project.entry-points."dossier.models"]
 anthropic = "dossier.infrastructure.models.placeholder:anthropic"
-gemini = "dossier.infrastructure.models.placeholder:gemini"
-hf = "dossier.infrastructure.models.placeholder:hf"
+gemini = "dossier.infrastructure.models.openai_compatible:gemini"
+hf = "dossier.infrastructure.models.openai_compatible:hf"
 ollama = "dossier.infrastructure.models.placeholder:ollama"
-openai = "dossier.infrastructure.models.placeholder:openai"
+openai = "dossier.infrastructure.models.openai_compatible:openai"
 
 [build-system]
 requires = ["hatchling"]

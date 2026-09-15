@@ -57,6 +57,7 @@ from dossier.infrastructure.connectors.registry import (
 )
 from dossier.infrastructure.converters.registry import installed_converters
 from dossier.infrastructure.ledger import Ledger
+from dossier.infrastructure.models.openai_compatible import ModelRequestFailed
 from dossier.infrastructure.models.registry import UnknownProvider, available_providers
 from dossier.infrastructure.models.registry import provider as model_provider
 from dossier.infrastructure.store import SnapshotStore
@@ -523,6 +524,11 @@ def _execute(workspace: Path, pipeline: str) -> None:
     except (EndpointUnset, NotImplementedError, UnknownProvider) as error:
         # The first cache miss needed a model this machine cannot reach. The run
         # stops there, before any model was asked (R9.2 row 3).
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+    except ModelRequestFailed as error:
+        # The endpoint refused or could not be reached. Named by URL and status,
+        # never by key (R9.8 row 1); answers already cached stay cached.
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
 

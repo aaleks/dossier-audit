@@ -1,9 +1,10 @@
 """What a provider's entry point resolves to until its client is written.
 
-`anthropic`, `ollama` and `hf` are registered now so that a pipeline naming
-them loads (R9.1) -- every pipeline in the fixtures names `anthropic`. Building a
-client for one fails with a message that says so, until a real client replaces
-its placeholder.
+`anthropic` and `ollama` are registered so that a pipeline naming them loads
+(R9.1) -- every pipeline in the fixtures names `anthropic`. Building a client for
+one fails with a message that says so, until a real client replaces its
+placeholder: Anthropic has its own API, and Ollama is reached through its native
+one, and each is a later rule. `openai`, `gemini` and `hf` have theirs (R9.12).
 
 Each already states where its provider is reached by default, from spec 009's
 table: the endpoint is looked up before the client is built (R9.2), and a
@@ -27,8 +28,4 @@ class NotWired:
 
 
 anthropic = NotWired("https://api.anthropic.com")
-openai = NotWired("https://api.openai.com/v1")
-gemini = NotWired("https://generativelanguage.googleapis.com/v1beta/openai")
 ollama = NotWired("http://localhost:11434")
-# vLLM has no default: a run that needs it stops, naming DOSSIER_HF_URL (R9.2).
-hf = NotWired(None)
