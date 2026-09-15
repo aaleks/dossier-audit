@@ -1,7 +1,7 @@
 # 002 — Ledger and incremental sync
 
 **Status:** Partially implemented
-**Rules:** R2.1 – R2.15
+**Rules:** R2.1 – R2.17
 
 ## Purpose
 
@@ -18,7 +18,7 @@ One row per item per source.
 | `key` | Item key within that source |
 | `remote_version` | Last seen server-side version marker, or `NULL` |
 | `content_hash` | Hash of the **normalised** payload |
-| `snapshot_path` | Content-addressed location of the stored payload |
+| `snapshot_path` | Content-addressed location of the stored payload, as fetched. Addressed by the payload's own hash, which equals `content_hash` only when the source declares no `fields` (R2.17) |
 | `first_seen` / `last_seen` | Timestamps |
 | `state` | `active` or `tombstoned` |
 
@@ -34,8 +34,8 @@ Per source, a `last_sync_at` watermark is recorded separately.
       b. payload := connector.fetch(ref.key)
       c. h := hash(normalise(payload))
       d. if h equals the ledger row's content_hash               -> touch only
-      e. else write a new snapshot at a path derived from h,
-         then update the ledger row
+      e. else store the payload itself as a snapshot, at a path
+         derived from its own hash (R2.17), then update the ledger row
       f. repeat (b)-(e) independently for each attachment
 4.  items in the ledger that were active but absent from a full
     listing are marked tombstoned; they are never deleted
@@ -257,8 +257,8 @@ A run from March must still resolve the documents it used.
 
 ### R2.8 — an interrupted sync leaves a consistent ledger
 
-Every row present refers to a snapshot that exists and hashes to the recorded
-value. The failure mode this rules out is a ledger claiming content the store
+Every row present refers, through its `snapshot_path`, to a snapshot that exists
+and hashes to the address that path gives (R2.17). The failure mode this rules out is a ledger claiming content the store
 does not hold, which turns into an unresolvable run months later.
 
 - **Kind:** deterministic
@@ -380,3 +380,25 @@ each reader works out again and disagrees about.
 | 2 | a second sync where `OPS-114` is unchanged and never fetched | the recorded media type is unchanged, not cleared; nothing re-derives it (R2.15) |
 | 3 | `OPS-114` exported from Confluence as a PDF | `application/pdf`, whatever its key looks like |
 | 4 | *counter-example* — a file named `notes.pdf` whose connector reported `text/markdown` | `text/markdown` is recorded and used; the connector's answer is the record, and the name is never consulted again (R8.3 example 4) |
+
+### R2.17 — a held document is the raw payload its ledger row's `snapshot_path` addresses
+
+Normalisation decides whether an item changed; it never decides which bytes are
+held. A row keeps both answers: `content_hash`, the normalised hash that change
+detection compares, and `snapshot_path`, the address of the payload exactly as
+fetched. For a source that declares no `fields` the two coincide (R2.10), which is
+why reading a document by its `content_hash` looked correct until a source
+declared `fields` -- that hash addresses a projection nothing ever stored.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.ledger`)
+- **Proved by:** `tests/unit/test_R002_17__a_held_document_is_its_raw_snapshot.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821` synced from `incidents-jira`, which declares `fields` | its row's `snapshot_path` addresses the payload as fetched: the file exists there, and its SHA-256 is the path's last segment |
+| 2 | `incident-audit` resolved after that sync | the manifest pins `INC-4821` by the address its row's `snapshot_path` gives, not by its `content_hash` (spec 004) |
+| 3 | `INC-4821` converted | conversion reads the payload at that address, byte for byte |
+| 4 | `INC-4821` synced again after only its rendered-HTML field changed | no new snapshot and the same `snapshot_path`; the projection cannot tell the two payloads apart, so the first stays the one held (R2.2) |
+| 5 | *counter-example* — `audit-note.md` from `incidents-manual`, which declares no `fields` | `snapshot_path` and `content_hash` name the same file; nothing changes where the two hashes coincide (R2.10) |
