@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import httpx
 
+from dossier.domain.model_id import check_served
 from dossier.infrastructure.models._http import (
     ModelRequestFailed,
     http_client,
@@ -42,8 +43,13 @@ class OllamaClient:
     ) -> None:
         self.model_id = model_id
         self._name = _tag(model_id)
-        self._url = url.rstrip("/") + "/api/chat"
+        self._base = url.rstrip("/")
+        self._url = self._base + "/api/chat"
         self._http = http_client(api_key, transport)
+        # The digest is checked once, before the first completion -- the first
+        # moment a model is reached at all (R9.4, R0.9). A client that is never
+        # asked anything, as in a run served from cache, asks the server nothing.
+        self._unchecked = True
 
     def complete(self, prompt: str, *, schema: dict | None = None) -> str:
         """The model's answer to `prompt`, as the text it returned.
@@ -52,6 +58,10 @@ class OllamaClient:
         prompt asks for the same answer. Returned verbatim for the stage to
         validate (R6.1, R6.2).
         """
+        if self._unchecked:
+            self._check_digest()
+            self._unchecked = False
+
         body: dict = {
             "model": self._name,
             "messages": [{"role": "user", "content": prompt}],
@@ -62,6 +72,30 @@ class OllamaClient:
             body["format"] = schema
         response = request(self._http, "POST", self._url, json=body)
         return text_at(response, "message", "content")
+
+    def _check_digest(self) -> None:
+        """Stop before the first completion if the tag now holds another digest (R9.4).
+
+        `GET <url>/api/tags` lists every model the server holds, with the digest
+        each tag currently points at. A bare tag is listed with `:latest`, so
+        `llama3` is looked for as `llama3:latest` too. The decision itself is
+        the domain's (`check_served`).
+        """
+        url = self._base + "/api/tags"
+        response = request(self._http, "GET", url)
+        names = {self._name} if ":" in self._name else {self._name, f"{self._name}:latest"}
+        try:
+            served = {
+                entry["digest"].removeprefix("sha256:")
+                for entry in response.json()["models"]
+                if entry.get("name") in names and isinstance(entry.get("digest"), str)
+            }
+        except (ValueError, KeyError, TypeError, AttributeError):
+            raise ModelRequestFailed(f"GET {url} answered with no model list") from None
+        try:
+            check_served(self.model_id, served=served)
+        except ValueError as error:
+            raise ModelRequestFailed(f"{error} (reported by {url})") from None
 
 
 class Ollama:
