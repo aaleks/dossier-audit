@@ -41,6 +41,9 @@ class Server:
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
+        if request.method == "GET" and request.url.path.endswith("/models"):
+            # What vLLM lists before an `hf` client's first completion (R9.6).
+            return httpx.Response(200, json={"data": [{"id": "Qwen/Qwen2.5-7B-Instruct"}]})
         if self.status != 200:
             return httpx.Response(self.status, json={"error": {"message": "denied"}})
         return httpx.Response(
@@ -135,4 +138,5 @@ class TestOpenAICompatibleRequests:
 
         client.complete("x", schema=SCHEMA)
 
-        assert json.loads(server.requests[0].content)["model"] == "Qwen/Qwen2.5-7B-Instruct"
+        posted = [request for request in server.requests if request.method == "POST"]
+        assert json.loads(posted[0].content)["model"] == "Qwen/Qwen2.5-7B-Instruct"

@@ -85,9 +85,10 @@ OpenAI-compatible client over httpx (R9.12); `anthropic` and `ollama` stay
 placeholders until their own APIs get a rule. OpenWebUI is an endpoint, never a
 provider (R9.7), and a `.env` file fills what the shell leaves unset (R9.11).
 The project's default model is `gemini:gemini-3.5-flash-lite` through a local
-OpenWebUI (`.env.example`). Still NOT MET in spec 009: R9.8 (a key is never
-disclosed), R9.6 (vLLM serving another repository) and R9.4 (Ollama's digest,
-which needs Ollama's native client first).
+OpenWebUI (`.env.example`). A vLLM serving another repository stops the run
+before its first call (R9.6). Still NOT MET in spec 009: R9.8 (a key is never
+disclosed) and R9.4 (Ollama's digest); both name Ollama, whose native client
+needs a rule first.
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost

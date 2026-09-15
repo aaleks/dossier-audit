@@ -18,6 +18,8 @@ from collections.abc import Callable
 
 import httpx
 
+from dossier.domain.model_id import check_served
+
 # A model can take minutes over a long document, and httpx's own default of five
 # seconds would fail nearly every real request. Generous rather than unbounded,
 # so a server that never answers still ends the run instead of hanging it.
@@ -57,10 +59,15 @@ class OpenAICompatibleClient:
         url: str,
         api_key: str | None = None,
         transport: httpx.BaseTransport | None = None,
+        checks_served: bool = False,
     ) -> None:
         self.model_id = model_id
         self._name = name
-        self._url = url.rstrip("/") + "/chat/completions"
+        self._base = url.rstrip("/")
+        self._url = self._base + "/chat/completions"
+        # Checked once, before the first completion: the model a server loaded
+        # does not change between two requests of one run (R9.6).
+        self._unchecked = checks_served
         # No header at all without a key, rather than an empty bearer token: a
         # local vLLM with no auth may reject `Authorization: Bearer ` as malformed.
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
@@ -74,6 +81,10 @@ class OpenAICompatibleClient:
         conform, is the stage's job (R6.1, R6.2), and a client that reshaped it
         would validate something the model never said.
         """
+        if self._unchecked:
+            self._check_served()
+            self._unchecked = False
+
         body: dict = {
             "model": self._name,
             "messages": [{"role": "user", "content": prompt}],
@@ -106,6 +117,37 @@ class OpenAICompatibleClient:
             )
         return content
 
+    def _check_served(self) -> None:
+        """Stop before the first completion if the server serves another model (R9.6).
+
+        `GET <url>/models` lists what vLLM loaded: `id` is the name it serves
+        under and `root` the repository it loaded, so both are offered to the
+        decision. The decision itself is the domain's (`check_served`).
+        """
+        url = self._base + "/models"
+        try:
+            response = self._http.get(url)
+        except httpx.HTTPError as error:
+            raise ModelRequestFailed(f"GET {url} failed: {error}") from None
+        if not response.is_success:
+            raise ModelRequestFailed(
+                f"GET {url} answered {response.status_code} {response.reason_phrase}"
+            )
+        try:
+            listed = response.json()["data"]
+            served = {
+                name
+                for entry in listed
+                for name in (entry.get("id"), entry.get("root"))
+                if isinstance(name, str)
+            }
+        except (ValueError, KeyError, TypeError, AttributeError):
+            raise ModelRequestFailed(f"GET {url} answered with no model list") from None
+        try:
+            check_served(self.model_id, served=served)
+        except ValueError as error:
+            raise ModelRequestFailed(f"{error} (reported by {url})") from None
+
 
 class OpenAICompatible:
     """A provider reached through the chat-completions API: what its entry point loads.
@@ -117,10 +159,15 @@ class OpenAICompatible:
     """
 
     def __init__(
-        self, default_url: str | None, *, name: Callable[[str], str] = _after_provider
+        self,
+        default_url: str | None,
+        *,
+        name: Callable[[str], str] = _after_provider,
+        checks_served: bool = False,
     ) -> None:
         self.default_url = default_url
         self._name = name
+        self._checks_served = checks_served
 
     def __call__(
         self,
@@ -131,11 +178,18 @@ class OpenAICompatible:
         transport: httpx.BaseTransport | None = None,
     ) -> OpenAICompatibleClient:
         return OpenAICompatibleClient(
-            model_id, name=self._name(model_id), url=url, api_key=api_key, transport=transport
+            model_id,
+            name=self._name(model_id),
+            url=url,
+            api_key=api_key,
+            transport=transport,
+            checks_served=self._checks_served,
         )
 
 
 openai = OpenAICompatible("https://api.openai.com/v1")
 gemini = OpenAICompatible("https://generativelanguage.googleapis.com/v1beta/openai")
 # vLLM has no default: a run that needs it stops, naming DOSSIER_HF_URL (R9.2).
-hf = OpenAICompatible(None, name=_repository)
+# It also reports which repository it loaded, which is checked before the first
+# completion (R9.6). OpenAI and Gemini report no such thing for a pinned model.
+hf = OpenAICompatible(None, name=_repository, checks_served=True)

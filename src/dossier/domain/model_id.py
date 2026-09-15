@@ -9,6 +9,7 @@ before any work begins -- the loader only adds where it was written (R3.4).
 from __future__ import annotations
 
 import re
+from collections.abc import Collection
 
 # An anthropic snapshot ends in its release date. The family name without it --
 # `claude-sonnet-4-5` -- is an alias that moves to each new snapshot.
@@ -54,6 +55,31 @@ def provider_of(model: str) -> str:
     `ollama:qwen2.5:7b@sha256:...` is the `ollama` provider's.
     """
     return model.partition(":")[0]
+
+
+def check_served(model: str, *, served: Collection[str]) -> None:
+    """Raise `ValueError` naming both if the server is not serving what `model` pins.
+
+    A stage key holds the identifier, not the endpoint (R5.3 row 4), so a server
+    started with another model would answer under an unchanged key, and the
+    cache would keep those answers as the pinned model's. `served` is every name
+    the server reports, passed in: asking it is infrastructure's job, and this
+    decision needs no network.
+
+    Only the repository is compared for `hf`. vLLM reports which repository it
+    loaded and not which revision, so the revision is declared, not verified
+    (R9.5, R9.6 row 3). Other providers are not this function's to judge yet.
+    """
+    provider, _, name = model.partition(":")
+    if provider != "hf":
+        return
+    repository = name.partition("@")[0]
+    if repository not in served:
+        raise ValueError(
+            f"model {model!r} pins {repository!r}, but the server is serving "
+            f"{', '.join(sorted(served)) or 'nothing'}. Its answers would be cached "
+            "under the pinned identifier; serve the pinned repository, or change `model:`."
+        )
 
 
 def check_pinned(model: str) -> None:
