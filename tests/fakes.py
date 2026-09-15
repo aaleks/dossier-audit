@@ -150,6 +150,38 @@ class _StubEntryPoint:
         return self._factory
 
 
+def register_provider(
+    monkeypatch, name: str, factory, *, default_url: str | None = None
+) -> None:
+    """Make a model provider available the way an installed package would (R9.1).
+
+    Replaces any installed provider of the same name, so the stub is the one a
+    run resolves: a shipped provider is a placeholder until its client lands.
+    Registering rather than patching `build_model_client` matters for the same
+    reason it does for connectors -- it exercises the resolution path the rule
+    under test actually runs through.
+
+    `default_url` is where the provider is reached when its variable is unset,
+    as spec 009's table states one for each provider. `None` means it has none,
+    which is `hf`'s row.
+    """
+    import dossier.infrastructure.models.registry as registry
+
+    factory.default_url = default_url
+    stub = _StubEntryPoint(name, registry.ENTRY_POINT_GROUP, factory)
+    # Whatever the registry sees now, which may already carry another stub: two
+    # providers registered by one test both stay registered.
+    current = registry.entry_points
+
+    def with_stub(group: str):
+        found = list(current(group=group))
+        if group != registry.ENTRY_POINT_GROUP:
+            return found
+        return [point for point in found if point.name != name] + [stub]
+
+    monkeypatch.setattr(registry, "entry_points", with_stub)
+
+
 def register_connector(monkeypatch, type_name: str, factory, *, keys=None) -> None:
     """Make a source type available the way an installed package would (R1.7).
 

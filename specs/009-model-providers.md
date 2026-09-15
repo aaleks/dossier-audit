@@ -78,8 +78,8 @@ first cache miss an hour into a run.
 
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.endpoints`)
-- **Proved by:** `tests/unit/test_R009_2__endpoints_come_from_the_environment.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R009_2__endpoints_come_from_the_environment.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
