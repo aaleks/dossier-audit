@@ -116,6 +116,38 @@ def tags(*, kind: str, pipeline: str) -> dict[str, str]:
     return {"dossier.kind": kind, "dossier.pipeline": pipeline}
 
 
+# The per-source counts each command prints, in the order it prints them (R2.13,
+# R8.8). Recorded under the same names, so MLflow and the terminal cannot tell
+# two different stories (spec 011).
+_COUNTS = {
+    "sync": ("known", "changed", "new", "fetched", "failed"),
+    "convert": ("held", "converted", "cached", "failed"),
+}
+
+
+def count_metrics(*, kind: str, source: str, counts: Mapping[str, int]) -> dict[str, int]:
+    """The metrics a `dossier sync` or `dossier convert` records for one source (R11.4).
+
+    Named `<source>/<count>`, so MLflow's UI groups every count of one source
+    under its id. Every count is required and every one is recorded, zeros
+    included: a source with nothing to report is still listed, because a
+    missing source is indistinguishable from a skipped one (R2.13).
+    """
+    names = _COUNTS.get(kind)
+    if names is None:
+        raise ValueError(
+            f"`dossier {kind}` records no per-source counts; only "
+            f"{' and '.join(f'`dossier {name}`' for name in _COUNTS)} do."
+        )
+    missing = [name for name in names if name not in counts]
+    if missing:
+        raise ValueError(
+            f"{source}: no {', '.join(missing)} count to record. Every count is recorded, "
+            "zeros included -- a missing one reads as a source that was skipped (R2.13)."
+        )
+    return {f"{source}/{name}": counts[name] for name in names}
+
+
 def _gold_name(gold: str) -> str:
     """`incidents` from `gold/incidents` or `gold/incidents/`: the set's own name."""
     return gold.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]

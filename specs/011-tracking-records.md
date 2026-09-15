@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R11.1 – R11.4
 
 ## Purpose
@@ -90,7 +90,7 @@ cannot disagree.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.count_metrics`)
 - **Proved by:** `tests/unit/test_R011_4__sync_and_convert_record_per_source_counts.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
