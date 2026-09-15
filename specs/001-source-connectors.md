@@ -215,7 +215,7 @@ Partial sync never records an item it did not successfully store.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.sync`)
 - **Proved by:** `tests/unit/test_R001_9__failed_fetch_leaves_the_ledger_unchanged.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
