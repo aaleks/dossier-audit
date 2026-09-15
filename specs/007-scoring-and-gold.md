@@ -103,6 +103,11 @@ Reviewing is how the gold set grows. There is no separate labelling exercise.
 same gold set and prints the per-field delta. Prompt changes, model changes and
 converter changes all pass through it.
 
+A configuration is named by the run that used it: `a` and `b` are run ids, such
+as `20260806T142203Z-4f1a`. A run's manifest pins everything that can change an
+output (R0.5), so each run is reproduced from its own manifest and cache, as a
+replay is, and the comparison asks no model.
+
 ## Must hold
 
 ### R7.1 — scoring is deterministic for every non-judge field type
@@ -224,6 +229,10 @@ edit to it is an unaudited change to the definition of correct.
 | 4 | *counter-example* — a run's own output agreeing with gold | changes nothing; only a reviewer's decision enters the gold set, never a model's |
 
 ### R7.8 — `--compare` scores both configurations over the same documents and flags every regression
+
+`a` and `b` are run ids, each reproduced from its own manifest and cache (see
+the change gate). The same documents means both manifests pinned the same set of
+document keys.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
