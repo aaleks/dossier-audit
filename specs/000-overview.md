@@ -143,7 +143,7 @@ the prompt version, the schema version, the model identifier and the timestamp.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R000_3__every_artifact_has_a_provenance_record.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
