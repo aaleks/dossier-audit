@@ -66,7 +66,12 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. R11.1 is met: a `dossier run` with tracking on is one
+Currently open: **R10.5** -- with tracking on, an unreachable MLflow server, or
+the `tracking` extra not installed, refuses `run` and `sync` before any work;
+this is where the MLflow adapter lands. Tracking changes nothing written to disk
+(R10.4), no key reaches a tracking record (R10.7), and an eval records one
+accuracy metric per field (R11.3 rows 1, 2, 5; its judge rows wait for R7.11).
+R11.1 is met: a `dossier run` with tracking on is one
 MLflow run, named after its run id, with one trace per (step, document),
 recorded through a `Tracker` port that reads nothing back (R0.10); `--plan` and
 `--replay` record nothing. The pure tracking decisions are met too: the switch

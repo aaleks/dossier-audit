@@ -166,7 +166,7 @@ the failure this prevents.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.main`)
 - **Proved by:** `tests/acceptance/test_R010_5__an_unreachable_server_refuses_before_any_work.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
