@@ -86,9 +86,9 @@ API (R9.13); `anthropic` stays a placeholder until its own API gets a rule.
 OpenWebUI is an endpoint, never a provider (R9.7), and a `.env` file fills what
 the shell leaves unset (R9.11). The project's default model is
 `gemini:gemini-3.5-flash-lite` through a local OpenWebUI (`.env.example`). A
-vLLM serving another repository stops the run before its first call (R9.6).
-Still NOT MET in spec 009: R9.4 (Ollama's digest) and R9.8 (a key is never
-disclosed), both unblocked now that Ollama has a client.
+vLLM serving another repository, or an Ollama tag re-pulled to another digest,
+stops the run before its first call (R9.6, R9.4). Still NOT MET in spec 009:
+R9.8 (a key is never disclosed).
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost

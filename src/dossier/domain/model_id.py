@@ -71,6 +71,19 @@ def check_served(model: str, *, served: Collection[str]) -> None:
     (R9.5, R9.6 row 3). Other providers are not this function's to judge yet.
     """
     provider, _, name = model.partition(":")
+    if provider == "ollama":
+        # Ollama reports the digest each tag currently holds. A tag moves when
+        # the model is re-pulled; the pinned digest is what the key vouches for
+        # (R9.3, R9.4).
+        pinned = name.partition("@sha256:")[2]
+        if pinned not in served:
+            raise ValueError(
+                f"model {model!r} pins digest {pinned}, but the server holds "
+                f"{', '.join(sorted(served)) or 'no digest'} for that tag -- it was "
+                "re-pulled. Its answers would be cached under the pinned identifier; "
+                "pull the pinned digest back, or pin the new one in `model:`."
+            )
+        return
     if provider != "hf":
         return
     repository = name.partition("@")[0]
