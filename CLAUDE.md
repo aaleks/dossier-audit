@@ -79,13 +79,15 @@ model is pinned or refused at load (R0.6, R3.4), and a source's keys are checked
 against what its connector declares, every error named at its line (R1.10,
 R3.1). Spec 009 is under way: a model is pinned in its provider's form (R9.3,
 R9.5, R9.9, R9.10), and its provider must be installed, as a `dossier.models`
-entry point (R9.1); all five of spec 009's providers are registered, with their
-default endpoints and no client yet. OpenWebUI is an endpoint, never a provider
-(R9.7), and a `.env` file fills what the shell leaves unset (R9.11). The
-project's default model is
-`gemini:gemini-3.5-flash-lite` through a local OpenWebUI (`.env.example`). The
-first real model client -- OpenAI-compatible, over httpx -- needs a rule of its
-own: no rule yet says what goes over the wire.
+entry point (R9.1); all five of spec 009's providers are registered with their
+default endpoints. `openai`, `gemini` and `hf` reach a real model through one
+OpenAI-compatible client over httpx (R9.12); `anthropic` and `ollama` stay
+placeholders until their own APIs get a rule. OpenWebUI is an endpoint, never a
+provider (R9.7), and a `.env` file fills what the shell leaves unset (R9.11).
+The project's default model is `gemini:gemini-3.5-flash-lite` through a local
+OpenWebUI (`.env.example`). Still NOT MET in spec 009: R9.8 (a key is never
+disclosed), R9.6 (vLLM serving another repository) and R9.4 (Ollama's digest,
+which needs Ollama's native client first).
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost

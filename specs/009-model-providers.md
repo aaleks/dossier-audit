@@ -245,7 +245,7 @@ provider prefix, and for `hf` also without the `@revision` dossier pins it by
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.models.openai_compatible`)
 - **Proved by:** `tests/unit/test_R009_12__openai_compatible_requests.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
