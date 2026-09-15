@@ -180,7 +180,7 @@ the failure this prevents.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.main`)
 - **Proved by:** `tests/acceptance/test_R010_6__a_lost_record_never_changes_the_outcome.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|

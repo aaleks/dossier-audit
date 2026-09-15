@@ -66,12 +66,13 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. R10.5 is met: the MLflow adapter
-(`dossier.infrastructure.tracking`) is in, and with tracking on an unreachable
-server, or the `tracking` extra not installed, refuses `run` and `sync` before
-any work, naming what to fix; `sync` records its per-source counts. What is left
-in spec 010 is R10.6 -- a record lost mid-run never changes the outcome. Tracking
-changes nothing written to disk
+Currently open: **R10.6** -- a record lost after the startup check never changes
+a command's outcome: the run completes, its answers are cached, it exits as it
+would untracked, and one warning says how many traces are missing. R10.5 is met:
+the MLflow adapter (`dossier.infrastructure.tracking`) is in, and with tracking
+on an unreachable server, or the `tracking` extra not installed, refuses `run`
+and `sync` before any work, naming what to fix; `sync` records its per-source
+counts. Tracking changes nothing written to disk
 (R10.4), no key reaches a tracking record (R10.7), and an eval records one
 accuracy metric per field (R11.3 rows 1, 2, 5; its judge rows wait for R7.11).
 R11.1 is met: a `dossier run` with tracking on is one
