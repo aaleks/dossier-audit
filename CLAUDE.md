@@ -77,7 +77,7 @@ names a YAML field declaration (R6.10, R3.10), and the stage key hashes both the
 declaration's text (R6.11) and the JSON Schema generated from it (R6.12). A
 model is pinned or refused at load (R0.6, R3.4), and a source's keys are checked
 against what its connector declares, every error named at its line (R1.10,
-R3.1). Spec 009 is under way: a model is pinned in its provider's form (R9.3,
+R3.1). Spec 009 is implemented: a model is pinned in its provider's form (R9.3,
 R9.5, R9.9, R9.10), and its provider must be installed, as a `dossier.models`
 entry point (R9.1); all five of spec 009's providers are registered with their
 default endpoints. `openai`, `gemini` and `hf` reach a real model through one
@@ -87,8 +87,10 @@ OpenWebUI is an endpoint, never a provider (R9.7), and a `.env` file fills what
 the shell leaves unset (R9.11). The project's default model is
 `gemini:gemini-3.5-flash-lite` through a local OpenWebUI (`.env.example`). A
 vLLM serving another repository, or an Ollama tag re-pulled to another digest,
-stops the run before its first call (R9.6, R9.4). Still NOT MET in spec 009:
-R9.8 (a key is never disclosed).
+stops the run before its first call (R9.6, R9.4), and a key reaches a request
+header and nothing a run writes or prints (R9.8). Next: an Anthropic client
+needs a rule of its own; elsewhere, R7.8 (`eval --compare`), R3.7 (a pipeline's
+`gold` directory) and the other NOT MET rules are fully specified.
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost
