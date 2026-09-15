@@ -91,7 +91,7 @@ def run_stage(
     exactly what it is, a response to a *validation* failure.
     """
     if schema is None:
-        text = model.complete(prompt, schema=None)
+        text = _asked(tracker, model, prompt, schema=None, attempt=1)
         _llm_span(tracker, model, attempt=1, error=None)
         return DocumentResult(document=document, attempts=1, text=text)
 
@@ -100,7 +100,13 @@ def run_stage(
 
     while attempts < MAX_ATTEMPTS:
         attempts += 1
-        response = model.complete(_with_correction(prompt, correction), schema=schema)
+        response = _asked(
+            tracker,
+            model,
+            _with_correction(prompt, correction),
+            schema=schema,
+            attempt=attempts,
+        )
 
         try:
             output = StageOutput.model_validate_json(response)
@@ -127,6 +133,28 @@ def run_stage(
         attempts=attempts,
         error=f"{document}: no valid output after {attempts} attempts -- {correction}",
     )
+
+
+def _asked(
+    tracker: Tracker | None,
+    model: ModelClient,
+    prompt: str,
+    *,
+    schema: dict | None,
+    attempt: int,
+) -> str:
+    """One model call. A call that raised is still one call, so still one LLM span.
+
+    The span says why it failed in the error's own words -- a refusal by URL
+    and status, never by key, because the error itself never holds one (R9.8
+    row 1, R10.7 row 2). Then the error travels on: recording a failure is not
+    handling it.
+    """
+    try:
+        return model.complete(prompt, schema=schema)
+    except Exception as error:
+        _llm_span(tracker, model, attempt=attempt, error=str(error))
+        raise
 
 
 def _llm_span(
