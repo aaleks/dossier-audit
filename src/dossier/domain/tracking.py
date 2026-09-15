@@ -18,6 +18,10 @@ from pydantic import BaseModel, ConfigDict
 ENABLED = "DOSSIER_MLFLOW_ENABLED"
 TRACKING_URI = "DOSSIER_MLFLOW_TRACKING_URI"
 EXPERIMENT = "DOSSIER_MLFLOW_EXPERIMENT"
+CAPTURE = "DOSSIER_MLFLOW_CAPTURE"
+
+# What a span may carry: the text a stage read and wrote, or only its hashes.
+_CAPTURES = ("full", "hashes")
 
 # One experiment per pipeline and command kind: a sync's fetch counts, a run's
 # traces and an eval's per-field accuracy are not comparable with one another,
@@ -146,6 +150,51 @@ def count_metrics(*, kind: str, source: str, counts: Mapping[str, int]) -> dict[
             "zeros included -- a missing one reads as a source that was skipped (R2.13)."
         )
     return {f"{source}/{name}": counts[name] for name in names}
+
+
+def capture(environ: Mapping[str, str]) -> str:
+    """What a span may carry on this machine: `full` text, or only `hashes` (R10.8).
+
+    `full` unless set -- an empty value counts as unset, as `.env.example` ships
+    it blank. Any other value is refused before any work: read as `full` it would
+    copy text the person meant to keep out of the server, and read as `hashes` it
+    would be a guess.
+    """
+    value = environ.get(CAPTURE, "") or "full"
+    if value not in _CAPTURES:
+        raise ValueError(f"{CAPTURE} is {value!r}; it takes `full` or `hashes`.")
+    return value
+
+
+def span_payload(
+    *,
+    capture: str,
+    identity: Mapping[str, object],
+    prompt: str,
+    reply: str,
+    hashes: Mapping[str, object],
+) -> dict[str, object]:
+    """What one stage span holds, as the capture setting allows (R10.8).
+
+    `identity` -- the step, document key, model identifier, attempt count, field
+    names and verdicts -- is recorded under both settings: it says which work
+    the span was and discloses nothing. `full` adds the rendered prompt and the
+    model's reply. `hashes` adds the prompt, input and key hashes instead, which
+    say exactly what was asked without holding a word of it: anyone who has the
+    documents can check them, and nobody who has only the server can read them.
+    """
+    payload: dict[str, object] = dict(identity)
+    if capture == "full":
+        payload.update(prompt=prompt, reply=reply)
+    elif capture == "hashes":
+        payload.update(
+            prompt_hash=hashes["prompt"],
+            input_hashes=list(hashes["inputs"]),
+            key=hashes["key"],
+        )
+    else:
+        raise ValueError(f"capture is {capture!r}; it is `full` or `hashes`.")
+    return payload
 
 
 def _gold_name(gold: str) -> str:
