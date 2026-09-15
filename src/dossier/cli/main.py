@@ -47,7 +47,13 @@ from dossier.domain.keys import ConvertInputs, cache_key
 from dossier.domain.model_id import provider_of
 from dossier.domain.ports import ModelClient
 from dossier.domain.resolution import PinnedConverter, run_id
-from dossier.domain.scoring import overall, per_field, weakest
+from dossier.domain.scoring import (
+    check_same_documents,
+    compare_totals,
+    overall,
+    per_field,
+    weakest,
+)
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.connectors.registry import (
@@ -556,6 +562,9 @@ def _execute(workspace: Path, pipeline: str) -> None:
 def eval_(
     pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
     gold: str = typer.Option(..., "--gold", help="Gold set directory", metavar="DIR"),
+    compare: tuple[str, str] = typer.Option(
+        (None, None), "--compare", help="Two run ids to compare, per field", metavar="A B"
+    ),
 ) -> None:
     """Score a pipeline's latest run against a gold set, per field (spec 007).
 
@@ -584,6 +593,10 @@ def eval_(
     step = declaring[0]
     kinds = load_fields(path.parent / step.output)
 
+    if compare[0] is not None:
+        _compare_runs(workspace, pipeline, step=step.id, kinds=kinds, gold=gold, runs=compare)
+        return
+
     _, run_dir = latest_manifest(workspace / "runs", pipeline)
     if run_dir is None:
         typer.echo(
@@ -592,19 +605,7 @@ def eval_(
         raise typer.Exit(code=2)
     manifest = Manifest.read(workspace / "runs" / run_dir / MANIFEST_NAME)
 
-    try:
-        _require_pinned_snapshots(manifest, SnapshotStore(workspace))
-        text = _replayed_text(manifest, ArtifactCache(workspace, namespace="convert"))
-        report = replay(
-            manifest=manifest,
-            document_text=text,
-            cache=ArtifactCache(workspace, namespace="stage"),
-        )
-    except MissingFromReplay as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=2) from error
-
-    scored = next(result for result in report.steps if result.step == step.id)
+    scored = _reproduced(workspace, manifest, step.id)
     scores = score_run(report=scored, gold=load_gold(workspace / gold), kinds=kinds)
 
     totals = per_field(scores, declared=list(kinds))
@@ -620,6 +621,95 @@ def eval_(
     for total in totals:
         marker = "   <- weakest" if total.field in lowest else ""
         typer.echo(f"  {total.field:<18} {total.percentage:5.1f}%{marker}")
+
+
+def _compare_runs(
+    workspace: Path,
+    pipeline: str,
+    *,
+    step: str,
+    kinds: dict,
+    gold: str,
+    runs: tuple[str, str],
+) -> None:
+    """`dossier eval <pipeline> --gold <dir> --compare <a> <b>` (R7.8).
+
+    The change gate. Each run is reproduced from its own manifest and cache, so
+    the comparison asks no model, and both are scored against the same gold set.
+    The documents are checked before anything is scored: a delta over different
+    documents would report the documents' difference as the change's effect.
+    """
+    manifests: list[Manifest] = []
+    for run in runs:
+        path = workspace / "runs" / run / MANIFEST_NAME
+        if not path.is_file():
+            typer.echo(f"{pipeline}: no run {run!r} -- expected {path}", err=True)
+            raise typer.Exit(code=2)
+        manifest = Manifest.read(path)
+        if manifest.plan.pipeline != pipeline:
+            typer.echo(
+                f"{pipeline}: run {run!r} is a run of {manifest.plan.pipeline!r}", err=True
+            )
+            raise typer.Exit(code=2)
+        manifests.append(manifest)
+
+    try:
+        check_same_documents(
+            *([document.key for document in m.plan.documents] for m in manifests), runs=runs
+        )
+    except ValueError as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+
+    gold_documents = load_gold(workspace / gold)
+    before, after = (
+        per_field(
+            score_run(
+                report=_reproduced(workspace, manifest, step),
+                gold=gold_documents,
+                kinds=kinds,
+            ),
+            declared=list(kinds),
+        )
+        for manifest in manifests
+    )
+
+    earlier, later = overall(before), overall(after)
+    if earlier is not None and later is not None:
+        # Opens the report and never closes it: the per-field rows follow, and a
+        # regression hides behind a better overall figure unless they do (R7.8).
+        typer.echo(
+            f"compare {runs[0]} -> {runs[1]} · "
+            f"{_count(len(manifests[0].plan.documents), 'document')} · "
+            f"overall {earlier.percentage:.1f}% -> {later.percentage:.1f}% "
+            f"({later.percentage - earlier.percentage:+.1f})"
+        )
+    for row in compare_totals(before, after):
+        was = f"{row.before.percentage:.1f}%" if row.before else "--"
+        now = f"{row.after.percentage:.1f}%" if row.after else "--"
+        moved = f"{row.delta:+.1f}" if row.delta is not None else "--"
+        marker = "   <- regression" if row.regressed else ""
+        typer.echo(f"  {row.field:<18} {was:>6} {now:>6} {moved:>6}{marker}")
+
+
+def _reproduced(workspace: Path, manifest: Manifest, step: str):
+    """One step's results as a past run produced them, served from its cache (R4.7).
+
+    A run that cannot be reproduced stops the command by name. Recomputing it
+    would score answers the run never gave.
+    """
+    try:
+        _require_pinned_snapshots(manifest, SnapshotStore(workspace))
+        text = _replayed_text(manifest, ArtifactCache(workspace, namespace="convert"))
+        report = replay(
+            manifest=manifest,
+            document_text=text,
+            cache=ArtifactCache(workspace, namespace="stage"),
+        )
+    except MissingFromReplay as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+    return next(result for result in report.steps if result.step == step)
 
 
 def _count(n: int, noun: str) -> str:

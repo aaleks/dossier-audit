@@ -66,9 +66,11 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **R7.8** -- `dossier eval <pipeline> --compare <run> <run>`, a
-per-field delta between two runs over the same documents, regressions flagged.
-R9.2 is met: where a provider is reached comes from
+Currently open: **none**. R7.8 is met: `dossier eval <pipeline> --gold <dir>
+--compare <run> <run>` reproduces both runs from their own caches, refuses two
+runs over different documents, and prints each field's two scores and delta,
+every regression flagged even under a better overall figure. R9.2 is met: where
+a provider is reached comes from
 `DOSSIER_<PROVIDER>_URL` or the provider's own default, is in no key, and is
 asked for only at a run's first cache miss -- a fully cached run needs no
 endpoint. R7.2 is met: `dossier eval <pipeline> --gold <dir>` reproduces the
