@@ -1,7 +1,7 @@
 # 009 — Model providers
 
 **Status:** Partially implemented
-**Rules:** R9.1 – R9.12
+**Rules:** R9.1 – R9.13
 
 ## Purpose
 
@@ -254,3 +254,25 @@ provider prefix, and for `hf` also without the `@revision` dossier pins it by
 | 3 | the server answers 200 | `choices[0].message.content` is returned verbatim; validating it stays the stage's job (R6.1) |
 | 4 | the server answers 401, or any other non-2xx status | an error naming the URL and the status, never the key (R9.8 row 1) |
 | 5 | *counter-example* — `anthropic:claude-sonnet-4-5-20250929` | not this rule's; Anthropic has its own API |
+
+### R9.13 — an Ollama provider sends each completion to `<url>/api/chat`, naming the model by its tag
+
+Ollama is reached through its native API, which is also what OpenWebUI's
+`/ollama` passthrough speaks, so the same client reaches Ollama directly and
+through OpenWebUI (R9.7). The model is named by its tag: the identifier without
+its provider prefix and without the `@sha256:` digest dossier pins it by (R9.3),
+which Ollama does not accept as part of a name. The digest is checked separately,
+before the first completion (R9.4).
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.models.ollama`)
+- **Proved by:** `tests/unit/test_R009_13__ollama_requests.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `ollama:qwen2.5:7b@sha256:7f3c29a1` reached at `http://localhost:8080/ollama` | one POST to `http://localhost:8080/ollama/api/chat`, with model `qwen2.5:7b`, `stream` false, temperature 0 in `options`, and the stage's JSON Schema as `format` |
+| 2 | `DOSSIER_OLLAMA_API_KEY` set | sent as `Authorization: Bearer`; unset, no `Authorization` header at all |
+| 3 | the server answers 200 | `message.content` is returned verbatim; validating it stays the stage's job (R6.1) |
+| 4 | the server answers 401, or any other non-2xx status | an error naming the URL and the status, never the key (R9.8 row 1) |
+| 5 | *counter-example* — `gemini:gemini-3.5-flash-lite` | not this rule's; R9.12 reaches it |
