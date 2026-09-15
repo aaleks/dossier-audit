@@ -349,7 +349,7 @@ credible if the command says so.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.sync`)
 - **Proved by:** `tests/acceptance/test_R002_13__sync_reports_counts_per_source.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

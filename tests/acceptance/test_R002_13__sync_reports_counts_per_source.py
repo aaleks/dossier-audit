@@ -24,8 +24,6 @@ from tests.pipelines import write_pipeline
 
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 ISSUES = {f"ISSUE-{number:04d}": "v1" for number in range(1, 421)}
 PAGES = {"OPS-114": "v37", "OPS-115": "v12", "OPS-116": "v3"}

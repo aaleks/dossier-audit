@@ -44,6 +44,10 @@ class SourceReport:
     snapshots_written: int = 0
     tombstoned: int = 0
     failed: tuple[str, ...] = ()
+    # Each failed key with the error its source gave. A failure is not zero
+    # work, so it is reported with what went wrong rather than only counted
+    # (R2.13 row 4, R1.9).
+    failures: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -90,6 +94,7 @@ def sync_source(
     listed: set[str] = set()
     changed = new = fetched = written = 0
     failed: list[str] = []
+    failures: list[tuple[str, str]] = []
 
     for ref in connector.list(since):
         listed.add(ref.key)
@@ -104,10 +109,11 @@ def sync_source(
 
         try:
             item = connector.fetch(ref.key)
-        except Exception:
+        except Exception as error:
             # R1.9: the ledger is left untouched for this item. A partial sync
             # must never record something it did not successfully store.
             failed.append(ref.key)
+            failures.append((ref.key, str(error)))
             continue
 
         fetched += 1
@@ -173,4 +179,5 @@ def sync_source(
         snapshots_written=written,
         tombstoned=tombstoned,
         failed=tuple(failed),
+        failures=tuple(failures),
     )
