@@ -8,7 +8,7 @@ spec assumes.
 
 | Spec | Covers | Rules | Status |
 |---|---|---|---|
-| `000-overview.md` | Vocabulary, the hash boundary, hashing, workspace layout, global invariants | R0.1 – R0.8 | Partially implemented |
+| `000-overview.md` | Vocabulary, the hash boundary, hashing, workspace layout, global invariants | R0.1 – R0.10 | Partially implemented |
 | `001-source-connectors.md` | The connector interface and its registration | R1.1 – R1.10 | Partially implemented |
 | `002-ledger-and-sync.md` | Change detection, incremental fetch, tombstoning, the store | R2.1 – R2.16 | Partially implemented |
 | `003-pipeline-format.md` | `sources.yaml` and `pipeline.yaml` schemas | R3.1 – R3.10 | Partially implemented |
@@ -18,6 +18,8 @@ spec assumes.
 | `007-scoring-and-gold.md` | Gold sets, scorers, judge calibration, the change gate | R7.1 – R7.12 | Partially implemented |
 | `008-conversion.md` | The converter interface, its registration, versioning and selection | R8.1 – R8.8 | Partially implemented |
 | `009-model-providers.md` | Model providers, their pinned forms, and where each is reached | R9.1 – R9.8 | Partially implemented |
+| `010-mlflow-tracking.md` | MLflow tracking: the switch, experiment routing, and what tracking may not do | R10.1 – R10.8 | Proposed |
+| `011-tracking-records.md` | What each command records to MLflow: runs, traces, spans and metrics | R11.1 – R11.4 | Proposed |
 
 Supporting files:
 

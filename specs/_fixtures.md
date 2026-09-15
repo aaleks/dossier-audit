@@ -130,6 +130,17 @@ example refers to.
 | `incident-audit` | the pipeline name |
 | `extract` → `verify` → `report` | the three steps |
 
+## Tracking (specs 010, 011)
+
+| Value | Meaning |
+|---|---|
+| `http://localhost:5000` | `DOSSIER_MLFLOW_TRACKING_URI` on a laptop, and the value `.env.example` ships (R10.1) |
+| `dossier-audit/{pipeline}/{kind}` | the default experiment template (R10.2) |
+| `dossier-audit/incident-audit/run` | where `dossier run incident-audit` records under the default template; `/sync`, `/convert` and `/eval` likewise |
+| `dossier-audit/incident-audit/eval/incidents` | an eval experiment split by gold set, through `DOSSIER_MLFLOW_EXPERIMENT_EVAL` (R10.2 row 2) |
+| `dossier-audit` | a template with no placeholder: every record in one experiment (R10.2 row 3) |
+| `incidents` | the gold set name `{gold}` renders for `--gold gold/incidents` |
+
 ## Fields on `INC-4821`
 
 | Field | Gold value | Notes |

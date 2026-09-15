@@ -245,7 +245,7 @@ found in.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking`)
 - **Proved by:** `tests/integration/test_R007_9__runs_are_recorded_to_mlflow.py`
-- **Status:** NOT MET
+- **Status:** SUPERSEDED by R11.3
 
 | # | Given | Then |
 |---|-------|------|

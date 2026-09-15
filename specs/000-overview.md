@@ -1,7 +1,7 @@
 # 000 — Overview, vocabulary and global invariants
 
 **Status:** Partially implemented
-**Rules:** R0.1 – R0.8
+**Rules:** R0.1 – R0.10
 
 ## Purpose
 
@@ -108,7 +108,7 @@ imports made lazily inside a function body.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_9__only_two_packages_reach_the_network.py`
-- **Status:** SUPERSEDED by R0.9
+- **Status:** SUPERSEDED by R0.10
 
 | # | Given | Then |
 |---|-------|------|
@@ -275,7 +275,7 @@ during execution and at no other time.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_9__only_two_packages_reach_the_network.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R0.10
 
 | # | Given | Then |
 |---|-------|------|
@@ -286,3 +286,39 @@ during execution and at no other time.
 | 5 | `dossier run --plan` over a pipeline where every step would re-run | zero model calls; planning reports work rather than doing it (R4.6) |
 | 6 | *counter-example* — `dossier/infrastructure/store.py` opens a file on local disk | allowed; local file IO is not network IO |
 | 7 | *counter-example* — a stage with no cache entry, during `dossier run` | reaches the model, once, and the answer is cached with its provenance record. That is the one permitted crossing, and R5.5 is the claim that it never happens twice for the same inputs |
+
+### R0.10 — exactly three packages may reach the network, and a model is asked only on a cache miss
+
+`dossier.infrastructure.connectors` fetches source payloads.
+`dossier.infrastructure.models` asks a model. `dossier.infrastructure.tracking`
+sends records to MLflow (spec 010). Nothing else imports a network client, on
+any code path, including error paths and imports made lazily inside a function
+body.
+
+Supersedes R0.9, which admitted two. An MLflow tracking server is reached over
+HTTP, so the package that records to it is left of the line whether or not the
+rule says so -- and `mlflow` was not counted as a network client, so R0.9's
+check would have passed green while it was imported anywhere. Widening the
+exemption is the decision; counting `mlflow` is what gives it teeth.
+
+The third package changes nothing about what the boundary promises. Tracking
+only *sends*: the port it is reached through has no method that returns anything
+read from the server, so nothing MLflow holds can enter a key, a manifest or a
+score, and everything right of the boundary stays reproducible whether tracking
+is on or off (R10.4).
+
+- **Kind:** deterministic
+- **Layer:** architecture
+- **Proved by:** `tests/architecture/test_R000_10__three_packages_reach_the_network.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier/application/convert.py` imports `httpx` | violation, naming the file, the line and the import |
+| 2 | `dossier/domain/keys.py` imports `urllib.request` inside a function body | violation; a lazy import is still an import |
+| 3 | `dossier/infrastructure/tracking/mlflow.py` imports `mlflow` | allowed; the third package, and the SDK is a network client whatever it is named |
+| 4 | `dossier/application/run.py` imports `mlflow` | violation; `mlflow` counts as a network client, which it did not under R0.9 |
+| 5 | the `Tracker` port in `dossier.domain.ports` | declares no method that returns anything read from the server |
+| 6 | `dossier run --plan` over a pipeline where every step would re-run | zero model calls and zero tracking calls (R4.6, R11.1) |
+| 7 | *counter-example* — `dossier/infrastructure/store.py` opens a file on local disk | allowed; local file IO is not network IO |
+| 8 | *counter-example* — a stage with no cache entry, during `dossier run` | reaches the model, once, and the answer is cached with its provenance record; R5.5 is the claim that it never happens twice for the same inputs |
