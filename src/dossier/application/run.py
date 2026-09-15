@@ -229,6 +229,7 @@ def execute(
                     cache=cache,
                     run_id=run_id,
                     dossier_version=dossier_version,
+                    tracker=tracker,
                 )
                 if tracker is not None:
                     tracker.end_trace(
@@ -296,6 +297,7 @@ def _run_one(
     cache: ArtifactStore,
     run_id: str,
     dossier_version: str,
+    tracker: Tracker | None = None,
 ) -> DocumentResult:
     """One (step, document), served from cache or asked of the model.
 
@@ -347,14 +349,17 @@ def _run_one(
         # the entry is rewritten below -- otherwise one corrupt file would be
         # permanently fatal to a workspace whose inputs are all still present.
         if served is not None:
+            _stage_span(tracker, step.id, key, cache="hit")
             return served
 
+    _stage_span(tracker, step.id, key, cache="miss")
     result = run_stage(
         document=document,
         prompt=render(prompt, values),
         schema=schema,
         model=model,
         input_documents=document_text,
+        tracker=tracker,
     )
 
     if not result.failed:
@@ -369,6 +374,18 @@ def _run_one(
             ),
         )
     return result
+
+
+def _stage_span(tracker: Tracker | None, step: str, key: str, *, cache: str) -> None:
+    """Which key this (step, document) was, and whether it was served (R11.2).
+
+    Recorded for a hit as for a miss: seeing that a document cost nothing is
+    information (spec 011), and the key says which stored answer served it.
+    """
+    if tracker is not None:
+        tracker.span(
+            kind="stage", name=step, attributes={"dossier.cache": cache, "dossier.key": key}
+        )
 
 
 def _from_cache(
