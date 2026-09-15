@@ -160,7 +160,7 @@ any locale or timezone.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`, `dossier.domain.resolution`)
 - **Proved by:** `tests/unit/test_R000_4__manifest_and_keys_are_byte_identical.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
