@@ -31,8 +31,6 @@ from tests.scoring_example import (
     RoutedModel,
 )
 
-pytestmark = pytest.mark.outer_loop
-
 URI = "http://localhost:5000"
 WARNING = "warning: 2 trace(s) could not be recorded"
 
