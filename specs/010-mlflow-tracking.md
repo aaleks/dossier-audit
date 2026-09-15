@@ -120,7 +120,7 @@ should have recorded.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.experiment_name`)
 - **Proved by:** `tests/unit/test_R010_2__experiment_names_come_from_a_template.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
