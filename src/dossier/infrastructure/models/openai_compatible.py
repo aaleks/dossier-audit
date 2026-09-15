@@ -9,7 +9,8 @@ Left of the hash boundary, and one of only two packages that may be (R0.9).
 What it sends is a pure function of the stage's prompt and schema and the pinned
 identifier; where it sends it is per machine and in no key (R9.2). Nothing here
 decides whether a call happens -- the stage key does, and a cache hit never
-reaches this module.
+reaches this module. How a request is made and how a failure is reported is
+`_http`'s, shared with the Ollama client.
 """
 
 from __future__ import annotations
@@ -19,19 +20,23 @@ from collections.abc import Callable
 import httpx
 
 from dossier.domain.model_id import check_served
+from dossier.infrastructure.models._http import (
+    TIMEOUT_SECONDS,
+    ModelRequestFailed,
+    http_client,
+    request,
+    text_at,
+)
 
-# A model can take minutes over a long document, and httpx's own default of five
-# seconds would fail nearly every real request. Generous rather than unbounded,
-# so a server that never answers still ends the run instead of hanging it.
-TIMEOUT_SECONDS = 300.0
-
-
-class ModelRequestFailed(RuntimeError):
-    """A model endpoint could not be reached, or did not answer with a completion.
-
-    The message names the URL and the status. It never carries the key: that is
-    sent only in a request header, and nothing here echoes a header (R9.8 row 1).
-    """
+__all__ = [
+    "TIMEOUT_SECONDS",
+    "ModelRequestFailed",
+    "OpenAICompatible",
+    "OpenAICompatibleClient",
+    "gemini",
+    "hf",
+    "openai",
+]
 
 
 def _after_provider(model_id: str) -> str:
@@ -65,21 +70,17 @@ class OpenAICompatibleClient:
         self._name = name
         self._base = url.rstrip("/")
         self._url = self._base + "/chat/completions"
+        self._http = http_client(api_key, transport)
         # Checked once, before the first completion: the model a server loaded
         # does not change between two requests of one run (R9.6).
         self._unchecked = checks_served
-        # No header at all without a key, rather than an empty bearer token: a
-        # local vLLM with no auth may reject `Authorization: Bearer ` as malformed.
-        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-        self._http = httpx.Client(headers=headers, timeout=TIMEOUT_SECONDS, transport=transport)
 
     def complete(self, prompt: str, *, schema: dict | None = None) -> str:
         """The model's answer to `prompt`, as the text it returned.
 
         Temperature 0, so the same prompt asks for the same answer. The reply is
-        returned verbatim: validating it, and retrying once when it does not
-        conform, is the stage's job (R6.1, R6.2), and a client that reshaped it
-        would validate something the model never said.
+        returned verbatim for the stage to validate, and to retry once when it
+        does not conform (R6.1, R6.2).
         """
         if self._unchecked:
             self._check_served()
@@ -95,27 +96,8 @@ class OpenAICompatibleClient:
                 "type": "json_schema",
                 "json_schema": {"name": "stage_output", "schema": schema},
             }
-
-        try:
-            response = self._http.post(self._url, json=body)
-        except httpx.HTTPError as error:
-            raise ModelRequestFailed(f"POST {self._url} failed: {error}") from None
-
-        if not response.is_success:
-            raise ModelRequestFailed(
-                f"POST {self._url} answered {response.status_code} {response.reason_phrase}"
-            )
-
-        try:
-            content = response.json()["choices"][0]["message"]["content"]
-        except (ValueError, KeyError, IndexError, TypeError):
-            content = None
-        if not isinstance(content, str):
-            raise ModelRequestFailed(
-                f"POST {self._url} answered {response.status_code} with no "
-                "choices[0].message.content"
-            )
-        return content
+        response = request(self._http, "POST", self._url, json=body)
+        return text_at(response, "choices", 0, "message", "content")
 
     def _check_served(self) -> None:
         """Stop before the first completion if the server serves another model (R9.6).
@@ -125,19 +107,11 @@ class OpenAICompatibleClient:
         decision. The decision itself is the domain's (`check_served`).
         """
         url = self._base + "/models"
+        response = request(self._http, "GET", url)
         try:
-            response = self._http.get(url)
-        except httpx.HTTPError as error:
-            raise ModelRequestFailed(f"GET {url} failed: {error}") from None
-        if not response.is_success:
-            raise ModelRequestFailed(
-                f"GET {url} answered {response.status_code} {response.reason_phrase}"
-            )
-        try:
-            listed = response.json()["data"]
             served = {
                 name
-                for entry in listed
+                for entry in response.json()["data"]
                 for name in (entry.get("id"), entry.get("root"))
                 if isinstance(name, str)
             }
