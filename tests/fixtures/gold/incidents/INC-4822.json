@@ -1,0 +1,12 @@
+{
+  "document": "INC-4822",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-15",
+  "fields": {
+    "loss_amount":      {"value": 12500.00, "currency": "CHF"},
+    "resolution_date":  {"value": "2026-08-04"},
+    "severity":         {"value": "minor"},
+    "affected_systems": {"value": "ledger-batch"},
+    "root_cause":       {"value": null, "reason": "not stated in document"}
+  }
+}

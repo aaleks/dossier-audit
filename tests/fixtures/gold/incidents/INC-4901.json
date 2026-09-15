@@ -1,0 +1,12 @@
+{
+  "document": "INC-4901",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-15",
+  "fields": {
+    "loss_amount":      {"value": 0.00, "currency": "CHF"},
+    "resolution_date":  {"value": "2026-08-11"},
+    "severity":         {"value": "critical"},
+    "affected_systems": {"value": "payments-api"},
+    "root_cause":       {"value": null, "reason": "not stated in document"}
+  }
+}
