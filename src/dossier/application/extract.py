@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pydantic import ValidationError
 
 from dossier.domain.grounding import FieldCheck, check_field
-from dossier.domain.ports import ModelClient
+from dossier.domain.ports import ModelClient, Tracker
 from dossier.domain.schemas import FieldRecord, StageOutput
 
 # One retry, and exactly one. A model that cannot produce the shape twice will
@@ -81,6 +81,7 @@ def run_stage(
     schema: dict | None,
     model: ModelClient,
     input_documents: Mapping[str, str],
+    tracker: Tracker | None = None,
 ) -> DocumentResult:
     """Run one stage for one document, validating and grounding the answer.
 
@@ -90,9 +91,9 @@ def run_stage(
     exactly what it is, a response to a *validation* failure.
     """
     if schema is None:
-        return DocumentResult(
-            document=document, attempts=1, text=model.complete(prompt, schema=None)
-        )
+        text = model.complete(prompt, schema=None)
+        _llm_span(tracker, model, attempt=1, error=None)
+        return DocumentResult(document=document, attempts=1, text=text)
 
     attempts = 0
     correction: str | None = None
@@ -105,8 +106,10 @@ def run_stage(
             output = StageOutput.model_validate_json(response)
         except (ValidationError, ValueError) as error:
             correction = str(error)
+            _llm_span(tracker, model, attempt=attempts, error=correction)
             continue
 
+        _llm_span(tracker, model, attempt=attempts, error=None)
         checks = tuple(
             check_field(record, input_documents=input_documents) for record in output.fields
         )
@@ -124,6 +127,26 @@ def run_stage(
         attempts=attempts,
         error=f"{document}: no valid output after {attempts} attempts -- {correction}",
     )
+
+
+def _llm_span(
+    tracker: Tracker | None, model: ModelClient, *, attempt: int, error: str | None
+) -> None:
+    """One model call, one LLM span (R11.2).
+
+    The span and the model's call count are the same claim seen twice (R5.5). A
+    span whose answer failed validation carries the error it was retried on, so
+    a retry is explained where it happened rather than only counted (R6.2).
+    """
+    if tracker is None:
+        return
+    attributes: dict[str, object] = {
+        "dossier.model": model.model_id,
+        "dossier.attempt": attempt,
+    }
+    if error is not None:
+        attributes["error"] = error
+    tracker.span(kind="llm", name=model.model_id, attributes=attributes)
 
 
 def _with_correction(prompt: str, correction: str | None) -> str:

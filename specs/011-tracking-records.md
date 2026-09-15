@@ -58,7 +58,7 @@ The trace and `FakeModelClient`'s call count are the same claim seen twice (R5.5
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R011_2__each_model_call_is_one_llm_span.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
