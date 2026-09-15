@@ -135,7 +135,7 @@ should have recorded.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.tags`)
 - **Proved by:** `tests/unit/test_R010_3__every_record_is_tagged_with_its_kind_and_pipeline.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
