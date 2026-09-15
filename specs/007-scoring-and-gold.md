@@ -130,7 +130,7 @@ are `_fixtures.md`'s scoring example, which a person writes into the gold files.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R007_2__scores_are_reported_per_field.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
