@@ -310,7 +310,7 @@ is on or off (R10.4).
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_10__three_packages_reach_the_network.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

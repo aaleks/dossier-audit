@@ -19,12 +19,14 @@ PACKAGE = SRC / "dossier"
 
 LAYERS = ("domain", "application", "infrastructure", "config", "cli")
 
-# The two packages permitted to reach the network (R0.9). Connectors fetch source
-# payloads; model clients ask a model. Everything else is reproducible from
-# frozen content, which is what the hash boundary promises.
+# The three packages permitted to reach the network (R0.10). Connectors fetch
+# source payloads; model clients ask a model; the tracker sends records to MLflow.
+# Everything else is reproducible from frozen content, which is what the hash
+# boundary promises -- and tracking only sends, so it changes none of that.
 CONNECTORS = "dossier.infrastructure.connectors"
 MODELS = "dossier.infrastructure.models"
-REACH_THE_NETWORK = (CONNECTORS, MODELS)
+TRACKING = "dossier.infrastructure.tracking"
+REACH_THE_NETWORK = (CONNECTORS, MODELS, TRACKING)
 
 NETWORK_MODULES = frozenset(
     {
@@ -45,6 +47,9 @@ NETWORK_MODULES = frozenset(
         "jira",
         "litellm",
         "mistralai",
+        # MLflow reaches a tracking server over HTTP. Uncounted under R0.9, so the
+        # check would have stayed green while it was imported anywhere (R0.10).
+        "mlflow",
         "ollama",
         "openai",
         "requests",

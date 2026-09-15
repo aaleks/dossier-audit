@@ -60,8 +60,9 @@ case "$norm" in
     ;;
 esac
 
-# 5. The hash boundary (R0.9, which superseded R0.1). Two packages may import a
-#    network client: connectors fetch source payloads, and models ask a model.
+# 5. The hash boundary (R0.10, which superseded R0.9 and R0.1). Three packages
+#    may import a network client: connectors fetch source payloads, models ask a
+#    model, and tracking sends records to MLflow.
 #    tests/architecture catches this too, but catching it at write time saves a
 #    red run and explains the reason.
 #
@@ -72,13 +73,16 @@ case "$norm" in
     : # left of the boundary -- network is this package's whole job
     ;;
   src/dossier/infrastructure/models/*|*/src/dossier/infrastructure/models/*)
-    : # left of the boundary -- asking a model is this package's whole job (R0.9)
+    : # left of the boundary -- asking a model is this package's whole job
+    ;;
+  src/dossier/infrastructure/tracking/*|*/src/dossier/infrastructure/tracking/*)
+    : # left of the boundary -- sending records to MLflow is this package's job (R0.10)
     ;;
   src/dossier/*|*/src/dossier/*)
     if printf '%s' "$payload" \
-      | grep -qE '(import|from)[[:space:]]+(httpx|requests|aiohttp|urllib3|urllib\.request|http\.client|socket|boto3|atlassian|jira)([^a-z_]|$)'; then
-      echo "BLOCKED: this file is right of the hash boundary (R0.9)." >&2
-      echo "Only dossier.infrastructure.connectors and .models may reach the network." >&2
+      | grep -qE '(import|from)[[:space:]]+(httpx|requests|aiohttp|urllib3|urllib\.request|http\.client|socket|boto3|atlassian|jira|mlflow)([^a-z_]|$)'; then
+      echo "BLOCKED: this file is right of the hash boundary (R0.10)." >&2
+      echo "Only dossier.infrastructure.connectors, .models and .tracking may reach the network." >&2
       echo "That is what makes a six-month-old run reproducible offline." >&2
       echo "Fix: make the call in a connector and pass the result across." >&2
       exit 2
