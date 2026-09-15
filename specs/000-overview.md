@@ -178,7 +178,7 @@ changed.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
 - **Proved by:** `tests/unit/test_R000_5__key_covers_every_output_determining_input.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
