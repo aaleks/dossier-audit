@@ -26,6 +26,12 @@ _FIXED = frozenset({"anthropic:claude-opus-5"})
 # as every hash in dossier is (R0.7): a prefix could match more than one model.
 _OLLAMA_DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
 
+# An OpenAI snapshot ends in its release date, dashed: `gpt-4o-2024-08-06`. The
+# family name alone, and any `-latest` name, is an alias OpenAI re-points at each
+# release (R9.9). Anthropic's undashed `-YYYYMMDD` is a different provider's form
+# and is not accepted as one here.
+_OPENAI_DATED = re.compile(r"-\d{4}-\d{2}-\d{2}$")
+
 # A Hugging Face repository is whatever `main` points at today; a revision is a
 # commit, and does not move (R9.5). `@main` looks like a pin and is not one, so
 # only a full 40-character commit counts. vLLM does not report which revision
@@ -51,6 +57,11 @@ def check_pinned(model: str) -> None:
         raise ValueError(
             f"model {model!r} is a floating alias; name a dated snapshot such as "
             "'anthropic:claude-sonnet-4-5-20250929'"
+        )
+    if provider == "openai" and not _OPENAI_DATED.search(name):
+        raise ValueError(
+            f"model {model!r} is an OpenAI alias, which moves to each new snapshot; "
+            "name a dated snapshot such as 'openai:gpt-4o-2024-08-06'"
         )
     if provider == "ollama" and not _OLLAMA_DIGEST.search(name):
         raise ValueError(
