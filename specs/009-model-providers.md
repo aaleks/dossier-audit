@@ -152,7 +152,7 @@ reached at all (R0.9).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
 - **Proved by:** `tests/unit/test_R009_7__openwebui_is_an_endpoint_not_a_provider.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
