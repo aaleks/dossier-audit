@@ -55,8 +55,9 @@ from dossier.domain.scoring import (
     weakest,
 )
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
-from dossier.domain.tracking import TrackingSettings, experiment_name
+from dossier.domain.tracking import TrackingSettings, count_metrics, experiment_name
 from dossier.domain.tracking import settings as tracking_settings
+from dossier.domain.tracking import tags as tracking_tags
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.connectors.registry import (
     UnknownSourceType,
@@ -69,6 +70,7 @@ from dossier.infrastructure.models.openai_compatible import ModelRequestFailed
 from dossier.infrastructure.models.registry import UnknownProvider, available_providers
 from dossier.infrastructure.models.registry import provider as model_provider
 from dossier.infrastructure.store import SnapshotStore
+from dossier.infrastructure.tracking.mlflow import TrackingUnavailable, connect
 
 app = typer.Typer(add_completion=False)
 
@@ -108,6 +110,8 @@ def sync(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines
         )
         raise typer.Exit(code=2)
 
+    tracker, experiment = _tracking_for(workspace, pipeline, kind="sync")
+
     store = SnapshotStore(workspace)
     reports: list[SourceReport] = []
 
@@ -133,6 +137,33 @@ def sync(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines
     written = sum(report.snapshots_written for report in reports)
     tombstoned = sum(report.tombstoned for report in reports)
     typer.echo(f"ledger updated · {written} new snapshots · {tombstoned} tombstoned")
+
+    if tracker is not None:
+        # One MLflow run of the per-source counts the lines above printed, under
+        # the same names, and no traces (R11.4).
+        tracker.start_run(
+            experiment=experiment or "",
+            name=f"sync {started_at:%Y%m%dT%H%M%SZ}",
+            tags=tracking_tags(kind="sync", pipeline=pipeline),
+        )
+        metrics: dict[str, float] = {}
+        for report in reports:
+            metrics.update(
+                count_metrics(
+                    kind="sync",
+                    source=report.source_id,
+                    counts={
+                        "known": report.known,
+                        "changed": report.changed,
+                        "new": report.new,
+                        "fetched": report.fetched,
+                        "failed": len(report.failed),
+                    },
+                )
+            )
+        tracker.log_metrics(metrics)
+        failed_items = any(report.failed for report in reports)
+        tracker.end_run(status="FAILED" if failed_items else "FINISHED")
 
     failed = [key for report in reports for key in report.failed]
     if failed:
@@ -185,17 +216,36 @@ def build_model_client(model_id: str) -> ModelClient:
 
 
 def build_tracker(settings: TrackingSettings) -> Tracker:
-    """The tracker a command records to, for this machine's settings (spec 010).
+    """The tracker a command records to, checked before any work (R10.5).
 
-    Not implemented yet, and a named function for the reason
-    `build_model_client` is one: it is the seam the composition root hands to a
-    use case, and a test replaces it with a `FakeTracker`. The MLflow adapter,
-    and the startup check that its server answers, land with R10.5.
+    `connect` refuses, naming what to fix, when the `tracking` extra is missing
+    or no server answers. A named function for the reason `build_model_client`
+    is one: it is the seam the composition root hands to a use case, and a test
+    replaces it with a `FakeTracker`.
     """
-    raise NotImplementedError(
-        f"tracking is enabled, recording to {settings.uri}, and no MLflow tracker is "
-        "wired up yet. Set DOSSIER_MLFLOW_ENABLED=false until it is."
-    )
+    return connect(settings.uri)
+
+
+def _tracking_for(
+    workspace: Path, pipeline: str, *, kind: str
+) -> tuple[Tracker | None, str | None]:
+    """The tracker and experiment a `dossier <kind>` records to, or `(None, None)`.
+
+    Read and checked before any work: a typo in the switch or the template, the
+    extra missing, or a server nobody can reach is refused now -- exit 2, naming
+    what to fix -- rather than found after the work nobody can now inspect
+    (R10.1, R10.2, R10.5).
+    """
+    environ = environment(workspace)
+    try:
+        tracking = tracking_settings(environ)
+        if tracking is None:
+            return None, None
+        experiment = experiment_name(kind=kind, pipeline=pipeline, gold=None, environ=environ)
+        return build_tracker(tracking), experiment
+    except (ValueError, TrackingUnavailable) as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
 
 
 class _BuiltOnFirstCall:
@@ -452,21 +502,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
 
-    # Read before any work: a typo in the switch, or tracking on with nowhere to
-    # record to, is refused now rather than found after an hour of model calls
-    # nobody can inspect (R10.1, R10.2).
-    environ = environment(workspace)
-    try:
-        tracking = tracking_settings(environ)
-        experiment = (
-            None
-            if tracking is None
-            else experiment_name(kind="run", pipeline=pipeline, gold=None, environ=environ)
-        )
-        tracker = None if tracking is None else build_tracker(tracking)
-    except (ValueError, NotImplementedError) as error:
-        typer.echo(f"{pipeline}: {error}", err=True)
-        raise typer.Exit(code=2) from error
+    tracker, experiment = _tracking_for(workspace, pipeline, kind="run")
 
     store = SnapshotStore(workspace)
     converters = installed_converters()
