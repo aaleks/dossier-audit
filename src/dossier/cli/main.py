@@ -462,7 +462,7 @@ def convert(pipeline: str = typer.Argument(..., help="Pipeline name under pipeli
             if source is None:
                 continue
             held = {
-                row.key: HeldDocument(snapshot=row.content_hash, media_type=row.media_type)
+                row.key: HeldDocument(snapshot=row.snapshot, media_type=row.media_type)
                 for row in ledger.rows(name)
                 if row.state is not State.TOMBSTONED
             }
@@ -581,7 +581,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
             if source is None:
                 continue
             held = {
-                row.key: HeldDocument(snapshot=row.content_hash, media_type=row.media_type)
+                row.key: HeldDocument(snapshot=row.snapshot, media_type=row.media_type)
                 for row in ledger.rows(name)
                 if row.state is not State.TOMBSTONED
             }

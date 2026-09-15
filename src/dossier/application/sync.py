@@ -130,7 +130,12 @@ def sync_source(
         # Asked before storing, because `put` is idempotent: two sources holding
         # identical bytes share one snapshot, and the second is not a write
         # (R2.11 example 2).
-        already_held = store.exists(digest)
+        #
+        # At the payload's own hash, not at `digest`: the normalised hash only
+        # decides whether the item changed, and for a source declaring `fields`
+        # it addresses a projection nothing ever stores (R2.17).
+        stored = content_hash(item.payload)
+        already_held = store.exists(stored)
         store.put(item.payload)
         if not already_held:
             written += 1
@@ -144,7 +149,7 @@ def sync_source(
                 # What the connector said these bytes are, recorded once here
                 # because nothing downstream may work it out again (R2.16).
                 media_type=item.media_type,
-                snapshot_path=snapshot_path(digest),
+                snapshot_path=snapshot_path(stored),
                 first_seen=recorded.first_seen if recorded else now,
                 last_seen=now,
                 state=State.ACTIVE,

@@ -32,6 +32,17 @@ class LedgerRow(BaseModel):
     last_seen: datetime
     state: State = State.ACTIVE
 
+    @property
+    def snapshot(self) -> str:
+        """The hash of the payload this row holds, as its `snapshot_path` names it.
+
+        Not `content_hash`. That is the normalised hash change detection
+        compares, and for a source declaring `fields` it addresses a projection
+        nothing ever stored. What a held document is, is the payload as fetched
+        (R2.17); for a source without `fields` the two coincide (R2.10).
+        """
+        return self.snapshot_path.rsplit("/", 1)[-1]
+
     def content(self) -> tuple:
         """Everything about this row except when it was last observed.
 

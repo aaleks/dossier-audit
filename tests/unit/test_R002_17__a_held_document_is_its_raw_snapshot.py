@@ -29,8 +29,6 @@ from dossier.domain.ledger import LedgerRow
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.infrastructure.ledger import Ledger
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 SNAPSHOTS = Path(".dossier") / "snapshots"
 
