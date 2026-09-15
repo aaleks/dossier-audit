@@ -237,14 +237,14 @@ document keys.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
 - **Proved by:** `tests/acceptance/test_R007_8__compare_reports_per_field_deltas.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | configurations `a` and `b` over the same 52 documents | a per-field table with a delta column |
-| 2 | `affected_systems` moving 88.0% to 79.5% | flagged as a regression, even though the overall figure improved |
-| 3 | the two configurations covering different document sets | an error; a comparison over different documents is not a comparison |
-| 4 | *counter-example* — a field where both score 98.2% | reported with a delta of zero, not omitted; a silent row is indistinguishable from a missing one |
+| 1 | runs `a` and `b` of `incident-audit` over the four documents of the scoring example | a per-field table: each field's score in `a`, in `b`, and the delta |
+| 2 | `affected_systems` moving 75.0% to 50.0% while the overall figure moves 80.0% to 90.0% | flagged as a regression, even though the overall figure improved |
+| 3 | run `b` covering a fifth document, `INC-5102`, that run `a` did not | an error; a comparison over different documents is not a comparison |
+| 4 | *counter-example* — `severity` at 100.0% in both runs | reported with a delta of zero, not omitted; a silent row is indistinguishable from a missing one |
 
 ### R7.9 — every run, its per-field scores, its pinned model and its judge calibration are recorded to MLflow
 
