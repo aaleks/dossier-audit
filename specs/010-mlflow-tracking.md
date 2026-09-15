@@ -150,7 +150,7 @@ Tracking observes a run; it is not an input to one (R0.5).
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R010_4__tracking_changes_no_output.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
