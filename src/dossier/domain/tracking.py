@@ -104,6 +104,18 @@ def experiment_name(
     return _PLACEHOLDER.sub(lambda match: values[match.group(1)], template)
 
 
+def tags(*, kind: str, pipeline: str) -> dict[str, str]:
+    """The tags every record carries, whichever experiment it lands in (R10.3).
+
+    They keep a shared experiment filterable: with every command recording to
+    one `dossier-audit`, a run and an eval are told apart by `dossier.kind`, and
+    two pipelines by `dossier.pipeline`. Written only under dossier's own prefix:
+    what MLflow records about a run -- `mlflow.user`, `mlflow.source.name` -- is
+    left as MLflow sets it.
+    """
+    return {"dossier.kind": kind, "dossier.pipeline": pipeline}
+
+
 def _gold_name(gold: str) -> str:
     """`incidents` from `gold/incidents` or `gold/incidents/`: the set's own name."""
     return gold.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
