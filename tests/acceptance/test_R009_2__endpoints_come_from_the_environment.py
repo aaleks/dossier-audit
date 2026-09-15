@@ -26,8 +26,6 @@ import pytest
 from tests.fakes import register_provider
 from tests.pipelines import write_pipeline
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 # `_fixtures.md` writes these as 8 characters; a real identifier carries them all.
 OLLAMA = "ollama:qwen2.5:7b@sha256:" + "7f3c29a1" * 8

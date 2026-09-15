@@ -12,6 +12,26 @@ from importlib.metadata import entry_points
 ENTRY_POINT_GROUP = "dossier.models"
 
 
+class UnknownProvider(LookupError):
+    """A model names a provider no installed package declares (R9.1)."""
+
+
+def provider(name: str):
+    """The client factory an installed package declares for provider `name`.
+
+    Called as `factory(model_id, url=..., api_key=...)`, with the endpoint this
+    machine reaches it at (R9.2). Its `default_url`, where it has one, is used
+    when that endpoint is not set.
+    """
+    for point in entry_points(group=ENTRY_POINT_GROUP):
+        if point.name == name:
+            return point.load()
+    raise UnknownProvider(
+        f"no installed package provides model provider {name!r}. "
+        f"Available: {', '.join(available_providers()) or 'none'}"
+    )
+
+
 def available_providers() -> list[str]:
     """Every provider an installed package declares, sorted.
 
