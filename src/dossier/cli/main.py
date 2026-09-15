@@ -33,6 +33,7 @@ from dossier.application.plan import (
 from dossier.application.run import MissingFromReplay, execute, replay
 from dossier.application.sync import SourceReport, sync_source
 from dossier.config.endpoints import EndpointUnset, endpoint_for
+from dossier.config.environment import environment
 from dossier.config.load import (
     ConfigError,
     load_fields,
@@ -166,7 +167,11 @@ def build_model_client(model_id: str) -> ModelClient:
     """
     provider = provider_of(model_id)
     factory = model_provider(provider)
-    endpoint = endpoint_for(provider, default_url=getattr(factory, "default_url", None))
+    endpoint = endpoint_for(
+        provider,
+        default_url=getattr(factory, "default_url", None),
+        environ=environment(Path.cwd()),
+    )
     return factory(model_id, url=endpoint.url, api_key=endpoint.api_key)
 
 

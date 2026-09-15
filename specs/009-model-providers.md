@@ -223,7 +223,7 @@ git-ignored, and `.env.example` is its committed template.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.environment`)
 - **Proved by:** `tests/unit/test_R009_11__a_dotenv_file_fills_only_what_the_environment_leaves_unset.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
