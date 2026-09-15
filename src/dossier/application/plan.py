@@ -133,9 +133,9 @@ def pinned_documents(rows) -> dict[str, str]:
     run that pinned one keeps reading it, which is R4.9's business and is served
     from that run's own manifest rather than from here.
     """
-    return {
-        row.key: row.content_hash for row in rows if row.state is not State.TOMBSTONED
-    }
+    # `snapshot`, not `content_hash`: a plan pins bytes that exist, and for a
+    # source declaring `fields` the normalised hash addresses none (R2.17).
+    return {row.key: row.snapshot for row in rows if row.state is not State.TOMBSTONED}
 
 
 def latest_manifest(runs: Path, pipeline: str) -> tuple[ResolvedPlan | None, str | None]:
