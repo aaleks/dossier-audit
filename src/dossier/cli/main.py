@@ -32,6 +32,7 @@ from dossier.application.plan import (
 )
 from dossier.application.run import MissingFromReplay, execute, replay
 from dossier.application.sync import SourceReport, sync_source
+from dossier.config.endpoints import EndpointUnset, endpoint_for
 from dossier.config.load import (
     ConfigError,
     load_fields,
@@ -42,6 +43,7 @@ from dossier.config.load import (
 from dossier.domain.conversion import NoConverter
 from dossier.domain.hashing import text_hash
 from dossier.domain.keys import ConvertInputs, cache_key
+from dossier.domain.model_id import provider_of
 from dossier.domain.ports import ModelClient
 from dossier.domain.resolution import PinnedConverter, run_id
 from dossier.domain.scoring import overall, per_field, weakest
@@ -54,7 +56,8 @@ from dossier.infrastructure.connectors.registry import (
 )
 from dossier.infrastructure.converters.registry import installed_converters
 from dossier.infrastructure.ledger import Ledger
-from dossier.infrastructure.models.registry import available_providers
+from dossier.infrastructure.models.registry import UnknownProvider, available_providers
+from dossier.infrastructure.models.registry import provider as model_provider
 from dossier.infrastructure.store import SnapshotStore
 
 app = typer.Typer(add_completion=False)
@@ -150,17 +153,44 @@ def _pipeline_path(workspace: Path, name: str) -> Path:
 
 
 def build_model_client(model_id: str) -> ModelClient:
-    """Resolve a pinned model identifier to a client.
+    """Resolve a pinned model identifier to a client, reached where this machine says.
 
-    Not implemented yet, and deliberately a named function rather than an inline
-    construction: it is the seam the composition root hands to a use case, and
-    R4.6 is the claim that `--plan` never reaches it. A test replaces this and
-    asserts it was never called.
+    The provider is the installed package the identifier names (R9.1). Where it
+    is served comes from the environment, or from the provider's own default
+    (R9.2), and is in no key -- so one identifier reached from two machines
+    shares one cache.
+
+    A named function rather than an inline construction: it is the seam the
+    composition root hands to a use case, and R4.6 is the claim that `--plan`
+    never reaches it. A test replaces this and asserts it was never called.
     """
-    raise NotImplementedError(
-        f"no model client is wired up yet for {model_id!r}. "
-        "`--plan` does not need one; executing a run will."
-    )
+    provider = provider_of(model_id)
+    factory = model_provider(provider)
+    endpoint = endpoint_for(provider, default_url=getattr(factory, "default_url", None))
+    return factory(model_id, url=endpoint.url, api_key=endpoint.api_key)
+
+
+class _BuiltOnFirstCall:
+    """A model client that is not built until a stage first asks it something.
+
+    A run served entirely from cache reaches no model, so it needs no endpoint
+    and no client (R9.2 row 5, R0.9). Building one up front made a fully cached
+    run fail on a machine that could have completed it. `model_id` is known
+    without building anything: it is part of every key, and the keys are what
+    decide whether a call happens at all.
+
+    `build_model_client` is looked up when the first call is made rather than
+    bound here, so the seam a test replaces is the one this reaches.
+    """
+
+    def __init__(self, model_id: str) -> None:
+        self.model_id = model_id
+        self._client: ModelClient | None = None
+
+    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+        if self._client is None:
+            self._client = build_model_client(self.model_id)
+        return self._client.complete(prompt, schema=schema)
 
 
 @app.command()
@@ -451,13 +481,8 @@ def _execute(workspace: Path, pipeline: str) -> None:
     schemas = load_output_schemas(config, path)
 
     try:
-        # Bound before the call rather than inside its argument list. Python
-        # evaluates an argument before the function is entered, so constructing
-        # the client there ran it ahead of resolution -- and a pipeline with both
-        # a bad reference and an unreachable model reported the model (R4.1).
         one_document_per_key(by_source)
-        model = build_model_client(config.model)
-    except (DocumentCollision, NotImplementedError) as error:
+    except DocumentCollision as error:
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
 
@@ -471,7 +496,10 @@ def _execute(workspace: Path, pipeline: str) -> None:
             document_text=text,
             schemas=schemas,
             prompts=prompts,
-            model=model,
+            # Built at the first cache miss, never before. That also keeps it
+            # behind resolution: constructed up front, a pipeline with both a
+            # bad reference and an unreachable model reported the model (R4.1).
+            model=_BuiltOnFirstCall(config.model),
             cache=ArtifactCache(workspace, namespace="stage"),
             run_id=this_run,
             started_at=started_at,
@@ -485,6 +513,11 @@ def _execute(workspace: Path, pipeline: str) -> None:
         )
     except ValueError as error:
         # Resolution failed, so nothing ran and nothing was written (R4.1).
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+    except (EndpointUnset, NotImplementedError, UnknownProvider) as error:
+        # The first cache miss needed a model this machine cannot reach. The run
+        # stops there, before any model was asked (R9.2 row 3).
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
 

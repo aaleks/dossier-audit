@@ -66,11 +66,13 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **R9.2** -- a provider's endpoint comes from the environment, and
-is asked for only at a run's first cache miss. R7.2 is met: `dossier eval <pipeline> --gold <dir>`
-reproduces the latest run from its manifest and cache, asks no model, and prints
-one percentage per field, the weakest marked, under an overall figure that never
-stands alone. Spec 006 is implemented: a step's `output`
+Currently open: **none**. R9.2 is met: where a provider is reached comes from
+`DOSSIER_<PROVIDER>_URL` or the provider's own default, is in no key, and is
+asked for only at a run's first cache miss -- a fully cached run needs no
+endpoint. R7.2 is met: `dossier eval <pipeline> --gold <dir>` reproduces the
+latest run from its manifest and cache, asks no model, and prints one percentage
+per field, the weakest marked, under an overall figure that never stands alone.
+Spec 006 is implemented: a step's `output`
 names a YAML field declaration (R6.10, R3.10), and the stage key hashes both the
 declaration's text (R6.11) and the JSON Schema generated from it (R6.12). A
 model is pinned or refused at load (R0.6, R3.4), and a source's keys are checked
@@ -80,8 +82,8 @@ R9.5), and its provider must be installed, as a `dossier.models` entry point
 (R9.1). It now also names `openai` and `gemini` (R9.9, R9.10) and a `.env` file
 (R9.11), all NOT MET; the project's default model is
 `gemini:gemini-3.5-flash-lite` through a local OpenWebUI (`.env.example`). The
-first real model client -- OpenAI-compatible, over httpx -- follows R9.2, and
-needs a rule of its own: no rule yet says what goes over the wire.
+first real model client -- OpenAI-compatible, over httpx -- needs a rule of its
+own: no rule yet says what goes over the wire.
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost
