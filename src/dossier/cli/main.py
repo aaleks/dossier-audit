@@ -22,6 +22,7 @@ from dossier.application.convert import (
     HeldDocument,
     convert_source,
 )
+from dossier.application.eval import load_gold, score_run
 from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.plan import (
     Plan,
@@ -31,12 +32,19 @@ from dossier.application.plan import (
 )
 from dossier.application.run import MissingFromReplay, execute, replay
 from dossier.application.sync import SourceReport, sync_source
-from dossier.config.load import ConfigError, load_output_schemas, load_pipeline, load_sources
+from dossier.config.load import (
+    ConfigError,
+    load_fields,
+    load_output_schemas,
+    load_pipeline,
+    load_sources,
+)
 from dossier.domain.conversion import NoConverter
 from dossier.domain.hashing import text_hash
 from dossier.domain.keys import ConvertInputs, cache_key
 from dossier.domain.ports import ModelClient
 from dossier.domain.resolution import PinnedConverter, run_id
+from dossier.domain.scoring import overall, per_field, weakest
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.connectors.registry import (
@@ -498,6 +506,82 @@ def _execute(workspace: Path, pipeline: str) -> None:
     # zero exit here would let anything reading `$?` quote it as clean.
     if report.failed or unreadable:
         raise typer.Exit(code=1)
+
+
+@app.command("eval")
+def eval_(
+    pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
+    gold: str = typer.Option(..., "--gold", help="Gold set directory", metavar="DIR"),
+) -> None:
+    """Score a pipeline's latest run against a gold set, per field (spec 007).
+
+    The run is reproduced from its own manifest and cache entries, exactly as a
+    replay is, so scoring reads what the run produced and asks no model (R7.10).
+    """
+    workspace = Path.cwd()
+
+    try:
+        path = _pipeline_path(workspace, pipeline)
+        config = load_pipeline(path, providers=available_providers())
+    except ConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    declaring = [step for step in config.steps if step.output is not None]
+    if len(declaring) != 1:
+        # Spec 007 scores "the output" against gold and does not yet say which
+        # step's output that is when several declare one. Refused rather than
+        # guessed, because a guess would report one step's scores as another's.
+        typer.echo(
+            f"{pipeline}: {len(declaring)} steps declare an output; eval scores exactly one",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    step = declaring[0]
+    kinds = load_fields(path.parent / step.output)
+
+    _, run_dir = latest_manifest(workspace / "runs", pipeline)
+    if run_dir is None:
+        typer.echo(
+            f"{pipeline}: no run to score. Run `dossier run {pipeline}` first.", err=True
+        )
+        raise typer.Exit(code=2)
+    manifest = Manifest.read(workspace / "runs" / run_dir / MANIFEST_NAME)
+
+    try:
+        _require_pinned_snapshots(manifest, SnapshotStore(workspace))
+        text = _replayed_text(manifest, ArtifactCache(workspace, namespace="convert"))
+        report = replay(
+            manifest=manifest,
+            document_text=text,
+            cache=ArtifactCache(workspace, namespace="stage"),
+        )
+    except MissingFromReplay as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    scored = next(result for result in report.steps if result.step == step.id)
+    scores = score_run(report=scored, gold=load_gold(workspace / gold), kinds=kinds)
+
+    totals = per_field(scores, declared=list(kinds))
+    summed = overall(totals)
+    if summed is not None:
+        # The overall figure opens the report and never closes it: every field's
+        # own line follows, so it can never be all that is printed (R7.2).
+        typer.echo(
+            f"{_count(len(scores), 'document')} · {_count(len(totals), 'field')} · "
+            f"overall {summed.percentage:.1f}%"
+        )
+    lowest = weakest(totals)
+    for total in totals:
+        marker = "   <- weakest" if total.field in lowest else ""
+        typer.echo(f"  {total.field:<18} {total.percentage:5.1f}%{marker}")
+
+
+def _count(n: int, noun: str) -> str:
+    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
 def _converters_for(manifest: Manifest):
     """The converters a past run used, as its manifest recorded them.
 
