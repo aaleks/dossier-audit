@@ -184,7 +184,7 @@ release date, written `-YYYY-MM-DD` -- not Anthropic's `-YYYYMMDD` (R0.6).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.model_id`)
 - **Proved by:** `tests/unit/test_R009_9__an_openai_model_is_pinned_by_a_dated_snapshot.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

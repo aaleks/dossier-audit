@@ -78,9 +78,9 @@ declaration's text (R6.11) and the JSON Schema generated from it (R6.12). A
 model is pinned or refused at load (R0.6, R3.4), and a source's keys are checked
 against what its connector declares, every error named at its line (R1.10,
 R3.1). Spec 009 is under way: a model is pinned in its provider's form (R9.3,
-R9.5), and its provider must be installed, as a `dossier.models` entry point
-(R9.1). It now also names `openai` and `gemini` (R9.9, R9.10) and a `.env` file
-(R9.11), all NOT MET; the project's default model is
+R9.5, R9.9), and its provider must be installed, as a `dossier.models` entry
+point (R9.1). It also names `gemini` (R9.10) and a `.env` file (R9.11), both
+NOT MET; the project's default model is
 `gemini:gemini-3.5-flash-lite` through a local OpenWebUI (`.env.example`). The
 first real model client -- OpenAI-compatible, over httpx -- needs a rule of its
 own: no rule yet says what goes over the wire.
