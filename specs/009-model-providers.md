@@ -139,7 +139,7 @@ reached at all (R0.9).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.model_id.check_served`)
 - **Proved by:** `tests/unit/test_R009_6__a_vllm_serving_another_repo_stops_the_run.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
