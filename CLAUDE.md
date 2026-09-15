@@ -81,14 +81,14 @@ R3.1). Spec 009 is under way: a model is pinned in its provider's form (R9.3,
 R9.5, R9.9, R9.10), and its provider must be installed, as a `dossier.models`
 entry point (R9.1); all five of spec 009's providers are registered with their
 default endpoints. `openai`, `gemini` and `hf` reach a real model through one
-OpenAI-compatible client over httpx (R9.12); `anthropic` and `ollama` stay
-placeholders until their own APIs get a rule. OpenWebUI is an endpoint, never a
-provider (R9.7), and a `.env` file fills what the shell leaves unset (R9.11).
-The project's default model is `gemini:gemini-3.5-flash-lite` through a local
-OpenWebUI (`.env.example`). A vLLM serving another repository stops the run
-before its first call (R9.6). Still NOT MET in spec 009: R9.8 (a key is never
-disclosed) and R9.4 (Ollama's digest); both name Ollama, whose native client
-needs a rule first.
+OpenAI-compatible client over httpx (R9.12), and `ollama` through its native
+API (R9.13); `anthropic` stays a placeholder until its own API gets a rule.
+OpenWebUI is an endpoint, never a provider (R9.7), and a `.env` file fills what
+the shell leaves unset (R9.11). The project's default model is
+`gemini:gemini-3.5-flash-lite` through a local OpenWebUI (`.env.example`). A
+vLLM serving another repository stops the run before its first call (R9.6).
+Still NOT MET in spec 009: R9.4 (Ollama's digest) and R9.8 (a key is never
+disclosed), both unblocked now that Ollama has a client.
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost

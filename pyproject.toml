@@ -55,7 +55,7 @@ markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextCon
 anthropic = "dossier.infrastructure.models.placeholder:anthropic"
 gemini = "dossier.infrastructure.models.openai_compatible:gemini"
 hf = "dossier.infrastructure.models.openai_compatible:hf"
-ollama = "dossier.infrastructure.models.placeholder:ollama"
+ollama = "dossier.infrastructure.models.ollama:ollama"
 openai = "dossier.infrastructure.models.openai_compatible:openai"
 
 [build-system]

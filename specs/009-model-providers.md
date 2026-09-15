@@ -267,7 +267,7 @@ before the first completion (R9.4).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.models.ollama`)
 - **Proved by:** `tests/unit/test_R009_13__ollama_requests.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
