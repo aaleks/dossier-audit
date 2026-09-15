@@ -236,7 +236,7 @@ same way.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R003_7__gold_directory_is_validated_at_load_time.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
