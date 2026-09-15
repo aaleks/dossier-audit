@@ -178,3 +178,26 @@ The run agrees with gold everywhere except here:
 Per field: `loss_amount` 100.0%, `resolution_date` 75.0%, `severity` 100.0%,
 `affected_systems` 75.0%, `root_cause` 50.0% -- the weakest. Overall 80.0%, 16
 of 20. Every figure is exact, so no rounding rule is needed to state it.
+
+## Comparison example (R7.8)
+
+A second run of `incident-audit` over the same four documents, after the prompt
+changed. The run above is `a`; this one is `b`. It agrees with gold everywhere
+except here:
+
+| Document | Field | Run `b` answers | Verdict |
+|---|---|---|---|
+| `INC-4822` | `affected_systems` | `the batch host` | incorrect; does not match |
+| `INC-5455` | `affected_systems` | `payments-api` | incorrect; does not match |
+
+| Field | `a` | `b` | Delta |
+|---|---|---|---|
+| `loss_amount` | 100.0% | 100.0% | +0.0 |
+| `resolution_date` | 75.0% | 100.0% | +25.0 |
+| `severity` | 100.0% | 100.0% | +0.0 |
+| `affected_systems` | 75.0% | 50.0% | -25.0 -- the regression |
+| `root_cause` | 50.0% | 100.0% | +50.0 |
+
+Overall 80.0% to 90.0%: the figure improved while `affected_systems` got worse,
+which is the case the change gate exists for. `INC-5102` (from the corpus above)
+is the fifth document that makes two runs cover different documents.
