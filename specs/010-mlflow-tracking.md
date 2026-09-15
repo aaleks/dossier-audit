@@ -208,7 +208,7 @@ R9.8's promise, for MLflow.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.span_payload`)
 - **Proved by:** `tests/unit/test_R010_8__capture_decides_text_or_hashes.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
