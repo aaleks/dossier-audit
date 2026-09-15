@@ -195,7 +195,7 @@ R9.8's promise, for MLflow.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R010_7__no_credential_reaches_a_tracking_record.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
