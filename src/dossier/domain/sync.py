@@ -12,7 +12,8 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from enum import Enum
 
-from dossier.domain.hashing import is_content_hash
+from dossier.domain.hashing import content_hash, is_content_hash
+from dossier.domain.pipeline import SourceConfig
 
 # Clock skew between dossier and the source, plus source-side indexing lag, are
 # both routinely minutes and occasionally hours. A day of overlap costs a handful
@@ -72,6 +73,25 @@ def normalise(payload: bytes, *, fields: list[str] | None) -> bytes:
     # system, and collapsing them would make two different items hash alike.
     projected = {name: document[name] for name in sorted(fields) if name in document}
     return json.dumps(projected, **_CANONICAL).encode()
+
+
+def source_config_hash(config: SourceConfig) -> str:
+    """The hash of what a source's configuration says about hashing its payloads (R2.3).
+
+    The projection, and nothing else. `watermark_overlap` is deliberately absent:
+    it decides what is *asked for*, never what a payload hashes to, so a source
+    that widened its overlap has not changed what its recorded hashes mean, and
+    re-fetching a corpus over it would be an afternoon's work for no answer
+    (R2.3 row 4).
+
+    The field list is treated as a set -- deduplicated and sorted before hashing
+    -- because a projection is one: an author who reordered two lines has not
+    changed their source. Declaring no `fields` at all is a different question
+    from any projection, not the same question with an empty answer, so it
+    hashes differently (R2.10).
+    """
+    projection = None if config.fields is None else sorted(set(config.fields))
+    return content_hash(json.dumps({"fields": projection}, **_CANONICAL).encode())
 
 
 def configured_overlap(configured: timedelta | None) -> timedelta:
