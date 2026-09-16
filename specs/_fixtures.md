@@ -73,12 +73,14 @@ own directory, so one set can serve several pipelines (R3.7).
 | Path | Holds |
 |---|---|
 | `gold/incidents/` | the verified answers, one `<document>.json` per document |
+| `gold/incidents/samples/root_cause.jsonl` | the human-scored cases a judge is measured against: candidate answers marked supported or unsupported, wrong ones included (R7.16) |
 | `gold/incidents/judge.yaml` | the agreement each judged field's judge must reach — `root_cause: 0.95`, agreed by `a.aleks` (R7.13) |
 | `gold/incidents/calibrations/root_cause.json` | what `dossier calibrate` measured for that judge: its model, the rubric hash, the agreement and the sample size (R7.14) |
 
-Two files rather than one, and only the first is written by a person. What a
-judge *scored* is measured; what it is *required* to score is agreed; and a
-calibration run able to rewrite its own bar would not be gated by it.
+Three artifacts, and only the last is written by a machine. The sample and the
+bar are both a person's: what a judge is *shown* and what it is *required* to
+score are agreed, and what it *scored* is measured. A calibration run able to
+rewrite either would not be gated by them.
 
 ## Hashes
 
