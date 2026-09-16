@@ -15,7 +15,7 @@ from pathlib import Path
 
 from tests.fakes import FakeModelClient, FakeTracker
 
-from dossier.domain.gold import CalibrationCase
+from dossier.domain.gold import CalibrationCase, gold_set_hash
 from dossier.domain.judges import Calibration
 
 MODEL = "anthropic:claude-sonnet-4-5-20250929"
@@ -145,3 +145,47 @@ class TestACalibrationRecordsOneRunWithOneTracePerCase:
         }
         assert all(trace.status == "OK" for trace in traces)
         assert [span["kind"] for trace in traces for span in trace.spans] == ["llm"] * 20
+
+    def test_a_calibration_is_one_run_per_gold_set_holding_every_field(self, tmp_path: Path):
+        """Example 1, at the measurement: one run, tagged, holding the figures.
+
+        The run is opened around the whole measurement so every field's traces
+        land inside it, and it is tagged with the gold set's hash (R0.7), as an
+        eval's is (R11.3 row 2): two calibrations against samples that differ
+        by one verdict are not comparable.
+        """
+        from dossier.application.eval import FieldSample, calibrate_fields
+
+        cases = _cases()
+        judge = FakeModelClient(responses=_replies(cases, disagree_at=7))
+        tracker = FakeTracker()
+        gold_files = {"INC-4821.json": b"{}"}
+
+        measured = calibrate_fields(
+            judge,
+            directory=tmp_path,
+            samples={
+                "root_cause": FieldSample(cases=cases, rubric=RUBRIC, rubric_hash=RUBRIC_HASH)
+            },
+            documents={case.document: f"The text of {case.document}." for case in cases},
+            judge_model=MODEL,
+            tracker=tracker,
+            experiment="dossier-audit/incident-audit/calibrate",
+            pipeline="incident-audit",
+            gold_files=gold_files,
+        )
+
+        assert measured["root_cause"].agreement == 0.95
+        assert len(tracker.runs) == 1, "one calibration is one MLflow run"
+        run = tracker.runs[0]
+        assert run.experiment == "dossier-audit/incident-audit/calibrate"
+        assert run.tags["dossier.kind"] == "calibrate"
+        assert run.tags["dossier.pipeline"] == "incident-audit"
+        assert run.tags["dossier.gold_hash"] == gold_set_hash(gold_files)
+        assert run.params == {
+            "judge/root_cause/model": MODEL,
+            "judge/root_cause/rubric": RUBRIC_HASH,
+        }
+        assert run.metrics == {"judge/root_cause/agreement": 95.0, "judge/root_cause/cases": 20}
+        assert len(run.traces) == 20
+        assert run.status == "FINISHED"
