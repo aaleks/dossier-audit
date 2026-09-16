@@ -50,3 +50,19 @@ class TestACalibrationRecordsOneRunWithOneTracePerCase:
             "judge/root_cause/rubric": RUBRIC_HASH,
         }
         assert metrics == {"judge/root_cause/agreement": 100.0, "judge/root_cause/cases": 20}
+
+    def test_a_case_trace_carries_the_document_and_both_verdicts(self):
+        """Example 2: the one where the disagreeing case can be found.
+
+        `INC-4830` is the planted case (R7.12): the reviewer marked its
+        candidate unsupported, and here the judge marked it supported. Both
+        verdicts are tags, so the cases the two disagree on are a filter on the
+        experiment rather than a re-run.
+        """
+        from dossier.domain.tracking import case_tags
+
+        assert case_tags(document="INC-4830", verified=False, judged=True) == {
+            "dossier.document": "INC-4830",
+            "dossier.verified": "unsupported",
+            "dossier.judged": "supported",
+        }

@@ -183,6 +183,25 @@ def calibration_record(
     )
 
 
+def case_tags(*, document: str, verified: bool, judged: bool) -> dict[str, str]:
+    """The tags one calibration trace carries: its document and both verdicts (R11.5).
+
+    Both verdicts, as words rather than booleans, so the cases where the judge
+    and the reviewer disagree are a filter on two tags in MLflow's UI rather
+    than a re-run. The file R7.14 writes holds the agreement figure and not the
+    cases behind it, so this is the only place a disagreement is kept.
+    """
+    return {
+        "dossier.document": document,
+        "dossier.verified": _verdict(verified),
+        "dossier.judged": _verdict(judged),
+    }
+
+
+def _verdict(supported: bool) -> str:
+    return "supported" if supported else "unsupported"
+
+
 def capture(environ: Mapping[str, str]) -> str:
     """What a span may carry on this machine: `full` text, or only `hashes` (R10.8).
 
