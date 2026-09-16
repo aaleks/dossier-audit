@@ -230,7 +230,7 @@ the answer comes out.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync.classify`)
 - **Proved by:** `tests/unit/test_R002_6__replaced_attachment_is_detected.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
