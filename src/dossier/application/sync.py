@@ -27,6 +27,7 @@ from dossier.domain.sync import (
     needs_fetch,
     normalise,
     reactivated,
+    source_config_hash,
     tombstones,
     window_start,
 )
@@ -79,10 +80,27 @@ def sync_source(
 ) -> SourceReport:
     """Bring one source up to date, and say what that cost."""
     started_at = now
+
+    # A projection the recorded hashes were not computed under makes every one
+    # of them an answer to a different question, so every item is evaluated
+    # again (R2.3). `None` is a source that has never synced: nothing to
+    # invalidate, and the normal path already fetches everything.
+    configured = source_config_hash(config)
+    recorded_config = ledger.config_hash(config.id)
+    reevaluating = recorded_config is not None and recorded_config != configured
+
     # The source's own overlap where it set one (R2.4, "configurable per source"):
     # a key the loader accepts and sync then ignores is configuration that lies.
-    since = window_start(
-        ledger.watermark(config.id), overlap=configured_overlap(config.watermark_overlap)
+    #
+    # Re-evaluation asks for a full listing instead. An incremental one omits
+    # precisely the unchanged items whose hashes have to be recomputed, which
+    # would leave most of the source recorded under the old projection.
+    since = (
+        None
+        if reevaluating
+        else window_start(
+            ledger.watermark(config.id), overlap=configured_overlap(config.watermark_overlap)
+        )
     )
 
     # Tombstoning may only be computed against a full listing (R1.3, R2.7).
@@ -100,7 +118,10 @@ def sync_source(
         listed.add(ref.key)
         recorded = held.get(ref.key)
 
-        if not needs_fetch(
+        # A version marker answers "has this item changed", which is not the
+        # question a changed projection asks. The source is right and its answer
+        # is beside the point, so re-evaluation fetches regardless (R2.3).
+        if not reevaluating and not needs_fetch(
             recorded_version=recorded.remote_version if recorded else None,
             listed_version=ref.remote_version,
         ):
@@ -174,6 +195,9 @@ def sync_source(
         # R2.8: a partial sync must not be mistaken for a complete one, so the
         # watermark only advances when every item was handled.
         ledger.set_watermark(config.id, started_at)
+        # Recorded for the same reason and at the same moment: a re-evaluation
+        # that failed partway must be retried, not remembered as done (R2.3).
+        ledger.set_config_hash(config.id, configured)
 
     return SourceReport(
         source_id=config.id,

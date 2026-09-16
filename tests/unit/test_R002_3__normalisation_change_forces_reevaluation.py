@@ -23,10 +23,9 @@ from dossier.application.sync import SourceReport, sync_source
 from dossier.domain.ledger import LedgerRow
 from dossier.domain.pipeline import SourceConfig
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
+from dossier.domain.sync import source_config_hash
 from dossier.infrastructure.ledger import Ledger
 from dossier.infrastructure.store import SnapshotStore
-
-pytestmark = pytest.mark.outer_loop
 
 FIRST = datetime(2026, 8, 6, 9, 0, 0, tzinfo=UTC)
 LATER = FIRST + timedelta(days=1)
@@ -45,19 +44,6 @@ ISSUES = {
         "comments": [],
     },
 }
-
-
-def source_config_hash(config: SourceConfig) -> str:
-    """`dossier.domain.sync.source_config_hash`, imported where it is used.
-
-    At module level this import fails while the rule is open, and a failed
-    import is a failed *collection* -- which turns the default suite red for
-    everyone. The `outer_loop` marker deselects tests; it does not stop pytest
-    importing the module they are in.
-    """
-    from dossier.domain.sync import source_config_hash as computed
-
-    return computed(config)
 
 
 def source(fields: list[str] | None, *, overlap: str | None = None) -> SourceConfig:

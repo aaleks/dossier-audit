@@ -38,6 +38,15 @@ CREATE TABLE IF NOT EXISTS watermarks (
     source_id    TEXT PRIMARY KEY,
     last_sync_at TEXT NOT NULL
 );
+
+-- The projection each source's recorded hashes were computed under (R2.3). A
+-- table of its own rather than a column on `watermarks`: `CREATE TABLE IF NOT
+-- EXISTS` gives an existing ledger the new table for free, where a new column
+-- would need a migration for state that is regenerable anyway.
+CREATE TABLE IF NOT EXISTS source_config (
+    source_id   TEXT PRIMARY KEY,
+    config_hash TEXT NOT NULL
+);
 """
 
 
@@ -148,6 +157,28 @@ class Ledger:
         )
         record = cursor.fetchone()
         return _from_text(record["last_sync_at"]) if record else None
+
+    def config_hash(self, source_id: str) -> str | None:
+        """The projection this source's recorded hashes were computed under (R2.3).
+
+        `None` for a source that has never synced, which is not a mismatch:
+        there are no recorded hashes for a changed projection to invalidate.
+        """
+        cursor = self._connection.execute(
+            "SELECT config_hash FROM source_config WHERE source_id = ?", (source_id,)
+        )
+        record = cursor.fetchone()
+        return record["config_hash"] if record else None
+
+    def set_config_hash(self, source_id: str, value: str) -> None:
+        self._connection.execute(
+            """
+            INSERT INTO source_config (source_id, config_hash) VALUES (?, ?)
+            ON CONFLICT (source_id) DO UPDATE SET config_hash = excluded.config_hash
+            """,
+            (source_id, value),
+        )
+        self._connection.commit()
 
     def set_watermark(self, source_id: str, when: datetime) -> None:
         self._connection.execute(
