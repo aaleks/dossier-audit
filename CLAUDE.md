@@ -66,9 +66,8 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. One rule is outstanding: R11.5, which says a
-`dossier calibrate` records one MLflow run with a trace per sample case, is
-NOT MET and waiting for `/accept`. 122 of the 131 rules are MET, 8 superseded.
+Currently open: **none**, and nothing is outstanding: all twelve specs are
+implemented, and 123 of the 131 rules are MET with the other 8 superseded.
 
 The judge is gated end to end, which is what `/verify` set out after when it
 found `is_stale` with no caller anywhere in `src/`. A judged field's agreement
