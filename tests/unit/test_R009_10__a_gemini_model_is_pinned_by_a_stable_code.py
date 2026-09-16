@@ -35,5 +35,5 @@ class TestAGeminiModelIsPinnedByAStableCode:
             check_pinned("gemini:gemini-3-flash-preview")
 
     def test_an_openai_snapshot_is_not_this_rules_to_judge(self):
-        """Counter-example (row 4): the one where R9.9 pins it, not this rule."""
+        """Counter-example (row 4): the one where R9.14 pins it, not this rule."""
         check_pinned("openai:gpt-4o-2024-08-06")

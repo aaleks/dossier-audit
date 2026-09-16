@@ -27,4 +27,4 @@ class NotWired:
         )
 
 
-anthropic = NotWired("https://api.anthropic.com")
+anthropic = NotWired("https://api.anthropic.com/v1")
