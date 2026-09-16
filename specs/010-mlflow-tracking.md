@@ -178,6 +178,7 @@ the failure this prevents.
 | 2 | the same for `dossier sync incident-audit` | exit 2; 0 fetches, ledger unchanged |
 | 3 | tracking enabled, the `tracking` extra not installed | exit 2 naming `dossier[tracking]` |
 | 4 | *counter-example* — `dossier run incident-audit --plan` with the server down | proceeds; `--plan` records nothing, so it needs no server (R11.1) |
+| 5 | the same for `dossier calibrate incident-audit --gold gold/incidents` | exit 2 naming the URI; 0 judge calls, no calibration file. Twenty model calls nobody can inspect afterwards is exactly the failure this rule prevents (R11.5) |
 
 ### R10.6 — a record lost after the startup check never changes a command's outcome
 
