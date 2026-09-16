@@ -23,7 +23,7 @@ from dossier.application.convert import (
     HeldDocument,
     convert_source,
 )
-from dossier.application.eval import load_gold, score_run
+from dossier.application.eval import load_gold, record_eval, score_run
 from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.plan import (
     Plan,
@@ -97,9 +97,9 @@ def sync(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines
         config = load_pipeline(
             _pipeline_path(workspace, pipeline), providers=available_providers()
         )
-        declared = {source.id: source for source in load_sources(
-                workspace / "sources.yaml", connectors=declared_keys()
-            )
+        declared = {
+            source.id: source
+            for source in load_sources(workspace / "sources.yaml", connectors=declared_keys())
         }
     except ConfigError as error:
         typer.echo(str(error), err=True)
@@ -293,7 +293,7 @@ class _BestEffortTracker:
 
 
 def _tracking_for(
-    workspace: Path, pipeline: str, *, kind: str
+    workspace: Path, pipeline: str, *, kind: str, gold: str | None = None
 ) -> tuple[_BestEffortTracker | None, str | None]:
     """The tracker and experiment a `dossier <kind>` records to, or `(None, None)`.
 
@@ -301,13 +301,18 @@ def _tracking_for(
     extra missing, or a server nobody can reach is refused now -- exit 2, naming
     what to fix -- rather than found after the work nobody can now inspect
     (R10.1, R10.2, R10.5).
+
+    `gold` is the gold directory, and only `eval` has one. It defaults to `None`
+    because sync, convert and run read no gold set: a template using `{gold}` is
+    refused for them, naming the variable to fix (R10.2). Passing `None` from
+    `eval` as well would refuse the one command that can actually fill it.
     """
     environ = environment(workspace)
     try:
         tracking = tracking_settings(environ)
         if tracking is None:
             return None, None
-        experiment = experiment_name(kind=kind, pipeline=pipeline, gold=None, environ=environ)
+        experiment = experiment_name(kind=kind, pipeline=pipeline, gold=gold, environ=environ)
         return _BestEffortTracker(build_tracker(tracking)), experiment
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)
@@ -372,9 +377,9 @@ def run(
     try:
         path = _pipeline_path(workspace, pipeline)
         config = load_pipeline(path, providers=available_providers())
-        declared = {source.id: source for source in load_sources(
-                workspace / "sources.yaml", connectors=declared_keys()
-            )
+        declared = {
+            source.id: source
+            for source in load_sources(workspace / "sources.yaml", connectors=declared_keys())
         }
     except ConfigError as error:
         typer.echo(str(error), err=True)
@@ -449,9 +454,9 @@ def convert(pipeline: str = typer.Argument(..., help="Pipeline name under pipeli
         config = load_pipeline(
             _pipeline_path(workspace, pipeline), providers=available_providers()
         )
-        declared = {source.id: source for source in load_sources(
-                workspace / "sources.yaml", connectors=declared_keys()
-            )
+        declared = {
+            source.id: source
+            for source in load_sources(workspace / "sources.yaml", connectors=declared_keys())
         }
     except ConfigError as error:
         typer.echo(str(error), err=True)
@@ -560,9 +565,9 @@ def _execute(workspace: Path, pipeline: str) -> None:
     try:
         path = _pipeline_path(workspace, pipeline)
         config = load_pipeline(path, providers=available_providers())
-        declared = {source.id: source for source in load_sources(
-                workspace / "sources.yaml", connectors=declared_keys()
-            )
+        declared = {
+            source.id: source
+            for source in load_sources(workspace / "sources.yaml", connectors=declared_keys())
         }
     except ConfigError as error:
         typer.echo(str(error), err=True)
@@ -743,6 +748,12 @@ def eval_(
         _compare_runs(workspace, pipeline, step=step.id, kinds=kinds, gold=gold, runs=compare)
         return
 
+    # After the compare branch, which records nothing: a comparison reads two
+    # runs that were each recorded when they ran (R7.8) and is not itself an
+    # eval. Before any scoring work, so a server nobody can reach is refused now
+    # rather than after a reproduction nobody can then inspect (R10.5).
+    tracker, experiment = _tracking_for(workspace, pipeline, kind="eval", gold=gold)
+
     _, run_dir = latest_manifest(workspace / "runs", pipeline)
     if run_dir is None:
         typer.echo(
@@ -767,6 +778,27 @@ def eval_(
     for total in totals:
         marker = "   <- weakest" if total.field in lowest else ""
         typer.echo(f"  {total.field:<18} {total.percentage:5.1f}%{marker}")
+
+    if tracker is not None:
+        # The figures the lines above printed, recorded once rather than computed
+        # a second way (R11.3). The gold files are re-read as bytes instead of
+        # being serialised back from what `load_gold` parsed: the hash has to
+        # move when any answer moves, and a round trip through the model would
+        # hide a change that only altered how a file was written.
+        record_eval(
+            tracker,
+            experiment=experiment or "",
+            pipeline=pipeline,
+            run_id=Path(run_dir).name,
+            model=config.model,
+            gold=gold,
+            gold_files={
+                path.name: path.read_bytes()
+                for path in sorted((workspace / gold).glob("*.json"))
+            },
+            totals=totals,
+        )
+        typer.echo(f"recorded to MLflow: {experiment}")
 
 
 def _compare_runs(
