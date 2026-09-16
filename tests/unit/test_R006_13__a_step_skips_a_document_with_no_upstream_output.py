@@ -17,7 +17,6 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-import pytest
 from tests.fakes import FakeModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
@@ -26,8 +25,6 @@ from dossier.application.run import RunReport, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
-
-pytestmark = pytest.mark.outer_loop
 
 RUN_ID = "20260806T142203Z-4f1a"
 STARTED_AT = datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC)

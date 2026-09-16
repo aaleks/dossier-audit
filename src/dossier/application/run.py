@@ -208,6 +208,20 @@ def execute(
             output = schemas.get(step.id)
             results: list[DocumentResult] = []
             for key in over:
+                # A document an earlier step produced nothing for is skipped,
+                # not run with an empty input: that would ask a model about a
+                # document nobody read and cache the answer under a key whose
+                # input hash is the hash of `""` -- invisible in the provenance
+                # record, and served again next run (R6.13, R5.5). It already
+                # failed once, at the step that could not produce its output.
+                if declared[step.id].mode != "aggregate" and _missing_input(
+                    declared=declared[step.id],
+                    resolved=step,
+                    document=key,
+                    produced=produced,
+                ):
+                    continue
+
                 # One trace per (step, document): the unit of a cache key, so one
                 # trace is one key computed or served (spec 011). Opened before
                 # the work, so what happens inside it is recorded inside it.
@@ -431,6 +445,30 @@ def _from_cache(
         # re-serialising under *this* document's name would hand the next step
         # something the cache never held, and change its key (R5.5, R5.7 row 4).
         text=payload.decode(),
+    )
+
+
+def _missing_input(
+    *,
+    declared: StepConfig,
+    resolved: ResolvedStep,
+    document: str,
+    produced: Mapping[str, Mapping[str, str]],
+) -> bool:
+    """Whether this step reads something no earlier step produced for `document` (R6.13).
+
+    Only what earlier *steps* produced. `documents` and `reference` are the run's
+    own inputs, pinned by resolution, and a document missing from those never
+    reaches this loop at all.
+
+    Never asked of an aggregate step: it reads a set, and a member absent from
+    the set is not a missing input -- skipping it would throw away the documents
+    that did work (R6.13 row 4).
+    """
+    return any(
+        document not in produced.get(target, {})
+        for target in _targets(declared, resolved)
+        if target not in SOURCE_KEYWORDS
     )
 
 
