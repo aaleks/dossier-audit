@@ -136,14 +136,14 @@ def record_eval(
         params[f"judge/{field}/agreement"] = str(calibration.agreement)
         params[f"judge/{field}/model"] = calibration.judge_model
     tracker.log_params(params)
-    # A field whose judge may not be quoted records no accuracy at all. A number
-    # here would read as a measurement, which is the thing R7.5 refuses.
-    metrics = {
-        f"accuracy/{total.field}": total.percentage
-        for total in totals
-        if total.field not in ineligible
-    }
-    summed = overall(totals)
+    # A field whose judge may not be quoted records no accuracy at all -- not its
+    # own metric, and not a share of the overall. One list feeds both, so the
+    # headline always covers exactly the verdicts the breakdown does. Summing
+    # every total here instead would hand back in aggregate the number R7.5 just
+    # withheld, in the figure most people read first (R11.3 row 4).
+    reportable = [total for total in totals if total.field not in ineligible]
+    metrics = {f"accuracy/{total.field}": total.percentage for total in reportable}
+    summed = overall(reportable)
     if summed is not None:
         metrics["accuracy/overall"] = summed.percentage
     tracker.log_metrics(metrics)
