@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
 **Status:** Partially implemented
-**Rules:** R7.1 – R7.15
+**Rules:** R7.1 – R7.16
 
 ## Purpose
 
@@ -379,12 +379,19 @@ is made of (R3.7 row 1).
 | 3 | a threshold written `95` rather than `0.95` | load-time error; agreement is a proportion, and 95 would make every judge ineligible forever while reading like strict configuration |
 | 4 | *counter-example* — a threshold changed between two evals | no stage key moves; the run is re-scored and nothing is re-extracted (R5.3 row 4) |
 
-### R7.14 — `dossier calibrate` measures a judge against the gold set and writes the calibration beside it
+### R7.14 — `dossier calibrate` measures a judge against the gold set's sample and writes the calibration beside it
 
 Producing the figure is R7.11. This rule is where it is kept, and why it is kept
 apart from the bar it is judged against: a calibration is measured, a threshold is
 agreed by a person (R7.11's was agreed by `a.aleks`), and a re-measure that could
 rewrite the bar would be a judge grading its own paper.
+
+It is measured against the **sample**, not against the gold answers, and the
+difference is not a detail. A gold file says what the right value *is*. Measuring
+a judge needs candidate answers a human has marked supported or unsupported,
+including wrong ones -- R7.12's planted case *is* a wrong candidate, and a gold
+file has nowhere to put one. The sample is `gold/<name>/samples/<field>.jsonl`,
+and R7.16 says what a record in it holds.
 
 `gold/<name>/calibrations/<field>.json` holds what R7.11 measured -- the judge
 model, the rubric hash, the agreement and the sample size -- one file per judged
@@ -401,10 +408,11 @@ table says what each command records, and `calibrate` is not in it yet.
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `dossier calibrate incident-audit --gold gold/incidents`, 20 human-scored `root_cause` cases | `gold/incidents/calibrations/root_cause.json` holding the judge model, the rubric hash, the agreement and the sample size |
+| 1 | `dossier calibrate incident-audit --gold gold/incidents`, whose `samples/root_cause.jsonl` holds 20 human-scored cases | `gold/incidents/calibrations/root_cause.json` holding the judge model, the rubric hash, the agreement and the sample size |
 | 2 | the judge model or the rubric changed since the last run | the new measurement replaces the old; the file records what is true now, and R7.6 is what notices the old one was stale |
-| 3 | fewer than 20 human-scored cases | refused, naming the count; not measurable at this N, never rounded into a percentage (R7.11 row 3) |
-| 4 | *counter-example* — `gold/incidents/judge.yaml` | never written and never read by the measurement; the bar is agreed by a person, and a calibration run may not move it |
+| 3 | a sample of fewer than 20 cases | refused, naming the count; not measurable at this N, never rounded into a percentage (R7.11 row 3) |
+| 4 | a judged field with no `samples/<field>.jsonl` at all | refused, naming the field and the path it looked for; a judge cannot be measured against a sample nobody has written |
+| 5 | *counter-example* — `gold/incidents/judge.yaml` | never written and never read by the measurement; the bar is agreed by a person, and a calibration run may not move it |
 
 ### R7.15 — `dossier eval` withholds a judged field whose calibration is missing, short or stale
 
@@ -429,3 +437,30 @@ and wants different work.
 | 3 | `root_cause` with no calibration file at all | no percentage; a line saying it was never measured, which is not the same as measured and found wanting |
 | 4 | `root_cause` calibrated at 0.95 against a declared 0.95 | reported; the bound is inclusive (R7.5 row 3) |
 | 5 | *counter-example* — `severity`, scored by exact match | reported; no judge, no threshold, and no calibration that could be stale (R7.1) |
+
+### R7.16 — a calibration sample records candidate answers a human marked supported or unsupported
+
+The gold set and the sample answer different questions, and one file cannot do
+both. A gold file says what the right value *is*, and is what R7.3 scores a run
+against. A sample record says whether a *candidate* answer is supported by its
+document -- which is the question a judge is asked, and the only question its
+agreement can be measured on. So a sample must be able to hold an answer that is
+wrong: R7.12's planted case is exactly that, and a gold file has nowhere to put
+one.
+
+One record per line at `gold/<name>/samples/<field>.jsonl`: the document, the
+candidate answer, the verdict, and who verified it and when (R7.7's shape). JSONL
+rather than a file per case because a sample is read whole and in order, and a
+reviewer grows it by appending.
+
+- **Kind:** deterministic
+- **Layer:** config (`dossier.config.load`)
+- **Proved by:** `tests/unit/test_R007_16__a_calibration_sample_holds_verified_verdicts.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a record holding `document`, `answer`, `supported` and `verified_by` | accepted; that is the whole shape a measurement needs |
+| 2 | a record with no `verified_by` | refused, naming the line; an unattributed verdict is an unaudited definition of correct (R7.7) |
+| 3 | a record whose `supported` is `"false"` rather than `false` | refused, naming the line; every non-empty string is truthy, so a sample read that way would score the judge against nonsense and report a percentage for it |
+| 4 | *counter-example* — a gold file's `root_cause` value | not a sample record; it says what the answer is, never whether a candidate is supported |
