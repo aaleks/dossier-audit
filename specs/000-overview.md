@@ -235,14 +235,14 @@ Machine-local state is derived, large and regenerable; run outputs are read by
 people. The two are kept apart so that deleting the first is always safe.
 
 - **Kind:** deterministic
-- **Layer:** config (`dossier.config.workspace`)
+- **Layer:** domain (`dossier.domain.store`), application (`dossier.application.manifest`)
 - **Proved by:** `tests/unit/test_R000_8__workspace_layout_separates_state_from_output.py`
 - **Status:** NOT MET
 
 | # | Given | Then |
 |---|-------|------|
 | 1 | a completed `dossier sync` in a workspace | snapshots under `.dossier/snapshots/`, the ledger at `.dossier/ledger.db`, and nothing written outside `.dossier/` |
-| 2 | a completed `dossier run` | the manifest and artifacts under `runs/<run_id>/`, which is not hidden and not gitignored |
+| 2 | a completed `dossier run` | the manifest and artifacts under `runs/<run_id>/`, which is not hidden and sits outside `.dossier/`; whether a workspace commits its runs is that workspace's own choice |
 | 3 | `.dossier/` deleted, then the same pipeline re-run after a re-sync | byte-identical outputs; only the time taken differs (R5.9) |
 | 4 | *counter-example* — `sources.yaml`, `pipelines/`, `gold/` | configuration and verified answers, committed to git; they are inputs, and deleting them is not recoverable |
 
