@@ -44,9 +44,7 @@ class StubConnector:
     def fetch(self, key: str) -> RawItem:
         self.fetched.append(key)
         payload, media_type, version = self._items[key]
-        return RawItem(
-            key=key, payload=payload, media_type=media_type, remote_version=version
-        )
+        return RawItem(key=key, payload=payload, media_type=media_type, remote_version=version)
 
     def attachments(self, key: str) -> Iterator[AttachmentRef]:
         return iter(())
@@ -74,9 +72,7 @@ class TestTheLedgerRemembersTheMediaType:
 
     def test_a_fetched_item_records_what_its_connector_said(self, tmp_path: Path):
         """Example 1: the one where a folder source reports `text/markdown`."""
-        connector = StubConnector(
-            {"INC-4821": (b"# INC-4821\n", "text/markdown", None)}
-        )
+        connector = StubConnector({"INC-4821": (b"# INC-4821\n", "text/markdown", None)})
 
         sync(tmp_path, connector)
 
@@ -89,9 +85,7 @@ class TestTheLedgerRemembersTheMediaType:
         this cleared it, every incremental sync would quietly strip the one fact
         conversion depends on.
         """
-        connector = StubConnector(
-            {"OPS-114": (b"%PDF-1.4\n", "application/pdf", "v37")}
-        )
+        connector = StubConnector({"OPS-114": (b"%PDF-1.4\n", "application/pdf", "v37")})
         sync(tmp_path, connector)
         connector.fetched.clear()
 

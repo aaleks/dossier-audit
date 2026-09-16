@@ -77,9 +77,7 @@ class RecordingStore:
 
 def convert_key(version: str, converter_id: str = "pdf-markdown") -> str:
     return cache_key(
-        ConvertInputs(
-            snapshot=SNAPSHOT, converter_id=converter_id, converter_version=version
-        )
+        ConvertInputs(snapshot=SNAPSHOT, converter_id=converter_id, converter_version=version)
     )
 
 
@@ -99,8 +97,9 @@ class TestRaisingAConverterVersionInvalidatesItsConversions:
         store = SnapshotStore(tmp_path)
         cache = ArtifactCache(tmp_path, namespace="convert")
         documents = {
-            key: HeldDocument(snapshot=store.put(f"%PDF {key}\n".encode()),
-                              media_type="application/pdf")
+            key: HeldDocument(
+                snapshot=store.put(f"%PDF {key}\n".encode()), media_type="application/pdf"
+            )
             for key in ("INC-4821", "INC-4822", "OPS-114")
         }
 

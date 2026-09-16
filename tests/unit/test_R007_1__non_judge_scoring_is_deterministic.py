@@ -40,10 +40,13 @@ class TestNonJudgeScoring:
 
     def test_an_amount_matching_gold_is_correct(self):
         """Example 1: the one where the two are already identical."""
-        assert scored(
-            record("loss_amount", 48200.00, "CHF"),
-            GoldField(value=48200.00, currency="CHF"),
-        ) is Verdict.CORRECT
+        assert (
+            scored(
+                record("loss_amount", 48200.00, "CHF"),
+                GoldField(value=48200.00, currency="CHF"),
+            )
+            is Verdict.CORRECT
+        )
 
     def test_a_formatted_amount_is_normalised_before_comparison(self):
         """Example 2: the one written the Swiss way.
@@ -52,18 +55,24 @@ class TestNonJudgeScoring:
         page. Comparing the strings would mark it wrong; comparing the amounts
         marks it right, which is the only defensible answer.
         """
-        assert scored(
-            record("loss_amount", "48'200.00 CHF", "CHF"),
-            GoldField(value=48200.00, currency="CHF"),
-        ) is Verdict.CORRECT
+        assert (
+            scored(
+                record("loss_amount", "48'200.00 CHF", "CHF"),
+                GoldField(value=48200.00, currency="CHF"),
+            )
+            is Verdict.CORRECT
+        )
 
     def test_a_date_in_another_format_is_normalised(self):
         """Example 3: the one where `28.07.2026` is `2026-07-28`."""
-        assert scored(
-            record("resolution_date", "28.07.2026"),
-            GoldField(value="2026-07-28"),
-            kind=FieldKind.DATE,
-        ) is Verdict.CORRECT
+        assert (
+            scored(
+                record("resolution_date", "28.07.2026"),
+                GoldField(value="2026-07-28"),
+                kind=FieldKind.DATE,
+            )
+            is Verdict.CORRECT
+        )
 
     def test_a_free_text_field_is_not_scored_here(self):
         """Counter-example (row 4): the one that belongs to a judge.
@@ -99,9 +108,12 @@ class TestNonJudgeScoring:
         separator, a Swiss one with the currency in front, and one with stray
         whitespace. None of them is a different answer.
         """
-        assert scored(
-            record("loss_amount", produced, "CHF"), GoldField(value=gold, currency="CHF")
-        ) is Verdict.CORRECT
+        assert (
+            scored(
+                record("loss_amount", produced, "CHF"), GoldField(value=gold, currency="CHF")
+            )
+            is Verdict.CORRECT
+        )
 
     def test_a_different_amount_is_incorrect(self):
         """The one that stops normalisation swallowing everything.
@@ -109,9 +121,13 @@ class TestNonJudgeScoring:
         A scorer generous enough to make every row above pass could be generous
         enough to pass this too, and then the number it reports means nothing.
         """
-        assert scored(
-            record("loss_amount", 48250.00, "CHF"), GoldField(value=48200.00, currency="CHF")
-        ) is Verdict.INCORRECT
+        assert (
+            scored(
+                record("loss_amount", 48250.00, "CHF"),
+                GoldField(value=48200.00, currency="CHF"),
+            )
+            is Verdict.INCORRECT
+        )
 
     def test_a_different_currency_is_incorrect(self):
         """The one where the number matches and the money does not.
@@ -119,9 +135,13 @@ class TestNonJudgeScoring:
         CHF 48'200 and EUR 48'200 are different losses. Comparing only the
         magnitude would report a currency error as a correct answer.
         """
-        assert scored(
-            record("loss_amount", 48200.00, "EUR"), GoldField(value=48200.00, currency="CHF")
-        ) is Verdict.INCORRECT
+        assert (
+            scored(
+                record("loss_amount", 48200.00, "EUR"),
+                GoldField(value=48200.00, currency="CHF"),
+            )
+            is Verdict.INCORRECT
+        )
 
     def test_an_enum_is_compared_after_case_folding(self):
         """The one where `Major` and `major` are the same severity.
@@ -129,9 +149,10 @@ class TestNonJudgeScoring:
         An enum's values are a closed set agreed in the schema; which case the
         model happened to echo them back in is not information.
         """
-        assert scored(
-            record("severity", "Major"), GoldField(value="major"), kind=FieldKind.ENUM
-        ) is Verdict.CORRECT
+        assert (
+            scored(record("severity", "Major"), GoldField(value="major"), kind=FieldKind.ENUM)
+            is Verdict.CORRECT
+        )
 
     def test_scoring_the_same_pair_twice_gives_the_same_verdict(self):
         """The rule's own sentence, asserted directly.
@@ -180,11 +201,14 @@ class TestAValueThatIsNotWellFormedIsNotAMismatch:
         Refusing everything with slashes would be safe and useless. The rule is
         ambiguity, not format.
         """
-        assert scored(
-            record("resolution_date", "28.07.2026"),
-            GoldField(value="2026-07-28"),
-            kind=FieldKind.DATE,
-        ) is Verdict.CORRECT
+        assert (
+            scored(
+                record("resolution_date", "28.07.2026"),
+                GoldField(value="2026-07-28"),
+                kind=FieldKind.DATE,
+            )
+            is Verdict.CORRECT
+        )
 
     def test_an_unreadable_value_is_reported_as_unreadable(self):
         """The one where a mismatch and a malformed value need different work.
@@ -240,10 +264,13 @@ class TestAmountSeparatorsAreReadTheWayTheyAreWritten:
 
     def test_a_comma_grouping_threes_is_a_thousands_separator(self):
         """The one where the comma is unambiguous."""
-        assert scored(
-            record("loss_amount", "48,200.00", "CHF"),
-            GoldField(value=48200.00, currency="CHF"),
-        ) is Verdict.CORRECT
+        assert (
+            scored(
+                record("loss_amount", "48,200.00", "CHF"),
+                GoldField(value=48200.00, currency="CHF"),
+            )
+            is Verdict.CORRECT
+        )
 
     def test_a_comma_not_grouping_threes_is_refused(self):
         """The one that was a hundredfold error.
@@ -269,10 +296,13 @@ class TestAmountSeparatorsAreReadTheWayTheyAreWritten:
         from a Swiss keyboard, and it is the form `specs/_fixtures.md` uses for
         the worked example. It was not being stripped.
         """
-        assert scored(
-            record("loss_amount", "48\u2019200.00", "CHF"),
-            GoldField(value=48200.00, currency="CHF"),
-        ) is Verdict.CORRECT
+        assert (
+            scored(
+                record("loss_amount", "48\u2019200.00", "CHF"),
+                GoldField(value=48200.00, currency="CHF"),
+            )
+            is Verdict.CORRECT
+        )
 
     def test_a_non_breaking_space_is_a_thousands_separator(self):
         """The other half of the same corruption.
@@ -280,7 +310,10 @@ class TestAmountSeparatorsAreReadTheWayTheyAreWritten:
         A non-breaking space is the SI thousands separator and what a PDF
         extractor commonly emits.
         """
-        assert scored(
-            record("loss_amount", "48\u00a0200.00", "CHF"),
-            GoldField(value=48200.00, currency="CHF"),
-        ) is Verdict.CORRECT
+        assert (
+            scored(
+                record("loss_amount", "48\u00a0200.00", "CHF"),
+                GoldField(value=48200.00, currency="CHF"),
+            )
+            is Verdict.CORRECT
+        )

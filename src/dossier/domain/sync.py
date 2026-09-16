@@ -301,9 +301,7 @@ def one_document_per_key(held: Mapping[str, Sequence[str]]) -> None:
         for key in held[source]:
             sources_by_key.setdefault(key, []).append(source)
 
-    collisions = {
-        key: sources for key, sources in sources_by_key.items() if len(sources) > 1
-    }
+    collisions = {key: sources for key, sources in sources_by_key.items() if len(sources) > 1}
     if not collisions:
         return
 

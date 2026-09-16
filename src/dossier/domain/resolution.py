@@ -226,15 +226,11 @@ def resolve(
         # Sorted by the pair each claims, so two machines with the same
         # converters installed in a different order write the same manifest
         # (R4.8, R5.6).
-        converters=sorted(
-            converters or [], key=lambda c: (c.media_type, c.kind, c.id)
-        ),
+        converters=sorted(converters or [], key=lambda c: (c.media_type, c.kind, c.id)),
     )
 
 
-def validate_input_arity(
-    steps: Sequence[StepConfig], resolved: Sequence[ResolvedStep]
-) -> None:
+def validate_input_arity(steps: Sequence[StepConfig], resolved: Sequence[ResolvedStep]) -> None:
     """Every declared input must stand for exactly one resolved id (R4.1).
 
     `previous(2)` expands to two ids, which is correct and is what R4.2 says.

@@ -19,9 +19,7 @@ OTHER = "anthropic:claude-opus-4-1-20250805"
 
 PROMPT = ArtifactInput(role="prompt", path="prompts/02_verify.md", hash="0e52dd18" * 8)
 SCHEMA = ArtifactInput(role="schema", path="schemas/incident.json", hash="b81f0c6d" * 8)
-CONVERTED = ArtifactInput(
-    role="documents", path="converted/INC-4821.md", hash="5d3ba0f7" * 8
-)
+CONVERTED = ArtifactInput(role="documents", path="converted/INC-4821.md", hash="5d3ba0f7" * 8)
 
 
 def stage(step: str, model: str) -> StageInputs:

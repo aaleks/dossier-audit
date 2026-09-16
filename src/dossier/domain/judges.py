@@ -91,9 +91,7 @@ def is_eligible(calibration: Calibration | None, *, threshold: float) -> bool:
     return calibration.agreement >= threshold
 
 
-def is_stale(
-    calibration: Calibration, *, judge_model: str, rubric_hash: str
-) -> bool:
+def is_stale(calibration: Calibration, *, judge_model: str, rubric_hash: str) -> bool:
     """Whether a calibration was measured against something else (R7.6).
 
     Either change alone is enough. The rule says "the judge model *or* its
@@ -109,6 +107,4 @@ def is_stale(
     a measurement made on less; it invites a re-measure, and treating growth as
     staleness would punish the one behaviour the gold set wants to encourage.
     """
-    return (
-        calibration.judge_model != judge_model or calibration.rubric_hash != rubric_hash
-    )
+    return calibration.judge_model != judge_model or calibration.rubric_hash != rubric_hash

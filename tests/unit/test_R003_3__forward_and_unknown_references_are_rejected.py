@@ -44,9 +44,7 @@ class TestStepReferences:
         asked at resolution by R4.3. `previous(2)` on the second step is wrong,
         but it is not wrong *here* -- this layer has no answer to give.
         """
-        path = write_pipeline(
-            tmp_path, steps=["extract", "verify"], inputs={"verify": sugar}
-        )
+        path = write_pipeline(tmp_path, steps=["extract", "verify"], inputs={"verify": sugar})
 
         assert load_pipeline(path, providers=PROVIDERS).steps[1].inputs == [sugar]
 

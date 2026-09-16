@@ -108,9 +108,7 @@ class RunReport:
         and "extract failed on INC-5044" is (R6.9, R8.6).
         """
         return [
-            (report.step, result.document)
-            for report in self.steps
-            for result in report.failed
+            (report.step, result.document) for report in self.steps for result in report.failed
         ]
 
     @property
@@ -292,9 +290,7 @@ def _as_text(result: DocumentResult) -> str:
     """
     if result.text is not None:
         return result.text
-    return StageOutput(
-        document=result.document, fields=list(result.records)
-    ).model_dump_json()
+    return StageOutput(document=result.document, fields=list(result.records)).model_dump_json()
 
 
 def _run_one(
@@ -335,9 +331,7 @@ def _run_one(
         output_schema=(
             None
             if step.schema_hash is None
-            else ArtifactInput(
-                role="schema", path=declared.output or "", hash=step.schema_hash
-            )
+            else ArtifactInput(role="schema", path=declared.output or "", hash=step.schema_hash)
         ),
         generated_schema=step.generated_schema_hash,
         model=model.model_id,

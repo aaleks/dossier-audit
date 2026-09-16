@@ -109,18 +109,14 @@ class TestARunSaysWhatItCouldNotRead:
         import dossier.cli.main as cli
 
         _break_one_document(synced, monkeypatch, "INC-4822.md")
-        model = FakeModelClient(
-            responses=[_answer("INC-4821.md"), _answer("audit-note.md")]
-        )
+        model = FakeModelClient(responses=[_answer("INC-4821.md"), _answer("audit-note.md")])
         monkeypatch.setattr(cli, "build_model_client", lambda model_id: model, raising=False)
 
         _cli(synced, monkeypatch, "run", PIPELINE)
 
         assert model.call_count == 2, "the two readable documents were audited"
 
-    def test_the_manifest_pins_only_what_was_actually_read(
-        self, synced: Path, monkeypatch
-    ):
+    def test_the_manifest_pins_only_what_was_actually_read(self, synced: Path, monkeypatch):
         """The one where the run's own record agrees with what it reported.
 
         A manifest pinning a document the run never converted would claim

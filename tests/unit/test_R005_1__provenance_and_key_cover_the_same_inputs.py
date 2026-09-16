@@ -24,9 +24,7 @@ from dossier.domain.keys import (
     provenance,
 )
 
-CONVERTED = ArtifactInput(
-    role="documents", path="converted/INC-4821.md", hash="5d3ba0f7" * 8
-)
+CONVERTED = ArtifactInput(role="documents", path="converted/INC-4821.md", hash="5d3ba0f7" * 8)
 EXTRACTED = ArtifactInput(role="extract", path="extract/INC-4821.json", hash="77c1b40a" * 8)
 PROMPT = ArtifactInput(role="prompt", path="prompts/02_verify.md", hash="0e52dd18" * 8)
 SCHEMA = ArtifactInput(role="schema", path="schemas/incident.json", hash="b81f0c6d" * 8)

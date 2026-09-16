@@ -156,8 +156,7 @@ class TestAnInsertedStepShowsUp:
         path = workspace / "pipelines" / PIPELINE / "pipeline.yaml"
         before = content_hash(path.read_bytes())
         path.write_text(
-            "# Reviewed 2026-09-08; no behaviour change.\n"
-            + path.read_text(encoding="utf-8"),
+            "# Reviewed 2026-09-08; no behaviour change.\n" + path.read_text(encoding="utf-8"),
             encoding="utf-8",
         )
 

@@ -153,19 +153,30 @@ class TestNoConverterReadsTheWorld:
 
     # Attribute accesses that make an artifact depend on when or where it ran.
     FORBIDDEN_CALLS = {
-        ("datetime", "now"), ("datetime", "today"), ("datetime", "utcnow"),
-        ("time", "time"), ("time", "monotonic"),
-        ("os", "getcwd"), ("os", "urandom"),
-        ("random", "random"), ("random", "choice"), ("random", "shuffle"),
-        ("uuid", "uuid1"), ("uuid", "uuid4"),
-        ("locale", "getlocale"), ("locale", "setlocale"),
+        ("datetime", "now"),
+        ("datetime", "today"),
+        ("datetime", "utcnow"),
+        ("time", "time"),
+        ("time", "monotonic"),
+        ("os", "getcwd"),
+        ("os", "urandom"),
+        ("random", "random"),
+        ("random", "choice"),
+        ("random", "shuffle"),
+        ("uuid", "uuid1"),
+        ("uuid", "uuid4"),
+        ("locale", "getlocale"),
+        ("locale", "setlocale"),
     }
     FORBIDDEN_MODULES = {"random", "uuid", "locale", "secrets", "tempfile"}
 
     def converter_modules(self) -> list[Path]:
         package = (
             Path(__file__).resolve().parents[2]
-            / "src" / "dossier" / "infrastructure" / "converters"
+            / "src"
+            / "dossier"
+            / "infrastructure"
+            / "converters"
         )
         return sorted(path for path in package.rglob("*.py"))
 
@@ -183,17 +194,20 @@ class TestNoConverterReadsTheWorld:
                 if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
                     continue
                 owner = node.func.value
-                if isinstance(owner, ast.Name) and (
-                    owner.id,
-                    node.func.attr,
-                ) in self.FORBIDDEN_CALLS:
+                if (
+                    isinstance(owner, ast.Name)
+                    and (
+                        owner.id,
+                        node.func.attr,
+                    )
+                    in self.FORBIDDEN_CALLS
+                ):
                     offenders.append(
                         f"{path.name}:{node.lineno}: {owner.id}.{node.func.attr}()"
                     )
 
         assert not offenders, "\n".join(
-            offenders
-            + ["  A converted artifact is a pure function of its input (R8.1)."]
+            offenders + ["  A converted artifact is a pure function of its input (R8.1)."]
         )
 
     def test_no_converter_imports_a_non_deterministic_module(self):

@@ -40,9 +40,9 @@ class TestTombstones:
         `first_seen` and the original transition are recorded once. An item that
         left scope two syncs ago has not left it again.
         """
-        assert tombstones(
-            held={"INC-4822"}, listed=set(), already_tombstoned={"INC-4821"}
-        ) == ("INC-4822",)
+        assert tombstones(held={"INC-4822"}, listed=set(), already_tombstoned={"INC-4821"}) == (
+            "INC-4822",
+        )
 
     def test_an_item_returning_to_scope_is_not_tombstoned(self):
         """Example 3: the one where `INC-4821` comes back.

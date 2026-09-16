@@ -125,11 +125,13 @@ class TestPlaceholdersMatchDeclaredInputs:
         two mismatches have different fixes, so the message names which it is.
         """
         with pytest.raises(ValueError) as declared_unused:
-            check_placeholders(step="verify", declared=["documents", "extract"],
-                               prompt="{{documents}}")
+            check_placeholders(
+                step="verify", declared=["documents", "extract"], prompt="{{documents}}"
+            )
         with pytest.raises(ValueError) as never_declared:
-            check_placeholders(step="verify", declared=["documents"],
-                               prompt="{{documents}}{{reference}}")
+            check_placeholders(
+                step="verify", declared=["documents"], prompt="{{documents}}{{reference}}"
+            )
 
         assert "declared" in str(declared_unused.value).lower()
         assert str(declared_unused.value) != str(never_declared.value)
