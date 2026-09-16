@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.12
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.15
 
 ## Purpose
 
@@ -87,6 +87,19 @@ Before a judge is used for reporting, the same sample is scored by a human and b
 the judge, and agreement is measured. A judge below the configured agreement
 threshold may not be used as a reported metric. Agreement is re-measured whenever
 the judge model or its rubric changes.
+
+`dossier calibrate <pipeline> --gold gold/<name>` measures it and writes what it
+measured to `gold/<name>/calibrations/<field>.json`. The agreed threshold lives
+beside it in `gold/<name>/judge.yaml`, and a person writes that one -- never a
+calibration run. What a judge *scored* and what it is *required* to score are
+different claims, and a judge able to move its own bar is not gated by it
+(R7.13, R7.14, R7.15).
+
+Both live with the gold set rather than with the field declaration, because a
+threshold is a property of scoring and the declaration is hashed into every stage
+key that reads it (R6.11 row 3): raising a bar from 0.95 to 0.96 there would
+re-run every extraction the pipeline has cached, to change a number no extraction
+can affect.
 
 ## The review loop
 
@@ -340,3 +353,79 @@ planted in it would be distinguishable from anything else absent from it.
 | 2 | the verdict asserted in the test | the boolean only; never the wording of the rationale |
 | 3 | the same case against a different judge model | recorded with that model identifier; the two results are not comparable without it |
 | 4 | *counter-example* — a `root_cause` that is wrong but *is* stated in the document | supported, and scored incorrect by R7.3; grounding and correctness are different questions |
+
+### R7.13 — a judge's agreement threshold is declared with the gold set, never with the field declaration
+
+A threshold is a property of scoring, not of extraction. The field declaration is
+hashed as text into every stage key that reads it (R6.11 row 3), so a bar raised
+from 0.95 to 0.96 there would re-run every extraction the pipeline has cached --
+to change a number no extraction can affect. The gold set is what the judge is
+measured against, is a workspace asset one set can serve several pipelines with
+(R3.7), and is in no key.
+
+`gold/<name>/judge.yaml` holds one threshold per judged field. YAML rather than
+JSON so that it cannot be read as one of the `<document>.json` files a gold set
+is made of (R3.7 row 1).
+
+- **Kind:** deterministic
+- **Layer:** config (`dossier.config.load`)
+- **Proved by:** `tests/unit/test_R007_13__a_judge_threshold_is_declared_with_the_gold_set.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `gold/incidents/judge.yaml` declaring `root_cause: 0.95` | the figure `dossier eval` gates `root_cause` on (R7.5) |
+| 2 | a `free_text` field with no threshold declared for it | load-time error naming the field and the file; a judged field with no bar would be reported as though it had cleared one |
+| 3 | a threshold written `95` rather than `0.95` | load-time error; agreement is a proportion, and 95 would make every judge ineligible forever while reading like strict configuration |
+| 4 | *counter-example* — a threshold changed between two evals | no stage key moves; the run is re-scored and nothing is re-extracted (R5.3 row 4) |
+
+### R7.14 — `dossier calibrate` measures a judge against the gold set and writes the calibration beside it
+
+Producing the figure is R7.11. This rule is where it is kept, and why it is kept
+apart from the bar it is judged against: a calibration is measured, a threshold is
+agreed by a person (R7.11's was agreed by `a.aleks`), and a re-measure that could
+rewrite the bar would be a judge grading its own paper.
+
+`gold/<name>/calibrations/<field>.json` holds what R7.11 measured -- the judge
+model, the rubric hash, the agreement and the sample size -- one file per judged
+field, under a subdirectory so it is not one of the `<document>.json` files the
+gold set is made of (R3.7 row 1).
+
+Whether a calibration run records to MLflow is deliberately left open: spec 011's
+table says what each command records, and `calibrate` is not in it yet.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval`)
+- **Proved by:** `tests/unit/test_R007_14__calibrate_writes_what_it_measured.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier calibrate incident-audit --gold gold/incidents`, 20 human-scored `root_cause` cases | `gold/incidents/calibrations/root_cause.json` holding the judge model, the rubric hash, the agreement and the sample size |
+| 2 | the judge model or the rubric changed since the last run | the new measurement replaces the old; the file records what is true now, and R7.6 is what notices the old one was stale |
+| 3 | fewer than 20 human-scored cases | refused, naming the count; not measurable at this N, never rounded into a percentage (R7.11 row 3) |
+| 4 | *counter-example* — `gold/incidents/judge.yaml` | never written and never read by the measurement; the bar is agreed by a person, and a calibration run may not move it |
+
+### R7.15 — `dossier eval` withholds a judged field whose calibration is missing, short or stale
+
+R7.5 and R7.6 are pure decisions with tests, and until something loads a
+calibration and a threshold neither can fire from a command: a field whose judge
+has never been measured still prints a percentage, which is the one thing R7.5
+exists to prevent. This rule is what makes both reachable.
+
+Withheld rather than printed as zero, and named rather than omitted: a missing
+line reads as a field nobody verified (R7.3 row 4), which is a different problem
+and wants different work.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval`)
+- **Proved by:** `tests/acceptance/test_R007_15__eval_withholds_an_ungated_judged_field.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `root_cause` calibrated at 0.91 against a declared 0.95 | no `root_cause` percentage; a line naming the field, the agreement and the bar it missed (R7.5) |
+| 2 | a calibration measured against `openai:gpt-5.4-mini` where the pipeline now names another judge | no percentage; a line saying the calibration is stale and which half moved (R7.6) |
+| 3 | `root_cause` with no calibration file at all | no percentage; a line saying it was never measured, which is not the same as measured and found wanting |
+| 4 | `root_cause` calibrated at 0.95 against a declared 0.95 | reported; the bound is inclusive (R7.5 row 3) |
+| 5 | *counter-example* — `severity`, scored by exact match | reported; no judge, no threshold, and no calibration that could be stale (R7.1) |
