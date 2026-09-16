@@ -33,9 +33,17 @@ def _pipeline(workspace: Path, gold: str | None) -> Path:
 
 
 def _gold_set(workspace: Path) -> Path:
-    """The person-written gold set, at `gold/incidents/` in this workspace."""
+    """The person-written gold set, at `gold/incidents/` in this workspace.
+
+    `judge.yaml` is written into the copy rather than shipped in the fixture:
+    the declaration these pipelines use judges `root_cause` against a rubric, and
+    a judged field with no declared threshold is refused at load time (R7.13). It
+    belongs to the copy because the committed gold set is human-owned -- what
+    counts as a verified answer is not something a test may edit.
+    """
     destination = workspace / "gold" / "incidents"
     shutil.copytree(FIXTURE_GOLD, destination)
+    (destination / "judge.yaml").write_text("root_cause: 0.95\n", encoding="utf-8")
     return destination
 
 
