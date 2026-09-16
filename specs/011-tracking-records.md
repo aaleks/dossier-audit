@@ -75,7 +75,7 @@ cannot disagree.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
 - **Proved by:** `tests/unit/test_R011_3__an_eval_records_one_metric_per_field.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|

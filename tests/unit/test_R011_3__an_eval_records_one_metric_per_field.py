@@ -5,9 +5,12 @@ not `0.75` -- so the terminal and MLflow cannot disagree. The gold set is named,
 and tagged with a hash of its contents: two evals over gold sets that differ by
 one answer are not comparable, and the hash is what says so.
 
-Rows 3 and 4 -- a judge's calibrated agreement, and a judge below threshold
-recording no metric -- wait for R7.11: nothing produces a judge calibration yet.
-They are not transcribed here, and R11.3 stays NOT MET until they are.
+Rows 3 and 4 -- a judge's calibrated agreement recorded as a param, and a judge
+below its threshold recording no metric at all -- waited for R7.11, which now
+produces a calibration. They are transcribed below and are the open slice: they
+carry `@pytest.mark.outer_loop` and stay out of the default run until
+`record_eval` takes a judge's calibration. Rows 1, 2 and 5 keep running there,
+which is why the marker is on the two tests rather than on the module.
 
 The recording decision is `record_eval`, handed a `FakeTracker`. The totals are
 `_fixtures.md`'s scoring example: 4/4, 3/4, 4/4, 3/4 and 2/4.
@@ -17,9 +20,11 @@ from __future__ import annotations
 
 import re
 
+import pytest
 from tests.fakes import FakeTracker
 
 from dossier.application.eval import record_eval
+from dossier.domain.judges import Calibration
 from dossier.domain.scoring import FieldTotal
 
 MODEL = "anthropic:claude-sonnet-4-5-20250929"
@@ -37,8 +42,30 @@ SCORING_EXAMPLE = (
     FieldTotal("root_cause", correct=2, scored=4),
 )
 
+# R7.5's numbers, which R11.3 rows 3 and 4 quote: eligible at 0.91, not at 0.78,
+# against a configured 0.85. The judge is the one R7.11 calibrated, named by a
+# pinned identifier (R9.14) because the figure is meaningless without it.
+JUDGE_MODEL = "openai:gpt-5.4-mini"
+RUBRIC_HASH = "0e52dd18" * 8
+# Twenty is R7.11's minimum. Below it `is_eligible` raises rather than returning
+# False -- a judge nobody measured is not a judge that scored badly -- and that
+# is a different rule with its own test.
+CALIBRATED = Calibration(
+    judge_model=JUDGE_MODEL, rubric_hash=RUBRIC_HASH, agreement=0.91, sample_size=20
+)
+UNDER_THRESHOLD = CALIBRATED.model_copy(update={"agreement": 0.78})
 
-def _record(tracker: FakeTracker, *, totals=SCORING_EXAMPLE, gold_files=GOLD_FILES) -> None:
+
+def _record(
+    tracker: FakeTracker, *, totals=SCORING_EXAMPLE, gold_files=GOLD_FILES, **judge_arguments
+) -> None:
+    """One eval recorded. Judge arguments are forwarded only when a test gives them.
+
+    Not tidiness: rows 1, 2 and 5 are built and run in the default suite, and
+    passing them an argument `record_eval` does not take yet would turn that
+    suite red for a slice that is deliberately unfinished. The two open rows
+    pass theirs, and are the only ones that fail.
+    """
     record_eval(
         tracker,
         experiment=EXPERIMENT,
@@ -48,6 +75,7 @@ def _record(tracker: FakeTracker, *, totals=SCORING_EXAMPLE, gold_files=GOLD_FIL
         gold="gold/incidents",
         gold_files=gold_files,
         totals=totals,
+        **judge_arguments,
     )
 
 
@@ -101,3 +129,43 @@ class TestAnEvalRecordsOneMetricPerField:
 
         fields = {name for name in tracker.runs[0].metrics if name != "accuracy/overall"}
         assert fields == {"accuracy/severity"}
+
+    @pytest.mark.outer_loop
+    def test_a_calibrated_judge_records_its_agreement_and_which_judge_gave_it(self):
+        """Example 3: the one whose judge agreed with the reviewer often enough.
+
+        The figure is recorded with the model that produced it. An agreement
+        number on its own says a judge agreed with a human without saying which
+        judge or on what question, and two evals under different judges would
+        then be read as the same measurement (R7.11 row 2).
+        """
+        tracker = FakeTracker()
+
+        _record(tracker, judges={"root_cause": CALIBRATED}, thresholds={"root_cause": 0.85})
+
+        params = tracker.runs[0].params
+        # The value, not its formatting: a param is a string, and asserting
+        # "0.91" would break on a client that writes "0.910".
+        assert float(params["judge/root_cause/agreement"]) == 0.91
+        assert params["judge/root_cause/model"] == JUDGE_MODEL
+
+    @pytest.mark.outer_loop
+    def test_a_judge_below_its_threshold_reports_no_accuracy_for_that_field(self):
+        """Example 4: the one where the judge was measured and did not do well enough.
+
+        R7.5's gate, seen in the record. The field is not reported, and the run
+        says why -- a metric that is simply missing reads as a field nobody
+        verified (row 5), which is a different thing and wants different work.
+        The fields no judge scored are unaffected.
+        """
+        tracker = FakeTracker()
+
+        _record(
+            tracker, judges={"root_cause": UNDER_THRESHOLD}, thresholds={"root_cause": 0.85}
+        )
+
+        run = tracker.runs[0]
+        assert "accuracy/root_cause" not in run.metrics
+        assert "accuracy/severity" in run.metrics
+        why = run.tags["dossier.judge.root_cause"]
+        assert "0.78" in why and "0.85" in why
