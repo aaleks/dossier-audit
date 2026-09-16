@@ -127,7 +127,7 @@ clock, no locale, no environment variable, no file outside its input, no network
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
 - **Proved by:** `tests/unit/test_R008_2__converter_identity_reaches_the_key_and_the_manifest.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
