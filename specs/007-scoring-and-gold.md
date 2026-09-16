@@ -398,13 +398,18 @@ model, the rubric hash, the agreement and the sample size -- one file per judged
 field, under a subdirectory so it is not one of the `<document>.json` files the
 gold set is made of (R3.7 row 1).
 
+The rubric is the one the field declaration names in its `judge:` key (spec 006),
+and the hash is of that file's text. The model and the rubric travel with the
+figure because a measurement made against another judge, or another rubric, is
+not this judge's calibration -- which is exactly what R7.6 compares them for.
+
 Whether a calibration run records to MLflow is deliberately left open: spec 011's
 table says what each command records, and `calibrate` is not in it yet.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
-- **Proved by:** `tests/unit/test_R007_14__calibrate_writes_what_it_measured.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R007_14__calibrate_writes_what_it_measured.py`, `tests/acceptance/test_R007_14__calibrate_writes_the_calibration_file.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
