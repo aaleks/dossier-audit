@@ -65,6 +65,21 @@ recorded is which document is defective and how, which is what the corpus was
 built to say. The one exception is `INC-5455` in the scoring example below, whose
 `root_cause` of `null` is exactly its recorded defect.
 
+## Gold set
+
+A workspace asset, resolved where `dossier` runs rather than against a pipeline's
+own directory, so one set can serve several pipelines (R3.7).
+
+| Path | Holds |
+|---|---|
+| `gold/incidents/` | the verified answers, one `<document>.json` per document |
+| `gold/incidents/judge.yaml` | the agreement each judged field's judge must reach — `root_cause: 0.95`, agreed by `a.aleks` (R7.13) |
+| `gold/incidents/calibrations/root_cause.json` | what `dossier calibrate` measured for that judge: its model, the rubric hash, the agreement and the sample size (R7.14) |
+
+Two files rather than one, and only the first is written by a person. What a
+judge *scored* is measured; what it is *required* to score is agreed; and a
+calibration run able to rewrite its own bar would not be gated by it.
+
 ## Hashes
 
 Eight hex characters throughout. Real hashes are full 64-character SHA-256

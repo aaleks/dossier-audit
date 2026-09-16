@@ -47,6 +47,7 @@ __all__ = [
     "PipelineConfig",
     "SourceConfig",
     "load_fields",
+    "load_judge_thresholds",
     "load_output_schema",
     "load_output_schemas",
     "load_pipeline",
@@ -264,6 +265,7 @@ def load_pipeline(path: Path, *, providers: Collection[str]) -> PipelineConfig:
     _validate_output_declarations(pipeline, path)
     _validate_prompt_placeholders(pipeline, path)
     _validate_gold(pipeline, path)
+    _validate_judge_thresholds(pipeline, path)
     return pipeline
 
 
@@ -340,6 +342,78 @@ def _validate_gold(pipeline: PipelineConfig, path: Path) -> None:
             raise ConfigError(
                 f"{_name(path)}: gold file {gold_file.name} is not valid JSON -- {error}"
             ) from error
+
+
+# The agreed bar for each judged field, kept with the gold set the judge is
+# measured against. YAML rather than JSON so it is not one of the
+# `<document>.json` files a gold set is made of, which `_validate_gold` above
+# would otherwise try to read as a verified answer (R7.13).
+JUDGE_FILE = "judge.yaml"
+
+
+def load_judge_thresholds(directory: Path) -> dict[str, float]:
+    """The agreement each judged field's judge must reach, from the gold set (R7.13).
+
+    With the gold set rather than the field declaration, because a threshold is
+    a property of scoring: the declaration is hashed as text into every stage key
+    that reads it (R6.11), so a bar raised from 0.95 to 0.96 there would re-run
+    every extraction the pipeline has cached, to change a number no extraction
+    can affect.
+    """
+    document = _read_yaml(directory / JUDGE_FILE)
+
+    thresholds: dict[str, float] = {}
+    for field, value in document.items():
+        name = str(field)
+        # `bool` first: it is an `int` in Python, and `root_cause: true` is a
+        # mistake worth naming rather than silently reading as 1.0.
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            raise ConfigError(
+                f"{JUDGE_FILE}: {name!r} is {value!r}, and an agreement threshold "
+                "is a number between 0 and 1"
+            )
+        if not 0.0 <= value <= 1.0:
+            raise ConfigError(
+                f"{JUDGE_FILE}: {name!r} is {value!r}; an agreement threshold is a "
+                "proportion between 0 and 1. A threshold of 95 rather than 0.95 makes "
+                "every judge ineligible forever, and reads like strict configuration "
+                "rather than a typo."
+            )
+        thresholds[name] = float(value)
+    return thresholds
+
+
+def _validate_judge_thresholds(pipeline: PipelineConfig, path: Path) -> None:
+    """R7.13 — every judged field has a threshold declared with the gold set.
+
+    Only when a gold set is declared: a pipeline with no `gold` is never scored,
+    so it has no judge to gate (R3.7 row 4). A judged field with no bar would be
+    reported as though it had cleared one, which is the failure R7.5 exists to
+    prevent -- and finding that out at scoring time is finding it out after the
+    run has been paid for.
+    """
+    if pipeline.gold is None:
+        return
+
+    judged = sorted(
+        name
+        for step in pipeline.steps
+        if step.output is not None
+        for name, kind in load_fields(path.parent / step.output).items()
+        if kind is FieldKind.FREE_TEXT
+    )
+    if not judged:
+        return
+
+    directory = path.parents[2] / pipeline.gold
+    thresholds = load_judge_thresholds(directory)
+    missing = [name for name in judged if name not in thresholds]
+    if missing:
+        raise ConfigError(
+            f"{_name(path)}: field {missing[0]!r} is judged against a rubric and has "
+            f"no agreement threshold in {directory / JUDGE_FILE}. A judged field with "
+            "no bar is reported as though it had cleared one (R7.5, R7.13)."
+        )
 
 
 def _validate_prompt_placeholders(pipeline: PipelineConfig, path: Path) -> None:
