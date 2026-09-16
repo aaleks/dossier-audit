@@ -449,6 +449,7 @@ def convert(pipeline: str = typer.Argument(..., help="Pipeline name under pipeli
     -- which on a PDF-heavy corpus is usually where the surprises are.
     """
     workspace = Path.cwd()
+    started_at = datetime.now(UTC)
 
     try:
         config = load_pipeline(
@@ -461,6 +462,11 @@ def convert(pipeline: str = typer.Argument(..., help="Pipeline name under pipeli
     except ConfigError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
+
+    # Before any conversion, as sync checks before any fetch: a server nobody can
+    # reach is refused now rather than after the work nobody can then inspect
+    # (R10.5).
+    tracker, experiment = _tracking_for(workspace, pipeline, kind="convert")
 
     converters = installed_converters()
     store = SnapshotStore(workspace)
@@ -505,6 +511,35 @@ def convert(pipeline: str = typer.Argument(..., help="Pipeline name under pipeli
     typer.echo(f"cache updated · {converted} converted · {cached} cached")
 
     failed = [failure for report in reports for failure in report.failed]
+
+    if tracker is not None:
+        # One MLflow run of the per-source counts the lines above printed, under
+        # the same names, and no traces (R11.4). Recorded before the non-zero
+        # exit below, not after it: a convert that failed is still a convert that
+        # happened, and a record written only on success would make a failure
+        # look like a command nobody ran.
+        tracker.start_run(
+            experiment=experiment or "",
+            name=f"convert {started_at:%Y%m%dT%H%M%SZ}",
+            tags=tracking_tags(kind="convert", pipeline=pipeline),
+        )
+        metrics: dict[str, float] = {}
+        for report in reports:
+            metrics.update(
+                count_metrics(
+                    kind="convert",
+                    source=report.source_id,
+                    counts={
+                        "held": report.held,
+                        "converted": report.converted,
+                        "cached": report.cached,
+                        "failed": len(report.failed),
+                    },
+                )
+            )
+        tracker.log_metrics(metrics)
+        tracker.end_run(status="FAILED" if failed else "FINISHED")
+
     if failed:
         # A failure is not zero work. Exiting zero here would make a run that
         # converted nothing indistinguishable from one that had nothing to do
