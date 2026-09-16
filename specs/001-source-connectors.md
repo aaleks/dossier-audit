@@ -212,7 +212,7 @@ repository access.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.credentials`)
 - **Proved by:** `tests/unit/test_R001_8__credentials_never_reach_config_or_logs.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
