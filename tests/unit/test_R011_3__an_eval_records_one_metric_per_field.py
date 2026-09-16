@@ -151,7 +151,10 @@ class TestAnEvalRecordsOneMetricPerField:
         R7.5's gate, seen in the record. The field is not reported, and the run
         says why -- a metric that is simply missing reads as a field nobody
         verified (row 5), which is a different thing and wants different work.
-        The fields no judge scored are unaffected.
+        The fields no judge scored are unaffected, and the overall follows the
+        same rule: 14 of 16 verdicts rather than 16 of 20, because a headline
+        that absorbed the suppressed field would hand back in aggregate the
+        number R7.5 just withheld -- in the figure most people read first.
         """
         tracker = FakeTracker()
 
@@ -162,5 +165,6 @@ class TestAnEvalRecordsOneMetricPerField:
         run = tracker.runs[0]
         assert "accuracy/root_cause" not in run.metrics
         assert "accuracy/severity" in run.metrics
+        assert run.metrics["accuracy/overall"] == 87.5
         why = run.tags["dossier.judge.root_cause"]
         assert "0.78" in why and "0.85" in why
