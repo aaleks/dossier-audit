@@ -79,7 +79,7 @@ same field would hand it back in the figure most people read first.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
-- **Proved by:** `tests/unit/test_R011_3__an_eval_records_one_metric_per_field.py`
+- **Proved by:** `tests/unit/test_R011_3__an_eval_records_one_metric_per_field.py`, `tests/acceptance/test_R011_3__eval_records_its_scores_to_mlflow.py`
 - **Status:** MET
 
 | # | Given | Then |
