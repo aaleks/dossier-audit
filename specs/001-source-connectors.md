@@ -146,7 +146,7 @@ presents as a document silently going stale.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors`)
 - **Proved by:** `tests/unit/test_R001_4__list_since_returns_a_superset.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
