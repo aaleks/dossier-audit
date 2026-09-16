@@ -264,6 +264,14 @@ its provider prefix and without the `@sha256:` digest dossier pins it by (R9.3),
 which Ollama does not accept as part of a name. The digest is checked separately,
 before the first completion (R9.4).
 
+Thinking is turned off. Ollama exposes `think`, and a reasoning model left to it
+spends its budget on a chain of thought before answering -- which, under a
+constrained `format`, it can exhaust entirely, returning an empty string. Asking
+`qwen3.5:9b` to judge one calibration case took 268 seconds and produced nothing;
+the same case with `think` false took 19 seconds and produced a verdict. Every
+completion dossier asks for is structured (R6.1), so this is a property of the
+request and not of the model: it is sent on every call, not configured per tag.
+
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.models.ollama`)
 - **Proved by:** `tests/unit/test_R009_13__ollama_requests.py`
@@ -271,7 +279,7 @@ before the first completion (R9.4).
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `ollama:qwen2.5:7b@sha256:7f3c29a1` reached at `http://localhost:8080/ollama` | one POST to `http://localhost:8080/ollama/api/chat`, with model `qwen2.5:7b`, `stream` false, temperature 0 in `options`, and the stage's JSON Schema as `format` |
+| 1 | `ollama:qwen2.5:7b@sha256:7f3c29a1` reached at `http://localhost:8080/ollama` | one POST to `http://localhost:8080/ollama/api/chat`, with model `qwen2.5:7b`, `stream` false, `think` false, temperature 0 in `options`, and the stage's JSON Schema as `format` |
 | 2 | `DOSSIER_OLLAMA_API_KEY` set | sent as `Authorization: Bearer`; unset, no `Authorization` header at all |
 | 3 | the server answers 200 | `message.content` is returned verbatim; validating it stays the stage's job (R6.1) |
 | 4 | the server answers 401, or any other non-2xx status | an error naming the URL and the status, never the key (R9.8 row 1) |
