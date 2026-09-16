@@ -27,11 +27,19 @@ _FIXED = frozenset({"anthropic:claude-opus-5"})
 # as every hash in dossier is (R0.7): a prefix could match more than one model.
 _OLLAMA_DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
 
-# An OpenAI snapshot ends in its release date, dashed: `gpt-4o-2024-08-06`. The
-# family name alone, and any `-latest` name, is an alias OpenAI re-points at each
-# release (R9.9). Anthropic's undashed `-YYYYMMDD` is a different provider's form
-# and is not accepted as one here.
-_OPENAI_DATED = re.compile(r"-\d{4}-\d{2}-\d{2}$")
+# OpenAI pins two ways, and both are accepted (R9.14): a snapshot ending in its
+# release date, dashed -- `gpt-4o-2024-08-06` -- and a stable code with no
+# snapshot behind it, such as `gpt-5.4-mini`. What is refused is what OpenAI
+# moves. A `-latest` or preview name says so in the name, as Gemini's does.
+_OPENAI_MOVING = re.compile(r"(^|-)(latest|preview|exp|experimental)(-|$)")
+
+# A bare family alias does not: nothing in the shape of `gpt-4o` distinguishes it
+# from `gpt-5.4-mini`, and OpenAI re-points it at each new snapshot. So these are
+# refused by name -- a short list where each entry is a claim about a provider
+# someone confirmed, the way `_FIXED` above is, and wrong either way is a pin
+# that is not one. A dated snapshot of the same family is not in it and is
+# accepted: the list matches whole names, never prefixes.
+_OPENAI_ALIASES = frozenset({"gpt-4", "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"})
 
 # Google names a Gemini model three ways, and only the stable code is a pin. A
 # `-latest` name is re-pointed at each release; preview and experimental names
@@ -105,10 +113,11 @@ def check_pinned(model: str) -> None:
             f"model {model!r} is a floating alias; name a dated snapshot such as "
             "'anthropic:claude-sonnet-4-5-20250929'"
         )
-    if provider == "openai" and not _OPENAI_DATED.search(name):
+    if provider == "openai" and (name in _OPENAI_ALIASES or _OPENAI_MOVING.search(name)):
         raise ValueError(
-            f"model {model!r} is an OpenAI alias, which moves to each new snapshot; "
-            "name a dated snapshot such as 'openai:gpt-4o-2024-08-06'"
+            f"model {model!r} is a name OpenAI moves to each new snapshot; name a "
+            "dated snapshot such as 'openai:gpt-4o-2024-08-06', or a stable code "
+            "such as 'openai:gpt-5.4-mini'"
         )
     if provider == "gemini" and _GEMINI_MOVING.search(name):
         raise ValueError(
