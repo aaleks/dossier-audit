@@ -41,6 +41,7 @@ dossier = "dossier.cli.main:app"
 # It is never added to a match statement inside dossier (spec 001 R1.7).
 [project.entry-points."dossier.connectors"]
 folder = "dossier.infrastructure.connectors.folder:FolderConnector.from_config"
+jira = "dossier.infrastructure.connectors.jira:JiraConnector.from_config"
 
 # A converter is a package declaring one of these (R8.7). The one shipped here
 # registers through the same group a third party would use, with no special case.
