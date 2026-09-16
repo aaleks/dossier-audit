@@ -24,7 +24,8 @@ from dossier.application.convert import (
     convert_source,
 )
 from dossier.application.eval import (
-    calibrate_field,
+    FieldSample,
+    calibrate_fields,
     load_calibration,
     load_gold,
     record_eval,
@@ -848,10 +849,15 @@ def calibrate(
         )
         raise typer.Exit(code=2)
 
+    # Before any measuring work, so a server nobody can reach is refused now
+    # rather than after twenty judge calls nobody can then inspect (R10.5).
+    tracker, experiment = _tracking_for(workspace, pipeline, kind="calibrate", gold=gold)
+
     directory = workspace / gold
     documents = _held_text(workspace, config)
     model = build_model_client(config.model)
 
+    samples: dict[str, FieldSample] = {}
     for field, named in sorted(rubrics.items()):
         # Against the pipeline's own directory, as `prompts/` and `output` are:
         # the declaration lives in `schemas/` and the rubric beside it in
@@ -859,24 +865,43 @@ def calibrate(
         # `schemas/rubrics/...`.
         rubric = path.parent / named
         try:
-            measured = calibrate_field(
-                model,
-                directory=directory,
-                field=field,
+            samples[field] = FieldSample(
                 cases=load_calibration_sample(directory, field),
                 rubric=rubric.read_text(encoding="utf-8"),
                 rubric_hash=text_hash(rubric),
-                documents=documents,
-                judge_model=config.model,
             )
-        except (ConfigError, NotCalibrated) as error:
+        except ConfigError as error:
             typer.echo(f"{field}: {error}", err=True)
             raise typer.Exit(code=2) from error
 
-        typer.echo(
-            f"{field:<18} {measured.agreement:.1%} agreement over "
-            f"{_count(measured.sample_size, 'case')} · {measured.judge_model}"
+    try:
+        measured = calibrate_fields(
+            model,
+            directory=directory,
+            samples=samples,
+            documents=documents,
+            judge_model=config.model,
+            tracker=tracker,
+            experiment=experiment or "",
+            pipeline=pipeline,
+            # As bytes, as `record_eval` reads them: the hash has to move when
+            # any answer moves (R11.3 row 2).
+            gold_files={
+                gold_file.name: gold_file.read_bytes()
+                for gold_file in sorted(directory.glob("*.json"))
+            },
         )
+    except NotCalibrated as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    for field, calibration in sorted(measured.items()):
+        typer.echo(
+            f"{field:<18} {calibration.agreement:.1%} agreement over "
+            f"{_count(calibration.sample_size, 'case')} · {calibration.judge_model}"
+        )
+    if tracker is not None:
+        typer.echo(f"recorded to MLflow: {experiment}")
 
 
 def _judge_gate(

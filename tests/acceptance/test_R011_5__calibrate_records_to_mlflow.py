@@ -29,8 +29,6 @@ from tests.scoring_example import ISSUES, PIPELINE, SOURCE_ID, SOURCE_TYPE, Issu
 
 from dossier.domain.hashing import text_hash
 
-pytestmark = pytest.mark.outer_loop
-
 FIELD = "root_cause"
 GOLD = "gold/incidents"
 MODEL = "anthropic:claude-sonnet-4-5-20250929"
