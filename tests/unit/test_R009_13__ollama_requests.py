@@ -71,6 +71,10 @@ class TestOllamaRequests:
         body = json.loads(request.content)
         assert body["model"] == "qwen2.5:7b"
         assert body["stream"] is False
+        # Not a detail: a reasoning model left to think under a constrained
+        # `format` can spend its budget and answer with an empty string, which
+        # is a call that cost minutes and returned nothing (R9.13).
+        assert body["think"] is False
         assert body["options"]["temperature"] == 0
         assert body["format"] == SCHEMA
 
