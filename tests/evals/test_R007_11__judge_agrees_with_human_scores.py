@@ -1,16 +1,17 @@
 """R7.11 — the free-text judge agrees with human scores on the calibration sample.
 
 A real model call per case, so this is `live` and never part of the default
-suite. It measures; it does not yet gate. R7.11's threshold is still `OPEN`, and
-the spec is explicit about why: the figure belongs to the domain expert who signs
-off the gold set, and one invented here would become a test, become a gate, and
-be discovered to be arbitrary three features later.
+suite. It gates now. The figure belongs to the domain expert who signs off the
+gold set rather than to whoever wrote the test -- one invented here would become
+a test, become a gate, and be discovered to be arbitrary three features later --
+and `a.aleks` agreed 0.95 on 2026-09-16, over this sample and after seeing what
+it measured.
 
-So `THRESHOLD` below is `None`, and row 1 is reported rather than asserted. The
-rest of the rule is asserted today: the sample is large enough to mean anything,
-the figure carries the judge model and the size of the sample it came from, a
-smaller sample is refused rather than reported as a percentage, and the
-deterministic fields stay out of the measurement.
+So row 1 is asserted against that figure, and the rest of the rule with it: the
+sample is large enough to mean anything, the figure carries the judge model and
+the size of the sample it came from, a smaller sample is refused rather than
+reported as a percentage, and the deterministic fields stay out of the
+measurement.
 
 Run it, with an Ollama or OpenWebUI endpoint reachable:
 
@@ -35,9 +36,13 @@ from dossier.infrastructure.models.registry import provider as model_provider
 
 pytestmark = pytest.mark.live
 
-# The number the domain expert has yet to agree. Until it is a number, R7.11
-# stays NOT MET and this file reports the measurement instead of gating on it.
-THRESHOLD: float | None = None
+# Agreed by `a.aleks` on 2026-09-16, over this sample (R7.11). The bound is
+# inclusive, so 19 of 20 passes and 18 does not. Set below the 20/20 measured
+# twice: at N=20 that supports a 95% lower bound near 84%, not 100%, and a gate
+# at 100% fails on the first genuinely borderline case added to the sample. A
+# judge calling everything supported scores 60% here -- twelve of the twenty
+# cases are supported -- which is the floor this has to clear to mean anything.
+THRESHOLD = 0.95
 
 # A stable OpenAI code, which is a pin (R9.14), reached through the local
 # OpenWebUI that DOSSIER_OPENAI_URL names (R9.2, R9.7).
@@ -191,13 +196,13 @@ class TestJudgeAgreesWithHumanScores:
     def test_the_agreed_threshold_is_met(self, measured: dict):
         """Example 1: the one this rule exists for.
 
-        Skipped until the threshold is a number the domain expert agreed. The
-        measurement above is what that conversation is held over.
+        The figure `a.aleks` agreed, asserted against the sample it was agreed
+        over. A failure names the cases that disagreed rather than only the
+        number, because the number alone says nothing about what to go and look
+        at -- and a judge drifting shows up as particular cases first.
         """
-        if THRESHOLD is None:
-            pytest.skip(
-                "R7.11's threshold is OPEN. The measured figure is reported above; "
-                "set THRESHOLD once it is agreed, and the rule becomes assertable."
-            )
-
-        assert is_eligible(measured["calibration"], threshold=THRESHOLD)
+        assert is_eligible(measured["calibration"], threshold=THRESHOLD), (
+            f"{JUDGE_MODEL} agreed with {measured['agreement']:.1%} of "
+            f"{len(measured['human'])} human-scored cases, below the {THRESHOLD:.0%} "
+            f"agreed by a.aleks. Disagreed on: {', '.join(measured['disagreed'])}"
+        )

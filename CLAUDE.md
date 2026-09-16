@@ -66,12 +66,19 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. Ten of the twelve specs are implemented -- 000, 001,
-002, 003, 004, 005, 006, 008, 009 and 010 -- and 115 of the 125 rules are MET,
-with 7 superseded. What is left of spec 007 and spec 011 is one thing wearing
-two hats: **R7.11** and **R7.12** need a live model and an agreement threshold a
-person signs off, and **R11.3**'s judge rows wait on R7.11. Nothing else is
-blocked.
+Currently open: **none**. Eleven of the twelve specs are implemented -- every one
+except 011 -- and 117 of the 126 rules are MET, with 8 superseded. What is left
+is **R11.3**: a `dossier eval` recorded to MLflow as one run with one metric per
+scored field. Nothing else is blocked.
+
+The judge is calibrated. `openai:gpt-5.4-mini`, reached through a local
+OpenWebUI, agreed with `a.aleks` on 20 of 20 human-scored `root_cause` cases,
+twice, with no case flipping between runs -- and it marks the planted claim in
+`INC-4830` unsupported, which is what tells a working judge from one that agrees
+with everything (R7.11, R7.12). The threshold is **0.95**, agreed by `a.aleks`
+on 2026-09-16: below what was measured, because 20 of 20 at N=20 supports a lower
+bound near 84% rather than 100%, and above the 60% a judge calling everything
+supported would score on this sample.
 
 `dossier` reads a real remote source now. The Jira connector ships, issues and
 the files they carry are separate addresses, and every request it makes is a
