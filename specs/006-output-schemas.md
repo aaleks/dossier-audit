@@ -344,7 +344,7 @@ could not produce its output; the steps above it have nothing to add.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R006_13__a_step_skips_a_document_with_no_upstream_output.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
