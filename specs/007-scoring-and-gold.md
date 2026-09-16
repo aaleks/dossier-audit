@@ -251,6 +251,14 @@ document keys.
 Under the pipeline name, so a regression six months from now has a record to be
 found in.
 
+This rule was superseded in pieces, which is why the status line alone does not
+lead a reader to everything it used to claim. Rows 1, 2 and 4 are R11.3's and
+R11.1's. Row 3 is neither, and it did not merely move: **R10.5 reversed it.** An
+unreachable server now refuses the command before any work, rather than letting
+it complete and reporting that the record was lost. What survives of row 3 is
+the narrower case where a server stops answering mid-command, which is R10.6.
+Following this rule to R11.3 alone would turn up nothing about either.
+
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking`)
 - **Proved by:** `tests/integration/test_R007_9__runs_are_recorded_to_mlflow.py`
