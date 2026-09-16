@@ -13,8 +13,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from dossier.application.run import StepReport
-from dossier.domain.gold import GoldDocument, gold_set_hash
-from dossier.domain.judges import Calibration, is_eligible
+from dossier.domain.gold import CalibrationCase, GoldDocument, gold_set_hash
+from dossier.domain.judges import MINIMUM_SAMPLE, Calibration, NotCalibrated, is_eligible
 from dossier.domain.ports import Tracker
 from dossier.domain.scoring import (
     DocumentScore,
@@ -248,6 +248,77 @@ def calibration(
         agreement=measured,
         sample_size=len(human),
     )
+
+
+# Where a measurement is kept, beside the gold set it was measured against. A
+# subdirectory, so a calibration is not one of the `<document>.json` files the
+# gold set is made of, which `_validate_gold` would read as a verified answer
+# (R7.14, R3.7 row 1).
+CALIBRATIONS_DIR = "calibrations"
+
+
+def calibrate_field(
+    model,
+    *,
+    directory: Path,
+    field: str,
+    cases: Sequence[CalibrationCase],
+    rubric: str,
+    rubric_hash: str,
+    documents: Mapping[str, str],
+    judge_model: str,
+) -> Calibration:
+    """Measure a judge against a sample, and write what was measured (R7.14).
+
+    Every input is passed in. The judge client, the sample, the rubric and the
+    documents' text are all this function's arguments rather than things it goes
+    and finds, which is what lets it be measured against a fake that counts calls
+    and what keeps the question of *where* text comes from in the composition
+    root (R0.10's shape).
+
+    Refused below the minimum before a single call is made. A sample too small
+    cannot produce a figure that means anything (R7.11 row 3), and judging it
+    anyway would spend twenty model calls to arrive at a number nobody may quote
+    -- then leave a file behind that reads exactly like a calibration.
+
+    Verdicts are keyed by position in the sample. `document` repeats -- two cases
+    about `INC-4830` is the ordinary shape, one supported and one planted -- and
+    R7.16 treats a record's `id` as bookkeeping it ignores, so the only key that
+    is certainly unique is where the record sits.
+    """
+    if len(cases) < MINIMUM_SAMPLE:
+        raise NotCalibrated(
+            f"{field}: the sample holds {len(cases)} case(s), and {MINIMUM_SAMPLE} is the "
+            "minimum at which agreement means anything. Report this as not measurable at "
+            "this N, never as a percentage (R7.11 example 3)."
+        )
+
+    human: dict[str, bool] = {}
+    verdicts: dict[str, bool] = {}
+    for index, case in enumerate(cases):
+        position = str(index)
+        human[position] = case.supported
+        supported, _ = judged(
+            model,
+            rubric=rubric,
+            document=case.document,
+            text=documents[case.document],
+            answer=case.answer,
+        )
+        verdicts[position] = supported
+
+    measured = calibration(
+        verdicts=verdicts, human=human, judge_model=judge_model, rubric_hash=rubric_hash
+    )
+
+    path = directory / CALIBRATIONS_DIR / f"{field}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Sorted and newline-terminated: the file is committed beside the gold set,
+    # and a diff should show a figure that moved rather than a key that did.
+    path.write_text(
+        json.dumps(measured.model_dump(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return measured
 
 
 def _gold_fields(document: GoldDocument) -> dict[str, GoldField]:

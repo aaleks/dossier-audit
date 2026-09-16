@@ -23,7 +23,7 @@ from dossier.application.convert import (
     HeldDocument,
     convert_source,
 )
-from dossier.application.eval import load_gold, record_eval, score_run
+from dossier.application.eval import calibrate_field, load_gold, record_eval, score_run
 from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.plan import (
     Plan,
@@ -38,13 +38,16 @@ from dossier.config.endpoints import EndpointUnset, endpoint_for
 from dossier.config.environment import environment
 from dossier.config.load import (
     ConfigError,
+    load_calibration_sample,
     load_fields,
+    load_judge_rubrics,
     load_output_schemas,
     load_pipeline,
     load_sources,
 )
 from dossier.domain.conversion import NoConverter
 from dossier.domain.hashing import text_hash
+from dossier.domain.judges import NotCalibrated
 from dossier.domain.keys import ConvertInputs, cache_key
 from dossier.domain.model_id import provider_of
 from dossier.domain.ports import ModelClient, Tracker
@@ -742,6 +745,130 @@ def _execute(workspace: Path, pipeline: str) -> None:
     # zero exit here would let anything reading `$?` quote it as clean.
     if report.failed or unreadable:
         raise typer.Exit(code=1)
+
+
+def _held_text(workspace: Path, config) -> dict[str, str]:
+    """The converted text of every document the workspace holds, by key (R7.14).
+
+    The same path `dossier convert` walks -- ledger rows, then conversion -- and
+    for a reason worth stating: a calibration is about a judge and a rubric, not
+    about any past run, so there is no manifest to reproduce and nothing to
+    replay. What the judge is shown is what the workspace holds today.
+    """
+    try:
+        declared = {
+            source.id: source
+            for source in load_sources(workspace / "sources.yaml", connectors=declared_keys())
+        }
+    except ConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    converters = installed_converters()
+    store = SnapshotStore(workspace)
+    cache = ArtifactCache(workspace, namespace="convert")
+
+    text: dict[str, str] = {}
+    with Ledger(workspace) as ledger:
+        for name in config.synced_sources:
+            source = declared.get(name)
+            if source is None:
+                continue
+            held = {
+                row.key: HeldDocument(snapshot=row.snapshot, media_type=row.media_type)
+                for row in ledger.rows(name)
+                if row.state is not State.TOMBSTONED
+            }
+            try:
+                report = convert_source(
+                    source_id=name,
+                    documents=held,
+                    kinds=source.convert,
+                    converters=converters,
+                    store=store,
+                    cache=cache,
+                )
+            except NoConverter as error:
+                typer.echo(str(error), err=True)
+                raise typer.Exit(code=2) from error
+            text.update(report.text)
+    return text
+
+
+@app.command()
+def calibrate(
+    pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
+    gold: str = typer.Option(..., "--gold", help="Gold set directory", metavar="DIR"),
+) -> None:
+    """Measure each judged field's judge against the gold set's sample (R7.14).
+
+    Writes what it measured to `<gold>/calibrations/<field>.json`. It never
+    touches `<gold>/judge.yaml`: the bar is agreed by a person, and a run able to
+    move the bar it is judged against would be a judge grading its own paper
+    (R7.13).
+    """
+    workspace = Path.cwd()
+
+    try:
+        path = _pipeline_path(workspace, pipeline)
+        config = load_pipeline(path, providers=available_providers())
+    except ConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    declaring = [step for step in config.steps if step.output is not None]
+    if len(declaring) != 1:
+        # Spec 007 scores "the output" and does not yet say which step's output
+        # that is when several declare one. Refused rather than guessed, as
+        # `eval` refuses it.
+        typer.echo(
+            f"{pipeline}: {len(declaring)} steps declare an output; "
+            "calibrate reads exactly one",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    declaration = path.parent / declaring[0].output
+
+    try:
+        rubrics = load_judge_rubrics(declaration)
+    except ConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+    if not rubrics:
+        typer.echo(
+            f"{pipeline}: no field is judged by a rubric, so none can be calibrated", err=True
+        )
+        raise typer.Exit(code=2)
+
+    directory = workspace / gold
+    documents = _held_text(workspace, config)
+    model = build_model_client(config.model)
+
+    for field, named in sorted(rubrics.items()):
+        # Against the pipeline's own directory, as `prompts/` and `output` are:
+        # the declaration lives in `schemas/` and the rubric beside it in
+        # `rubrics/`, so resolving against the declaration would look for
+        # `schemas/rubrics/...`.
+        rubric = path.parent / named
+        try:
+            measured = calibrate_field(
+                model,
+                directory=directory,
+                field=field,
+                cases=load_calibration_sample(directory, field),
+                rubric=rubric.read_text(encoding="utf-8"),
+                rubric_hash=text_hash(rubric),
+                documents=documents,
+                judge_model=config.model,
+            )
+        except (ConfigError, NotCalibrated) as error:
+            typer.echo(f"{field}: {error}", err=True)
+            raise typer.Exit(code=2) from error
+
+        typer.echo(
+            f"{field:<18} {measured.agreement:.1%} agreement over "
+            f"{_count(measured.sample_size, 'case')} · {measured.judge_model}"
+        )
 
 
 @app.command("eval")

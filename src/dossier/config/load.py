@@ -48,6 +48,7 @@ __all__ = [
     "SourceConfig",
     "load_calibration_sample",
     "load_fields",
+    "load_judge_rubrics",
     "load_judge_thresholds",
     "load_output_schema",
     "load_output_schemas",
@@ -281,6 +282,28 @@ def load_fields(path: Path) -> dict[str, FieldKind]:
         return declare_fields(document)
     except ValueError as error:
         raise ConfigError(f"{_name(path)}: {error}") from error
+
+
+def load_judge_rubrics(path: Path) -> dict[str, str]:
+    """The rubric each judged field names in its declaration (R7.14, spec 006).
+
+    `declare_fields` checks that a `free_text` field names a `judge:` and then
+    keeps only the kind, because the scorer's field list is what it exists to
+    build. A calibration needs the path as well: the rubric's hash travels with
+    the figure, since a measurement made against another rubric is not this
+    judge's calibration (R7.6).
+
+    The value is returned as written. It is relative to the pipeline's own
+    directory, as `prompts/` and `output` are, and resolving it is the caller's
+    -- this layer is told which file to read, not where a pipeline lives.
+    """
+    document = _read_yaml(path)
+    declared = document.get("fields") or {}
+    return {
+        str(name): str(entry["judge"])
+        for name, entry in declared.items()
+        if isinstance(entry, dict) and entry.get("judge")
+    }
 
 
 def load_output_schema(path: Path) -> OutputSchema:

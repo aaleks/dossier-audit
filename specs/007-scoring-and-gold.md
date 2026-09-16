@@ -409,7 +409,7 @@ table says what each command records, and `calibrate` is not in it yet.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
 - **Proved by:** `tests/unit/test_R007_14__calibrate_writes_what_it_measured.py`, `tests/acceptance/test_R007_14__calibrate_writes_the_calibration_file.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
