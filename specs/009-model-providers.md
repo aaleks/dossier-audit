@@ -1,7 +1,7 @@
 # 009 — Model providers
 
 **Status:** Implemented
-**Rules:** R9.1 – R9.13
+**Rules:** R9.1 – R9.14
 
 ## Purpose
 
@@ -22,7 +22,7 @@ cache between a laptop and a GPU server.
 | Provider | Pinned identifier | Reached at | API key | Checked before the first call |
 |---|---|---|---|---|
 | `anthropic` | `anthropic:claude-sonnet-4-5-20250929` (R0.6) | `DOSSIER_ANTHROPIC_URL`, default Anthropic's API | `DOSSIER_ANTHROPIC_API_KEY` | nothing |
-| `openai` | `openai:gpt-4o-2024-08-06` (R9.9) | `DOSSIER_OPENAI_URL`, default `https://api.openai.com/v1` | `DOSSIER_OPENAI_API_KEY` | nothing |
+| `openai` | `openai:gpt-4o-2024-08-06`, `openai:gpt-5.4-mini` (R9.14) | `DOSSIER_OPENAI_URL`, default `https://api.openai.com/v1` | `DOSSIER_OPENAI_API_KEY` | nothing |
 | `gemini` | `gemini:gemini-3.5-flash-lite` (R9.10) | `DOSSIER_GEMINI_URL`, default `https://generativelanguage.googleapis.com/v1beta/openai` | `DOSSIER_GEMINI_API_KEY` | nothing |
 | `ollama` | `ollama:qwen2.5:7b@sha256:7f3c29a1` | `DOSSIER_OLLAMA_URL`, default `http://localhost:11434` | `DOSSIER_OLLAMA_API_KEY` | the tag's digest (R9.4) |
 | `hf`, served by vLLM | `hf:Qwen/Qwen2.5-7B-Instruct@1c0f8e6b` | `DOSSIER_HF_URL`, no default | `DOSSIER_HF_API_KEY` | the served repo (R9.6); the revision is declared |
@@ -184,7 +184,7 @@ release date, written `-YYYY-MM-DD` -- not Anthropic's `-YYYYMMDD` (R0.6).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.model_id`)
 - **Proved by:** `tests/unit/test_R009_9__an_openai_model_is_pinned_by_a_dated_snapshot.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R9.14
 
 | # | Given | Then |
 |---|-------|------|
@@ -211,7 +211,7 @@ provider's documentation, and nothing is checked before the first call.
 | 1 | `gemini:gemini-3.5-flash-lite` | accepted |
 | 2 | `gemini:gemini-flash-lite-latest` | refused, naming the identifier; `-latest` is re-pointed at each release |
 | 3 | `gemini:gemini-3-flash-preview` | refused; a preview can be replaced under the same name |
-| 4 | *counter-example* — `openai:gpt-4o-2024-08-06` | not this rule's form; R9.9 pins it |
+| 4 | *counter-example* — `openai:gpt-4o-2024-08-06` | not this rule's form; R9.14 pins it |
 
 ### R9.11 — a `.env` file in the working directory supplies only what the environment leaves unset
 
@@ -276,3 +276,32 @@ before the first completion (R9.4).
 | 3 | the server answers 200 | `message.content` is returned verbatim; validating it stays the stage's job (R6.1) |
 | 4 | the server answers 401, or any other non-2xx status | an error naming the URL and the status, never the key (R9.8 row 1) |
 | 5 | *counter-example* — `gemini:gemini-3.5-flash-lite` | not this rule's; R9.12 reaches it |
+
+### R9.14 — an OpenAI model is pinned by a dated snapshot or a stable code, never by a name OpenAI moves
+
+R9.9 read the dated snapshot as the only pin OpenAI offers, and for the `gpt-4o`
+generation it was: every identifier was either a snapshot or an alias pointing at
+one. Later families are published under a stable code with no snapshot behind it
+-- `gpt-5.4-mini` -- which R9.9 refuses, and a correctly pinned model refused is
+the same failure as a floating one accepted, pointing the other way.
+
+So OpenAI is pinned the way Gemini is (R9.10): what the provider documents as
+moving is refused, and what it does not is a pin resting on that documentation.
+Two kinds of OpenAI name move. The `-latest` and preview markers say so in the
+name. The bare family aliases do not -- nothing in the shape of `gpt-4o`
+distinguishes it from `gpt-5.4-mini` -- so those are refused by name, from a
+short list where each entry is a claim about a provider someone confirmed, the
+way R0.6's fixed ids are.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.model_id`)
+- **Proved by:** `tests/unit/test_R009_14__an_openai_model_is_pinned_by_a_snapshot_or_a_stable_code.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `openai:gpt-5.4-mini` | accepted; a stable code with no snapshot behind it |
+| 2 | `openai:gpt-4o-2024-08-06` | accepted; a dated snapshot is still a pin |
+| 3 | `openai:gpt-4o` | refused, naming the identifier; OpenAI moves it to each new snapshot |
+| 4 | `openai:chatgpt-4o-latest` | refused; `-latest` is re-pointed at each release |
+| 5 | *counter-example* — `anthropic:claude-sonnet-4-5-20250929` | not this rule's form; R0.6 pins it |

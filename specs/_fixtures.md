@@ -119,8 +119,9 @@ example refers to.
 | `http://localhost:11434` | `DOSSIER_OLLAMA_URL` on a laptop, and Ollama's default (R9.2) |
 | `http://gpu-01:11434` | `DOSSIER_OLLAMA_URL` on a GPU server — same identifier, same keys (R9.2) |
 | `https://ai.example.internal/ollama` | OpenWebUI's Ollama passthrough — an endpoint, not a provider (R9.7) |
-| `openai:gpt-4o-2024-08-06` | an OpenAI model, pinned by its dated snapshot (R9.9) |
-| `openai:gpt-4o` | an OpenAI alias — refused; it moves to each new snapshot (R9.9) |
+| `openai:gpt-4o-2024-08-06` | an OpenAI model, pinned by its dated snapshot (R9.14) |
+| `openai:gpt-5.4-mini` | an OpenAI stable code, pinned with no snapshot behind it (R9.14) |
+| `openai:gpt-4o` | an OpenAI alias — refused; it moves to each new snapshot (R9.14) |
 | `gemini:gemini-3.5-flash-lite` | the project's default model: a Gemini stable code (R9.10), reached through a local OpenWebUI |
 | `gemini:gemini-flash-lite-latest` | a Gemini alias Google re-points — refused (R9.10) |
 | `gemini:gemini-3-flash-preview` | a Gemini preview — refused (R9.10) |
