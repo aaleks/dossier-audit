@@ -14,7 +14,7 @@ from pathlib import Path
 
 from dossier.application.run import StepReport
 from dossier.domain.gold import GoldDocument, gold_set_hash
-from dossier.domain.judges import Calibration
+from dossier.domain.judges import Calibration, is_eligible
 from dossier.domain.ports import Tracker
 from dossier.domain.scoring import (
     DocumentScore,
@@ -83,6 +83,8 @@ def record_eval(
     gold: str,
     gold_files: Mapping[str, bytes],
     totals: Sequence[FieldTotal],
+    judges: Mapping[str, Calibration] | None = None,
+    thresholds: Mapping[str, float] | None = None,
 ) -> None:
     """Record one `dossier eval` as one MLflow run, one metric per scored field (R11.3).
 
@@ -94,7 +96,27 @@ def record_eval(
     The gold set is named, and tagged with a hash of its contents, since two
     evals over different gold sets are not comparable; the run it scored is
     tagged by id, so the eval can be followed back to what it measured.
+
+    A judge's measured agreement is recorded as a param beside the model that
+    produced it, because the figure means nothing without it (R7.11 row 2). A
+    judge that fell short of its configured threshold reports no accuracy for
+    its field at all, and the run carries a tag saying so and why: a metric that
+    is simply absent reads as a field nobody verified, which is a different
+    thing and wants different work (R7.5, R7.3 row 4). The decision itself stays
+    `domain.judges.is_eligible` -- nothing here judges a judge.
     """
+    # Which fields a judge measured but may not report (R7.5). Computed before
+    # the run opens because the reason is a tag, and tags are set when a run
+    # starts. The decision is the domain's -- this only records what it returned.
+    ineligible: dict[str, str] = {}
+    for field, calibration in (judges or {}).items():
+        threshold = (thresholds or {}).get(field)
+        if threshold is not None and not is_eligible(calibration, threshold=threshold):
+            ineligible[field] = (
+                f"ineligible: agreement {calibration.agreement} is below the "
+                f"configured threshold {threshold}"
+            )
+
     tracker.start_run(
         experiment=experiment,
         name=f"eval of {run_id}",
@@ -102,10 +124,25 @@ def record_eval(
             **tracking_tags(kind="eval", pipeline=pipeline),
             "dossier.run_id": run_id,
             "dossier.gold_hash": gold_set_hash(gold_files),
+            **{f"dossier.judge.{field}": why for field, why in ineligible.items()},
         },
     )
-    tracker.log_params({"model": model, "gold": Path(gold).name})
-    metrics = {f"accuracy/{total.field}": total.percentage for total in totals}
+    params = {"model": model, "gold": Path(gold).name}
+    # The agreement figure travels with the judge that produced it. A number on
+    # its own says a judge agreed with a human without saying which judge or on
+    # what question, so two evals under different judges would be read as one
+    # measurement -- which is what R7.11 row 2 exists to prevent (R11.3 row 3).
+    for field, calibration in (judges or {}).items():
+        params[f"judge/{field}/agreement"] = str(calibration.agreement)
+        params[f"judge/{field}/model"] = calibration.judge_model
+    tracker.log_params(params)
+    # A field whose judge may not be quoted records no accuracy at all. A number
+    # here would read as a measurement, which is the thing R7.5 refuses.
+    metrics = {
+        f"accuracy/{total.field}": total.percentage
+        for total in totals
+        if total.field not in ineligible
+    }
     summed = overall(totals)
     if summed is not None:
         metrics["accuracy/overall"] = summed.percentage

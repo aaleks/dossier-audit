@@ -7,10 +7,8 @@ one answer are not comparable, and the hash is what says so.
 
 Rows 3 and 4 -- a judge's calibrated agreement recorded as a param, and a judge
 below its threshold recording no metric at all -- waited for R7.11, which now
-produces a calibration. They are transcribed below and are the open slice: they
-carry `@pytest.mark.outer_loop` and stay out of the default run until
-`record_eval` takes a judge's calibration. Rows 1, 2 and 5 keep running there,
-which is why the marker is on the two tests rather than on the module.
+produces a calibration. All five rows are transcribed, and all five run in the
+default suite: the slice closed, so the `outer_loop` markers came off.
 
 The recording decision is `record_eval`, handed a `FakeTracker`. The totals are
 `_fixtures.md`'s scoring example: 4/4, 3/4, 4/4, 3/4 and 2/4.
@@ -20,7 +18,6 @@ from __future__ import annotations
 
 import re
 
-import pytest
 from tests.fakes import FakeTracker
 
 from dossier.application.eval import record_eval
@@ -61,10 +58,10 @@ def _record(
 ) -> None:
     """One eval recorded. Judge arguments are forwarded only when a test gives them.
 
-    Not tidiness: rows 1, 2 and 5 are built and run in the default suite, and
-    passing them an argument `record_eval` does not take yet would turn that
-    suite red for a slice that is deliberately unfinished. The two open rows
-    pass theirs, and are the only ones that fail.
+    Rows 1, 2 and 5 are about what an eval records whether or not a judge was
+    involved, so they say nothing about one. `record_eval` defaults both
+    arguments, and a test that passed them anyway would be asserting the default
+    rather than the row it exists for.
     """
     record_eval(
         tracker,
@@ -130,7 +127,6 @@ class TestAnEvalRecordsOneMetricPerField:
         fields = {name for name in tracker.runs[0].metrics if name != "accuracy/overall"}
         assert fields == {"accuracy/severity"}
 
-    @pytest.mark.outer_loop
     def test_a_calibrated_judge_records_its_agreement_and_which_judge_gave_it(self):
         """Example 3: the one whose judge agreed with the reviewer often enough.
 
@@ -149,7 +145,6 @@ class TestAnEvalRecordsOneMetricPerField:
         assert float(params["judge/root_cause/agreement"]) == 0.91
         assert params["judge/root_cause/model"] == JUDGE_MODEL
 
-    @pytest.mark.outer_loop
     def test_a_judge_below_its_threshold_reports_no_accuracy_for_that_field(self):
         """Example 4: the one where the judge was measured and did not do well enough.
 
