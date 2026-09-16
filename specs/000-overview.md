@@ -237,7 +237,7 @@ people. The two are kept apart so that deleting the first is always safe.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.store`), application (`dossier.application.manifest`)
 - **Proved by:** `tests/unit/test_R000_8__workspace_layout_separates_state_from_output.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
