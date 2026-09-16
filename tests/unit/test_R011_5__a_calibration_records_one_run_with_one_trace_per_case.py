@@ -13,10 +13,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from tests.fakes import FakeModelClient, FakeTracker
 
 from dossier.domain.gold import CalibrationCase, gold_set_hash
-from dossier.domain.judges import Calibration
+from dossier.domain.judges import Calibration, NotCalibrated
 
 MODEL = "anthropic:claude-sonnet-4-5-20250929"
 RUBRIC = "Is the stated root cause supported by the named document?\n"
@@ -189,3 +190,38 @@ class TestACalibrationRecordsOneRunWithOneTracePerCase:
         assert run.metrics == {"judge/root_cause/agreement": 95.0, "judge/root_cause/cases": 20}
         assert len(run.traces) == 20
         assert run.status == "FINISHED"
+
+    def test_a_refused_calibration_opens_no_run(self, tmp_path: Path):
+        """Counter-example (row 4): the one where nothing was measured.
+
+        Nineteen cases is refused before the first judge call (R7.14 row 3),
+        and it has to be refused before the run is opened too: a run with no
+        figures on it reads back as a measurement that happened and recorded
+        nothing, which is a different -- and worse -- story than "refused".
+        """
+        from dossier.application.eval import FieldSample, calibrate_fields
+
+        short = _cases()[:-1]
+        judge = FakeModelClient(responses=_replies(short))
+        tracker = FakeTracker()
+
+        with pytest.raises(NotCalibrated) as refused:
+            calibrate_fields(
+                judge,
+                directory=tmp_path,
+                samples={
+                    "root_cause": FieldSample(
+                        cases=short, rubric=RUBRIC, rubric_hash=RUBRIC_HASH
+                    )
+                },
+                documents={case.document: f"The text of {case.document}." for case in short},
+                judge_model=MODEL,
+                tracker=tracker,
+                experiment="dossier-audit/incident-audit/calibrate",
+                pipeline="incident-audit",
+                gold_files={},
+            )
+
+        assert "19" in str(refused.value)
+        assert judge.call_count == 0
+        assert tracker.runs == [], "0 MLflow runs, 0 traces"

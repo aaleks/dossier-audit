@@ -292,12 +292,7 @@ def calibrate_field(
     starts, and a calibration trace is exactly one call, so nothing that
     happens inside it goes unrecorded by waiting.
     """
-    if len(cases) < MINIMUM_SAMPLE:
-        raise NotCalibrated(
-            f"{field}: the sample holds {len(cases)} case(s), and {MINIMUM_SAMPLE} is the "
-            "minimum at which agreement means anything. Report this as not measurable at "
-            "this N, never as a percentage (R7.11 example 3)."
-        )
+    _require_measurable(field, cases)
 
     human: dict[str, bool] = {}
     verdicts: dict[str, bool] = {}
@@ -338,6 +333,16 @@ def calibrate_field(
     return measured
 
 
+def _require_measurable(field: str, cases: Sequence[CalibrationCase]) -> None:
+    """Refuse a sample too small to produce a figure that means anything (R7.11 row 3)."""
+    if len(cases) < MINIMUM_SAMPLE:
+        raise NotCalibrated(
+            f"{field}: the sample holds {len(cases)} case(s), and {MINIMUM_SAMPLE} is the "
+            "minimum at which agreement means anything. Report this as not measurable at "
+            "this N, never as a percentage (R7.11 example 3)."
+        )
+
+
 @dataclass(frozen=True)
 class FieldSample:
     """What one judged field is measured against: its sample and its rubric."""
@@ -367,7 +372,14 @@ def calibrate_fields(
     prints -- and the run is tagged with the gold set's hash as an eval's is
     (R11.3 row 2): two calibrations against samples that differ by one verdict
     are not comparable.
+
+    Every sample is checked before the run is opened. A short one is refused
+    with no judge call made (R7.14 row 3), and a run opened for it would read
+    back as a measurement that happened and recorded nothing -- a different,
+    and worse, story than "refused" (R11.5 row 4).
     """
+    for field, sample in sorted(samples.items()):
+        _require_measurable(field, sample.cases)
     if tracker is not None:
         tracker.start_run(
             experiment=experiment,
