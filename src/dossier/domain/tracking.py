@@ -15,6 +15,8 @@ from collections.abc import Mapping
 
 from pydantic import BaseModel, ConfigDict
 
+from dossier.domain.judges import Calibration
+
 ENABLED = "DOSSIER_MLFLOW_ENABLED"
 TRACKING_URI = "DOSSIER_MLFLOW_TRACKING_URI"
 EXPERIMENT = "DOSSIER_MLFLOW_EXPERIMENT"
@@ -150,6 +152,35 @@ def count_metrics(*, kind: str, source: str, counts: Mapping[str, int]) -> dict[
             "zeros included -- a missing one reads as a source that was skipped (R2.13)."
         )
     return {f"{source}/{name}": counts[name] for name in names}
+
+
+def calibration_record(
+    *, field: str, calibration: Calibration
+) -> tuple[dict[str, str], dict[str, float]]:
+    """The params and metrics a `dossier calibrate` records for one judged field (R11.5).
+
+    The figures are the ones R7.14 writes to the calibration file and the
+    terminal prints, so the file, the terminal and MLflow cannot disagree. What
+    the figure was measured against -- the judge and the rubric -- are params;
+    the agreement and the case count are metrics, so two measurements under two
+    judges sit side by side in MLflow's comparison. The agreement is recorded as
+    the percentage the terminal prints, as accuracy is (spec 011).
+    """
+    # Rounded to the one decimal the terminal prints (`.1%`): 0.57 * 100 is
+    # 56.99999999999999 in floating point, and a record that differed from the
+    # printed line in its last digits is exactly the disagreement spec 011
+    # exists to rule out.
+    percentage = round(calibration.agreement * 100, 1)
+    return (
+        {
+            f"judge/{field}/model": calibration.judge_model,
+            f"judge/{field}/rubric": calibration.rubric_hash,
+        },
+        {
+            f"judge/{field}/agreement": percentage,
+            f"judge/{field}/cases": calibration.sample_size,
+        },
+    )
 
 
 def capture(environ: Mapping[str, str]) -> str:
