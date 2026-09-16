@@ -66,58 +66,33 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. R2.12 and R2.13 are met: `dossier sync <pipeline>`
-syncs what that pipeline declares, and reports what it did per source and in
-total, with each failed item named alongside the error its source gave. Spec 010
-is implemented. R10.6 is met: a record lost
-after the startup check never changes a command's outcome -- the run completes,
-its answers are cached, it exits as it would untracked, and one warning says how
-many traces are missing. R10.5 is met:
-the MLflow adapter (`dossier.infrastructure.tracking`) is in, and with tracking
-on an unreachable server, or the `tracking` extra not installed, refuses `run`
-and `sync` before any work, naming what to fix; `sync` records its per-source
-counts. Tracking changes nothing written to disk
-(R10.4), no key reaches a tracking record (R10.7), and an eval records one
-accuracy metric per field (R11.3 rows 1, 2, 5; its judge rows wait for R7.11).
-R11.1 is met: a `dossier run` with tracking on is one
-MLflow run, named after its run id, with one trace per (step, document),
-recorded through a `Tracker` port that reads nothing back (R0.10); `--plan` and
-`--replay` record nothing. The pure tracking decisions are met too: the switch
-(R10.1), the experiment template (R10.2), the tags (R10.3), what a span may
-carry (R10.8) and the per-source counts (R11.4). Each model call is one LLM
-span, and a cache hit is a trace with none (R11.2). R0.10 admits the third
-network package, `dossier.infrastructure.tracking`, and counts `mlflow` as a
-network client; the MLflow adapter itself, and its startup check, come with
-R10.5.
-R7.8 is met: `dossier eval <pipeline> --gold <dir>
---compare <run> <run>` reproduces both runs from their own caches, refuses two
-runs over different documents, and prints each field's two scores and delta,
-every regression flagged even under a better overall figure. R9.2 is met: where
-a provider is reached comes from
-`DOSSIER_<PROVIDER>_URL` or the provider's own default, is in no key, and is
-asked for only at a run's first cache miss -- a fully cached run needs no
-endpoint. R7.2 is met: `dossier eval <pipeline> --gold <dir>` reproduces the
-latest run from its manifest and cache, asks no model, and prints one percentage
-per field, the weakest marked, under an overall figure that never stands alone.
-Spec 006 is implemented: a step's `output`
-names a YAML field declaration (R6.10, R3.10), and the stage key hashes both the
-declaration's text (R6.11) and the JSON Schema generated from it (R6.12). A
-model is pinned or refused at load (R0.6, R3.4), and a source's keys are checked
-against what its connector declares, every error named at its line (R1.10,
-R3.1). Spec 009 is implemented: a model is pinned in its provider's form (R9.3,
-R9.5, R9.9, R9.10), and its provider must be installed, as a `dossier.models`
-entry point (R9.1); all five of spec 009's providers are registered with their
-default endpoints. `openai`, `gemini` and `hf` reach a real model through one
-OpenAI-compatible client over httpx (R9.12), and `ollama` through its native
-API (R9.13); `anthropic` stays a placeholder until its own API gets a rule.
-OpenWebUI is an endpoint, never a provider (R9.7), and a `.env` file fills what
-the shell leaves unset (R9.11). The project's default model is
-`gemini:gemini-3.5-flash-lite` through a local OpenWebUI (`.env.example`). A
-vLLM serving another repository, or an Ollama tag re-pulled to another digest,
-stops the run before its first call (R9.6, R9.4), and a key reaches a request
-header and nothing a run writes or prints (R9.8). A declared `gold` directory,
-resolved against the workspace, is checked at load (R3.7). An Anthropic client
-waits for a rule of its own.
+Currently open: **none**. Ten of the twelve specs are implemented -- 000, 001,
+002, 003, 004, 005, 006, 008, 009 and 010 -- and 115 of the 125 rules are MET,
+with 7 superseded. What is left of spec 007 and spec 011 is one thing wearing
+two hats: **R7.11** and **R7.12** need a live model and an agreement threshold a
+person signs off, and **R11.3**'s judge rows wait on R7.11. Nothing else is
+blocked.
+
+`dossier` reads a real remote source now. The Jira connector ships, issues and
+the files they carry are separate addresses, and every request it makes is a
+`GET` -- which is what finally made R1.1 provable rather than merely true
+(R1.1, R1.4, R1.6). A held document is the raw payload its ledger row addresses,
+not the projection its hash was taken over (R2.17); a changed `fields` list
+re-evaluates the whole source it describes (R2.3); an attachment replaced under
+an untouched issue is detected, snapshotted and tombstoned on its own (R2.6); a
+step does not run for a document an earlier step produced nothing for (R6.13); a
+converter declaring no version is refused where it is registered (R8.2); and a
+credential is *named* in `sources.yaml` and never written there, resolved by
+`dossier.config` and handed to the connector (R1.8, R9.8).
+
+Spec 009's five providers are registered with their default endpoints: `openai`,
+`gemini` and `hf` reach a model through one OpenAI-compatible client over httpx
+(R9.12), `ollama` through its native API (R9.13), and `anthropic` stays a
+placeholder until its own API gets a rule. OpenWebUI is an endpoint, never a
+provider (R9.7), and a `.env` file fills what the shell leaves unset (R9.11).
+The project's default model is `gemini:gemini-3.5-flash-lite` through a local
+OpenWebUI (`.env.example`). A vLLM serving another repository, or an Ollama tag
+re-pulled to another digest, stops the run before its first call (R9.6, R9.4).
 
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost
