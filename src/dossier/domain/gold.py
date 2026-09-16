@@ -22,7 +22,7 @@ from collections.abc import Mapping
 from datetime import date
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from dossier.domain.hashing import content_hash
 
@@ -66,6 +66,39 @@ class GoldDocument(BaseModel):
     verified_by: str
     verified_at: date
     fields: dict[str, dict[str, Any]] = {}
+
+
+class CalibrationCase(BaseModel):
+    """One human-scored case a judge is measured on, as a sample line holds it (R7.16).
+
+    Not a `GoldDocument`. That says what the right value *is*; this says whether a
+    *candidate* answer is supported by its document, which is the question a judge
+    is asked and the only one its agreement can be measured on. A sample has to be
+    able to hold an answer that is wrong -- R7.12's planted case is exactly that --
+    and a gold file has nowhere to put one.
+
+    Extra keys are ignored rather than refused, which is the one place this
+    differs from every other model here. The sample R7.11 was measured on carries
+    `id`, `rule`, `field` and `path` beyond the four a measurement reads, and a
+    reviewer's own bookkeeping is not an error.
+
+    `supported` is strict on purpose, and only `supported`. Pydantic would
+    otherwise read the *string* `"false"` as `False`, so a malformed sample would
+    measure a judge against verdicts its author never wrote and report a
+    percentage for it. Strictness is scoped to this one field because
+    `verified_at` arrives from JSON as a string and is meant to be parsed.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
+    document: str
+    answer: str
+    supported: bool = Field(strict=True)
+    verified_by: str
+    verified_at: date | None = None
+    # The reviewer's justification. Not required, and not read by any
+    # measurement: it exists for the person reading a disagreement back.
+    reason: str | None = None
 
 
 def apply_correction(

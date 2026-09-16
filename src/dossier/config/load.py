@@ -26,7 +26,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from dossier.domain.fields import OutputSchema, declare_fields, json_schema
-from dossier.domain.gold import GoldDocument
+from dossier.domain.gold import CalibrationCase, GoldDocument
 from dossier.domain.hashing import text_hash
 from dossier.domain.model_id import check_pinned, provider_of
 from dossier.domain.pipeline import (
@@ -46,6 +46,7 @@ __all__ = [
     "ConfigError",
     "PipelineConfig",
     "SourceConfig",
+    "load_calibration_sample",
     "load_fields",
     "load_judge_thresholds",
     "load_output_schema",
@@ -342,6 +343,55 @@ def _validate_gold(pipeline: PipelineConfig, path: Path) -> None:
             raise ConfigError(
                 f"{_name(path)}: gold file {gold_file.name} is not valid JSON -- {error}"
             ) from error
+
+
+# The human-scored cases a judge is measured against, one file per judged field.
+# Under a subdirectory so a sample is not one of the `<document>.json` files a
+# gold set is made of, which `_validate_gold` above would otherwise read as a
+# verified answer (R7.16, R3.7 row 1).
+SAMPLES_DIR = "samples"
+
+
+def load_calibration_sample(directory: Path, field: str) -> tuple[CalibrationCase, ...]:
+    """The human-scored cases a judge is measured on, from the gold set (R7.16).
+
+    `<gold>/samples/<field>.jsonl`, one record per line and in file order: a
+    sample is a list a reviewer grows by appending, and the order it was written
+    in is the order it reads back in.
+
+    A bad record names its line. A sample runs to hundreds of lines, and
+    "somewhere in this file" is not a fix anyone can act on (R3.1's shape).
+
+    Not the gold answers. A gold file says what the right value *is*; a sample
+    says whether a *candidate* answer is supported, which is the question a judge
+    is asked -- and it has to be able to hold a wrong candidate (R7.12).
+    """
+    path = directory / SAMPLES_DIR / f"{field}.jsonl"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError as error:
+        raise ConfigError(
+            f"{field}: no calibration sample at {path}. A judge cannot be measured "
+            "against a sample nobody has written (R7.14, R7.16)."
+        ) from error
+
+    cases: list[CalibrationCase] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError as error:
+            raise ConfigError(
+                f"{path.name}, line {number}: not valid JSON -- {error}"
+            ) from error
+        try:
+            cases.append(CalibrationCase.model_validate(record))
+        except ValidationError as error:
+            raise ConfigError(
+                f"{path.name}, line {number}: {_describe(error, record)}"
+            ) from error
+    return tuple(cases)
 
 
 # The agreed bar for each judged field, kept with the gold set the judge is
