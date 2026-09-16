@@ -66,10 +66,13 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. Eleven of the twelve specs are implemented -- every one
-except 011 -- and 117 of the 126 rules are MET, with 8 superseded. What is left
-is **R11.3**: a `dossier eval` recorded to MLflow as one run with one metric per
-scored field. Nothing else is blocked.
+Currently open: **none**, and nothing is outstanding: all twelve specs are
+implemented, and 118 of the 126 rules are MET with the other 8 superseded. A
+`dossier eval` records one MLflow run with one metric per scored field, a
+judge's measured agreement beside the model that produced it, and -- for a field
+whose judge fell short of its configured threshold -- no accuracy metric at all,
+with a tag saying why rather than a gap someone reads as unverified (R11.3,
+R7.5).
 
 The judge is calibrated. `openai:gpt-5.4-mini`, reached through a local
 OpenWebUI, agreed with `a.aleks` on 20 of 20 human-scored `root_cause` cases,
