@@ -55,7 +55,8 @@ class OllamaClient:
         """The model's answer to `prompt`, as the text it returned.
 
         `stream` false, so one request is one answer; temperature 0, so the same
-        prompt asks for the same answer. Returned verbatim for the stage to
+        prompt asks for the same answer; `think` false, so a reasoning model
+        answers instead of reasoning (R9.13). Returned verbatim for the stage to
         validate (R6.1, R6.2).
         """
         if self._unchecked:
@@ -66,6 +67,13 @@ class OllamaClient:
             "model": self._name,
             "messages": [{"role": "user", "content": prompt}],
             "stream": False,
+            # A reasoning model under a constrained `format` can spend its whole
+            # budget thinking and answer with an empty string -- 268s and nothing
+            # from qwen3.5:9b on one calibration case, against 19s and a verdict
+            # with this false (R9.13). Sent on every call: every completion
+            # dossier asks for is structured, so no tag wants the other setting.
+            # Ollama ignores the field for a model that cannot think.
+            "think": False,
             "options": {"temperature": 0},
         }
         if schema is not None:
