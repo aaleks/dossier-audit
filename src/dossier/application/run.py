@@ -134,6 +134,7 @@ def execute(
     converters: Sequence[PinnedConverter] | None = None,
     tracker: Tracker | None = None,
     experiment: str | None = None,
+    capture: str = "full",
 ) -> RunReport:
     """Resolve the pipeline, freeze it, then run it.
 
@@ -242,6 +243,7 @@ def execute(
                     run_id=run_id,
                     dossier_version=dossier_version,
                     tracker=tracker,
+                    capture=capture,
                 )
                 if tracker is not None:
                     tracker.end_trace(
@@ -308,6 +310,7 @@ def _run_one(
     run_id: str,
     dossier_version: str,
     tracker: Tracker | None = None,
+    capture: str = "full",
 ) -> DocumentResult:
     """One (step, document), served from cache or asked of the model.
 
@@ -368,6 +371,15 @@ def _run_one(
         model=model,
         input_documents=document_text,
         tracker=tracker,
+        capture=capture,
+        # What a span may say under `hashes` (R10.8 row 2): the template, the
+        # inputs and the key -- the same three the cache key is made of, so a
+        # span with no text still says exactly which question was asked.
+        hashes={
+            "prompt": step.prompt_hash,
+            "inputs": [entry.hash for entry in key_inputs.inputs],
+            "key": key,
+        },
     )
 
     if not result.failed:

@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from dossier.domain.grounding import FieldCheck, check_field
 from dossier.domain.ports import ModelClient, Tracker
 from dossier.domain.schemas import FieldRecord, StageOutput
+from dossier.domain.tracking import span_payload
 
 # One retry, and exactly one. A model that cannot produce the shape twice will
 # not produce it on the fifth attempt either, and an unbounded retry loop turns a
@@ -82,6 +83,8 @@ def run_stage(
     model: ModelClient,
     input_documents: Mapping[str, str],
     tracker: Tracker | None = None,
+    capture: str = "full",
+    hashes: Mapping[str, object] | None = None,
 ) -> DocumentResult:
     """Run one stage for one document, validating and grounding the answer.
 
@@ -91,8 +94,19 @@ def run_stage(
     exactly what it is, a response to a *validation* failure.
     """
     if schema is None:
-        text = _asked(tracker, model, prompt, schema=None, attempt=1)
-        _llm_span(tracker, model, attempt=1, error=None)
+        text = _asked(
+            tracker, model, prompt, schema=None, attempt=1, capture=capture, hashes=hashes
+        )
+        _llm_span(
+            tracker,
+            model,
+            attempt=1,
+            error=None,
+            prompt=prompt,
+            reply=text,
+            capture=capture,
+            hashes=hashes,
+        )
         return DocumentResult(document=document, attempts=1, text=text)
 
     attempts = 0
@@ -100,22 +114,43 @@ def run_stage(
 
     while attempts < MAX_ATTEMPTS:
         attempts += 1
+        asked = _with_correction(prompt, correction)
         response = _asked(
             tracker,
             model,
-            _with_correction(prompt, correction),
+            asked,
             schema=schema,
             attempt=attempts,
+            capture=capture,
+            hashes=hashes,
         )
 
         try:
             output = StageOutput.model_validate_json(response)
         except (ValidationError, ValueError) as error:
             correction = str(error)
-            _llm_span(tracker, model, attempt=attempts, error=correction)
+            _llm_span(
+                tracker,
+                model,
+                attempt=attempts,
+                error=correction,
+                prompt=asked,
+                reply=response,
+                capture=capture,
+                hashes=hashes,
+            )
             continue
 
-        _llm_span(tracker, model, attempt=attempts, error=None)
+        _llm_span(
+            tracker,
+            model,
+            attempt=attempts,
+            error=None,
+            prompt=asked,
+            reply=response,
+            capture=capture,
+            hashes=hashes,
+        )
         checks = tuple(
             check_field(record, input_documents=input_documents) for record in output.fields
         )
@@ -142,6 +177,8 @@ def _asked(
     *,
     schema: dict | None,
     attempt: int,
+    capture: str,
+    hashes: Mapping[str, object] | None,
 ) -> str:
     """One model call. A call that raised is still one call, so still one LLM span.
 
@@ -153,27 +190,57 @@ def _asked(
     try:
         return model.complete(prompt, schema=schema)
     except Exception as error:
-        _llm_span(tracker, model, attempt=attempt, error=str(error))
+        _llm_span(
+            tracker,
+            model,
+            attempt=attempt,
+            error=str(error),
+            prompt=prompt,
+            reply="",
+            capture=capture,
+            hashes=hashes,
+        )
         raise
 
 
 def _llm_span(
-    tracker: Tracker | None, model: ModelClient, *, attempt: int, error: str | None
+    tracker: Tracker | None,
+    model: ModelClient,
+    *,
+    attempt: int,
+    error: str | None,
+    prompt: str,
+    reply: str,
+    capture: str,
+    hashes: Mapping[str, object] | None,
 ) -> None:
     """One model call, one LLM span (R11.2).
 
     The span and the model's call count are the same claim seen twice (R5.5). A
     span whose answer failed validation carries the error it was retried on, so
     a retry is explained where it happened rather than only counted (R6.2).
+
+    What else it holds is `capture`'s decision (R10.8): the prompt as sent and
+    the reply as received under `full`, or the prompt template's hash, the
+    input hashes and the key under `hashes` -- which say exactly what was
+    asked without holding a word of it. `hashes` is `None` only for a call no
+    key describes, and `full` never needs it.
     """
     if tracker is None:
         return
-    attributes: dict[str, object] = {
+    identity: dict[str, object] = {
         "dossier.model": model.model_id,
         "dossier.attempt": attempt,
     }
     if error is not None:
-        attributes["error"] = error
+        identity["error"] = error
+    attributes = span_payload(
+        capture=capture,
+        identity=identity,
+        prompt=prompt,
+        reply=reply,
+        hashes=hashes or {"prompt": "", "inputs": (), "key": ""},
+    )
     tracker.span(kind="llm", name=model.model_id, attributes=attributes)
 
 
