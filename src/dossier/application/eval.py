@@ -14,7 +14,7 @@ from pathlib import Path
 
 from dossier.application.run import StepReport
 from dossier.domain.gold import CalibrationCase, GoldDocument, gold_set_hash
-from dossier.domain.judges import MINIMUM_SAMPLE, Calibration, NotCalibrated, is_eligible
+from dossier.domain.judges import MINIMUM_SAMPLE, Calibration, NotCalibrated
 from dossier.domain.ports import Tracker
 from dossier.domain.scoring import (
     DocumentScore,
@@ -84,7 +84,7 @@ def record_eval(
     gold_files: Mapping[str, bytes],
     totals: Sequence[FieldTotal],
     judges: Mapping[str, Calibration] | None = None,
-    thresholds: Mapping[str, float] | None = None,
+    withheld: Mapping[str, str] | None = None,
 ) -> None:
     """Record one `dossier eval` as one MLflow run, one metric per scored field (R11.3).
 
@@ -99,24 +99,20 @@ def record_eval(
 
     A judge's measured agreement is recorded as a param beside the model that
     produced it, because the figure means nothing without it (R7.11 row 2). A
-    judge that fell short of its configured threshold reports no accuracy for
-    its field at all, and the run carries a tag saying so and why: a metric that
-    is simply absent reads as a field nobody verified, which is a different
-    thing and wants different work (R7.5, R7.3 row 4). The decision itself stays
-    `domain.judges.is_eligible` -- nothing here judges a judge.
-    """
-    # Which fields a judge measured but may not report (R7.5). Computed before
-    # the run opens because the reason is a tag, and tags are set when a run
-    # starts. The decision is the domain's -- this only records what it returned.
-    ineligible: dict[str, str] = {}
-    for field, calibration in (judges or {}).items():
-        threshold = (thresholds or {}).get(field)
-        if threshold is not None and not is_eligible(calibration, threshold=threshold):
-            ineligible[field] = (
-                f"ineligible: agreement {calibration.agreement} is below the "
-                f"configured threshold {threshold}"
-            )
+    field the caller withheld records no accuracy at all, and the run carries a
+    tag naming it and saying why: a metric that is simply absent reads as a
+    field nobody verified, which is a different thing and wants different work
+    (R7.5, R7.3 row 4).
 
+    `withheld` is handed in rather than worked out here, and that is the point.
+    The terminal decides which fields it may report (R7.15); MLflow records the
+    same decision rather than reaching it a second way. Computing it twice is
+    exactly how the two came to disagree: a recomputation from thresholds alone
+    sees nothing wrong with a judge that was never measured or whose calibration
+    is stale, so the metric was recorded while the report withheld it. Spec 011
+    is explicit -- MLflow is a second place to read a figure, never a second way
+    of arriving at one.
+    """
     tracker.start_run(
         experiment=experiment,
         name=f"eval of {run_id}",
@@ -124,7 +120,7 @@ def record_eval(
             **tracking_tags(kind="eval", pipeline=pipeline),
             "dossier.run_id": run_id,
             "dossier.gold_hash": gold_set_hash(gold_files),
-            **{f"dossier.judge.{field}": why for field, why in ineligible.items()},
+            **{f"dossier.judge.{field}": why for field, why in (withheld or {}).items()},
         },
     )
     params = {"model": model, "gold": Path(gold).name}
@@ -141,7 +137,7 @@ def record_eval(
     # headline always covers exactly the verdicts the breakdown does. Summing
     # every total here instead would hand back in aggregate the number R7.5 just
     # withheld, in the figure most people read first (R11.3 row 4).
-    reportable = [total for total in totals if total.field not in ineligible]
+    reportable = [total for total in totals if total.field not in (withheld or {})]
     metrics = {f"accuracy/{total.field}": total.percentage for total in reportable}
     summed = overall(reportable)
     if summed is not None:
@@ -319,6 +315,24 @@ def calibrate_field(
         json.dumps(measured.model_dump(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     return measured
+
+
+def load_calibration(directory: Path, field: str) -> Calibration | None:
+    """What a judge was last measured at, or `None` if it never was (R7.15).
+
+    `None` rather than a raised error, because never measured is a different
+    state from measured and found wanting: one wants a `dossier calibrate`, the
+    other a better judge or a bar somebody agrees to lower. Collapsing the two
+    into "no score" sends a reader to the wrong fix, which is the failure R7.5's
+    honest silence exists to avoid.
+
+    A file that is present and malformed is not silence, and is not swallowed:
+    pydantic's error travels, as it does for a gold document.
+    """
+    path = directory / CALIBRATIONS_DIR / f"{field}.json"
+    if not path.is_file():
+        return None
+    return Calibration.model_validate(json.loads(path.read_text(encoding="utf-8")))
 
 
 def _gold_fields(document: GoldDocument) -> dict[str, GoldField]:

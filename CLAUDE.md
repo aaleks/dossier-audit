@@ -66,24 +66,27 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. Eleven of the twelve specs are implemented, and 121 of
-the 130 rules are MET with 8 superseded. One rule is left: **R7.15**, which is
-what finally makes R7.5 and R7.6 fire from `dossier eval`.
+Currently open: **none**, and nothing is outstanding: all twelve specs are
+implemented, and 122 of the 130 rules are MET with the other 8 superseded.
 
-Three of the four have landed. A judged field's agreement threshold is declared
-with the gold set, in `gold/<name>/judge.yaml`, and a free-text field with no
-threshold declared for it is refused at load time rather than reported as though
-it had cleared one (R7.13). The human-scored cases a judge is measured against
-live beside it, in `gold/<name>/samples/<field>.jsonl`, where a record holds a
-*candidate* answer and a verdict on it -- which is precisely what a gold file
-cannot hold, and why the two are different artifacts (R7.16). And `dossier
-calibrate` measures a judge against that sample and writes what it measured to
-`gold/<name>/calibrations/<field>.json`, never touching the bar it is judged
-against (R7.14).
+The judge is gated end to end, which is what `/verify` set out after when it
+found `is_stale` with no caller anywhere in `src/`. A judged field's agreement
+threshold is declared with the gold set, and a judged field with no threshold is
+refused at load time rather than reported as though it had cleared one (R7.13).
+The human-scored cases it is measured against live beside it, holding a
+*candidate* answer and a verdict on it -- what a gold file cannot express, and
+why the two are separate artifacts (R7.16). `dossier calibrate` measures a judge
+against that sample and writes what it measured, never touching the bar it is
+judged against (R7.14). And `dossier eval` withholds a field whose calibration is
+missing, short or stale, saying which of the three it is, because they want three
+different fixes (R7.15, R7.5, R7.6).
 
-Nothing *reads* a calibration yet. Until R7.15 lands, `is_stale` still has no
-caller -- which is how `/verify` found this whole area in the first place -- and
-a judged field still prints a percentage nothing has gated.
+The report and the MLflow record make that decision **once**, in the command, and
+the record is handed the answer. They were briefly allowed to work it out
+separately, and disagreed about a judge that had never been measured -- a metric
+recorded for a field the report had already refused to print, with every check
+green. Spec 011 is the rule that forbids it: MLflow is a second place to read a
+figure, never a second way of arriving at one.
 
 The judge is calibrated. `openai:gpt-5.4-mini`, reached through a local
 OpenWebUI, agreed with `a.aleks` on 20 of 20 human-scored `root_cause` cases,

@@ -19,6 +19,7 @@ is the eval. The CLI is handed a `FakeTracker` through the same seam
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -34,6 +35,8 @@ from tests.scoring_example import (
     IssueTracker,
     RoutedModel,
 )
+
+from dossier.domain.hashing import text_hash
 
 URI = "http://localhost:5000"
 GOLD = "gold/incidents"
@@ -83,9 +86,38 @@ def audited(workspace: Path, monkeypatch) -> tuple[Path, str]:
     ran = _cli(workspace, monkeypatch, "run", PIPELINE)
     assert ran.exit_code == 0, ran.output
 
+    # `root_cause` is judged, and a judged field is reported only once its judge
+    # has been measured and has cleared the declared bar (R7.15). This rule is
+    # about what an eval *records*, so the judge here clears it comfortably --
+    # the case where it does not is its own test below.
+    _calibrate(workspace, agreement=1.0)
+
     found = re.search(r"^run (\S+)", ran.output, re.MULTILINE)
     assert found, ran.output
     return workspace, found.group(1)
+
+
+def _calibrate(workspace: Path, *, agreement: float) -> None:
+    """The bar and the measurement a calibrated judge leaves behind (R7.13, R7.14)."""
+    gold = workspace / "gold" / "incidents"
+    (gold / "judge.yaml").write_text("root_cause: 0.95\n", encoding="utf-8")
+    (gold / "calibrations").mkdir(exist_ok=True)
+    (gold / "calibrations" / "root_cause.json").write_text(
+        json.dumps(
+            {
+                "judge_model": RoutedModel.model_id,
+                "rubric_hash": text_hash(
+                    workspace / "pipelines" / PIPELINE / "rubrics" / "root_cause.md"
+                ),
+                "agreement": agreement,
+                "sample_size": 20,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 @pytest.fixture
@@ -139,7 +171,36 @@ class TestEvalRecordsItsScoresToMLflow:
 
         assert result.exit_code == 0, result.output
         run = tracker.runs[0]
-        assert run.params == {"model": RoutedModel.model_id, "gold": "incidents"}
+        # The two entries this row is about, rather than the whole dict. A
+        # calibrated judge also records its agreement and its model here (row 3),
+        # and whether those appear depends on the gold set rather than on
+        # anything row 2 claims.
+        assert run.params["model"] == RoutedModel.model_id
+        assert run.params["gold"] == "incidents"
         assert run.tags["dossier.run_id"] == run_id
         assert run.tags["dossier.kind"] == "eval"
         assert re.fullmatch(r"[0-9a-f]{64}", run.tags["dossier.gold_hash"])
+
+    def test_a_withheld_field_records_no_accuracy_and_says_why(
+        self, audited: tuple[Path, str], monkeypatch, tracker: FakeTracker
+    ):
+        """Row 4, at the tier its Given describes: the judge that fell short.
+
+        The report withholds the field (R7.15) and the record withholds it too,
+        with a tag saying why. Here rather than only in the unit test because the
+        two were briefly decided separately -- `record_eval` worked eligibility
+        out again from thresholds, saw nothing wrong with a judge that had never
+        been measured, and recorded a metric the report had already refused to
+        print. Every check stayed green while MLflow and the terminal disagreed
+        about one run, which is the thing spec 011 exists to prevent.
+        """
+        workspace, _ = audited
+        _calibrate(workspace, agreement=0.91)
+
+        result = _cli(workspace, monkeypatch, "eval", PIPELINE, "--gold", GOLD)
+
+        assert result.exit_code == 0, result.output
+        run = tracker.runs[0]
+        assert "accuracy/root_cause" not in run.metrics
+        assert "accuracy/severity" in run.metrics, "the fields no judge scored are untouched"
+        assert "0.91" in run.tags["dossier.judge.root_cause"]

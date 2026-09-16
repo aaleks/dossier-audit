@@ -137,7 +137,7 @@ class TestAnEvalRecordsOneMetricPerField:
         """
         tracker = FakeTracker()
 
-        _record(tracker, judges={"root_cause": CALIBRATED}, thresholds={"root_cause": 0.85})
+        _record(tracker, judges={"root_cause": CALIBRATED})
 
         params = tracker.runs[0].params
         # The value, not its formatting: a param is a string, and asserting
@@ -155,11 +155,20 @@ class TestAnEvalRecordsOneMetricPerField:
         same rule: 14 of 16 verdicts rather than 16 of 20, because a headline
         that absorbed the suppressed field would hand back in aggregate the
         number R7.5 just withheld -- in the figure most people read first.
+
+        Which fields are withheld, and why, is decided by the caller and recorded
+        verbatim. `dossier eval` makes that decision once for the report it
+        prints (R7.15) and hands it here, so the terminal and MLflow cannot
+        arrive at different answers -- which they did, briefly, while this
+        recomputed eligibility from thresholds and saw nothing wrong with a judge
+        that had never been measured.
         """
         tracker = FakeTracker()
 
         _record(
-            tracker, judges={"root_cause": UNDER_THRESHOLD}, thresholds={"root_cause": 0.85}
+            tracker,
+            judges={"root_cause": UNDER_THRESHOLD},
+            withheld={"root_cause": "agreement 0.78 is below the agreed 0.85"},
         )
 
         run = tracker.runs[0]
