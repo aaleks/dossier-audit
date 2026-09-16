@@ -456,7 +456,7 @@ reviewer grows it by appending.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R007_16__a_calibration_sample_holds_verified_verdicts.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -66,17 +66,22 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. Eleven of the twelve specs are implemented, and 119 of
-the 129 rules are MET with 8 superseded. What is left is the rest of spec 007's
+Currently open: **none**. Eleven of the twelve specs are implemented, and 120 of
+the 130 rules are MET with 8 superseded. What is left is the rest of spec 007's
 judge plumbing: **R7.14** gives the measurement its own command and its own file,
 and **R7.15** is what finally makes R7.5 and R7.6 fire from `dossier eval`.
 
-R7.13 has landed: a judged field's agreement threshold is declared with the gold
-set, in `gold/<name>/judge.yaml`, and a free-text field with no threshold
-declared for it is refused at load time rather than reported as though it had
-cleared one. Until the other two follow, nothing writes or reads a measured
-calibration -- `/verify` found `is_stale` with no caller anywhere in `src/` -- so
-a judged field still prints a percentage nothing has gated.
+Two of the four have landed. A judged field's agreement threshold is declared
+with the gold set, in `gold/<name>/judge.yaml`, and a free-text field with no
+threshold declared for it is refused at load time rather than reported as though
+it had cleared one (R7.13). The human-scored cases a judge is measured against
+live beside it, in `gold/<name>/samples/<field>.jsonl`, where a record holds a
+*candidate* answer and a verdict on it -- which is precisely what a gold file
+cannot hold, and why the two are different artifacts (R7.16).
+
+Until the last two follow, nothing writes or reads a measured calibration --
+`/verify` found `is_stale` with no caller anywhere in `src/` -- so a judged field
+still prints a percentage nothing has gated.
 
 The judge is calibrated. `openai:gpt-5.4-mini`, reached through a local
 OpenWebUI, agreed with `a.aleks` on 20 of 20 human-scored `root_cause` cases,
