@@ -70,6 +70,7 @@ from dossier.domain.scoring import (
 )
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.domain.tracking import TrackingSettings, count_metrics, experiment_name
+from dossier.domain.tracking import capture as capture_setting
 from dossier.domain.tracking import settings as tracking_settings
 from dossier.domain.tracking import tags as tracking_tags
 from dossier.infrastructure.cache import ArtifactCache
@@ -327,6 +328,21 @@ def _tracking_for(
         experiment = experiment_name(kind=kind, pipeline=pipeline, gold=gold, environ=environ)
         return _BestEffortTracker(build_tracker(tracking)), experiment
     except (ValueError, TrackingUnavailable) as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+
+
+def _capture_for(workspace: Path, pipeline: str) -> str:
+    """What a span may carry on this machine: `full` text or only `hashes` (R10.8).
+
+    Read only once tracking is on -- with nothing recording, the setting decides
+    nothing -- and before any work, for the same reason the switch is: read as
+    `full` a typo would copy text the person meant to keep out of the server,
+    and finding that out after the run is finding it out after the copy.
+    """
+    try:
+        return capture_setting(environment(workspace))
+    except ValueError as error:
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
 
@@ -621,6 +637,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
         raise typer.Exit(code=2) from error
 
     tracker, experiment = _tracking_for(workspace, pipeline, kind="run")
+    capture = _capture_for(workspace, pipeline) if tracker is not None else "full"
 
     store = SnapshotStore(workspace)
     converters = installed_converters()
@@ -701,6 +718,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
             cache=ArtifactCache(workspace, namespace="stage"),
             tracker=tracker,
             experiment=experiment,
+            capture=capture,
             run_id=this_run,
             started_at=started_at,
             dossier_version=version("dossier"),

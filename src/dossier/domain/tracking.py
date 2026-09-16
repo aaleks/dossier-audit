@@ -30,7 +30,8 @@ _CAPTURES = ("full", "hashes")
 # so they do not share an experiment unless someone asks them to (spec 010).
 DEFAULT_EXPERIMENT = "dossier-audit/{pipeline}/{kind}"
 
-# Exactly spec 010's placeholders. `{gold}` exists only for `eval`.
+# Exactly spec 010's placeholders. `{gold}` exists only for the two commands that
+# read a gold set, `eval` and `calibrate`.
 _PLACEHOLDERS = ("pipeline", "kind", "gold")
 _PLACEHOLDER = re.compile(r"\{([^{}]*)\}")
 
