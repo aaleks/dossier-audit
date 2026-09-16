@@ -24,6 +24,7 @@ from dossier.domain.scoring import (
     overall,
     score_document,
 )
+from dossier.domain.tracking import case_tags
 from dossier.domain.tracking import tags as tracking_tags
 
 # What a gold field entry holds that scoring reads. A reviewer's correction also
@@ -263,6 +264,7 @@ def calibrate_field(
     rubric_hash: str,
     documents: Mapping[str, str],
     judge_model: str,
+    tracker: Tracker | None = None,
 ) -> Calibration:
     """Measure a judge against a sample, and write what was measured (R7.14).
 
@@ -281,6 +283,13 @@ def calibrate_field(
     about `INC-4830` is the ordinary shape, one supported and one planted -- and
     R7.16 treats a record's `id` as bookkeeping it ignores, so the only key that
     is certainly unique is where the record sits.
+
+    With a `tracker`, each case is one trace holding one LLM span, tagged with
+    the document and both verdicts (R11.5). The trace is recorded once the
+    verdict is in rather than opened before the call, as a run's traces are
+    (R11.1): the judge's verdict is a tag, a trace's tags are set when it
+    starts, and a calibration trace is exactly one call, so nothing that
+    happens inside it goes unrecorded by waiting.
     """
     if len(cases) < MINIMUM_SAMPLE:
         raise NotCalibrated(
@@ -302,6 +311,17 @@ def calibrate_field(
             answer=case.answer,
         )
         verdicts[position] = supported
+        if tracker is not None:
+            tracker.start_trace(
+                name=f"{field} · {case.document}",
+                tags=case_tags(
+                    document=case.document, verified=case.supported, judged=supported
+                ),
+            )
+            tracker.span(
+                kind="llm", name=judge_model, attributes={"dossier.model": judge_model}
+            )
+            tracker.end_trace(status="OK")
 
     measured = calibration(
         verdicts=verdicts, human=human, judge_model=judge_model, rubric_hash=rubric_hash

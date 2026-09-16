@@ -10,10 +10,50 @@ one proves the command does.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+from tests.fakes import FakeModelClient, FakeTracker
+
+from dossier.domain.gold import CalibrationCase
 from dossier.domain.judges import Calibration
 
 MODEL = "anthropic:claude-sonnet-4-5-20250929"
+RUBRIC = "Is the stated root cause supported by the named document?\n"
 RUBRIC_HASH = "f7a2d9c4" * 8
+
+# Twelve supported and eight not, the way the sample R7.11 measured is split.
+VERDICTS = [True] * 12 + [False] * 8
+
+
+def _cases() -> list[CalibrationCase]:
+    return [
+        CalibrationCase(
+            document=f"INC-{4800 + index}",
+            answer=f"candidate answer {index}",
+            supported=supported,
+            verified_by="a.aleks",
+            verified_at="2026-09-15",
+        )
+        for index, supported in enumerate(VERDICTS)
+    ]
+
+
+def _replies(cases: list[CalibrationCase], *, disagree_at: int | None = None) -> list[str]:
+    """What the judge answers, case by case: the reviewer's verdict, or its opposite."""
+    return [
+        json.dumps(
+            {"supported": case.supported if index != disagree_at else not case.supported}
+        )
+        for index, case in enumerate(cases)
+    ]
+
+
+def _started() -> FakeTracker:
+    """A tracker with a run open, as the command opens one before measuring."""
+    tracker = FakeTracker()
+    tracker.start_run(experiment="dossier-audit/incident-audit/calibrate", name="", tags={})
+    return tracker
 
 
 def _record(calibration: Calibration, *, field: str = "root_cause"):
@@ -66,3 +106,42 @@ class TestACalibrationRecordsOneRunWithOneTracePerCase:
             "dossier.verified": "unsupported",
             "dossier.judged": "supported",
         }
+
+    def test_each_case_is_a_trace_with_one_llm_span(self, tmp_path: Path):
+        """Example 2, at the measurement: twenty cases, twenty traces, one span each.
+
+        Case 7 is where the judge disagrees, and its trace says so in its tags.
+        The trace count and the judge's call count are the same claim seen
+        twice (R11.2): a measurement that skipped a case would still produce a
+        percentage, and it would be a percentage of something else.
+        """
+        from dossier.application.eval import calibrate_field
+
+        cases = _cases()
+        judge = FakeModelClient(responses=_replies(cases, disagree_at=7))
+        tracker = _started()
+
+        calibrate_field(
+            judge,
+            directory=tmp_path,
+            field="root_cause",
+            cases=cases,
+            rubric=RUBRIC,
+            rubric_hash=RUBRIC_HASH,
+            documents={case.document: f"The text of {case.document}." for case in cases},
+            judge_model=MODEL,
+            tracker=tracker,
+        )
+
+        traces = tracker.runs[0].traces
+        assert len(traces) == 20 == judge.call_count
+        assert [trace.tags["dossier.document"] for trace in traces] == [
+            case.document for case in cases
+        ]
+        assert traces[7].tags == {
+            "dossier.document": "INC-4807",
+            "dossier.verified": "supported",
+            "dossier.judged": "unsupported",
+        }
+        assert all(trace.status == "OK" for trace in traces)
+        assert [span["kind"] for trace in traces for span in trace.spans] == ["llm"] * 20
