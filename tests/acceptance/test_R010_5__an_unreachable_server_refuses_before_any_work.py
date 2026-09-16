@@ -15,6 +15,7 @@ connection that never opens, which is what nothing listening at
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -136,6 +137,48 @@ class TestAnUnreachableServerRefusesBeforeAnyWork:
 
         assert result.exit_code == 2
         assert "dossier[tracking]" in result.output
+
+    def test_a_calibration_is_refused_before_any_judge_call(
+        self, workspace: Path, monkeypatch, source: CountingTracker
+    ):
+        """Example 5: the one where the server is down for `dossier calibrate`.
+
+        A calibration is twenty judge calls per field, and records one run with
+        a trace per case (R11.5). With nothing to record to, none of them is
+        made, and no calibration file is left behind for a measurement that
+        was never traced.
+        """
+        import dossier.cli.main as cli
+
+        assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
+        gold = workspace / "gold" / "incidents"
+        (gold / "samples").mkdir(parents=True)
+        (gold / "judge.yaml").write_text("root_cause: 0.95\n", encoding="utf-8")
+        keys = sorted(ISSUES)
+        cases = [
+            {
+                "document": keys[index % len(keys)],
+                "answer": f"candidate answer {index}",
+                "supported": index < 12,
+                "verified_by": "a.aleks",
+                "verified_at": "2026-09-15",
+            }
+            for index in range(20)
+        ]
+        (gold / "samples" / "root_cause.jsonl").write_text(
+            "\n".join(json.dumps(case) for case in cases) + "\n", encoding="utf-8"
+        )
+        _tracking_on(monkeypatch)
+        _server_down(monkeypatch)
+        # A judge that fails on any call at all: 0 judge calls, asserted at the
+        # call site rather than counted afterwards.
+        monkeypatch.setattr(cli, "build_model_client", lambda model_id: NoModelClient())
+
+        result = _cli(workspace, monkeypatch, "calibrate", PIPELINE, "--gold", "gold/incidents")
+
+        assert result.exit_code == 2
+        assert URI in result.output
+        assert not (gold / "calibrations").exists(), "no calibration file"
 
     def test_a_plan_needs_no_server(
         self, workspace: Path, monkeypatch, source: CountingTracker
