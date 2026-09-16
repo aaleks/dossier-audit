@@ -1,6 +1,6 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R2.1 – R2.17
 
 ## Purpose
@@ -230,7 +230,7 @@ the answer comes out.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync.classify`)
 - **Proved by:** `tests/unit/test_R002_6__replaced_attachment_is_detected.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
