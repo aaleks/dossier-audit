@@ -94,7 +94,7 @@ same field would hand it back in the figure most people read first.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.count_metrics`)
-- **Proved by:** `tests/unit/test_R011_4__sync_and_convert_record_per_source_counts.py`
+- **Proved by:** `tests/unit/test_R011_4__sync_and_convert_record_per_source_counts.py`, `tests/acceptance/test_R011_4__sync_and_convert_record_to_mlflow.py`
 - **Status:** MET
 
 | # | Given | Then |
