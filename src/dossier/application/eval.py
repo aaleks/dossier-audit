@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from dossier.application.run import StepReport
@@ -24,7 +25,7 @@ from dossier.domain.scoring import (
     overall,
     score_document,
 )
-from dossier.domain.tracking import case_tags
+from dossier.domain.tracking import calibration_record, case_tags
 from dossier.domain.tracking import tags as tracking_tags
 
 # What a gold field entry holds that scoring reads. A reviewer's correction also
@@ -334,6 +335,72 @@ def calibrate_field(
     path.write_text(
         json.dumps(measured.model_dump(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+    return measured
+
+
+@dataclass(frozen=True)
+class FieldSample:
+    """What one judged field is measured against: its sample and its rubric."""
+
+    cases: Sequence[CalibrationCase]
+    rubric: str
+    rubric_hash: str
+
+
+def calibrate_fields(
+    model,
+    *,
+    directory: Path,
+    samples: Mapping[str, FieldSample],
+    documents: Mapping[str, str],
+    judge_model: str,
+    tracker: Tracker | None = None,
+    experiment: str = "",
+    pipeline: str = "",
+    gold_files: Mapping[str, bytes] | None = None,
+) -> dict[str, Calibration]:
+    """Measure every judged field, as one MLflow run when there is a tracker (R11.5).
+
+    One run per gold set rather than per field, opened around the whole
+    measurement so every field's traces land inside it. The params and metrics
+    are `calibration_record`'s -- the figures the file holds and the terminal
+    prints -- and the run is tagged with the gold set's hash as an eval's is
+    (R11.3 row 2): two calibrations against samples that differ by one verdict
+    are not comparable.
+    """
+    if tracker is not None:
+        tracker.start_run(
+            experiment=experiment,
+            name=f"calibration of {directory.name}",
+            tags={
+                **tracking_tags(kind="calibrate", pipeline=pipeline),
+                "dossier.gold_hash": gold_set_hash(gold_files or {}),
+            },
+        )
+    measured: dict[str, Calibration] = {}
+    params: dict[str, str] = {}
+    metrics: dict[str, float] = {}
+    for field, sample in sorted(samples.items()):
+        measured[field] = calibrate_field(
+            model,
+            directory=directory,
+            field=field,
+            cases=sample.cases,
+            rubric=sample.rubric,
+            rubric_hash=sample.rubric_hash,
+            documents=documents,
+            judge_model=judge_model,
+            tracker=tracker,
+        )
+        recorded_params, recorded_metrics = calibration_record(
+            field=field, calibration=measured[field]
+        )
+        params.update(recorded_params)
+        metrics.update(recorded_metrics)
+    if tracker is not None:
+        tracker.log_params(params)
+        tracker.log_metrics(metrics)
+        tracker.end_run(status="FINISHED")
     return measured
 
 
