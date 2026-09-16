@@ -131,7 +131,7 @@ projection means the recorded hashes answer a different question.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync.source_config_hash`)
 - **Proved by:** `tests/unit/test_R002_3__normalisation_change_forces_reevaluation.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
