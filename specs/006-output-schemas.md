@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Implemented
-**Rules:** R6.1 – R6.12
+**Status:** Partially implemented
+**Rules:** R6.1 – R6.13
 
 ## Purpose
 
@@ -324,3 +324,31 @@ provenance record as well as the key (R5.1).
 | 2 | the same generated schema with its keys built in a different order | the same key; the schema is hashed as canonical JSON, not as a dict happened to be built |
 | 3 | only the rubric `root_cause` names as its `judge` edited | the key changes through the declaration's hash (R6.11 row 3), while the generated schema's hash does not |
 | 4 | *counter-example* — the `report` step, which declares no `output` | no generated schema and nothing in either schema slot; its key moves only through its inputs (R6.11 row 1) |
+
+### R6.13 — a step does not run for a document an earlier step produced nothing for
+
+R6.9 says a failed document does not stop the run. This says what the steps
+above it do about that document: nothing.
+
+The alternative is what the code did before this rule existed — hand the step an
+empty string for the missing input and carry on. That asks a model about a
+document nobody read, pays for the call, and caches an answer under a key whose
+input hash is the hash of `""`, so the emptiness is invisible in the provenance
+record and the answer is served again on the next run (R5.5). It also reports the
+same document failing twice for one cause, which is how a run's failure list
+stops being a list of causes.
+
+Skipping is not failing. The document already failed, once, at the step that
+could not produce its output; the steps above it have nothing to add.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R006_13__a_step_skips_a_document_with_no_upstream_output.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4822` fails `extract` after its retry, and `verify` reads `extract` | `verify` does not run for `INC-4822`: no model call, no artifact, no cache entry |
+| 2 | `INC-4821` in the same run, which `extract` handled normally | `verify` runs for it as usual; one document's failure is not the corpus's (R6.9) |
+| 3 | the run's report afterwards | names `INC-4822` once, under `extract`, and not a second time under `verify`; a failure list is a list of causes |
+| 4 | *counter-example* — an `aggregate` step in the same run | runs, over the documents that did produce output. An aggregate reads a set, and a member that is absent from it is not a missing input |
