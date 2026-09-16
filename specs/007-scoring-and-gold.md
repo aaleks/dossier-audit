@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.12
 
 ## Purpose
@@ -19,7 +19,7 @@ generated text, and they are the exception the design works hard to keep small.
 ```json
 {
   "document": "INC-4821",
-  "verified_by": "a.muster",
+  "verified_by": "a.aleks",
   "verified_at": "2026-08-14",
   "fields": {
     "loss_amount":      {"value": 48200.00, "currency": "CHF"},
@@ -288,14 +288,18 @@ the same sample. This is the number R7.5 gates on.
 - **Kind:** evaluated
 - **Layer:** application (`dossier.application.eval`)
 - **Proved by:** `tests/evals/test_R007_11__judge_agrees_with_human_scores.py`
-- **Threshold:** OPEN — needs at least 20 human-scored `root_cause` cases before a
-  number means anything, and the figure must be agreed with the domain expert who
-  signs off the gold set, not chosen here
-- **Status:** NOT MET
+- **Threshold:** 0.95 — agreed by `a.aleks`, who signs off the gold set, on
+  2026-09-16, over the 20 human-scored `root_cause` cases. Measured 20/20 (100%)
+  twice, with no case flipping between runs. The gate sits below what was
+  measured on purpose: 20 of 20 at N=20 supports a 95% lower bound near 84%, so
+  100% would claim more than the sample shows and would fail on the first
+  genuinely borderline case added to it. A judge calling everything supported
+  scores 60% here, which is the floor any figure has to clear
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | 20 `root_cause` cases scored by `a.muster` and by the judge | agreement at or above the agreed threshold |
+| 1 | 20 `root_cause` cases scored by `a.aleks` and by the judge | agreement at or above 0.95 |
 | 2 | the reported figure | carries the judge model identifier and the sample size; a score without them is not reproducible |
 | 3 | fewer than 20 cases available | reported as "not measurable at this N", never as a percentage |
 | 4 | *counter-example* — the deterministic fields in the same run | not part of this measurement; mixing them in would flatter the judge with cases it never scored |
@@ -305,17 +309,26 @@ the same sample. This is the number R7.5 gates on.
 The single case that distinguishes a working judge from one that agrees with
 everything. A judge that passes every input is indistinguishable from no judge.
 
+The case is planted in `INC-4830`, which states its root cause: the quarter-end
+change freeze it names only as a contributing factor, offered instead as the
+cause of the outage. That is what a planted claim needs -- plausible, adjacent to
+the truth, and stated nowhere. `INC-4821` states no cause at all, so nothing
+planted in it would be distinguishable from anything else absent from it.
+
 - **Kind:** evaluated
 - **Layer:** application (`dossier.application.eval`)
 - **Proved by:** `tests/evals/test_R007_12__judge_detects_a_planted_unsupported_claim.py`
-- **Threshold:** OPEN — pass on the planted case on every run is the intended bar;
-  it needs the calibration sample from R7.11 to be meaningful as a rate rather
-  than a single observation
-- **Status:** NOT MET
+- **Threshold:** the planted case is marked unsupported on every run — agreed by
+  `a.aleks` on 2026-09-16, alongside R7.11's 0.95. Deliberately not a rate: it is
+  one case, and it either holds or the judge is indistinguishable from no judge.
+  R7.11's sample is what makes the single observation mean anything -- `rc-02` is
+  one of the eight unsupported cases the judge called correctly out of eight, so
+  passing it is not a coin landing the right way up
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | a `root_cause` naming a cause absent from `INC-4821` | the judge returns unsupported |
+| 1 | a `root_cause` naming a cause absent from `INC-4830` | the judge returns unsupported |
 | 2 | the verdict asserted in the test | the boolean only; never the wording of the rationale |
 | 3 | the same case against a different judge model | recorded with that model identifier; the two results are not comparable without it |
 | 4 | *counter-example* — a `root_cause` that is wrong but *is* stated in the document | supported, and scored incorrect by R7.3; grounding and correctness are different questions |

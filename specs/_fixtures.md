@@ -7,6 +7,12 @@ same item.
 
 Do not invent a new incident key for a new example. Add to this file instead.
 
+## People
+
+| Name | Role |
+|---|---|
+| `a.aleks` | Verifies the gold answers and signs off the judge threshold. The name the gold set records in `verified_by` (R7.11, R7.12) |
+
 ## Documents
 
 | Key | Source | Kind | Notes |
