@@ -52,13 +52,21 @@ def no_network(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def clean_env(monkeypatch):
+def clean_env(request, monkeypatch):
     """Remove dossier's environment variables from every test.
 
     Without this, a test that reads configuration passes or fails depending on
     the developer's own shell, which is the kind of failure that only ever
     appears on someone else's machine.
+
+    Tests marked `live` keep the environment, as they keep their sockets: where
+    a model is served is per machine and is read from the environment by design
+    (R9.2), so stripping it would point every live run at the default endpoint
+    and quietly measure something other than what the operator configured.
     """
+    if request.node.get_closest_marker("live"):
+        return
+
     import os
 
     for name in list(os.environ):

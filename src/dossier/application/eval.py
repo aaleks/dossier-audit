@@ -14,6 +14,7 @@ from pathlib import Path
 
 from dossier.application.run import StepReport
 from dossier.domain.gold import GoldDocument, gold_set_hash
+from dossier.domain.judges import Calibration
 from dossier.domain.ports import Tracker
 from dossier.domain.scoring import (
     DocumentScore,
@@ -110,6 +111,106 @@ def record_eval(
         metrics["accuracy/overall"] = summed.percentage
     tracker.log_metrics(metrics)
     tracker.end_run(status="FINISHED")
+
+
+# What a judge is asked to return. `supported` is the verdict and the only thing
+# any rule asserts (R7.12 row 2); `evidence` exists for the person reading a
+# calibration report, who needs to see *why* a judge disagreed with them before
+# signing off a threshold. Nothing scores it, and no test asserts its wording.
+JUDGE_SCHEMA = {
+    "type": "object",
+    "properties": {"supported": {"type": "boolean"}, "evidence": {"type": "string"}},
+    "required": ["supported"],
+}
+
+
+def judge_prompt(*, rubric: str, document: str, text: str, answer: str) -> str:
+    """The question put to a judge about one candidate root cause.
+
+    The rubric is passed through as the pipeline author wrote it, and nothing
+    here adds to the standard it sets. That is not tidiness: a prompt tuned
+    against the calibration sample measures the tuning rather than the judge,
+    and the figure it produces is the one a threshold would then be set from
+    (R7.11). Everything below the rubric is the material and the output format.
+    """
+    return (
+        f"{rubric.strip()}\n\n"
+        f"Document {document}, in full:\n"
+        f"<document>\n{text.strip()}\n</document>\n\n"
+        f"Stated root cause:\n<claim>{answer.strip()}</claim>\n\n"
+        'Answer with JSON only: {"supported": true|false, "evidence": "..."}. '
+        "`evidence` is at most two sentences, quoting or naming the part of the "
+        "document you relied on."
+    )
+
+
+def judged(
+    model,
+    *,
+    rubric: str,
+    document: str,
+    text: str,
+    answer: str,
+) -> tuple[bool, str]:
+    """One judge verdict on one candidate, with the evidence it gave.
+
+    Returns the boolean and the evidence separately because they are treated
+    differently everywhere: the boolean is compared with a human's and is what a
+    rule asserts, the evidence is only ever read by a person.
+    """
+    reply = model.complete(
+        judge_prompt(rubric=rubric, document=document, text=text, answer=answer),
+        schema=JUDGE_SCHEMA,
+    )
+    try:
+        verdict = json.loads(reply)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"the judge answered with no JSON object: {error}") from None
+    if not isinstance(verdict, dict) or not isinstance(verdict.get("supported"), bool):
+        raise ValueError(f"the judge answered with no `supported` boolean: {reply[:200]!r}")
+    return verdict["supported"], str(verdict.get("evidence", ""))
+
+
+def agreement(
+    *, verdicts: Mapping[str, bool], human: Mapping[str, bool]
+) -> tuple[float, tuple[str, ...]]:
+    """What proportion of the sample the judge and the reviewer agreed on, and where not.
+
+    Over the cases the reviewer scored, which is the sample R7.11 measures. A
+    case the judge could not be asked about is absent from `verdicts` and counts
+    as a disagreement rather than being dropped: a judge that fails on the hard
+    half of a corpus and is scored on the rest would report a figure the corpus
+    does not support.
+    """
+    if not human:
+        raise ValueError("no human-scored cases: there is nothing to agree with")
+
+    disagreed = tuple(case for case in sorted(human) if verdicts.get(case) is not human[case])
+    agreed = len(human) - len(disagreed)
+    return agreed / len(human), disagreed
+
+
+def calibration(
+    *,
+    verdicts: Mapping[str, bool],
+    human: Mapping[str, bool],
+    judge_model: str,
+    rubric_hash: str,
+) -> Calibration:
+    """The measurement, recorded with what it was made against (R7.11 row 2).
+
+    The model identifier and the rubric hash travel with the figure because an
+    agreement number on its own says a judge agreed with a human without saying
+    which judge, or on what question -- and `is_stale` needs both to notice when
+    either has moved since (R7.6).
+    """
+    measured, _ = agreement(verdicts=verdicts, human=human)
+    return Calibration(
+        judge_model=judge_model,
+        rubric_hash=rubric_hash,
+        agreement=measured,
+        sample_size=len(human),
+    )
 
 
 def _gold_fields(document: GoldDocument) -> dict[str, GoldField]:

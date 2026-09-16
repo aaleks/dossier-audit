@@ -30,6 +30,7 @@ tracking = ["mlflow>=2.14"]
 
 [dependency-groups]
 dev = [
+    "pypdf>=6.18.1",
     "pytest>=8.2",
     "ruff>=0.5",
 ]
