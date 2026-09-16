@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.4
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.5
 
 ## Purpose
 
@@ -22,16 +22,28 @@ that could disagree with the terminal would leave nobody sure which to believe.
 | `dossier eval` | one | the judge's calls, if any | `accuracy/<field>`, `accuracy/overall` |
 | `dossier sync` | one | none | `<source>/known`, `/changed`, `/new`, `/fetched`, `/failed` |
 | `dossier convert` | one | none | `<source>/held`, `/converted`, `/cached`, `/failed` |
+| `dossier calibrate` | one, per gold set | one per sample case | `judge/<field>/agreement`, `judge/<field>/cases` |
 | `dossier run --plan`, `--replay` | none | none | none |
 
 Metric names use `/` so MLflow's UI groups them: every field's accuracy under
 `accuracy/`, every count of one source under its id. Accuracy is recorded as the
-percentage the report prints -- `75.0`, not `0.75` -- for the reason above.
+percentage the report prints -- `75.0`, not `0.75` -- for the reason above, and a
+judge's agreement likewise: `100.0`, the figure `dossier calibrate` prints.
 
 A trace is one (step, document), the unit of a cache key. Following `INC-4821`
 through the pipeline is a filter on the `dossier.document` tag; every `verify`
 failure is a filter on `dossier.step` and status. A cache hit is still a trace,
 with no LLM span in it: seeing that a document cost nothing is information.
+
+A calibration has no steps and no cache; its unit is one sample case, and that is
+its trace. A calibration is the most experiment-shaped thing `dossier` does --
+change the judge model or the rubric, measure again, compare -- and the file it
+writes holds only the latest measurement (R7.14 row 2), so a judge that was tried
+and rejected leaves no record on disk. The experiment is where it survives. Its
+model calls are real ones, twenty per field, which until R11.5 were the only
+model calls `dossier` made that no trace could see (R11.2). A trace per case
+carries the verdict the reviewer gave and the one the judge gave, so the case
+they disagree on is a filter rather than a re-run.
 
 ## Must hold
 
@@ -102,3 +114,28 @@ same field would hand it back in the figure most people read first.
 | 1 | a sync where `incidents-jira` holds 420 items, 18 changed and 2 new | `incidents-jira/known` 420, `/changed` 18, `/new` 2, `/fetched` 20 -- the numbers R2.13 prints |
 | 2 | a convert of `incidents-manual` holding three documents, none converted | `incidents-manual/held` 3, `/converted` 3, `/cached` 0 (R8.8) |
 | 3 | *counter-example* — `procedures-confluence` where nothing changed | recorded with its zeros, not omitted; a missing source is indistinguishable from a skipped one (R2.13) |
+
+### R11.5 — a `dossier calibrate` is one MLflow run per gold set holding what it measured, with one trace per sample case
+
+The figures are the ones R7.14 writes to `calibrations/<field>.json` and the
+terminal prints, so the file, the terminal and MLflow cannot disagree. What the
+run adds is what the file cannot hold: every measurement rather than the latest,
+and the case-by-case verdicts behind the agreement figure.
+
+The bar is not part of the measurement. R7.14 row 5 says a calibration never
+reads `judge.yaml`, and a run that recorded the threshold beside the agreement
+would read as having applied it. The two meet on the eval that gates (R11.3
+row 4), and nowhere else.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.calibrate_field`)
+- **Proved by:** `tests/unit/test_R011_5__a_calibration_records_one_run_with_one_trace_per_case.py`, `tests/acceptance/test_R011_5__calibrate_records_to_mlflow.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier calibrate incident-audit --gold gold/incidents`, whose `samples/root_cause.jsonl` holds 20 cases, judged by `openai:gpt-5.4-mini` | 1 MLflow run in `dossier-audit/incident-audit/calibrate`, tagged `dossier.kind=calibrate`, `dossier.pipeline=incident-audit` and the gold set's full 64-character hash (R0.7); params `judge/root_cause/model` `openai:gpt-5.4-mini` and `judge/root_cause/rubric` `f7a2d9c4`; metrics `judge/root_cause/agreement` 100.0 and `judge/root_cause/cases` 20 -- the figures the terminal line prints and the file holds |
+| 2 | the same | 20 traces, one per sample case, each tagged `dossier.document` and carrying the verdict the reviewer gave and the verdict the judge gave; `INC-4830`'s reads unsupported by both (R7.12); each trace holds exactly one LLM span (R11.2) |
+| 3 | the pipeline's model changed to `ollama:qwen2.5:7b@sha256:7f3c29a1`, calibrated again | a second run beside the first in the same experiment, with its own model param and agreement; the file holds only the latest measurement (R7.14 row 2), the experiment holds both |
+| 4 | *counter-example* — a sample of 19 cases | refused (R7.14 row 3); 0 MLflow runs, 0 traces. Nothing was measured, so there is nothing to record |
+| 5 | *counter-example* — `gold/incidents/judge.yaml` declaring `root_cause: 0.95` | not on the run, as no param, metric or tag; a calibration never reads the bar (R7.14 row 5), and the run that records both the figure and whether it cleared the bar is the eval's (R11.3 row 4) |

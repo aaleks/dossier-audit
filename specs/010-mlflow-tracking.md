@@ -29,7 +29,7 @@ records its runs is not a property of the pipeline.
 | `DOSSIER_MLFLOW_ENABLED` | `true` / `false` | `false` |
 | `DOSSIER_MLFLOW_TRACKING_URI` | a URL | none; `.env.example` says `http://localhost:5000` |
 | `DOSSIER_MLFLOW_EXPERIMENT` | a template | `dossier-audit/{pipeline}/{kind}` |
-| `DOSSIER_MLFLOW_EXPERIMENT_SYNC`, `_CONVERT`, `_RUN`, `_EVAL` | a template | falls back to `DOSSIER_MLFLOW_EXPERIMENT` |
+| `DOSSIER_MLFLOW_EXPERIMENT_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE` | a template | falls back to `DOSSIER_MLFLOW_EXPERIMENT` |
 | `DOSSIER_MLFLOW_CAPTURE` | `full` / `hashes` | `full` |
 
 The tracking URI has no default in code, for the reason the project's default
@@ -50,8 +50,8 @@ from a template per command kind:
 | Placeholder | Holds | Available to |
 |---|---|---|
 | `{pipeline}` | the pipeline name, `incident-audit` | every command |
-| `{kind}` | `sync`, `convert`, `run` or `eval` | every command |
-| `{gold}` | the gold directory's name: `gold/incidents` gives `incidents` | `eval` only |
+| `{kind}` | `sync`, `convert`, `run`, `eval` or `calibrate` | every command |
+| `{gold}` | the gold directory's name: `gold/incidents` gives `incidents` | `eval` and `calibrate`, the two commands that read one |
 
 The default lays one pipeline out as:
 
@@ -60,13 +60,17 @@ dossier-audit/incident-audit/sync      per-source counts
 dossier-audit/incident-audit/convert   per-source counts
 dossier-audit/incident-audit/run       one MLflow run per dossier run; traces live here
 dossier-audit/incident-audit/eval      per-field metrics, gold set by name and hash
+dossier-audit/incident-audit/calibrate one MLflow run per measurement; a trace per sample case (R11.5)
 ```
 
 A template with no placeholder -- `dossier-audit` -- puts everything in one
 experiment, and every record is still tagged with its kind and pipeline (R10.3),
 so that layout remains filterable. A `{gold}` in the shared template needs an
 override for every other kind, because sync, convert and run read no gold set;
-that is what the per-kind variables are for.
+that is what the per-kind variables are for. A calibration is the fifth kind
+(R11.5): it reads a gold set as an eval does, so `{gold}` renders for it, and
+R10.5 refuses it before its first judge call when the server is unreachable, as
+it refuses a run before its first model call.
 
 ## The shape of a trace
 

@@ -102,6 +102,7 @@ consistently here so a reader can follow one artifact across specs.
 | `7f3c29a1` | the Ollama digest `qwen2.5:7b` is pinned to (R9.3). A real identifier carries all 64 characters |
 | `e04b6d52` | the digest the same Ollama tag reports after a re-pull — the one R9.4 stops a run on |
 | `1c0f8e6b` | the Hugging Face revision `Qwen/Qwen2.5-7B-Instruct` is pinned to (R9.5). A real one is a 40-character commit |
+| `f7a2d9c4` | `rubrics/root_cause.md` — the rubric `root_cause` names as its `judge`, and the hash a calibration is measured against (R7.14, R11.5) |
 
 ## Converters
 
@@ -162,6 +163,7 @@ example refers to.
 | `dossier-audit/{pipeline}/{kind}` | the default experiment template (R10.2) |
 | `dossier-audit/incident-audit/run` | where `dossier run incident-audit` records under the default template; `/sync`, `/convert` and `/eval` likewise |
 | `dossier-audit/incident-audit/eval/incidents` | an eval experiment split by gold set, through `DOSSIER_MLFLOW_EXPERIMENT_EVAL` (R10.2 row 2) |
+| `dossier-audit/incident-audit/calibrate` | where `dossier calibrate incident-audit --gold gold/incidents` records under the default template (R11.5) |
 | `dossier-audit` | a template with no placeholder: every record in one experiment (R10.2 row 3) |
 | `incidents` | the gold set name `{gold}` renders for `--gold gold/incidents` |
 

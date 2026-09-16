@@ -403,8 +403,9 @@ and the hash is of that file's text. The model and the rubric travel with the
 figure because a measurement made against another judge, or another rubric, is
 not this judge's calibration -- which is exactly what R7.6 compares them for.
 
-Whether a calibration run records to MLflow is deliberately left open: spec 011's
-table says what each command records, and `calibrate` is not in it yet.
+What a calibration run records to MLflow is R11.5: the same figures this file
+holds, plus the measurements the file cannot keep -- every run rather than the
+latest, and a trace per case behind the agreement figure.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
