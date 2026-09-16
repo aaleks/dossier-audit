@@ -25,7 +25,8 @@ class Connector(Protocol):
         than asked for is always allowed; returning less is not."""
 
     def fetch(self, key: str) -> RawItem:
-        """The full payload of one item."""
+        """The full payload of one addressable thing: an item, or an
+        attachment one of them carries."""
 
     def attachments(self, key: str) -> Iterator[AttachmentRef]:
         """Files attached to the item, each independently addressable."""
@@ -42,7 +43,19 @@ class RawItem(BaseModel):
     payload: bytes                # exactly as received, unmodified
     media_type: str
     remote_version: str | None
+
+class AttachmentRef(BaseModel):
+    key: str                      # the attachment's own address, e.g. "INC-4821/report.pdf"
+    item_key: str                 # the item carrying it, e.g. "INC-4821"
+    remote_version: str | None    # the attachment's marker, not its item's
 ```
+
+An attachment is addressed exactly as an item is, and `fetch` takes either key:
+`attachments()` says which files an item carries, and the `key` on each ref is
+what fetches those bytes. That is what R1.6 means by independently addressable,
+and it is why there is no fourth operation — a second way to fetch bytes at an
+address would be one question asked twice, and the two answers could come to
+disagree about R1.2.
 
 The `Connector` protocol and its value objects live in `dossier.domain.ports`.
 They are pure types; the implementations live in
