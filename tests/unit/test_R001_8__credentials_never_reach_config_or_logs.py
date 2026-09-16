@@ -20,12 +20,11 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, ConfigDict
 
+from dossier.config.credentials import credential_for
 from dossier.config.load import ConfigError, load_sources
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.infrastructure.ledger import Ledger
 from dossier.infrastructure.store import SnapshotStore
-
-pytestmark = pytest.mark.outer_loop
 
 TOKEN = "jira-pat-4f1a-do-not-print"
 VARIABLE = "JIRA_TOKEN"
@@ -45,19 +44,6 @@ class JiraKeys(BaseModel):
     query: str = ""
     token: str = ""
     token_env: str = ""
-
-
-def credential_for(source, environ):
-    """`dossier.config.credentials.credential_for`, imported where it is used.
-
-    At module level the import fails while the rule is open, and a failed import
-    is a failed collection -- which turns the default suite red for everyone.
-    The `outer_loop` marker deselects tests; it does not stop pytest importing
-    the module they are in.
-    """
-    from dossier.config.credentials import credential_for as resolve
-
-    return resolve(source, environ=environ)
 
 
 def write_sources(workspace: Path, body: str) -> Path:
@@ -148,7 +134,7 @@ class TestCredentialsNeverReachConfigOrLogs:
         )
 
         (source,) = load(path)
-        credential = credential_for(source, {VARIABLE: TOKEN})
+        credential = credential_for(source, environ={VARIABLE: TOKEN})
 
         assert source.options["token_env"] == VARIABLE
         assert credential.value == TOKEN
@@ -167,7 +153,7 @@ class TestCredentialsNeverReachConfigOrLogs:
             f"sources:\n  - id: incidents-jira\n    type: jira\n    token_env: {VARIABLE}\n",
         )
         (source,) = load(path)
-        credential = credential_for(source, {VARIABLE: TOKEN})
+        credential = credential_for(source, environ={VARIABLE: TOKEN})
 
         report = sync(tmp_path, IssueTracker(credential, refuse=True), source)
 
@@ -187,7 +173,7 @@ class TestCredentialsNeverReachConfigOrLogs:
             f"sources:\n  - id: incidents-jira\n    type: jira\n    token_env: {VARIABLE}\n",
         )
         (source,) = load(path)
-        credential = credential_for(source, {VARIABLE: TOKEN})
+        credential = credential_for(source, environ={VARIABLE: TOKEN})
 
         report = sync(tmp_path, IssueTracker(credential), source)
 

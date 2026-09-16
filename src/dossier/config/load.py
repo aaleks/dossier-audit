@@ -38,6 +38,10 @@ from dossier.domain.pipeline import (
 from dossier.domain.prompts import check_placeholders
 from dossier.domain.scoring import FieldKind
 
+# The key a source names its credential's variable under, spelled once. Imported
+# by `dossier.config.credentials`, which reads what it points at (R1.8).
+TOKEN_ENV = "token_env"
+
 __all__ = [
     "ConfigError",
     "PipelineConfig",
@@ -109,6 +113,8 @@ def _validate_source(
     if not isinstance(entry, dict):
         return _validate(SourceConfig, entry, path)
 
+    _reject_credentials(entry, index, path)
+
     try:
         config = SourceConfig.model_validate({k: v for k, v in entry.items() if k in _SHARED})
     except ValidationError as error:
@@ -137,6 +143,38 @@ def _validate_source(
             error, entry, index, path, known=_SHARED | set(keys.model_fields)
         ) from error
     return config.model_copy(update={"options": declared.model_dump()})
+
+
+# Keys that hold a secret rather than name one. Checked by the core before a
+# connector's own keys are, because `sources.yaml` is committed to git: a
+# connector cannot opt its users into committing credentials, however
+# reasonable the key looks in its own documentation (R1.8 row 1).
+# Deliberately not `key`: a bare `key` is as likely to be a partition key or a
+# sort key as a credential, and refusing it would block configuration nobody
+# should have to argue about. These four are not ambiguous.
+SECRET_KEYS = frozenset({"token", "password", "secret", "api_key", "apikey"})
+
+
+def _reject_credentials(entry: dict, index: int, path: Path) -> None:
+    """Refuse a source that writes a credential down instead of naming its variable.
+
+    The message names the file, the line and the key, and never the value: an
+    error message is read by a person and often pasted into a ticket, which is
+    the last place a leaked credential should travel to (R9.8's shape).
+    """
+    written = sorted(key for key in entry if str(key).casefold() in SECRET_KEYS)
+    if not written:
+        return
+
+    line = _line_of(path.read_text(encoding="utf-8"), "sources", index, written[0])
+    where = f", line {line}" if line is not None else ""
+    identifier = entry.get("id")
+    owner = f" in {identifier!r}," if identifier else ""
+    raise ConfigError(
+        f"{_name(path)}{where}:{owner} {written[0]!r} holds a credential, and this "
+        f"file is committed to git. Name the variable instead, as "
+        f"`{TOKEN_ENV}: JIRA_TOKEN`, and set its value in the environment (R1.8)."
+    )
 
 
 def _source_error(
