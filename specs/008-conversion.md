@@ -158,7 +158,7 @@ or is that media type's default when the source declares none.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
 - **Proved by:** `tests/unit/test_R008_4__each_declared_conversion_is_its_own_artifact.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
