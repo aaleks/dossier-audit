@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.8
 
 ## Purpose
@@ -125,9 +125,9 @@ clock, no locale, no environment variable, no file outside its input, no network
 ### R8.2 — a converter declares an id and a version, and both appear in every convert key and every manifest
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.keys`)
+- **Layer:** domain (`dossier.domain.keys`, `dossier.domain.conversion`)
 - **Proved by:** `tests/unit/test_R008_2__converter_identity_reaches_the_key_and_the_manifest.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
