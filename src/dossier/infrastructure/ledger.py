@@ -24,6 +24,8 @@ _SCHEMA = """
 CREATE TABLE IF NOT EXISTS items (
     source_id      TEXT NOT NULL,
     key            TEXT NOT NULL,
+    -- The item an attachment hangs off, NULL for an item itself (R2.6).
+    item_key       TEXT,
     remote_version TEXT,
     content_hash   TEXT NOT NULL,
     media_type     TEXT NOT NULL,
@@ -60,6 +62,21 @@ class Ledger:
         self._connection.row_factory = sqlite3.Row
         self._connection.executescript(_SCHEMA)
         self._connection.commit()
+        self._add_missing_columns()
+
+    def _add_missing_columns(self) -> None:
+        """Add columns a ledger written by an older dossier does not have.
+
+        `CREATE TABLE IF NOT EXISTS` leaves an existing table exactly as it was,
+        so a column added later has to be added explicitly. Worth the six lines:
+        `.dossier/` is regenerable in principle, but re-syncing a corpus to gain
+        a column that is empty for every existing row is an afternoon of
+        downloads (R2.5's whole point).
+        """
+        held = {row["name"] for row in self._connection.execute("PRAGMA table_info(items)")}
+        if "item_key" not in held:
+            self._connection.execute("ALTER TABLE items ADD COLUMN item_key TEXT")
+            self._connection.commit()
 
     def close(self) -> None:
         self._connection.close()
@@ -106,11 +123,12 @@ class Ledger:
         """
         self._connection.execute(
             """
-            INSERT INTO items (source_id, key, remote_version, content_hash,
-                               media_type, snapshot_path, first_seen, last_seen,
-                               state)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO items (source_id, key, item_key, remote_version,
+                               content_hash, media_type, snapshot_path,
+                               first_seen, last_seen, state)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (source_id, key) DO UPDATE SET
+                item_key       = excluded.item_key,
                 remote_version = excluded.remote_version,
                 content_hash   = excluded.content_hash,
                 media_type     = excluded.media_type,
@@ -121,6 +139,7 @@ class Ledger:
             (
                 row.source_id,
                 row.key,
+                row.item_key,
                 row.remote_version,
                 row.content_hash,
                 row.media_type,
@@ -195,6 +214,7 @@ def _to_row(record: sqlite3.Row) -> LedgerRow:
     return LedgerRow(
         source_id=record["source_id"],
         key=record["key"],
+        item_key=record["item_key"],
         remote_version=record["remote_version"],
         content_hash=record["content_hash"],
         media_type=record["media_type"],

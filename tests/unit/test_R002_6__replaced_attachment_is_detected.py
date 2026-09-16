@@ -26,8 +26,6 @@ from dossier.domain.sync import State
 from dossier.infrastructure.ledger import Ledger
 from dossier.infrastructure.store import SnapshotStore
 
-pytestmark = pytest.mark.outer_loop
-
 SOURCE = SourceConfig(id="incidents-jira", type="jira")
 ITEM = "INC-4821"
 REPORT = "INC-4821/report.pdf"

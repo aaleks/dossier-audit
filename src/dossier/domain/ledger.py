@@ -21,6 +21,11 @@ class LedgerRow(BaseModel):
 
     source_id: str
     key: str
+    # The item this row is an attachment of, or `None` for an item itself
+    # (R1.6, R2.6). Recorded rather than inferred from the key: an attachment
+    # key is opaque, and which file belongs to which issue is the source's
+    # answer, not a naming convention dossier may read into it.
+    item_key: str | None = None
     remote_version: str | None
     content_hash: str
     # What the connector said these bytes are (R2.16). Recorded rather than
@@ -54,6 +59,7 @@ class LedgerRow(BaseModel):
         return (
             self.source_id,
             self.key,
+            self.item_key,
             self.remote_version,
             self.content_hash,
             self.media_type,
