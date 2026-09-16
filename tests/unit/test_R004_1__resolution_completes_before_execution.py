@@ -61,9 +61,7 @@ def pipeline(**inputs: str) -> PipelineConfig:
         sources=["incidents-manual"],
         model="anthropic:claude-sonnet-4-5-20250929",
         steps=[
-            StepConfig(
-                id=name, prompt="prompts/01_extract.md", input=value, mode="per_file"
-            )
+            StepConfig(id=name, prompt="prompts/01_extract.md", input=value, mode="per_file")
             for name, value in inputs.items()
         ],
     )
@@ -157,8 +155,9 @@ class TestTheManifestIsWrittenFirst:
                 seen.append(manifest.is_file())
                 return super().complete(prompt, schema=schema)
 
-        run(tmp_path, pipeline(extract="documents"),
-            Watching(responses=[valid_for("INC-4821")]))
+        run(
+            tmp_path, pipeline(extract="documents"), Watching(responses=[valid_for("INC-4821")])
+        )
 
         assert seen == [True], "the manifest must exist before the first call, not after"
 
@@ -193,8 +192,9 @@ class TestExecutionFailureIsNotTotal:
         resolution failures are total. A run that threw away `extract` here would
         discard work that was correct and expensive.
         """
-        model = FakeModelClient(responses=[valid_for("INC-4821"), "not json at all",
-                                           "still not json"])
+        model = FakeModelClient(
+            responses=[valid_for("INC-4821"), "not json at all", "still not json"]
+        )
 
         report = run(tmp_path, pipeline(extract="documents", verify="previous"), model)
 
@@ -274,9 +274,7 @@ class TestEveryRefusalHappensDuringResolution:
             sources=["incidents-manual"],
             model="anthropic:claude-sonnet-4-5-20250929",
             steps=[
-                StepConfig(
-                    id=name, prompt=f"prompts/{name}.md", input=value, mode="per_file"
-                )
+                StepConfig(id=name, prompt=f"prompts/{name}.md", input=value, mode="per_file")
                 for name, value in (
                     ("extract", "documents"),
                     ("verify", "documents"),

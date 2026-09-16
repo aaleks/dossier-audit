@@ -154,6 +154,7 @@ class TestAnUnclaimedMediaTypeStopsEverything:
         source (R8.6). Asserting it here keeps the two rules from being
         implemented as one.
         """
+
         class Exploding:
             id = "markdown-text"
             version = "1.0.0"

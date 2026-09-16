@@ -70,15 +70,21 @@ def pipeline() -> PipelineConfig:
         model="anthropic:claude-sonnet-4-5-20250929",
         steps=[
             StepConfig(
-                id="extract", prompt="prompts/01_extract.md", input="documents",
+                id="extract",
+                prompt="prompts/01_extract.md",
+                input="documents",
                 mode="per_file",
             ),
             StepConfig(
-                id="verify", prompt="prompts/02_verify.md", input="extract",
+                id="verify",
+                prompt="prompts/02_verify.md",
+                input="extract",
                 mode="per_file",
             ),
             StepConfig(
-                id="report", prompt="prompts/03_report.md", input="verify",
+                id="report",
+                prompt="prompts/03_report.md",
+                input="verify",
                 mode="per_file",
             ),
         ],
@@ -118,13 +124,16 @@ def stage_key(prompt: str, *, input_hash: str = "77c1b40a" * 8) -> str:
     return cache_key(
         StageInputs(
             step="verify",
-            prompt=ArtifactInput(role="prompt", path="prompts/02_verify.md",
-                                 hash=_hash(prompt)),
-            output_schema=ArtifactInput(role="schema", path="schemas/incident.json",
-                                        hash="b81f0c6d" * 8),
+            prompt=ArtifactInput(
+                role="prompt", path="prompts/02_verify.md", hash=_hash(prompt)
+            ),
+            output_schema=ArtifactInput(
+                role="schema", path="schemas/incident.json", hash="b81f0c6d" * 8
+            ),
             model="anthropic:claude-sonnet-4-5-20250929",
-            inputs=[ArtifactInput(role="extract", path="extract/INC-4821.json",
-                                  hash=input_hash)],
+            inputs=[
+                ArtifactInput(role="extract", path="extract/INC-4821.json", hash=input_hash)
+            ],
         )
     )
 

@@ -36,9 +36,7 @@ class TestConverterSelection:
 
     def test_a_declared_kind_picks_its_converter(self):
         """Example 1: the one where `OPS-114` is wanted as text."""
-        chosen = select(
-            media_type="application/pdf", kinds=["markdown"], available=INSTALLED
-        )
+        chosen = select(media_type="application/pdf", kinds=["markdown"], available=INSTALLED)
 
         assert chosen == [PDF_MARKDOWN]
 
@@ -100,9 +98,7 @@ class TestConverterSelection:
         the error is what R8.5 turns into a stopped run.
         """
         with pytest.raises(ValueError) as error:
-            select(
-                media_type="text/markdown", kinds=["page_images"], available=INSTALLED
-            )
+            select(media_type="text/markdown", kinds=["page_images"], available=INSTALLED)
 
         message = str(error.value)
         assert "text/markdown" in message
@@ -128,9 +124,7 @@ class TestConverterSelection:
         `entry_points()` returns whatever order the environment produces. Two
         machines with the same packages must select the same converter (R5.6).
         """
-        forwards = select(
-            media_type="application/pdf", kinds=["markdown"], available=INSTALLED
-        )
+        forwards = select(media_type="application/pdf", kinds=["markdown"], available=INSTALLED)
         backwards = select(
             media_type="application/pdf",
             kinds=["markdown"],
@@ -162,8 +156,10 @@ class TestADuplicatedPairIsRefused:
         maintainers can decide which claim is wrong.
         """
         rival = Converter(
-            id="pdf-markdown-fork", version="2.0.0",
-            media_type="application/pdf", kind="markdown",
+            id="pdf-markdown-fork",
+            version="2.0.0",
+            media_type="application/pdf",
+            kind="markdown",
         )
 
         with pytest.raises(ValueError) as error:
@@ -184,8 +180,10 @@ class TestADuplicatedPairIsRefused:
         in a new place -- half the machines erroring and half quietly picking.
         """
         rival = Converter(
-            id="pdf-markdown-fork", version="2.0.0",
-            media_type="application/pdf", kind="markdown",
+            id="pdf-markdown-fork",
+            version="2.0.0",
+            media_type="application/pdf",
+            kind="markdown",
         )
 
         for order in ([PDF_MARKDOWN, rival], [rival, PDF_MARKDOWN]):

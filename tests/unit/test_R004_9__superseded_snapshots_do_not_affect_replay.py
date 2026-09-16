@@ -58,7 +58,9 @@ def pipeline() -> PipelineConfig:
         model="anthropic:claude-sonnet-4-5-20250929",
         steps=[
             StepConfig(
-                id="extract", prompt="prompts/01_extract.md", input="documents",
+                id="extract",
+                prompt="prompts/01_extract.md",
+                input="documents",
                 mode="per_file",
             )
         ],
@@ -84,9 +86,7 @@ def first_run(workspace: Path, *, documents=None, text=None) -> Manifest:
         documents=held,
         media_types=dict.fromkeys(held, "text/markdown"),
         converters=[
-            PinnedConverter(
-                id=c.id, version=c.version, media_type=c.media_type, kind=c.kind
-            )
+            PinnedConverter(id=c.id, version=c.version, media_type=c.media_type, kind=c.kind)
             for c in installed_converters()
         ],
         document_text=text or ORIGINAL_TEXT,
@@ -173,9 +173,7 @@ class TestAReplayReadsWhatItPinned:
             dossier_version="0.1.0",
         )
 
-        newer = Manifest.read(
-            tmp_path / "runs" / "20260907T090000Z-bbbb" / "manifest.json"
-        )
+        newer = Manifest.read(tmp_path / "runs" / "20260907T090000Z-bbbb" / "manifest.json")
         assert [d.snapshot for d in newer.plan.documents] == [SUPERSEDED]
 
     def test_both_runs_replay_to_their_own_answers(self, tmp_path: Path):
@@ -261,9 +259,7 @@ class TestAReplayReproducesTheArtifactsByteForByte:
             started_at=STARTED_AT,
             dossier_version="0.1.0",
         )
-        manifest = Manifest.read(
-            tmp_path / "runs" / "20260806T142203Z-4f1a" / "manifest.json"
-        )
+        manifest = Manifest.read(tmp_path / "runs" / "20260806T142203Z-4f1a" / "manifest.json")
 
         replayed = replay_it(tmp_path, manifest)
 
@@ -308,9 +304,7 @@ class TestAReplayReproducesTheArtifactsByteForByte:
             started_at=STARTED_AT,
             dossier_version="0.1.0",
         )
-        manifest = Manifest.read(
-            tmp_path / "runs" / "20260806T142203Z-4f1a" / "manifest.json"
-        )
+        manifest = Manifest.read(tmp_path / "runs" / "20260806T142203Z-4f1a" / "manifest.json")
 
         replayed = replay_it(tmp_path, manifest)
 
@@ -372,9 +366,7 @@ class TestTheReplayReadsByThePinnedHashNotJustRecordsIt:
         assert [d.snapshot for d in manifest.plan.documents] == [original]
 
         monkeypatch.chdir(tmp_path)
-        result = CliRunner().invoke(
-            app, ["run", "--replay", f"runs/{manifest.run_id}"]
-        )
+        result = CliRunner().invoke(app, ["run", "--replay", f"runs/{manifest.run_id}"])
 
         assert result.exit_code == 0, result.output
         assert "1 artifact(s) reproduced" in result.output

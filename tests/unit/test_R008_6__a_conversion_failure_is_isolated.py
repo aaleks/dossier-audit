@@ -24,8 +24,16 @@ from dossier.infrastructure.store import SnapshotStore
 # document R8.6's example table truncates.
 CORRUPT = "INC-5044"
 TEN = [
-    "INC-4821", "INC-4822", "INC-4901", "INC-5044", "INC-5102",
-    "INC-5230", "INC-5310", "INC-5388", "INC-5401", "INC-5455",
+    "INC-4821",
+    "INC-4822",
+    "INC-4901",
+    "INC-5044",
+    "INC-5102",
+    "INC-5230",
+    "INC-5310",
+    "INC-5388",
+    "INC-5401",
+    "INC-5455",
 ]
 
 

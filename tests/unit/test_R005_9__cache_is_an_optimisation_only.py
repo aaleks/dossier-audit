@@ -33,9 +33,7 @@ PIPELINE_HASH = "0e52dd18" * 8
 DOCUMENTS = {"INC-4821": "a3f9c1e2" * 8, "INC-4822": "77c1b40a" * 8}
 SCHEMA = OutputSchema(schema={"type": "object"}, declaration_hash="6e0d4b27" * 8)
 
-TEXT = {
-    key: STAGE_INPUTS["INC-4821"] + f"\n\nFiled as {key}.\n" for key in DOCUMENTS
-}
+TEXT = {key: STAGE_INPUTS["INC-4821"] + f"\n\nFiled as {key}.\n" for key in DOCUMENTS}
 
 
 def answer(document: str) -> str:
@@ -195,9 +193,7 @@ class TestDeletingTheCacheChangesNothing:
                     scrub(tmp_path)
                 return super().complete(prompt, schema=schema)
 
-        model = Scrubbing(
-            responses=[answer(key) for key in ["INC-4821", "INC-4822"] * 2]
-        )
+        model = Scrubbing(responses=[answer(key) for key in ["INC-4821", "INC-4822"] * 2])
         report = run(tmp_path, model, config=config, run_id="20260806T142203Z-4f1a")
 
         assert report.failed == []
@@ -323,9 +319,7 @@ class TestADamagedEntryIsNotAuthority:
             config=config,
             run_id="20260806T142203Z-4f1a",
         )
-        manifest = Manifest.read(
-            tmp_path / "runs" / "20260806T142203Z-4f1a" / "manifest.json"
-        )
+        manifest = Manifest.read(tmp_path / "runs" / "20260806T142203Z-4f1a" / "manifest.json")
         self._damage_every_entry(tmp_path)
 
         with pytest.raises(MissingFromReplay) as error:

@@ -58,9 +58,7 @@ def synced(workspace: Path, monkeypatch) -> Path:
 class TestConvertReportsWhatItDid:
     """R8.8 — held, converted, cached, per source."""
 
-    def test_a_first_conversion_reports_every_document_as_work(
-        self, synced: Path, monkeypatch
-    ):
+    def test_a_first_conversion_reports_every_document_as_work(self, synced: Path, monkeypatch):
         """Example 1: the one where nothing is cached yet."""
         result = _run(synced, monkeypatch, "convert", PIPELINE)
 
@@ -88,9 +86,7 @@ class TestConvertReportsWhatItDid:
         assert "3 cached" in second.output
         assert _cache_state(synced) == before
 
-    def test_raising_a_converter_version_reconverts_everything(
-        self, synced: Path, monkeypatch
-    ):
+    def test_raising_a_converter_version_reconverts_everything(self, synced: Path, monkeypatch):
         """Example 3: the one where the version is part of the key (R5.4).
 
         The improvement is simulated by raising the version, which is exactly

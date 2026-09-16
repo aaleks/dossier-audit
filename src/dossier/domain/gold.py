@@ -114,9 +114,7 @@ def apply_correction(
         # "it used to be an abstention".
         entry["superseded"] = previous["value"]
 
-    return document.model_copy(
-        update={"fields": {**document.fields, correction.field: entry}}
-    )
+    return document.model_copy(update={"fields": {**document.fields, correction.field: entry}})
 
 
 def gold_set_hash(files: Mapping[str, bytes]) -> str:

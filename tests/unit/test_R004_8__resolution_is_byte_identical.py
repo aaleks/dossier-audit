@@ -31,10 +31,12 @@ def pipeline() -> PipelineConfig:
         sources=["incidents-manual"],
         model="anthropic:claude-sonnet-4-5-20250929",
         steps=[
-            StepConfig(id="extract", prompt="prompts/01_extract.md", input="documents",
-                       mode="per_file"),
-            StepConfig(id="verify", prompt="prompts/01_extract.md", input="previous",
-                       mode="per_file"),
+            StepConfig(
+                id="extract", prompt="prompts/01_extract.md", input="documents", mode="per_file"
+            ),
+            StepConfig(
+                id="verify", prompt="prompts/01_extract.md", input="previous", mode="per_file"
+            ),
         ],
     )
 

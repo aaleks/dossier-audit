@@ -163,7 +163,9 @@ class TestTheCacheClaimsAreAssertedHere:
             model="anthropic:claude-sonnet-4-5-20250929",
             steps=[
                 StepConfig(
-                    id="extract", prompt="prompts/01_extract.md", input="documents",
+                    id="extract",
+                    prompt="prompts/01_extract.md",
+                    input="documents",
                     mode="per_file",
                 )
             ],

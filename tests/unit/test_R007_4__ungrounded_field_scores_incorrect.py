@@ -42,9 +42,7 @@ class TestEvidenceIsRequired:
         document, so the model produced the right number from somewhere other
         than the evidence -- and this rule says that does not count.
         """
-        result = score_field(
-            record=loss(), gold=GOLD, check=UNGROUNDED, kind=FieldKind.AMOUNT
-        )
+        result = score_field(record=loss(), gold=GOLD, check=UNGROUNDED, kind=FieldKind.AMOUNT)
 
         assert result.verdict is Verdict.INCORRECT
 
@@ -56,9 +54,7 @@ class TestEvidenceIsRequired:
         A `review.jsonl` that called both "incorrect" would send someone hunting
         for a disagreement that does not exist.
         """
-        result = score_field(
-            record=loss(), gold=GOLD, check=UNGROUNDED, kind=FieldKind.AMOUNT
-        )
+        result = score_field(record=loss(), gold=GOLD, check=UNGROUNDED, kind=FieldKind.AMOUNT)
         mismatch = score_field(
             record=loss(48250.00), gold=GOLD, check=GROUNDED, kind=FieldKind.AMOUNT
         )
@@ -73,9 +69,7 @@ class TestEvidenceIsRequired:
         Same value, same gold, locatable span. Without this row the rule is
         satisfied by a scorer that marks everything incorrect.
         """
-        result = score_field(
-            record=loss(), gold=GOLD, check=GROUNDED, kind=FieldKind.AMOUNT
-        )
+        result = score_field(record=loss(), gold=GOLD, check=GROUNDED, kind=FieldKind.AMOUNT)
 
         assert result.verdict is Verdict.CORRECT
 
@@ -87,9 +81,7 @@ class TestEvidenceIsRequired:
         that treated "no span" as "ungrounded" would make every correct
         abstention incorrect, which is exactly backwards.
         """
-        abstains = FieldRecord(
-            field="root_cause", value=None, reason="not stated in document"
-        )
+        abstains = FieldRecord(field="root_cause", value=None, reason="not stated in document")
 
         result = score_field(
             record=abstains,

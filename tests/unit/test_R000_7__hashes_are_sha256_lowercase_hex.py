@@ -194,8 +194,19 @@ class TestNoOtherDigestExistsAnywhere:
     silent, because a second hash function produces perfectly plausible hex.
     """
 
-    OTHER_DIGESTS = {"md5", "sha1", "sha224", "sha384", "sha512", "blake2b", "blake2s",
-                     "shake_128", "shake_256", "sha3_256", "sha3_512"}
+    OTHER_DIGESTS = {
+        "md5",
+        "sha1",
+        "sha224",
+        "sha384",
+        "sha512",
+        "blake2b",
+        "blake2s",
+        "shake_128",
+        "shake_256",
+        "sha3_256",
+        "sha3_512",
+    }
 
     def modules(self) -> list[Path]:
         package = Path(__file__).resolve().parents[2] / "src" / "dossier"
@@ -224,9 +235,7 @@ class TestNoOtherDigestExistsAnywhere:
                 if called in self.OTHER_DIGESTS:
                     offenders.append(f"{path.name}:{node.lineno}: {called}()")
 
-        assert not offenders, "\n".join(
-            offenders + ["  Every hash is SHA-256 (R0.7)."]
-        )
+        assert not offenders, "\n".join(offenders + ["  Every hash is SHA-256 (R0.7)."])
 
     def test_builtin_hash_is_never_used_for_content(self):
         """The one that catches `hash()`, which is salted per process.

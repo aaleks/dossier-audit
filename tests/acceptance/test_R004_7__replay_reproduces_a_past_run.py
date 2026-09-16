@@ -39,8 +39,11 @@ def _answer(document: str) -> str:
         {
             "document": document,
             "fields": [
-                {"field": "summary", "value": "reviewed", "source": {
-                    "document": document, "span": "Reopened"}}
+                {
+                    "field": "summary",
+                    "value": "reviewed",
+                    "source": {"document": document, "span": "Reopened"},
+                }
             ],
         }
     )
@@ -62,9 +65,7 @@ def completed(workspace: Path, monkeypatch) -> str:
     assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
     assert _cli(workspace, monkeypatch, "convert", PIPELINE).exit_code == 0
 
-    keys = sorted(
-        path.name for path in (workspace / "inbox" / "incidents").iterdir()
-    )
+    keys = sorted(path.name for path in (workspace / "inbox" / "incidents").iterdir())
     client = FakeModelClient(responses=[_answer(key) for key in keys])
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: client, raising=False)
 
@@ -114,9 +115,7 @@ class TestAReplayReproducesTheRun:
         assert "3 artifact(s) reproduced" in result.output
         assert "extract: 3 artifact(s) from cache" in result.output
 
-    def test_an_edited_pipeline_is_ignored(
-        self, workspace: Path, monkeypatch, completed: str
-    ):
+    def test_an_edited_pipeline_is_ignored(self, workspace: Path, monkeypatch, completed: str):
         """Example 2: the one where a step is added afterwards.
 
         The pipeline now has two steps. The replay reports one, because the
@@ -124,9 +123,7 @@ class TestAReplayReproducesTheRun:
         an artifact the original run never wrote and fail -- loudly, but for
         entirely the wrong reason.
         """
-        write_pipeline(
-            workspace, steps=["extract", "enrich"], inputs={"enrich": "extract"}
-        )
+        write_pipeline(workspace, steps=["extract", "enrich"], inputs={"enrich": "extract"})
 
         result = _cli(workspace, monkeypatch, "run", PIPELINE, "--replay", f"runs/{completed}")
 
@@ -134,9 +131,7 @@ class TestAReplayReproducesTheRun:
         assert "extract: 3 artifact(s) from cache" in result.output
         assert "enrich" not in result.output
 
-    def test_a_deleted_pipeline_is_ignored(
-        self, workspace: Path, monkeypatch, completed: str
-    ):
+    def test_a_deleted_pipeline_is_ignored(self, workspace: Path, monkeypatch, completed: str):
         """Example 2, taken to its limit: the one where the config is gone.
 
         If the manifest is genuinely the only input, removing the file it came
@@ -163,9 +158,7 @@ class TestAReplayReproducesTheRun:
         manifest = json.loads(
             (workspace / "runs" / completed / "manifest.json").read_text(encoding="utf-8")
         )
-        write_pipeline(
-            workspace, steps=["extract"], model="anthropic:claude-opus-4-1-20250805"
-        )
+        write_pipeline(workspace, steps=["extract"], model="anthropic:claude-opus-4-1-20250805")
 
         result = _cli(workspace, monkeypatch, "run", PIPELINE, "--replay", f"runs/{completed}")
 
@@ -305,9 +298,7 @@ class TestTheDocumentedInvocationWorks:
 
         assert result.exit_code == 0, result.output
 
-    def test_a_run_without_replay_still_requires_a_pipeline(
-        self, workspace: Path, monkeypatch
-    ):
+    def test_a_run_without_replay_still_requires_a_pipeline(self, workspace: Path, monkeypatch):
         """The counter-example: optional here does not mean optional everywhere.
 
         Executing needs to know what to execute. Making the argument optional for

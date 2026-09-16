@@ -136,8 +136,9 @@ class TestResolutionGoesThroughEntryPoints:
 
         def converter(name: str, media_type: str, kind: str):
             return type(
-                name, (), {"id": name, "version": "1.0.0",
-                           "media_type": media_type, "kind": kind}
+                name,
+                (),
+                {"id": name, "version": "1.0.0", "media_type": media_type, "kind": kind},
             )
 
         made = [

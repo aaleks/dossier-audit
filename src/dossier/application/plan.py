@@ -78,9 +78,7 @@ def build_plan(
     answer rather than a cheerful one -- a first plan has nothing to compare
     against and should not imply otherwise.
     """
-    resolved = resolve(
-        pipeline=pipeline, pipeline_hash=pipeline_hash, documents=documents
-    )
+    resolved = resolve(pipeline=pipeline, pipeline_hash=pipeline_hash, documents=documents)
     return Plan(
         resolved=resolved,
         steps=_diff(resolved, previous),

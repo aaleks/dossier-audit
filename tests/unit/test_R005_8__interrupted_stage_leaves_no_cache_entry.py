@@ -114,8 +114,12 @@ class TestAnInterruptionLeavesNothingUsable:
 
         broken = Interrupted(tmp_path, namespace="stage")
         with pytest.raises(KeyboardInterrupt):
-            run(tmp_path, FakeModelClient(responses=[answer("INC-4821")]),
-                documents={"INC-4821": "a" * 64}, cache=broken)
+            run(
+                tmp_path,
+                FakeModelClient(responses=[answer("INC-4821")]),
+                documents={"INC-4821": "a" * 64},
+                cache=broken,
+            )
 
         assert entries(tmp_path) == []
         assert cache.get("b" * 64) is None

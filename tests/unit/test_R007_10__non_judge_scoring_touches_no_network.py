@@ -142,8 +142,7 @@ class TestScoringIsOffline:
         this reason; this narrows it to the module the rule names.
         """
         module = (
-            Path(__file__).resolve().parents[2]
-            / "src" / "dossier" / "domain" / "scoring.py"
+            Path(__file__).resolve().parents[2] / "src" / "dossier" / "domain" / "scoring.py"
         )
         tree = ast.parse(module.read_text(encoding="utf-8"), filename=str(module))
 
@@ -155,6 +154,12 @@ class TestScoringIsOffline:
                 imported.add(node.module.split(".")[0])
 
         assert imported <= {
-            "re", "collections", "dataclasses", "datetime", "enum", "pydantic", "dossier",
+            "re",
+            "collections",
+            "dataclasses",
+            "datetime",
+            "enum",
+            "pydantic",
+            "dossier",
             "__future__",
         }, f"unexpected import in the scorer: {sorted(imported)}"
