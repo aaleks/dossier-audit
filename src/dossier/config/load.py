@@ -43,6 +43,7 @@ from dossier.domain.scoring import FieldKind
 TOKEN_ENV = "token_env"
 
 __all__ = [
+    "JUDGE_FILE",
     "ConfigError",
     "PipelineConfig",
     "SourceConfig",

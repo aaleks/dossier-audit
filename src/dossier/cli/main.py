@@ -23,7 +23,13 @@ from dossier.application.convert import (
     HeldDocument,
     convert_source,
 )
-from dossier.application.eval import calibrate_field, load_gold, record_eval, score_run
+from dossier.application.eval import (
+    calibrate_field,
+    load_calibration,
+    load_gold,
+    record_eval,
+    score_run,
+)
 from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.plan import (
     Plan,
@@ -37,17 +43,19 @@ from dossier.config.credentials import credential_for
 from dossier.config.endpoints import EndpointUnset, endpoint_for
 from dossier.config.environment import environment
 from dossier.config.load import (
+    JUDGE_FILE,
     ConfigError,
     load_calibration_sample,
     load_fields,
     load_judge_rubrics,
+    load_judge_thresholds,
     load_output_schemas,
     load_pipeline,
     load_sources,
 )
 from dossier.domain.conversion import NoConverter
 from dossier.domain.hashing import text_hash
-from dossier.domain.judges import NotCalibrated
+from dossier.domain.judges import Calibration, NotCalibrated, is_eligible, is_stale
 from dossier.domain.keys import ConvertInputs, cache_key
 from dossier.domain.model_id import provider_of
 from dossier.domain.ports import ModelClient, Tracker
@@ -871,6 +879,60 @@ def calibrate(
         )
 
 
+def _judge_gate(
+    directory: Path, declaration: Path, pipeline_dir: Path, model: str
+) -> tuple[dict[str, Calibration], dict[str, str]]:
+    """Which judged fields may be reported, and why the rest may not (R7.15).
+
+    R7.5 and R7.6 are the decisions; this asks them and keeps the answers. Three
+    states withhold a field, and each says which it is rather than all three
+    reading as "no score": never measured wants a `dossier calibrate`, a stale
+    calibration wants a re-measure, and one below the bar wants a better judge or
+    a figure somebody agrees to lower.
+    """
+    rubrics = load_judge_rubrics(declaration)
+    if not rubrics:
+        return {}, {}
+
+    # Absent is its own answer: a gold set with no judge.yaml has declared no
+    # bar, and a field with no bar cannot be gated. Present and malformed still
+    # raises, because that is a mistake somebody has to be told about (R7.13).
+    thresholds = load_judge_thresholds(directory) if (directory / JUDGE_FILE).is_file() else {}
+
+    judges: dict[str, Calibration] = {}
+    withheld: dict[str, str] = {}
+    for field, named in sorted(rubrics.items()):
+        measured = load_calibration(directory, field)
+        if measured is None:
+            withheld[field] = "never measured -- run `dossier calibrate`"
+            continue
+        judges[field] = measured
+
+        current = text_hash(pipeline_dir / named)
+        if is_stale(measured, judge_model=model, rubric_hash=current):
+            moved = (
+                f"measured against {measured.judge_model}"
+                if measured.judge_model != model
+                else "the rubric has changed since"
+            )
+            withheld[field] = f"calibration is stale: {moved}"
+            continue
+
+        threshold = thresholds.get(field)
+        if threshold is None:
+            withheld[field] = f"no agreement threshold declared in {JUDGE_FILE}"
+            continue
+        try:
+            if not is_eligible(measured, threshold=threshold):
+                withheld[field] = (
+                    f"agreement {measured.agreement} is below the agreed {threshold}"
+                )
+        except NotCalibrated as error:
+            withheld[field] = str(error)
+
+    return judges, withheld
+
+
 @app.command("eval")
 def eval_(
     pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
@@ -928,16 +990,31 @@ def eval_(
     scores = score_run(report=scored, gold=load_gold(workspace / gold), kinds=kinds)
 
     totals = per_field(scores, declared=list(kinds))
-    summed = overall(totals)
+    judges, withheld = _judge_gate(
+        workspace / gold, path.parent / step.output, path.parent, config.model
+    )
+
+    # The overall covers exactly the fields it reported. Folding a withheld field
+    # back into the headline would hand over the number R7.5 just refused, in the
+    # figure most people read first -- and would make the terminal disagree with
+    # MLflow about one run, which spec 011 exists to prevent (R11.3 row 4).
+    reported = [total for total in totals if total.field not in withheld]
+    summed = overall(reported)
     if summed is not None:
         # The overall figure opens the report and never closes it: every field's
         # own line follows, so it can never be all that is printed (R7.2).
         typer.echo(
-            f"{_count(len(scores), 'document')} · {_count(len(totals), 'field')} · "
+            f"{_count(len(scores), 'document')} · {_count(len(reported), 'field')} · "
             f"overall {summed.percentage:.1f}%"
         )
-    lowest = weakest(totals)
+    lowest = weakest(reported)
     for total in totals:
+        if total.field in withheld:
+            # Named, not omitted. A line that simply vanished would read as a
+            # field nobody verified (R7.3 row 4), which is a different problem
+            # and wants different work (R7.15).
+            typer.echo(f"  {total.field:<18}     -- {withheld[total.field]}")
+            continue
         marker = "   <- weakest" if total.field in lowest else ""
         typer.echo(f"  {total.field:<18} {total.percentage:5.1f}%{marker}")
 
@@ -959,6 +1036,8 @@ def eval_(
                 for path in sorted((workspace / gold).glob("*.json"))
             },
             totals=totals,
+            judges=judges,
+            withheld=withheld,
         )
         typer.echo(f"recorded to MLflow: {experiment}")
 

@@ -28,6 +28,7 @@ import pytest
 from tests.fakes import NoModelClient, register_connector
 from tests.pipelines import write_pipeline
 
+from dossier.domain.hashing import text_hash
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 
 PIPELINE = "incident-audit"
@@ -249,6 +250,31 @@ def audited(workspace: Path, monkeypatch) -> Path:
         result = _cli(workspace, monkeypatch, *args)
         assert result.exit_code == 0, result.output
     assert model.call_count == 4, "one extraction per document"
+
+    # `root_cause` is judged against a rubric, and a judged field is only
+    # reported once its judge has been measured and has cleared the declared bar
+    # (R7.15). This rule is about reporting per field, not about gating, so the
+    # judge here is calibrated and comfortably clears it -- otherwise every
+    # assertion below would be about the withheld line instead.
+    gold = workspace / "gold" / "incidents"
+    (gold / "judge.yaml").write_text("root_cause: 0.95\n", encoding="utf-8")
+    (gold / "calibrations").mkdir(exist_ok=True)
+    (gold / "calibrations" / "root_cause.json").write_text(
+        json.dumps(
+            {
+                "judge_model": RoutedModel.model_id,
+                "rubric_hash": text_hash(
+                    workspace / "pipelines" / PIPELINE / "rubrics" / "root_cause.md"
+                ),
+                "agreement": 1.0,
+                "sample_size": 20,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     # Scoring asks no model: every field here is scored without a judge (R7.10),
     # root_cause included, because its gold is null throughout (R7.3).
