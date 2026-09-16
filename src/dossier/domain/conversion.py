@@ -51,6 +51,44 @@ class NoConverter(ValueError):
     """
 
 
+class UndeclaredConverter(ValueError):
+    """A converter does not declare something every converter must (R8.2).
+
+    A `ValueError` for the same reason `NoConverter` is one: a caller can fix
+    it, by correcting or not installing the package that declares it.
+    """
+
+
+# What a converter says about itself before dossier will use it. `version` is
+# the one worth naming twice: it enters every convert key, and raising it is the
+# whole mechanism R5.4 rests on.
+DECLARED = ("id", "version", "media_type", "kind")
+
+
+def check_declared(converter: object, *, group: str) -> None:
+    """Refuse a converter that leaves any of `DECLARED` unset (R8.2 row 4).
+
+    Checked when a converter is registered rather than when a key is composed.
+    A converter with no version cannot be invalidated, so R5.4 has nothing to
+    act on -- and a key built over a missing version surfaces much later as a
+    cache result nobody can explain, on a machine nobody is looking at.
+
+    Empty counts as absent: a converter declaring `version = ""` has said
+    nothing, and every artifact it produced would share one key forever.
+    """
+    missing = [name for name in DECLARED if not getattr(converter, name, None)]
+    if not missing:
+        return
+
+    identity = getattr(converter, "id", None) or type(converter).__name__
+    raise UndeclaredConverter(
+        f"{identity} declares no {', '.join(missing)}. Every converter declares "
+        f"an id, a version, a media_type and a kind (R8.2), and a converter with "
+        f"no version cannot be invalidated (R5.4). It is registered through the "
+        f"{group} entry point group."
+    )
+
+
 def select(
     *,
     media_type: str,

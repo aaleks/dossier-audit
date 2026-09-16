@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from importlib.metadata import entry_points
 
+from dossier.domain.conversion import check_declared
 from dossier.domain.ports import Converter
 
 ENTRY_POINT_GROUP = "dossier.converters"
@@ -27,5 +28,12 @@ def installed_converters() -> list[Converter]:
     the sort of thing that makes a cache hit in one place and miss in another
     (R5.6) -- even where, as here, a pair matches at most one converter.
     """
-    found = [point.load()() for point in entry_points(group=ENTRY_POINT_GROUP)]
+    found = []
+    for point in entry_points(group=ENTRY_POINT_GROUP):
+        converter = point.load()()
+        # Checked where a package's claim enters dossier, not where a key is
+        # composed over it. Whether a converter has declared enough to be used
+        # is a rule, so the check itself lives in the domain (R8.2).
+        check_declared(converter, group=ENTRY_POINT_GROUP)
+        found.append(converter)
     return sorted(found, key=lambda converter: (converter.media_type, converter.kind))

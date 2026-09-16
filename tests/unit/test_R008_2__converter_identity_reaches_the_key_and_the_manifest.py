@@ -31,8 +31,6 @@ from dossier.domain.resolution import PinnedConverter
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.converters.registry import installed_converters
 
-pytestmark = pytest.mark.outer_loop
-
 # `OPS-114` as spec 008's worked example converts it: a PDF at `b81f0c6d`,
 # through `pdf-markdown` `1.3.0`.
 SNAPSHOT = "b81f0c6d" * 8
