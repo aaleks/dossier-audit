@@ -12,8 +12,10 @@ text is the acceptance test beside this one -- the command converts what the
 workspace holds, as `dossier convert` does.
 
 Row 4 of the rule -- a judged field with no sample at all -- is
-`load_calibration_sample`'s refusal and is proved under R7.16, so it is not
-transcribed a second time here.
+`load_calibration_sample`'s refusal. It was once described here as proved under
+R7.16, and R7.16's rows are about a record's shape and never open a missing
+file; `/verify` found the `except` could be deleted with the suite green. So it
+is transcribed here after all.
 """
 
 from __future__ import annotations
@@ -160,6 +162,25 @@ class TestCalibrateWritesWhatItMeasured:
             _calibrate(model, tmp_path, cases)
 
         assert "19" in str(error.value)
+        assert not (tmp_path / "calibrations").exists()
+
+    def test_a_field_with_no_sample_is_refused_naming_the_field_and_the_path(
+        self, tmp_path: Path
+    ):
+        """Example 4: the one where nobody has written `samples/root_cause.jsonl`.
+
+        Refused, and the message says where the file was looked for, because
+        that is where the fix goes. A judge cannot be measured against a sample
+        nobody has written, and a measurement that proceeded over nothing would
+        leave a calibration file behind for it.
+        """
+        from dossier.config.load import ConfigError, load_calibration_sample
+
+        with pytest.raises(ConfigError) as error:
+            load_calibration_sample(tmp_path, FIELD)
+
+        assert FIELD in str(error.value)
+        assert str(tmp_path / "samples" / f"{FIELD}.jsonl") in str(error.value)
         assert not (tmp_path / "calibrations").exists()
 
     def test_the_agreed_threshold_is_neither_written_nor_read(self, tmp_path: Path):
