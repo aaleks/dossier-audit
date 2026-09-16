@@ -119,12 +119,18 @@ class FolderConnector:
         return media_type_for(path.name)
 
     @classmethod
-    def from_config(cls, config, *, workspace: Path) -> FolderConnector:
+    def from_config(
+        cls, config, *, workspace: Path, credential: object | None = None
+    ) -> FolderConnector:
         """Build from a `sources.yaml` entry (the entry-point contract).
 
         `path` is resolved against the workspace, so a configuration file is
         portable and a relative path in it means the same thing wherever the
         workspace is checked out.
+
+        `credential` is accepted and unused: a local directory has nothing to
+        authenticate to. Taking the argument keeps every connector built the same
+        way, which is what stops the core growing a special case (R1.7).
         """
         # Loading has already refused a folder with no `path` (R1.10). Checked
         # again because a connector is built from whatever `SourceConfig` it is

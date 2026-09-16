@@ -33,6 +33,7 @@ from dossier.application.plan import (
 )
 from dossier.application.run import MissingFromReplay, execute, replay
 from dossier.application.sync import SourceReport, sync_source
+from dossier.config.credentials import credential_for
 from dossier.config.endpoints import EndpointUnset, endpoint_for
 from dossier.config.environment import environment
 from dossier.config.load import (
@@ -120,8 +121,13 @@ def sync(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines
         for name in config.synced_sources:
             source = declared[name]
             try:
-                connector = build_connector(source, workspace=workspace)
-            except (UnknownSourceType, ValueError) as error:
+                # Read here, by the one package that reads the environment, and
+                # handed to the connector. Infrastructure may not go looking for
+                # it itself, and the layer contract enforces that (R1.8).
+                connector = build_connector(
+                    source, workspace=workspace, credential=credential_for(source)
+                )
+            except (UnknownSourceType, ValueError, ConfigError) as error:
                 typer.echo(str(error), err=True)
                 raise typer.Exit(code=2) from error
 

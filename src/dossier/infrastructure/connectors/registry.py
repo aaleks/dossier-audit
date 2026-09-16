@@ -27,9 +27,22 @@ class ConnectorFactory(Protocol):
     A callable taking the source's configuration and the workspace, because a
     connector's arguments are type-specific -- a folder needs a path, a Jira
     query needs a JQL string -- and the core package must not know which.
+
+    `credential` is what the source is reached with, and a factory declares it
+    only if it needs one. It is passed in rather than looked up: `dossier.config`
+    is the only package that reads the environment, and a connector that went
+    looking there itself would be a second place credentials come from (R1.8).
+
+    Declaring it is optional, and that is load-bearing. A connector written
+    against `(config, workspace)` -- every third-party one that exists -- must go
+    on working untouched, because R1.7 is the claim that adding a connector needs
+    no change to this package, and a contract that widened under them would make
+    it false in the other direction.
     """
 
-    def __call__(self, config: SourceConfig, *, workspace: Path) -> Connector: ...
+    def __call__(
+        self, config: SourceConfig, *, workspace: Path, credential: object | None = None
+    ) -> Connector: ...
 
 
 class UnknownSourceType(Exception):
@@ -55,11 +68,40 @@ def declared_keys() -> dict[str, type | None]:
     }
 
 
-def build_connector(config: SourceConfig, *, workspace: Path) -> Connector:
-    """The connector for one source, resolved through the entry point group."""
+def _takes_credential(factory: object) -> bool:
+    """Whether this factory asked for a credential.
+
+    Asked rather than assumed, so that a connector written against
+    `(config, workspace)` keeps working: R1.7 says adding a connector needs no
+    change to this package, and widening the call under existing connectors
+    would break that from this side instead.
+
+    A factory whose signature cannot be read -- a C callable, an exotic
+    partial -- is called the old way. The narrower call is the safe default:
+    it is the one every connector has always accepted.
+    """
+    import inspect
+
+    try:
+        parameters = inspect.signature(factory).parameters
+    except (TypeError, ValueError):
+        return False
+    return "credential" in parameters
+
+
+def build_connector(
+    config: SourceConfig, *, workspace: Path, credential: object | None = None
+) -> Connector:
+    """The connector for one source, resolved through the entry point group.
+
+    `credential` comes from the caller, which is the composition root: this
+    package may not read the environment, and must not learn how to (R1.8).
+    """
     for point in entry_points(group=ENTRY_POINT_GROUP):
         if point.name == config.type:
             factory: ConnectorFactory = point.load()
+            if _takes_credential(factory):
+                return factory(config, workspace=workspace, credential=credential)
             return factory(config, workspace=workspace)
 
     known = available_types()

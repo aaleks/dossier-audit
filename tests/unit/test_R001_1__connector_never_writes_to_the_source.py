@@ -20,13 +20,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
-import pytest
 
 from dossier.domain.pipeline import SourceConfig
+from dossier.infrastructure.connectors.jira import JiraConnector
 from dossier.infrastructure.ledger import Ledger
 from dossier.infrastructure.store import SnapshotStore
-
-pytestmark = pytest.mark.outer_loop
 
 BASE = "https://jira.example.internal"
 QUERY = "project = INC AND updated >= -30d"
@@ -95,16 +93,8 @@ class Recorder:
         return {method for method, _ in self.requests}
 
 
-def connector(recorder: Recorder):
-    """`JiraConnector`, built as its entry point builds it, over a recording transport.
-
-    Imported inside the helper: at module level the import fails while the rule
-    is open, and a failed import is a failed collection -- which turns the
-    default suite red for everyone. The `outer_loop` marker deselects tests; it
-    does not stop pytest importing the module they are in.
-    """
-    from dossier.infrastructure.connectors.jira import JiraConnector
-
+def connector(recorder: Recorder) -> JiraConnector:
+    """The Jira connector over a recording transport, holding a token it must not leak."""
     return JiraConnector(
         base_url=BASE, query=QUERY, token=TOKEN, transport=recorder.transport()
     )

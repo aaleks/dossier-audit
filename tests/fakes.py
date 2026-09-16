@@ -292,10 +292,26 @@ def register_connector(monkeypatch, type_name: str, factory, *, keys=None) -> No
     if keys is not None:
         factory.keys = keys
 
-    stub = _StubEntryPoint(type_name, registry.ENTRY_POINT_GROUP, factory)
+    def built(config, *, workspace, credential=None):
+        """The factory a test gave, taking the argument `build_connector` passes.
+
+        Absorbed here so that a stub can stay the two-line lambda it wants to be:
+        a credential is resolved by the composition root and handed to every
+        connector (R1.8), and a fake source needs none.
+        """
+        return factory(config, workspace=workspace)
+
+    built.keys = getattr(factory, "keys", None)
+    stub = _StubEntryPoint(type_name, registry.ENTRY_POINT_GROUP, built)
 
     def with_stub(group: str):
         found = list(entry_points(group=group))
-        return found + [stub] if group == registry.ENTRY_POINT_GROUP else found
+        if group != registry.ENTRY_POINT_GROUP:
+            return found
+        # The stub comes first, and shadows an installed connector of the same
+        # name, exactly as `register_provider` replaces a provider. Appending
+        # instead would leave a test that says "make `jira` available" quietly
+        # exercising the shipped Jira connector, which is not what it asked for.
+        return [stub] + [point for point in found if point.name != type_name]
 
     monkeypatch.setattr(registry, "entry_points", with_stub)
