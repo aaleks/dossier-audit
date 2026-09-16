@@ -211,10 +211,20 @@ def test_the_in_progress_rule_owns_the_outer_loop_test():
     if not in_progress:
         assert not marked, f"{marked} carries @{OUTER_LOOP_MARKER} but no rule is IN PROGRESS."
         return
-    expected = sorted(in_progress[0].proved_by)
+    # The acceptance-tier entries only. An open slice names its red acceptance
+    # test from the start and gains a unit test per inner cycle, and those
+    # must join the default suite as they land rather than wait behind the
+    # marker -- otherwise the default suite never runs what /tdd just proved.
+    expected = sorted(
+        entry for entry in in_progress[0].proved_by if entry.startswith("tests/acceptance/")
+    )
+    assert expected, (
+        f"{in_progress[0].where} is IN PROGRESS but names no tests/acceptance/ test; an "
+        "outer loop is an acceptance test by definition."
+    )
     assert marked == expected, (
-        f"{in_progress[0].where} is IN PROGRESS and names {expected}, but the "
-        f"@{OUTER_LOOP_MARKER} marker is on {marked}."
+        f"{in_progress[0].where} is IN PROGRESS and its acceptance tests are {expected}, "
+        f"but the @{OUTER_LOOP_MARKER} marker is on {marked}."
     )
 
 
