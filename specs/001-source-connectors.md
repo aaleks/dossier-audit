@@ -96,7 +96,7 @@ marking a page as viewed.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors`)
 - **Proved by:** `tests/unit/test_R001_1__connector_never_writes_to_the_source.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
