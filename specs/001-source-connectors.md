@@ -179,7 +179,7 @@ An issue can be untouched while the PDF attached to it was replaced.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors`)
 - **Proved by:** `tests/unit/test_R001_6__attachments_are_versioned_independently.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
