@@ -1,0 +1,12 @@
+# The agreement each judged field's judge must reach against this gold set's
+# sample (R7.13). One threshold per judged field, as a proportion in [0, 1].
+#
+# Written by a person, never by a run: `dossier calibrate` measures a judge
+# and records what it measured under calibrations/, and may not touch this
+# file (R7.14). `dossier eval` gates the field on this figure (R7.5, R7.15).
+#
+# root_cause: agreed by a.aleks on 2026-09-16. Set below the 20 of 20 that
+# openai:gpt-5.4-mini measured, because 20 of 20 at N=20 supports a lower
+# bound near 0.84 rather than 1.0, and above the 0.60 a judge calling every
+# candidate supported would score on the same sample (R7.11).
+root_cause: 0.95
