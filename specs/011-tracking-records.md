@@ -72,6 +72,11 @@ Supersedes R7.9, which named the experiment after the pipeline and recorded an
 eval only. The figures are the ones R7.2 prints, so the terminal and MLflow
 cannot disagree.
 
+A field whose judge may not be quoted is left out of `accuracy/overall` as well
+as of its own metric. R7.5 withholds that number because a percentage reads as
+evidence whether or not it was earned, and an overall that quietly absorbed the
+same field would hand it back in the figure most people read first.
+
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
 - **Proved by:** `tests/unit/test_R011_3__an_eval_records_one_metric_per_field.py`
@@ -82,7 +87,7 @@ cannot disagree.
 | 1 | `dossier eval incident-audit --gold gold/incidents` over the scoring example | `accuracy/loss_amount` 100.0, `accuracy/resolution_date` 75.0, `accuracy/severity` 100.0, `accuracy/affected_systems` 75.0, `accuracy/root_cause` 50.0, `accuracy/overall` 80.0 |
 | 2 | the same | params: the pinned model and gold set `incidents`; tags: the gold set's full 64-character hash (R0.7) and `dossier.run_id` of the run it scored |
 | 3 | a `root_cause` judge at agreement 0.91, threshold 0.85 | param `judge/root_cause/agreement` 0.91, with its judge model identifier (R7.11 row 2) |
-| 4 | the judge at 0.78 against 0.85 (R7.5) | no `accuracy/root_cause` metric; a tag says the judge was ineligible, and why |
+| 4 | the judge at 0.78 against 0.85 (R7.5) | no `accuracy/root_cause` metric, and it is left out of `accuracy/overall` as well; a tag says the judge was ineligible, and why |
 | 5 | *counter-example* — a gold set covering only `severity` | one field metric; no zero is recorded for fields nobody verified (R7.3 row 4) |
 
 ### R11.4 — a `dossier sync` or `dossier convert` is one MLflow run of per-source counts, with no traces
