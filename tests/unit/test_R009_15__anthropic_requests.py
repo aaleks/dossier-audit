@@ -95,3 +95,19 @@ class TestAnthropicRequests:
         assert body["max_tokens"] == 16000
         assert body["output_config"]["format"] == {"type": "json_schema", "schema": SCHEMA}
         assert not {"temperature", "top_p", "top_k"} & body.keys()
+
+    def test_a_key_is_sent_in_anthropics_header_and_no_key_sends_no_header(self):
+        """Example 2: the one with `DOSSIER_ANTHROPIC_API_KEY` set, and the one without.
+
+        `x-api-key`, never `Authorization: Bearer`: the header OpenAI-compatible
+        servers read is one Anthropic ignores, and a key sent there would be
+        both leaked and useless.
+        """
+        with_key, without_key = Server(), Server()
+
+        _client(with_key, api_key="sk-ant-4f1a").complete("x", schema=SCHEMA)
+        _client(without_key).complete("x", schema=SCHEMA)
+
+        assert with_key.requests[0].headers["x-api-key"] == "sk-ant-4f1a"
+        assert "authorization" not in with_key.requests[0].headers
+        assert "x-api-key" not in without_key.requests[0].headers
