@@ -26,6 +26,7 @@ from pathlib import Path
 import pytest
 from tests.fakes import FakeModelClient
 
+from dossier.application.eval import judge_prompt_hash
 from dossier.domain.gold import CalibrationCase
 from dossier.domain.judges import MINIMUM_SAMPLE, NotCalibrated
 
@@ -121,6 +122,7 @@ class TestCalibrateWritesWhatItMeasured:
         assert _written(tmp_path) == {
             "judge_model": JUDGE,
             "rubric_hash": RUBRIC_HASH,
+            "prompt_hash": judge_prompt_hash(),
             "agreement": 0.95,
             "sample_size": 20,
         }

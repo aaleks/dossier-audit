@@ -15,6 +15,7 @@ from pathlib import Path
 
 from dossier.application.run import StepReport
 from dossier.domain.gold import CalibrationCase, GoldDocument, gold_set_hash
+from dossier.domain.hashing import content_hash
 from dossier.domain.judges import MINIMUM_SAMPLE, Calibration, NotCalibrated
 from dossier.domain.ports import Tracker
 from dossier.domain.scoring import (
@@ -159,6 +160,27 @@ JUDGE_SCHEMA = {
 }
 
 
+# The wrapper dossier puts a rubric in: the material and the output format, and
+# nothing that adds to the standard the rubric sets. A named constant rather
+# than an f-string in a body, because its hash is part of what a calibration
+# records (R7.19): an edit here changes what every judge is asked with no byte
+# of the author's rubric moving, and `is_stale` has to be able to see it.
+JUDGE_PROMPT_TEMPLATE = (
+    "{rubric}\n\n"
+    "Document {document}, in full:\n"
+    "<document>\n{text}\n</document>\n\n"
+    "Stated root cause:\n<claim>{answer}</claim>\n\n"
+    'Answer with JSON only: {{"supported": true|false, "evidence": "..."}}. '
+    "`evidence` is at most two sentences, quoting or naming the part of the "
+    "document you relied on."
+)
+
+
+def judge_prompt_hash() -> str:
+    """The hash of the wrapper a judge's question is put in (R7.19)."""
+    return content_hash(JUDGE_PROMPT_TEMPLATE.encode("utf-8"))
+
+
 def judge_prompt(*, rubric: str, document: str, text: str, answer: str) -> str:
     """The question put to a judge about one candidate root cause.
 
@@ -168,14 +190,8 @@ def judge_prompt(*, rubric: str, document: str, text: str, answer: str) -> str:
     and the figure it produces is the one a threshold would then be set from
     (R7.11). Everything below the rubric is the material and the output format.
     """
-    return (
-        f"{rubric.strip()}\n\n"
-        f"Document {document}, in full:\n"
-        f"<document>\n{text.strip()}\n</document>\n\n"
-        f"Stated root cause:\n<claim>{answer.strip()}</claim>\n\n"
-        'Answer with JSON only: {"supported": true|false, "evidence": "..."}. '
-        "`evidence` is at most two sentences, quoting or naming the part of the "
-        "document you relied on."
+    return JUDGE_PROMPT_TEMPLATE.format(
+        rubric=rubric.strip(), document=document, text=text.strip(), answer=answer.strip()
     )
 
 
@@ -234,15 +250,16 @@ def calibration(
 ) -> Calibration:
     """The measurement, recorded with what it was made against (R7.11 row 2).
 
-    The model identifier and the rubric hash travel with the figure because an
-    agreement number on its own says a judge agreed with a human without saying
-    which judge, or on what question -- and `is_stale` needs both to notice when
-    either has moved since (R7.6).
+    The model identifier, the rubric hash and the prompt hash travel with the
+    figure because an agreement number on its own says a judge agreed with a
+    human without saying which judge, or on what question -- and `is_stale`
+    needs all three to notice when any has moved since (R7.6, R7.19).
     """
     measured, _ = agreement(verdicts=verdicts, human=human)
     return Calibration(
         judge_model=judge_model,
         rubric_hash=rubric_hash,
+        prompt_hash=judge_prompt_hash(),
         agreement=measured,
         sample_size=len(human),
     )

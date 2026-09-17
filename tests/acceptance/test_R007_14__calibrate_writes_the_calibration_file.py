@@ -23,6 +23,7 @@ from tests.fakes import FakeModelClient, register_connector
 from tests.pipelines import RUBRIC, write_pipeline
 from tests.scoring_example import ISSUES, PIPELINE, SOURCE_ID, SOURCE_TYPE, IssueTracker
 
+from dossier.application.eval import judge_prompt_hash
 from dossier.domain.hashing import text_hash
 
 FIELD = "root_cause"
@@ -125,6 +126,7 @@ class TestCalibrateWritesTheCalibrationFile:
         assert _calibration(calibratable) == {
             "judge_model": MODEL,
             "rubric_hash": text_hash(rubric),
+            "prompt_hash": judge_prompt_hash(),
             "agreement": 0.95,
             "sample_size": 20,
         }

@@ -36,6 +36,7 @@ from tests.scoring_example import (
     RoutedModel,
 )
 
+from dossier.application.eval import judge_prompt_hash
 from dossier.domain.hashing import text_hash
 
 URI = "http://localhost:5000"
@@ -109,6 +110,7 @@ def _calibrate(workspace: Path, *, agreement: float) -> None:
                 "rubric_hash": text_hash(
                     workspace / "pipelines" / PIPELINE / "rubrics" / "root_cause.md"
                 ),
+                "prompt_hash": judge_prompt_hash(),
                 "agreement": agreement,
                 "sample_size": 20,
             },

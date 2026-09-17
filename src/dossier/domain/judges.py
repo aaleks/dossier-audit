@@ -50,6 +50,9 @@ class Calibration(BaseModel):
 
     judge_model: str
     rubric_hash: str
+    # The wrapper dossier puts the rubric in, hashed. Optional only so a file
+    # from before R7.19 still loads: it then reads as stale, never as fresh.
+    prompt_hash: str | None = None
     agreement: float
     sample_size: int
 
@@ -91,12 +94,18 @@ def is_eligible(calibration: Calibration | None, *, threshold: float) -> bool:
     return calibration.agreement >= threshold
 
 
-def is_stale(calibration: Calibration, *, judge_model: str, rubric_hash: str) -> bool:
-    """Whether a calibration was measured against something else (R7.6).
+def is_stale(
+    calibration: Calibration, *, judge_model: str, rubric_hash: str, prompt_hash: str
+) -> bool:
+    """Whether a calibration was measured against something else (R7.6, R7.19).
 
-    Either change alone is enough. The rule says "the judge model *or* its
+    Any change alone is enough. The rule says "the judge model *or* its
     rubric", and joining them with `and` would go stale only when both moved --
-    the case that almost never happens.
+    the case that almost never happens. The judge prompt -- the wrapper dossier
+    puts the rubric in -- is the third input (R7.19): an edit to it changes what
+    every judge is asked with no byte of the author's rubric moving. A
+    calibration that recorded no prompt hash was measured under a prompt nobody
+    recorded, which is not the same as measured under this one.
 
     The model identifier is compared exactly. R0.6 forbids an unpinned
     identifier, so two pins differing by their date are two different models, and
@@ -107,4 +116,8 @@ def is_stale(calibration: Calibration, *, judge_model: str, rubric_hash: str) ->
     a measurement made on less; it invites a re-measure, and treating growth as
     staleness would punish the one behaviour the gold set wants to encourage.
     """
-    return calibration.judge_model != judge_model or calibration.rubric_hash != rubric_hash
+    return (
+        calibration.judge_model != judge_model
+        or calibration.rubric_hash != rubric_hash
+        or calibration.prompt_hash != prompt_hash
+    )
