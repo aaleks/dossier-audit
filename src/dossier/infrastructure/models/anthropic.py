@@ -73,7 +73,12 @@ class AnthropicClient:
         if schema is not None:
             body["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
         response = request(self._http, "POST", self._url, json=body)
-        return response.json()["content"][0]["text"]
+        # A reply is a list of content blocks, and the answer is the first of
+        # type `text`: a model that thinks by default puts its thinking first.
+        for block in response.json().get("content", []):
+            if block.get("type") == "text":
+                return block["text"]
+        raise KeyError("text")
 
 
 class Anthropic:

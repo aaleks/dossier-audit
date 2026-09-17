@@ -111,3 +111,21 @@ class TestAnthropicRequests:
         assert with_key.requests[0].headers["x-api-key"] == "sk-ant-4f1a"
         assert "authorization" not in with_key.requests[0].headers
         assert "x-api-key" not in without_key.requests[0].headers
+
+    def test_the_answer_is_the_first_text_block_returned_verbatim(self):
+        """Example 3: the one where the model thought first.
+
+        A model that thinks by default puts a `thinking` block before its
+        answer, and that block is not the answer. The text block is returned
+        verbatim: validating it is the stage's job, with its one retry (R6.1,
+        R6.2), and a client that reshaped it would validate something the
+        model never said.
+        """
+        server = Server(
+            blocks=[
+                {"type": "thinking", "thinking": "", "signature": "…"},
+                {"type": "text", "text": ANSWER},
+            ]
+        )
+
+        assert _client(server).complete("x", schema=SCHEMA) == ANSWER
