@@ -155,3 +155,32 @@ class TestKeyCoversEveryOutputDeterminingInput:
 
         assert len(before) == 2
         assert after == before
+
+    def test_text_dossier_itself_authors_is_in_no_key_and_in_every_record(self, tmp_path: Path):
+        """Counter-example (row 5): the one where dossier, not the pipeline, changed.
+
+        A stage key is composed of exactly six things, none of them the retry
+        wrapper or a client's request ceiling; what version of dossier said
+        them is in the record beside the artifact, where a person can read it
+        and no output depends on it (R5.1 row 4).
+        """
+        from dossier.application.extract import CORRECTION_TEMPLATE
+        from dossier.domain.keys import canonical
+
+        stage = verify_stage()
+
+        assert set(stage.keyed()) == {
+            "prompt",
+            "schema",
+            "generated_schema",
+            "model",
+            "options",
+            "inputs",
+        }
+        assert CORRECTION_TEMPLATE.encode("utf-8")[:24] not in canonical(stage)
+        run(tmp_path, "20260806T142203Z-4f1a")
+        records = [
+            json.loads(path.read_text(encoding="utf-8"))
+            for path in (tmp_path / ".dossier" / "cache").rglob("*.meta.json")
+        ]
+        assert records and all(record["dossier_version"] == "0.1.0" for record in records)
