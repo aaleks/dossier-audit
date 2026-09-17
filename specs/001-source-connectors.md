@@ -9,7 +9,8 @@ Define the single interface every source type implements, so that adding a new
 source system requires no change to the ledger, the store, the cache or any
 pipeline.
 
-Connectors are the only code left of the hash boundary (R0.1). Everything a
+Connectors are left of the hash boundary, with the model clients and the tracker
+(R0.10). Everything a
 connector does is therefore assumed to be unrepeatable, and everything after it
 is assumed not to be.
 

@@ -3,8 +3,9 @@ paths:
   - "src/dossier/infrastructure/connectors/**"
 ---
 
-You are editing a connector. This is the **only** package left of the hash boundary,
-and the only one in `dossier` permitted to touch the network (R0.1).
+You are editing a connector. This is one of the **three** packages left of the hash
+boundary -- with `infrastructure/models` and `infrastructure/tracking` -- and the only
+one that fetches a source (R0.10).
 
 Everything downstream assumes that once a payload has been stored, it is frozen and
 repeatable. That assumption is only as good as this package.

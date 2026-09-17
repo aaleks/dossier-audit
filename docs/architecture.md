@@ -16,20 +16,23 @@ There are exactly two boundaries. Everything else is ordinary structure.
   not repeatable     ┃
 ```
 
-In the code the boundary is a package: **`dossier.infrastructure.connectors` is
-the only packages that may import a network client.** Everything else is right of
-the line and is a pure function of content hashes.
+In the code the boundary is three packages: **`dossier.infrastructure.connectors`
+fetches source payloads, `dossier.infrastructure.models` asks a model, and
+`dossier.infrastructure.tracking` sends records to MLflow.** Nothing else may
+import a network client -- `mlflow` included -- and everything right of the line
+is a pure function of content hashes.
 
-This is R0.9, which supersedes R0.1. It is checked by
-`tests/architecture/test_R000_9__only_two_packages_reach_the_network.py`, which
-walks every module with `ast` — so a lazy import inside a function body is caught
-as readily as one at module scope.
+This is R0.10, which supersedes R0.9 (two packages) and R0.1 (connectors only).
+It is checked by `tests/architecture/test_R000_10__three_packages_reach_the_network.py`,
+which walks every module with `ast` — so a lazy import inside a function body is
+caught as readily as one at module scope.
 
 The line is not "no network right of it". A stage asks a model, and asking is the
 point; R0.1 said otherwise and was true only while no model client existed. What
 makes a run from six months ago reproducible is that the answer was keyed, cached
-with its provenance record, and never asked again — so `models` joins `connectors`
-as the second and last package permitted across.
+with its provenance record, and never asked again -- a judge's verdict included
+(R7.18). Tracking only *sends*: its port returns nothing read from the server, so
+nothing MLflow holds can enter a key, a manifest or a score (R10.4).
 
 ## Boundary 2 — the purity boundary
 
@@ -46,7 +49,7 @@ testing is affordable there and nowhere else.
 |---|---|---|
 | `dossier.domain` | Decisions: key composition, reference resolution, the normalisation projection, span checking, scoring, model-id validation. Protocols and value objects in `domain/ports.py`. | Imports stdlib and pydantic only. Deterministic: no clock, no randomness, no IO. |
 | `dossier.application` | Use cases: `sync`, `convert`, `run`, `plan`, `eval`. Orchestrates domain decisions over ports. | Takes the connector, the store and the model client as arguments. Never constructs one. |
-| `dossier.infrastructure` | Connectors, converters, the snapshot store, the ledger, model clients, MLflow tracking. | Wiring, not judgement. SDK imports go inside functions. |
+| `dossier.infrastructure` | Connectors, converters, the snapshot store, the ledger, model clients, MLflow tracking. | Wiring, not judgement. A heavy SDK (`mlflow`) is imported inside the function that uses it; `httpx` is imported at module scope by the packages left of the boundary, which is where it belongs. |
 | `dossier.config` | Loading and validating `sources.yaml` and `pipeline.yaml`; reading credentials. | The only package that reads `os.environ`. |
 | `dossier.cli` | The typer app: flags, output, exit codes. | The only package that calls `sys.exit`. |
 

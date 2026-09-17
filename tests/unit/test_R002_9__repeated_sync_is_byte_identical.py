@@ -4,8 +4,8 @@ Apart from `last_seen` and `last_sync_at`, which are the only fields that record
 *when* rather than *what*.
 
 Proved here for the ledger itself. Example 1 is stated in terms of two runs of
-`dossier sync`, which needs the use case and the CLI -- so this rule stays
-NOT MET until those exist.
+`dossier sync`, which R2.14 row 3 proves through the CLI; example 3 (locale and
+timezone) has no probe yet.
 """
 
 from __future__ import annotations
