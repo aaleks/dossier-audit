@@ -212,3 +212,22 @@ def media_type_for(name: str) -> str:
     if not separator:
         return UNKNOWN_MEDIA_TYPE
     return MEDIA_TYPES.get(f".{extension.casefold()}", UNKNOWN_MEDIA_TYPE)
+
+
+def reported_media_type(reported: str | None, header: str | None) -> str:
+    """The media type a source says a file is, made canonical (R2.16, R8.3).
+
+    What the source records about the file wins over what the transport said
+    while sending it, and either wins over a guess: a name on disk is not
+    evidence about content, and neither is a missing header. Parameters are
+    dropped and the type case-folded -- `application/pdf; charset=binary` and
+    `Application/PDF` are one kind of file, and a converter claims the kind,
+    not the transport's way of spelling it. What is returned reaches the ledger
+    and every convert key, so two spellings would be two keys for one artifact.
+    """
+    for candidate in (reported, header):
+        if candidate:
+            kind = candidate.partition(";")[0].strip().casefold()
+            if kind:
+                return kind
+    return UNKNOWN_MEDIA_TYPE

@@ -170,6 +170,19 @@ def must_refetch(*, reevaluating: bool, is_item: bool) -> bool:
     return reevaluating and is_item
 
 
+# Servers that compare change times in their own timezone -- Jira reads
+# `updated >= "2026-08-04 09:00"` in the server's, which is not knowable from
+# here -- are asked from a day earlier. No timezone is more than a day from
+# UTC, so the answer is a superset whatever the offset, which is the one kind
+# of error R1.4 permits and R2.4's overlap does not already cover.
+SERVER_ZONE_SLACK = timedelta(days=1)
+
+
+def server_zone_floor(since: datetime, *, slack: timedelta = SERVER_ZONE_SLACK) -> datetime:
+    """Where to ask a server that compares change times in its own zone (R1.4)."""
+    return since - slack
+
+
 def needs_fetch(*, recorded_version: str | None, listed_version: str | None) -> bool:
     """Whether an item's payload must be requested, given its version markers.
 
