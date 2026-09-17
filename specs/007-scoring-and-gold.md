@@ -375,7 +375,7 @@ is made of (R3.7 row 1).
 
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
-- **Proved by:** `tests/unit/test_R007_13__a_judge_threshold_is_declared_with_the_gold_set.py`
+- **Proved by:** `tests/unit/test_R007_13__a_judge_threshold_is_declared_with_the_gold_set.py`, `tests/acceptance/test_R007_15__eval_withholds_an_ungated_judged_field.py`
 - **Status:** MET
 
 | # | Given | Then |
@@ -384,6 +384,7 @@ is made of (R3.7 row 1).
 | 2 | a `free_text` field with no threshold declared for it | load-time error naming the field and the file; a judged field with no bar would be reported as though it had cleared one |
 | 3 | a threshold written `95` rather than `0.95` | load-time error; agreement is a proportion, and 95 would make every judge ineligible forever while reading like strict configuration |
 | 4 | *counter-example* — a threshold changed between two evals | no stage key moves; the run is re-scored and nothing is re-extracted (R5.3 row 4) |
+| 5 | *counter-example* — `--gold gold/incidents` whose `judge.yaml` says nothing about `root_cause`, from a pipeline declaring no `gold:` | not a load-time error: the pipeline committed to no gold set, so there was nothing to check when it loaded. The field is withheld when the set is read, saying no threshold is declared in `judge.yaml` (R7.15); a percentage is still never printed for it |
 
 ### R7.14 — `dossier calibrate` measures a judge against the gold set's sample and writes the calibration beside it
 

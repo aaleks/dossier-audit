@@ -214,3 +214,25 @@ class TestEvalWithholdsAnUngatedJudgedField:
         assert _percentage(lines["severity"]) == "100.0%"
         assert _percentage(lines["loss_amount"]) == "100.0%"
         assert _percentage(lines[JUDGED]) is None
+
+    def test_a_gold_set_named_only_on_the_command_line_withholds_an_undeclared_bar(
+        self, audited: Path, monkeypatch
+    ):
+        """R7.13 row 5: the one whose `judge.yaml` says nothing about `root_cause`.
+
+        The pipeline declares no `gold:`, so loading it checked nothing (R7.13
+        row 2 is the load-time refusal for a set the pipeline commits to). The
+        set is read when `--gold` names it, and the field is withheld saying
+        what is missing -- and a percentage is still never printed for it.
+        """
+        _calibration(audited, agreement=1.0)
+        (audited / "gold" / "incidents" / "judge.yaml").write_text(
+            "loss_amount: 0.9\n", encoding="utf-8"
+        )
+
+        result = _eval(audited, monkeypatch)
+
+        assert result.exit_code == 0, result.output
+        line = _field_lines(result.output)[JUDGED]
+        assert _percentage(line) is None, line
+        assert "judge.yaml" in line
