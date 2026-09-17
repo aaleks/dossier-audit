@@ -26,6 +26,7 @@ from dossier.application.convert import (
 from dossier.application.eval import (
     FieldSample,
     calibrate_fields,
+    judge_prompt_hash,
     load_calibration,
     load_gold,
     record_eval,
@@ -952,12 +953,16 @@ def _judge_gate(
         judges[field] = measured
 
         current = text_hash(pipeline_dir / named)
-        if is_stale(measured, judge_model=model, rubric_hash=current):
-            moved = (
-                f"measured against {measured.judge_model}"
-                if measured.judge_model != model
-                else "the rubric has changed since"
-            )
+        prompt = judge_prompt_hash()
+        if is_stale(measured, judge_model=model, rubric_hash=current, prompt_hash=prompt):
+            if measured.judge_model != model:
+                moved = f"measured against {measured.judge_model}"
+            elif measured.rubric_hash != current:
+                moved = "the rubric has changed since"
+            elif measured.prompt_hash is None:
+                moved = "measured under a judge prompt nobody recorded (R7.19)"
+            else:
+                moved = "the judge prompt has changed since (R7.19)"
             withheld[field] = f"calibration is stale: {moved}"
             continue
 

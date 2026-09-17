@@ -38,6 +38,7 @@ from tests.scoring_example import (
     RoutedModel,
 )
 
+from dossier.application.eval import judge_prompt_hash
 from dossier.domain.hashing import text_hash
 
 JUDGED = "root_cause"
@@ -116,6 +117,7 @@ def _calibration(
             {
                 "judge_model": judge_model,
                 "rubric_hash": rubric_hash or text_hash(_rubric(workspace)),
+                "prompt_hash": judge_prompt_hash(),
                 "agreement": agreement,
                 "sample_size": 20,
             },

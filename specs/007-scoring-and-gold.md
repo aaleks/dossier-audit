@@ -565,7 +565,7 @@ recorded, which is not the same as measured under this one.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.judges.is_stale`)
 - **Proved by:** `tests/unit/test_R007_19__a_changed_judge_prompt_makes_a_calibration_stale.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

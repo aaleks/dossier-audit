@@ -20,11 +20,16 @@ JUDGE = "anthropic:claude-sonnet-4-5-20250929"
 OTHER_JUDGE = "anthropic:claude-opus-4-1-20250805"
 RUBRIC = "0e52dd18" * 8
 OTHER_RUBRIC = "b81f0c6d" * 8
+PROMPT = "d24c86e1" * 8
 
 
 def calibrated(*, judge: str = JUDGE, rubric: str = RUBRIC, sample: int = 20):
     return Calibration(
-        judge_model=judge, rubric_hash=rubric, agreement=0.91, sample_size=sample
+        judge_model=judge,
+        rubric_hash=rubric,
+        prompt_hash=PROMPT,
+        agreement=0.91,
+        sample_size=sample,
     )
 
 
@@ -37,7 +42,12 @@ class TestACalibrationBelongsToOneJudge:
         The figure was earned by a model that is no longer being run. Whatever
         it says about the new one is unknown, and unknown is not 0.91.
         """
-        assert is_stale(calibrated(), judge_model=OTHER_JUDGE, rubric_hash=RUBRIC) is True
+        assert (
+            is_stale(
+                calibrated(), judge_model=OTHER_JUDGE, rubric_hash=RUBRIC, prompt_hash=PROMPT
+            )
+            is True
+        )
 
     def test_a_changed_rubric_makes_it_stale(self):
         """Example 2: the one where the question changed, not the model.
@@ -46,7 +56,12 @@ class TestACalibrationBelongsToOneJudge:
         different answers -- and the agreement figure was measured on the old
         question.
         """
-        assert is_stale(calibrated(), judge_model=JUDGE, rubric_hash=OTHER_RUBRIC) is True
+        assert (
+            is_stale(
+                calibrated(), judge_model=JUDGE, rubric_hash=OTHER_RUBRIC, prompt_hash=PROMPT
+            )
+            is True
+        )
 
     def test_both_unchanged_is_not_stale(self):
         """Example 3: the one that proves the check is not simply always true.
@@ -54,7 +69,10 @@ class TestACalibrationBelongsToOneJudge:
         Without this row the rule is satisfied by refusing every judge forever,
         which would pass every other row in this file.
         """
-        assert is_stale(calibrated(), judge_model=JUDGE, rubric_hash=RUBRIC) is False
+        assert (
+            is_stale(calibrated(), judge_model=JUDGE, rubric_hash=RUBRIC, prompt_hash=PROMPT)
+            is False
+        )
 
     def test_a_grown_sample_is_not_stale(self):
         """Counter-example (row 4): the one where more gold arrived.
@@ -66,7 +84,10 @@ class TestACalibrationBelongsToOneJudge:
         """
         measured_on_20 = calibrated(sample=20)
 
-        assert is_stale(measured_on_20, judge_model=JUDGE, rubric_hash=RUBRIC) is False
+        assert (
+            is_stale(measured_on_20, judge_model=JUDGE, rubric_hash=RUBRIC, prompt_hash=PROMPT)
+            is False
+        )
 
     def test_either_change_alone_is_enough(self):
         """The one that stops the check being an `and`.
@@ -75,9 +96,15 @@ class TestACalibrationBelongsToOneJudge:
         joining the two with `and` would go stale only when both moved -- which
         is the case that almost never happens.
         """
-        assert is_stale(calibrated(), judge_model=OTHER_JUDGE, rubric_hash=RUBRIC)
-        assert is_stale(calibrated(), judge_model=JUDGE, rubric_hash=OTHER_RUBRIC)
-        assert is_stale(calibrated(), judge_model=OTHER_JUDGE, rubric_hash=OTHER_RUBRIC)
+        assert is_stale(
+            calibrated(), judge_model=OTHER_JUDGE, rubric_hash=RUBRIC, prompt_hash=PROMPT
+        )
+        assert is_stale(
+            calibrated(), judge_model=JUDGE, rubric_hash=OTHER_RUBRIC, prompt_hash=PROMPT
+        )
+        assert is_stale(
+            calibrated(), judge_model=OTHER_JUDGE, rubric_hash=OTHER_RUBRIC, prompt_hash=PROMPT
+        )
 
     def test_the_model_identifier_is_compared_exactly(self):
         """The one where a floating alias would slip through.
@@ -89,4 +116,9 @@ class TestACalibrationBelongsToOneJudge:
         """
         later_pin = "anthropic:claude-sonnet-4-5-20260101"
 
-        assert is_stale(calibrated(), judge_model=later_pin, rubric_hash=RUBRIC) is True
+        assert (
+            is_stale(
+                calibrated(), judge_model=later_pin, rubric_hash=RUBRIC, prompt_hash=PROMPT
+            )
+            is True
+        )

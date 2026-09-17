@@ -28,6 +28,7 @@ import pytest
 from tests.fakes import NoModelClient, register_connector
 from tests.pipelines import write_pipeline
 
+from dossier.application.eval import judge_prompt_hash
 from dossier.domain.hashing import text_hash
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 
@@ -266,6 +267,7 @@ def audited(workspace: Path, monkeypatch) -> Path:
                 "rubric_hash": text_hash(
                     workspace / "pipelines" / PIPELINE / "rubrics" / "root_cause.md"
                 ),
+                "prompt_hash": judge_prompt_hash(),
                 "agreement": 1.0,
                 "sample_size": 20,
             },
