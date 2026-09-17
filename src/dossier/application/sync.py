@@ -29,12 +29,14 @@ from dossier.domain.sync import (
     State,
     classify,
     configured_overlap,
+    must_refetch,
     needs_fetch,
     normalise,
+    projection_changed,
     reactivated,
     source_config_hash,
+    sync_window,
     tombstones,
-    window_start,
 )
 
 
@@ -120,21 +122,16 @@ def sync_source(
     # again (R2.3). `None` is a source that has never synced: nothing to
     # invalidate, and the normal path already fetches everything.
     configured = source_config_hash(config)
-    recorded_config = ledger.config_hash(config.id)
-    reevaluating = recorded_config is not None and recorded_config != configured
+    reevaluating = projection_changed(
+        recorded=ledger.config_hash(config.id), configured=configured
+    )
 
     # The source's own overlap where it set one (R2.4, "configurable per source"):
     # a key the loader accepts and sync then ignores is configuration that lies.
-    #
-    # Re-evaluation asks for a full listing instead. An incremental one omits
-    # precisely the unchanged items whose hashes have to be recomputed, which
-    # would leave most of the source recorded under the old projection.
-    since = (
-        None
-        if reevaluating
-        else window_start(
-            ledger.watermark(config.id), overlap=configured_overlap(config.watermark_overlap)
-        )
+    since = sync_window(
+        reevaluating=reevaluating,
+        last_sync_at=ledger.watermark(config.id),
+        overlap=configured_overlap(config.watermark_overlap),
     )
 
     # Tombstoning may only be computed against a full listing (R1.3, R2.7).
@@ -168,10 +165,7 @@ def sync_source(
                 ledger=ledger,
                 recorded=held.get(target.key),
                 now=now,
-                # A changed projection re-evaluates the items it describes. An
-                # attachment is hashed over its own bytes, so no projection can
-                # change what its recorded hash means (R2.3).
-                force_fetch=reevaluating and target.is_item,
+                force_fetch=must_refetch(reevaluating=reevaluating, is_item=target.is_item),
             )
             fetched += outcome.fetched
             changed += outcome.changed
@@ -198,7 +192,12 @@ def sync_source(
             key for key, row in held.items() if row.state is State.TOMBSTONED
         } | departed_files
 
-        departed = tombstones(held=active, listed=listed, already_tombstoned=already)
+        departed = tombstones(
+            held=active,
+            listed=listed,
+            already_tombstoned=already,
+            listing_was_complete=listing_is_complete,
+        )
         ledger.set_state(config.id, departed, State.TOMBSTONED)
         tombstoned += len(departed)
 

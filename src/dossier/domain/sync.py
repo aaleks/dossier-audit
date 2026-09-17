@@ -137,6 +137,39 @@ def window_start(
     return last_sync_at - overlap
 
 
+def projection_changed(*, recorded: str | None, configured: str) -> bool:
+    """Whether the source's projection moved since its rows were hashed (R2.3).
+
+    `None` is a source that has never synced: nothing to invalidate, and the
+    normal path already fetches everything, so it is not a change.
+    """
+    return recorded is not None and recorded != configured
+
+
+def sync_window(
+    *, reevaluating: bool, last_sync_at: datetime | None, overlap: timedelta
+) -> datetime | None:
+    """Where this sync's listing starts: the watermark window, or everything (R2.3, R2.4).
+
+    A re-evaluation asks for a full listing. An incremental one omits precisely
+    the unchanged items whose hashes have to be recomputed, which would leave
+    most of the source recorded under the old projection.
+    """
+    if reevaluating:
+        return None
+    return window_start(last_sync_at, overlap=overlap)
+
+
+def must_refetch(*, reevaluating: bool, is_item: bool) -> bool:
+    """Whether a target is fetched whatever its version says (R2.3).
+
+    A changed projection re-evaluates the items it describes. An attachment is
+    hashed over its own bytes, so no projection can change what its recorded
+    hash means, and it is fetched only when its version says to (R1.6, R2.6).
+    """
+    return reevaluating and is_item
+
+
 def needs_fetch(*, recorded_version: str | None, listed_version: str | None) -> bool:
     """Whether an item's payload must be requested, given its version markers.
 

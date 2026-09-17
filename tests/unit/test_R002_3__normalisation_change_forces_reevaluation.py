@@ -197,3 +197,46 @@ class TestNormalisationChangeForcesReevaluation:
         every_field = source(["key", "summary", "description", "comments"])
 
         assert source_config_hash(source(None)) != source_config_hash(every_field)
+
+
+class TestWhatAChangedProjectionDecides:
+    """R2.3 at the decision: the three predicates the use case orders.
+
+    Each is one line with two inputs, proved here with two strings and a bool
+    rather than by driving `sync_source` over a connector, a store and a ledger.
+    """
+
+    def test_a_recorded_hash_that_differs_is_a_changed_projection(self):
+        """Row 1's trigger: the one where the projection moved since the hashing."""
+        from dossier.domain.sync import projection_changed
+
+        assert projection_changed(recorded="a3f9c1e2" * 8, configured="77c1b40a" * 8) is True
+        assert projection_changed(recorded="a3f9c1e2" * 8, configured="a3f9c1e2" * 8) is False
+
+    def test_a_source_that_never_synced_has_no_projection_to_change(self):
+        """Counter-example: the one with nothing recorded; a first sync fetches everything."""
+        from dossier.domain.sync import projection_changed
+
+        assert projection_changed(recorded=None, configured="a3f9c1e2" * 8) is False
+
+    def test_a_re_evaluation_lists_everything_and_a_normal_sync_lists_the_window(self):
+        """The one where an incremental listing would omit the very rows to re-hash."""
+        from dossier.domain.sync import sync_window
+
+        watermark = datetime(2026, 8, 6, 9, 0, tzinfo=UTC)
+
+        assert (
+            sync_window(reevaluating=True, last_sync_at=watermark, overlap=timedelta(hours=24))
+            is None
+        )
+        assert sync_window(
+            reevaluating=False, last_sync_at=watermark, overlap=timedelta(hours=24)
+        ) == datetime(2026, 8, 5, 9, 0, tzinfo=UTC)
+
+    def test_a_changed_projection_refetches_items_and_not_their_attachments(self):
+        """The one where an attachment hashes its own bytes, which no projection touches."""
+        from dossier.domain.sync import must_refetch
+
+        assert must_refetch(reevaluating=True, is_item=True) is True
+        assert must_refetch(reevaluating=True, is_item=False) is False
+        assert must_refetch(reevaluating=False, is_item=True) is False
