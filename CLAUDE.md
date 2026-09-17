@@ -66,8 +66,10 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**, and nothing is outstanding: all twelve specs are
-implemented, and 124 of the 132 rules are MET with the other 8 superseded.
+Currently open: **none**. Three rules are outstanding, R7.17-R7.19: `dossier
+eval` scores a free-text field with its judge, caches the verdict, and a changed
+judge prompt makes a calibration stale. Written after `/quality` found the gate
+guarding a number nothing produced. 124 of the 135 rules are MET, 8 superseded.
 
 The judge is gated end to end, which is what `/verify` set out after when it
 found `is_stale` with no caller anywhere in `src/`. A judged field's agreement
@@ -148,7 +150,8 @@ pytest -m live          # the evaluated rules. Real model calls, run deliberatel
    boundary does not
    promise "no network"; it promises that everything right of it is
    reproducible, which is why a model is reached only on a cache miss and never
-   during plan, replay or scoring. Checked by an `ast` walk over every module.
+   during plan or replay -- a judge included, whose verdicts are cached like any
+   stage's (R7.18). Checked by an `ast` walk over every module.
 2. **No live model calls in the default test suite.** Tests use
    `FakeModelClient`, which returns canned responses and **counts calls** —
    several rules are claims about how many calls happened. An autouse fixture

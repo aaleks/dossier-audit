@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.16
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.19
 
 ## Purpose
 
@@ -66,6 +66,12 @@ run abstained, mean the same thing for a free-text field as for an amount. R7.3'
 own examples are all `root_cause`, which is free text — so deferring to a judge
 first would leave that rule with nothing it could score, and R7.4 admits no
 exception for free text either.
+
+What is left after those two -- a value in gold, a grounded value in the run --
+is the judge's, asked the one question it was calibrated on: is this candidate
+supported by the document (R7.17). Its verdict is cached like any stage's
+artifact, so the judge is asked only on a miss (R7.18), and the report says how
+many verdicts were judged rather than folding them silently into a percentage.
 
 ## Reporting
 
@@ -470,3 +476,99 @@ reviewer grows it by appending.
 | 2 | a record with no `verified_by` | refused, naming the line; an unattributed verdict is an unaudited definition of correct (R7.7) |
 | 3 | a record whose `supported` is `"false"` rather than `false` | refused, naming the line; every non-empty string is truthy, so a sample read that way would score the judge against nonsense and report a percentage for it |
 | 4 | *counter-example* — a gold file's `root_cause` value | not a sample record; it says what the answer is, never whether a candidate is supported |
+
+### R7.17 — a free-text field with a value in gold and a grounded value in the run is scored by the judge, asked the calibrated question of the run's answer
+
+Everything before this rule decided what a judge is *allowed* to say and never
+asked it: `dossier eval` deferred every free-text verdict to a judge and then
+dropped it, so `root_cause 50.0%` was a percentage over the abstention cases
+alone, and the whole gate -- threshold, sample, calibration, withholding --
+guarded a number nothing produced.
+
+The question is the one the judge was measured on, and no other: is this
+candidate supported by the document (R7.16). Not "does it match the verified
+answer". The sample holds candidates and verdicts, the threshold was agreed
+over that question (R7.11), and a judge asked a different one in `eval` would be
+gated by a calibration of something else. So gold's text is a reference for the
+person reviewing, and what gold contributes to the verdict is whether it is
+`null` (R7.3). A run answer that is supported but names a cause the reviewer
+did not scores correct under this rule; catching that is a second question, a
+second sample, and a second threshold, and is deliberately not this rule.
+
+The judge decides only what is left. Abstention (R7.3) and grounding (R7.4) are
+decided first, as facts, and a field that may not be reported (R7.15) is not
+judged at all: nothing is measured for a number nobody may quote, and twenty
+judge calls for a withheld field is the cost the gate exists to spare.
+
+The report says how many verdicts were judged. A percentage over an unknown mix
+of abstention verdicts and judged ones is the silent subset this rule replaces.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval`)
+- **Proved by:** `tests/unit/test_R007_17__a_free_text_field_is_scored_by_the_judge.py`, `tests/acceptance/test_R007_17__eval_scores_free_text_with_the_judge.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4830`, gold `root_cause` stated, the run answering `rc-01`'s wording, grounded; judge eligible | 1 judge call; supported, so correct |
+| 2 | the same, the run answering `rc-02`'s wording -- the planted claim | 1 judge call; unsupported, so incorrect, with the judge's evidence as the reason (R7.12) |
+| 3 | the report line for a field with two judged verdicts and two abstention verdicts | `root_cause  75.0%   (2 judged)`; the count is printed, never implied |
+| 4 | *counter-example* — gold `root_cause: null`, or the run abstains | R7.3 decides; 0 judge calls |
+| 5 | *counter-example* — the run's value has no locatable span | R7.4 decides, incorrect; 0 judge calls |
+| 6 | *counter-example* — `root_cause` withheld: never measured, stale, or below the bar | withheld as R7.15 says, and 0 judge calls; nothing is measured for a field nobody may quote |
+| 7 | *counter-example* — `dossier eval incident-audit --compare a b` with `root_cause` withheld | withheld on both sides, printing its reason and no delta; the change gate is the place a judge's number is most likely to be quoted, and it is gated the same way |
+
+### R7.18 — a judge verdict is cached under the judge model, the rubric hash, the judge prompt hash, the document's text hash and the candidate answer, and the judge is asked only on a miss
+
+R0.10's promise: a model is asked only on a cache miss, and everything right of
+the boundary reproduces without one. A judge is a model. Its verdict is an
+artifact like any stage's -- a content-addressed file with a provenance record
+(R0.3), in its own namespace beside `stage` and `convert` -- so a second eval
+of the same run asks nothing, a comparison over two runs whose candidate is the
+same asks nothing, and a run that changed one document's answer asks about that
+candidate alone.
+
+The key names what can change the verdict and nothing else: which judge, what
+it was asked (the rubric and the wrapper dossier puts it in), what it was shown
+(the document's converted text) and what it was asked about (the candidate).
+The gold set is not in it -- a verdict on a candidate is the same whichever
+gold set it is scored against -- and neither is the run id.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval`)
+- **Proved by:** `tests/unit/test_R007_18__a_judge_verdict_is_cached_and_the_judge_asked_on_a_miss.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the first `dossier eval` over `INC-4830`, nothing cached | 1 judge call; the verdict written under `.dossier/cache/judge/` with a provenance record naming the five inputs |
+| 2 | the same eval again | 0 judge calls; the same verdict, byte for byte (R5.5) |
+| 3 | `--compare a b` where run `b` answered `INC-4830` exactly as run `a` did | 0 judge calls |
+| 4 | run `c` answering `INC-4830` differently | 1 judge call, for that candidate only (R5.7's shape) |
+| 5 | with tracking on, a judged `root_cause` over `INC-4830` served from cache | one trace on the eval's run, tagged `dossier.document` and `dossier.field`, with no LLM span in it; a miss holds one (R11.2 row 3's shape, R11.3) |
+| 6 | *counter-example* — `dossier run --plan`, `--replay` | the judge is never asked and no verdict is read (R4.6, R4.7) |
+
+### R7.19 — a calibration is stale when the judge prompt has changed since it was measured
+
+The rubric is the pipeline author's, and its hash is in the calibration (R7.14).
+The wrapper dossier puts the rubric in -- the document, the claim, the output
+format -- is dossier's, and until this rule it was in no hash: an edit to it
+changed what every judge was asked while every calibration read as fresh, which
+is exactly what R7.6 exists to notice. The same reasoning added R6.12: a change
+to dossier's own text moves a key, whatever the author's files did.
+
+A calibration records the prompt's hash beside the rubric's, and `is_stale`
+compares both. A calibration file from before this rule has no prompt hash and
+is read as stale, naming the field: it was measured under a prompt nobody
+recorded, which is not the same as measured under this one.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.judges.is_stale`)
+- **Proved by:** `tests/unit/test_R007_19__a_changed_judge_prompt_makes_a_calibration_stale.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the judge prompt edited; rubric and judge model unchanged | stale; `dossier eval` withholds the field saying the judge prompt has changed |
+| 2 | a `calibrations/root_cause.json` with no `prompt_hash` | stale, naming the missing field; measured under a prompt nobody recorded |
+| 3 | *counter-example* — rubric, judge model and prompt all unchanged | proceeds (R7.6 row 3) |
