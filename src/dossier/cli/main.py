@@ -42,7 +42,7 @@ from dossier.application.plan import (
     latest_manifest,
     pinned_documents,
 )
-from dossier.application.run import MissingFromReplay, execute, replay
+from dossier.application.run import MissingFromReplay, execute, key_hashes, replay
 from dossier.application.sync import SourceReport, sync_source
 from dossier.config.credentials import credential_for
 from dossier.config.endpoints import EndpointUnset, endpoint_for
@@ -425,6 +425,17 @@ def run(
 
     previous, previous_id = latest_manifest(workspace / "runs", pipeline)
 
+    # Keyed exactly as the run will be, from the same files, through the same
+    # derivation (R4.12): `cached` here is a promise the run keeps.
+    prompt_hashes, schema_hashes = key_hashes(
+        config,
+        prompts={
+            step.id: (path.parent / step.prompt).read_text(encoding="utf-8")
+            for step in config.steps
+        },
+        schemas=load_output_schemas(config, path),
+    )
+
     try:
         report = build_plan(
             pipeline=config,
@@ -432,6 +443,8 @@ def run(
             documents=documents,
             previous=previous,
             previous_id=previous_id,
+            prompt_hashes=prompt_hashes,
+            schema_hashes=schema_hashes,
         )
     except ValueError as error:
         # Resolution failed, so nothing ran and nothing was written (R4.1).

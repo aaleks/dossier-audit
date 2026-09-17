@@ -67,7 +67,7 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all twelve specs are
-implemented, and 127 of the 135 rules are MET with the other 8 superseded.
+implemented, and 128 of the 136 rules are MET with the other 8 superseded.
 
 The judge is asked. `dossier eval` scores a free-text field by putting the run's
 answer to the judge with the one question it was calibrated on -- is this
