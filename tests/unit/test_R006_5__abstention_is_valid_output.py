@@ -35,9 +35,10 @@ class TestAbstention:
     def test_abstention_is_not_a_failure(self):
         """Example 2: the one that keeps abstention off the failure count.
 
-        An abstaining field is sent for human review, which is not the same as
-        failing. If abstaining counted against a run the incentive would be to
-        guess — the exact behaviour grounding exists to prevent.
+        An abstaining field is for a person to review (spec 007, "The review
+        loop" -- not built), which is not the same as failing. If abstaining
+        counted against a run the incentive would be to guess — the exact
+        behaviour grounding exists to prevent.
         """
         check = check_field(
             FieldRecord(field="root_cause", value=None, reason="not stated"),
