@@ -118,7 +118,39 @@ def record_eval(
     is stale, so the metric was recorded while the report withheld it. Spec 011
     is explicit -- MLflow is a second place to read a figure, never a second way
     of arriving at one.
+
+    `start_eval` and `finish_eval` are the two halves, because a judge's traces
+    have to sit inside the run (R7.18 row 5): the run opens before scoring and
+    closes after the totals are known. This is their sum, for an eval that
+    judges nothing.
     """
+    start_eval(
+        tracker,
+        experiment=experiment,
+        pipeline=pipeline,
+        run_id=run_id,
+        model=model,
+        gold=gold,
+        gold_files=gold_files,
+        judges=judges,
+        withheld=withheld,
+    )
+    finish_eval(tracker, totals=totals, withheld=withheld)
+
+
+def start_eval(
+    tracker: Tracker,
+    *,
+    experiment: str,
+    pipeline: str,
+    run_id: str,
+    model: str,
+    gold: str,
+    gold_files: Mapping[str, bytes],
+    judges: Mapping[str, Calibration] | None = None,
+    withheld: Mapping[str, str] | None = None,
+) -> None:
+    """Open the eval's MLflow run with what is known before scoring (R11.3 rows 2-4)."""
     tracker.start_run(
         experiment=experiment,
         name=f"eval of {run_id}",
@@ -138,6 +170,12 @@ def record_eval(
         params[f"judge/{field}/agreement"] = str(calibration.agreement)
         params[f"judge/{field}/model"] = calibration.judge_model
     tracker.log_params(params)
+
+
+def finish_eval(
+    tracker: Tracker, *, totals: Sequence[FieldTotal], withheld: Mapping[str, str] | None = None
+) -> None:
+    """Close the eval's run with the figures the report printed (R11.3 rows 1, 4)."""
     # A field whose judge may not be quoted records no accuracy at all -- not its
     # own metric, and not a share of the overall. One list feeds both, so the
     # headline always covers exactly the verdicts the breakdown does. Summing
@@ -245,6 +283,8 @@ def judged_cached(
     answer: str,
     run_id: str,
     dossier_version: str,
+    tracker: Tracker | None = None,
+    field: str = "",
 ) -> tuple[bool, str]:
     """One judge verdict, served from the cache or asked of the judge on a miss (R7.18).
 
@@ -254,26 +294,48 @@ def judged_cached(
     same run asks nothing and a run that changed one document's answer asks
     about that candidate alone. Recorded under the field's name as its step,
     since a judge has no step of its own.
+
+    With a `tracker`, the verdict is one trace on the eval's run, tagged with
+    the document and the field, holding an LLM span only when the judge was
+    asked (R7.18 row 5, R11.2 row 3's shape): seeing that a verdict cost
+    nothing is information.
     """
-    key = cache_key(inputs)
-    hit = cache.get(key, require_record=True)
-    if hit is not None:
-        try:
-            verdict = json.loads(hit)
-            return bool(verdict["supported"]), str(verdict.get("evidence", ""))
-        except (ValueError, KeyError, TypeError):
-            # A damaged entry is a miss, not authority (R5.9): the judge is
-            # asked again and the entry rewritten below.
-            pass
-    supported, evidence = judged(
-        model, rubric=rubric, document=document, text=text, answer=answer
-    )
-    cache.put(
-        key,
-        _verdict_bytes(supported, evidence),
-        record=provenance(inputs, run_id=run_id, dossier_version=dossier_version, step="judge"),
-    )
-    return supported, evidence
+    if tracker is not None:
+        tracker.start_trace(
+            name=f"{field} \u00b7 {document}",
+            tags={"dossier.document": document, "dossier.field": field},
+        )
+    try:
+        key = cache_key(inputs)
+        hit = cache.get(key, require_record=True)
+        if hit is not None:
+            try:
+                verdict = json.loads(hit)
+                return bool(verdict["supported"]), str(verdict.get("evidence", ""))
+            except (ValueError, KeyError, TypeError):
+                # A damaged entry is a miss, not authority (R5.9): the judge is
+                # asked again and the entry rewritten below.
+                pass
+        supported, evidence = judged(
+            model, rubric=rubric, document=document, text=text, answer=answer
+        )
+        if tracker is not None:
+            tracker.span(
+                kind="llm",
+                name=inputs.judge_model,
+                attributes={"dossier.model": inputs.judge_model},
+            )
+        cache.put(
+            key,
+            _verdict_bytes(supported, evidence),
+            record=provenance(
+                inputs, run_id=run_id, dossier_version=dossier_version, step="judge"
+            ),
+        )
+        return supported, evidence
+    finally:
+        if tracker is not None:
+            tracker.end_trace(status="OK")
 
 
 @dataclass(frozen=True)
@@ -292,6 +354,7 @@ class Judging:
     judge_model: str
     run_id: str
     dossier_version: str
+    tracker: Tracker | None = None
 
 
 def judge_scores(
@@ -335,6 +398,8 @@ def judge_scores(
                 answer=candidate,
                 run_id=judging.run_id,
                 dossier_version=judging.dossier_version,
+                tracker=judging.tracker,
+                field=result.field,
             )
         judged.append(with_judged(score, verdicts))
     return tuple(judged)

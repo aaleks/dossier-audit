@@ -66,10 +66,18 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. One rule is outstanding: R7.18, a judge verdict cached
-and the judge asked only on a miss, is NOT MET until its comparison, tracing and
-replay rows are proved at the CLI tier. 126 of the 135 rules are MET, 8
-superseded.
+Currently open: **none**, and nothing is outstanding: all twelve specs are
+implemented, and 127 of the 135 rules are MET with the other 8 superseded.
+
+The judge is asked. `dossier eval` scores a free-text field by putting the run's
+answer to the judge with the one question it was calibrated on -- is this
+candidate supported by the document -- and prints how many verdicts were
+judged (R7.17); a verdict is an artifact in the `judge` cache namespace, so
+the judge is asked only on a miss and a comparison over the same candidate
+asks nothing (R7.18); and the wrapper dossier puts a rubric in is hashed into
+the calibration, so an edit to it is stale like a changed rubric (R7.19).
+`/quality` found the gate below guarding a number nothing produced; these
+three are what it guards now.
 
 The judge is gated end to end, which is what `/verify` set out after when it
 found `is_stale` with no caller anywhere in `src/`. A judged field's agreement

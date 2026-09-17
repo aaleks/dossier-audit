@@ -27,12 +27,13 @@ from dossier.application.eval import (
     FieldSample,
     Judging,
     calibrate_fields,
+    finish_eval,
     judge_prompt_hash,
     judge_scores,
     load_calibration,
     load_gold,
-    record_eval,
     score_run,
+    start_eval,
 )
 from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.plan import (
@@ -1052,6 +1053,25 @@ def eval_(
     judges, withheld = _judge_gate(
         workspace / gold, path.parent / step.output, path.parent, config.model
     )
+    # The gold files are re-read as bytes instead of being serialised back from
+    # what `load_gold` parsed: the hash has to move when any answer moves, and a
+    # round trip through the model would hide a change that only altered how a
+    # file was written (R11.3 row 2).
+    gold_files = {p.name: p.read_bytes() for p in sorted((workspace / gold).glob("*.json"))}
+    if tracker is not None:
+        # Opened before the judge is asked, so its traces sit inside the run
+        # (R7.18 row 5); closed below with the figures the report printed.
+        start_eval(
+            tracker,
+            experiment=experiment or "",
+            pipeline=pipeline,
+            run_id=Path(run_dir).name,
+            model=config.model,
+            gold=gold,
+            gold_files=gold_files,
+            judges=judges,
+            withheld=withheld,
+        )
     # The judge decides only what the deterministic scorers left, and only for
     # a field it may be quoted on: a withheld field is not judged at all, since
     # nothing is measured for a number nobody may print (R7.17).
@@ -1066,6 +1086,7 @@ def eval_(
             documents=text,
             withheld=withheld,
             run_id=run_dir,
+            tracker=tracker,
         ),
     )
     totals = per_field(scores, declared=list(kinds))
@@ -1100,25 +1121,8 @@ def eval_(
 
     if tracker is not None:
         # The figures the lines above printed, recorded once rather than computed
-        # a second way (R11.3). The gold files are re-read as bytes instead of
-        # being serialised back from what `load_gold` parsed: the hash has to
-        # move when any answer moves, and a round trip through the model would
-        # hide a change that only altered how a file was written.
-        record_eval(
-            tracker,
-            experiment=experiment or "",
-            pipeline=pipeline,
-            run_id=Path(run_dir).name,
-            model=config.model,
-            gold=gold,
-            gold_files={
-                path.name: path.read_bytes()
-                for path in sorted((workspace / gold).glob("*.json"))
-            },
-            totals=totals,
-            judges=judges,
-            withheld=withheld,
-        )
+        # a second way (R11.3).
+        finish_eval(tracker, totals=totals, withheld=withheld)
         typer.echo(f"recorded to MLflow: {experiment}")
 
 
@@ -1224,6 +1228,7 @@ def _judging(
     documents: Mapping[str, str],
     withheld: Mapping[str, str],
     run_id: str,
+    tracker: Tracker | None = None,
 ) -> Judging:
     """What the judge is asked with, for the fields R7.15 lets be reported (R7.17).
 
@@ -1247,6 +1252,7 @@ def _judging(
         judge_model=config.model,
         run_id=run_id,
         dossier_version=version("dossier"),
+        tracker=tracker,
     )
 
 
