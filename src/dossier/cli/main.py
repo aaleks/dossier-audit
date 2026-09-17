@@ -91,6 +91,7 @@ from dossier.infrastructure.models.openai_compatible import ModelRequestFailed
 from dossier.infrastructure.models.registry import UnknownProvider, available_providers
 from dossier.infrastructure.models.registry import provider as model_provider
 from dossier.infrastructure.store import SnapshotStore
+from dossier.infrastructure.tracking.best_effort import BestEffortTracker
 from dossier.infrastructure.tracking.mlflow import TrackingUnavailable, connect
 
 app = typer.Typer(add_completion=False)
@@ -257,63 +258,9 @@ def build_tracker(settings: TrackingSettings) -> Tracker:
     return connect(settings.uri)
 
 
-class _BestEffortTracker:
-    """A tracker whose failures, once a command is under way, cost the record only.
-
-    The startup check has already refused a server nobody can reach (R10.5).
-    After it, a server that stops answering is a record lost, not a run lost: the
-    work completes, the answers are cached, and the command exits as it would
-    have untracked (R10.6). So every call is sent, and any failure is swallowed
-    -- a trace any of whose calls failed is counted as lost, and the command
-    says how many at the end, since a silent gap in MLflow would read as
-    documents that were never processed.
-    """
-
-    def __init__(self, inner: Tracker) -> None:
-        self._inner = inner
-        self.lost_traces = 0
-        self._this_trace_lost = False
-
-    def _sent(self, call, /, *args, **kwargs) -> bool:
-        try:
-            call(*args, **kwargs)
-        except Exception:
-            return False
-        return True
-
-    def start_run(self, *, experiment: str, name: str, tags: Mapping[str, str]) -> None:
-        self._sent(self._inner.start_run, experiment=experiment, name=name, tags=tags)
-
-    def log_params(self, params: Mapping[str, str]) -> None:
-        self._sent(self._inner.log_params, params)
-
-    def log_metrics(self, metrics: Mapping[str, float]) -> None:
-        self._sent(self._inner.log_metrics, metrics)
-
-    def log_artifact(self, name: str, content: bytes) -> None:
-        self._sent(self._inner.log_artifact, name, content)
-
-    def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
-        self._this_trace_lost = not self._sent(self._inner.start_trace, name=name, tags=tags)
-
-    def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None:
-        if not self._sent(self._inner.span, kind=kind, name=name, attributes=attributes):
-            self._this_trace_lost = True
-
-    def end_trace(self, *, status: str, error: str | None = None) -> None:
-        if not self._sent(self._inner.end_trace, status=status, error=error):
-            self._this_trace_lost = True
-        if self._this_trace_lost:
-            self.lost_traces += 1
-        self._this_trace_lost = False
-
-    def end_run(self, *, status: str) -> None:
-        self._sent(self._inner.end_run, status=status)
-
-
 def _tracking_for(
     workspace: Path, pipeline: str, *, kind: str, gold: str | None = None
-) -> tuple[_BestEffortTracker | None, str | None]:
+) -> tuple[BestEffortTracker | None, str | None]:
     """The tracker and experiment a `dossier <kind>` records to, or `(None, None)`.
 
     Read and checked before any work: a typo in the switch or the template, the
@@ -332,7 +279,7 @@ def _tracking_for(
         if tracking is None:
             return None, None
         experiment = experiment_name(kind=kind, pipeline=pipeline, gold=gold, environ=environ)
-        return _BestEffortTracker(build_tracker(tracking)), experiment
+        return BestEffortTracker(build_tracker(tracking)), experiment
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error

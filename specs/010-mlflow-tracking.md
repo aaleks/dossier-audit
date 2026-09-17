@@ -183,8 +183,8 @@ the failure this prevents.
 ### R10.6 — a record lost after the startup check never changes a command's outcome
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.main`)
-- **Proved by:** `tests/acceptance/test_R010_6__a_lost_record_never_changes_the_outcome.py`
+- **Layer:** infrastructure (`dossier.infrastructure.tracking.best_effort`)
+- **Proved by:** `tests/unit/test_R010_6__a_lost_record_is_counted_and_swallowed.py`, `tests/acceptance/test_R010_6__a_lost_record_never_changes_the_outcome.py`
 - **Status:** MET
 
 | # | Given | Then |
