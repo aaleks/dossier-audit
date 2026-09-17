@@ -71,6 +71,37 @@ class ConvertInputs(BaseModel):
         return self.keyed()
 
 
+class JudgeInputs(BaseModel):
+    """Everything a judge verdict's key is composed of, and nothing else (R7.18).
+
+    Which judge, what it was asked (the rubric and the wrapper dossier puts it
+    in), what it was shown (the document's converted text) and what it was
+    asked about (the candidate). The gold set is not here -- a verdict on a
+    candidate is the same whichever gold set it is scored against -- and neither
+    is the run id.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    judge_model: str
+    rubric_hash: str
+    prompt_hash: str
+    document_hash: str
+    candidate_hash: str
+
+    def keyed(self) -> dict[str, Any]:
+        return {
+            "judge_model": self.judge_model,
+            "rubric_hash": self.rubric_hash,
+            "prompt_hash": self.prompt_hash,
+            "document_hash": self.document_hash,
+            "candidate_hash": self.candidate_hash,
+        }
+
+    def recorded(self) -> dict[str, Any]:
+        return self.keyed()
+
+
 class StageInputs(BaseModel):
     """Everything `K_stage` is composed of, plus the step id it is recorded under.
 
@@ -126,7 +157,7 @@ class StageInputs(BaseModel):
         }
 
 
-def canonical(inputs: ConvertInputs | StageInputs) -> bytes:
+def canonical(inputs: ConvertInputs | StageInputs | JudgeInputs) -> bytes:
     """The exact bytes a key is taken over.
 
     `sort_keys` and a fixed separator rather than whatever `json` feels like:
@@ -138,13 +169,13 @@ def canonical(inputs: ConvertInputs | StageInputs) -> bytes:
     ).encode("utf-8")
 
 
-def cache_key(inputs: ConvertInputs | StageInputs) -> str:
+def cache_key(inputs: ConvertInputs | StageInputs | JudgeInputs) -> str:
     """The full 64-character lowercase SHA-256 of the canonical form (R0.7)."""
     return content_hash(canonical(inputs))
 
 
 def provenance(
-    inputs: ConvertInputs | StageInputs,
+    inputs: ConvertInputs | StageInputs | JudgeInputs,
     *,
     run_id: str,
     dossier_version: str,
