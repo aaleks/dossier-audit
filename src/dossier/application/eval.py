@@ -24,8 +24,10 @@ from dossier.domain.scoring import (
     FieldKind,
     FieldTotal,
     GoldField,
+    Verdict,
     overall,
     score_document,
+    with_judged,
 )
 from dossier.domain.tracking import calibration_record, case_tags
 from dossier.domain.tracking import tags as tracking_tags
@@ -272,6 +274,70 @@ def judged_cached(
         record=provenance(inputs, run_id=run_id, dossier_version=dossier_version, step="judge"),
     )
     return supported, evidence
+
+
+@dataclass(frozen=True)
+class Judging:
+    """Everything `judge_scores` needs handed to it, and nothing it goes and finds.
+
+    `rubrics` is the eligible fields only -- the ones R7.15 lets be reported --
+    mapped to the rubric text and its hash. A field not in it is never judged:
+    nothing is measured for a number nobody may quote (R7.17 row 6).
+    """
+
+    model: object
+    cache: ArtifactStore
+    documents: Mapping[str, str]
+    rubrics: Mapping[str, tuple[str, str]]
+    judge_model: str
+    run_id: str
+    dossier_version: str
+
+
+def judge_scores(
+    scores: Sequence[DocumentScore], *, report: StepReport, judging: Judging
+) -> tuple[DocumentScore, ...]:
+    """Ask the judge about every deferred, eligible verdict and fold its answers in (R7.17).
+
+    The judge decides only what the deterministic scorers left: a verdict is
+    deferred only when gold has a value and the run's value is grounded (R7.3,
+    R7.4 decide first), and asked only for a field in `judging.rubrics`. The
+    candidate is the run's answer as it produced it, and the document is the
+    text the run was shown.
+    """
+    prompt_hash = judge_prompt_hash()
+    records = {
+        result.document: {record.field: record for record in result.records}
+        for result in report.results
+    }
+    judged: list[DocumentScore] = []
+    for score in scores:
+        verdicts: dict[str, tuple[bool, str]] = {}
+        for result in score.results:
+            if result.verdict is not Verdict.NEEDS_JUDGE or result.field not in judging.rubrics:
+                continue
+            rubric, rubric_hash = judging.rubrics[result.field]
+            candidate = str(records[score.document][result.field].value)
+            text = judging.documents[score.document]
+            verdicts[result.field] = judged_cached(
+                judging.model,
+                judging.cache,
+                inputs=JudgeInputs(
+                    judge_model=judging.judge_model,
+                    rubric_hash=rubric_hash,
+                    prompt_hash=prompt_hash,
+                    document_hash=content_hash(text.encode("utf-8")),
+                    candidate_hash=content_hash(candidate.encode("utf-8")),
+                ),
+                rubric=rubric,
+                document=score.document,
+                text=text,
+                answer=candidate,
+                run_id=judging.run_id,
+                dossier_version=judging.dossier_version,
+            )
+        judged.append(with_judged(score, verdicts))
+    return tuple(judged)
 
 
 def agreement(

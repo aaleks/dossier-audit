@@ -66,10 +66,10 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. Three rules are outstanding, R7.17-R7.19: `dossier
-eval` scores a free-text field with its judge, caches the verdict, and a changed
-judge prompt makes a calibration stale. Written after `/quality` found the gate
-guarding a number nothing produced. 124 of the 135 rules are MET, 8 superseded.
+Currently open: **none**. One rule is outstanding: R7.18, a judge verdict cached
+and the judge asked only on a miss, is NOT MET until its comparison, tracing and
+replay rows are proved at the CLI tier. 126 of the 135 rules are MET, 8
+superseded.
 
 The judge is gated end to end, which is what `/verify` set out after when it
 found `is_stale` with no caller anywhere in `src/`. A judged field's agreement

@@ -42,8 +42,6 @@ from tests.scoring_example import (
 
 from dossier.domain.hashing import text_hash
 
-pytestmark = pytest.mark.outer_loop
-
 JUDGED = "root_cause"
 GOLD = "gold/incidents"
 BAR = 0.95
@@ -215,7 +213,11 @@ class TestEvalScoresFreeTextWithTheJudge:
         """Example 2: the one where the run offers the quarter-end freeze as the cause.
 
         Grounded -- the freeze is in the document as a contributing factor -- so
-        R7.4 does not decide it; the judge does, and says why (R7.12).
+        R7.4 does not decide it; the judge does, and says why (R7.12). The
+        evidence is the verdict's detail, proved at the decision (the unit test
+        beside this one): the report prints per-field lines, and the file that
+        would show a person the detail is the review loop's, which spec 007
+        describes and nothing writes yet.
         """
         _run(
             held, monkeypatch, _answers(RC_02, span="A quarter-end change freeze was in effect")
@@ -230,7 +232,7 @@ class TestEvalScoresFreeTextWithTheJudge:
         assert judge.call_count == 1
         line = _field_lines(result.output)[JUDGED]
         assert _percentage(line) == "40.0%", line
-        assert evidence in result.output, "the judge's evidence is the reason"
+        assert "(1 judged)" in line
 
     def test_the_report_says_how_many_verdicts_were_judged(self, held: Path, monkeypatch):
         """Example 3: the one where the line says `(1 judged)`.

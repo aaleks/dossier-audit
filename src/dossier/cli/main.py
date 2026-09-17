@@ -25,8 +25,10 @@ from dossier.application.convert import (
 )
 from dossier.application.eval import (
     FieldSample,
+    Judging,
     calibrate_fields,
     judge_prompt_hash,
+    judge_scores,
     load_calibration,
     load_gold,
     record_eval,
@@ -1017,7 +1019,17 @@ def eval_(
     kinds = load_fields(path.parent / step.output)
 
     if compare[0] is not None:
-        _compare_runs(workspace, pipeline, step=step.id, kinds=kinds, gold=gold, runs=compare)
+        _compare_runs(
+            workspace,
+            pipeline,
+            step=step.id,
+            kinds=kinds,
+            gold=gold,
+            runs=compare,
+            config=config,
+            pipeline_dir=path.parent,
+            declaration=path.parent / step.output,
+        )
         return
 
     # After the compare branch, which records nothing: a comparison reads two
@@ -1034,13 +1046,29 @@ def eval_(
         raise typer.Exit(code=2)
     manifest = Manifest.read(workspace / "runs" / run_dir / MANIFEST_NAME)
 
-    scored = _reproduced(workspace, manifest, step.id)
+    scored, text = _reproduced(workspace, manifest, step.id)
     scores = score_run(report=scored, gold=load_gold(workspace / gold), kinds=kinds)
 
-    totals = per_field(scores, declared=list(kinds))
     judges, withheld = _judge_gate(
         workspace / gold, path.parent / step.output, path.parent, config.model
     )
+    # The judge decides only what the deterministic scorers left, and only for
+    # a field it may be quoted on: a withheld field is not judged at all, since
+    # nothing is measured for a number nobody may print (R7.17).
+    scores = judge_scores(
+        scores,
+        report=scored,
+        judging=_judging(
+            workspace,
+            config=config,
+            pipeline_dir=path.parent,
+            declaration=path.parent / step.output,
+            documents=text,
+            withheld=withheld,
+            run_id=run_dir,
+        ),
+    )
+    totals = per_field(scores, declared=list(kinds))
 
     # The overall covers exactly the fields it reported. Folding a withheld field
     # back into the headline would hand over the number R7.5 just refused, in the
@@ -1064,7 +1092,11 @@ def eval_(
             typer.echo(f"  {total.field:<18}     -- {withheld[total.field]}")
             continue
         marker = "   <- weakest" if total.field in lowest else ""
-        typer.echo(f"  {total.field:<18} {total.percentage:5.1f}%{marker}")
+        # A judged field says how many of its verdicts the judge decided. A
+        # percentage over an unknown mix of abstention and judged verdicts is
+        # the silent subset R7.17 replaced.
+        judged = f"   ({total.judged} judged)" if kinds[total.field].needs_a_judge else ""
+        typer.echo(f"  {total.field:<18} {total.percentage:5.1f}%{judged}{marker}")
 
     if tracker is not None:
         # The figures the lines above printed, recorded once rather than computed
@@ -1098,6 +1130,9 @@ def _compare_runs(
     kinds: dict,
     gold: str,
     runs: tuple[str, str],
+    config,
+    pipeline_dir: Path,
+    declaration: Path,
 ) -> None:
     """`dossier eval <pipeline> --gold <dir> --compare <a> <b>` (R7.8).
 
@@ -1106,6 +1141,7 @@ def _compare_runs(
     The documents are checked before anything is scored: a delta over different
     documents would report the documents' difference as the change's effect.
     """
+    model = config.model
     manifests: list[Manifest] = []
     for run in runs:
         path = workspace / "runs" / run / MANIFEST_NAME
@@ -1129,17 +1165,30 @@ def _compare_runs(
         raise typer.Exit(code=2) from error
 
     gold_documents = load_gold(workspace / gold)
-    before, after = (
-        per_field(
-            score_run(
-                report=_reproduced(workspace, manifest, step),
-                gold=gold_documents,
-                kinds=kinds,
+    # Gated exactly as an eval is (R7.17 row 7): the change gate is the place a
+    # judge's number is most likely to be quoted, and a withheld field prints
+    # its reason on both sides and no delta.
+    _, withheld = _judge_gate(workspace / gold, declaration, pipeline_dir, model)
+    totals: list[tuple] = []
+    for run, manifest in zip(runs, manifests, strict=True):
+        scored, text = _reproduced(workspace, manifest, step)
+        scores = judge_scores(
+            score_run(report=scored, gold=gold_documents, kinds=kinds),
+            report=scored,
+            judging=_judging(
+                workspace,
+                config=config,
+                pipeline_dir=pipeline_dir,
+                declaration=declaration,
+                documents=text,
+                withheld=withheld,
+                run_id=run,
             ),
-            declared=list(kinds),
         )
-        for manifest in manifests
-    )
+        totals.append(per_field(scores, declared=list(kinds)))
+    before, after = totals
+    before = tuple(total for total in before if total.field not in withheld)
+    after = tuple(total for total in after if total.field not in withheld)
 
     earlier, later = overall(before), overall(after)
     if earlier is not None and later is not None:
@@ -1151,7 +1200,14 @@ def _compare_runs(
             f"overall {earlier.percentage:.1f}% -> {later.percentage:.1f}% "
             f"({later.percentage - earlier.percentage:+.1f})"
         )
-    for row in compare_totals(before, after):
+    rows = {row.field: row for row in compare_totals(before, after)}
+    for field in kinds:
+        if field in withheld:
+            typer.echo(f"  {field:<18}     -- {withheld[field]}")
+            continue
+        row = rows.get(field)
+        if row is None:
+            continue
         was = f"{row.before.percentage:.1f}%" if row.before else "--"
         now = f"{row.after.percentage:.1f}%" if row.after else "--"
         moved = f"{row.delta:+.1f}" if row.delta is not None else "--"
@@ -1159,11 +1215,48 @@ def _compare_runs(
         typer.echo(f"  {row.field:<18} {was:>6} {now:>6} {moved:>6}{marker}")
 
 
+def _judging(
+    workspace: Path,
+    *,
+    config,
+    pipeline_dir: Path,
+    declaration: Path,
+    documents: Mapping[str, str],
+    withheld: Mapping[str, str],
+    run_id: str,
+) -> Judging:
+    """What the judge is asked with, for the fields R7.15 lets be reported (R7.17).
+
+    The client is built on the first call and never before: a scoring pass
+    with nothing deferred to a judge asks nothing and needs no endpoint
+    (R7.10), and a cache that serves every verdict never builds one (R7.18).
+    """
+    rubrics = {
+        field: (
+            (pipeline_dir / named).read_text(encoding="utf-8"),
+            text_hash(pipeline_dir / named),
+        )
+        for field, named in sorted(load_judge_rubrics(declaration).items())
+        if field not in withheld
+    }
+    return Judging(
+        model=_BuiltOnFirstCall(config.model),
+        cache=ArtifactCache(workspace, namespace="judge"),
+        documents=documents,
+        rubrics=rubrics,
+        judge_model=config.model,
+        run_id=run_id,
+        dossier_version=version("dossier"),
+    )
+
+
 def _reproduced(workspace: Path, manifest: Manifest, step: str):
     """One step's results as a past run produced them, served from its cache (R4.7).
 
     A run that cannot be reproduced stops the command by name. Recomputing it
-    would score answers the run never gave.
+    would score answers the run never gave. The converted text comes back too:
+    a judge is shown the document as the run was (R7.17), not as the workspace
+    holds it now.
     """
     try:
         _require_pinned_snapshots(manifest, SnapshotStore(workspace))
@@ -1176,7 +1269,7 @@ def _reproduced(workspace: Path, manifest: Manifest, step: str):
     except MissingFromReplay as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
-    return next(result for result in report.steps if result.step == step)
+    return next(result for result in report.steps if result.step == step), text
 
 
 def _count(n: int, noun: str) -> str:
