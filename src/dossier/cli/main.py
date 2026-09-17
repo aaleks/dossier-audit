@@ -64,7 +64,7 @@ from dossier.domain.judges import Calibration, NotCalibrated, is_eligible, is_st
 from dossier.domain.keys import ConvertInputs, cache_key
 from dossier.domain.model_id import provider_of
 from dossier.domain.ports import ModelClient, Tracker
-from dossier.domain.resolution import PinnedConverter, run_id
+from dossier.domain.resolution import PinnedConverter, moved_since, run_id
 from dossier.domain.scoring import (
     check_same_documents,
     compare_totals,
@@ -704,6 +704,17 @@ def _execute(workspace: Path, pipeline: str) -> None:
     except DocumentCollision as error:
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
+
+    # A new run resolves against what is held now, and says so when that is
+    # not what the last run read: the one moment a person needs to know two
+    # runs are not over the same evidence, before R7.8 refuses to compare them
+    # (R4.9 row 4). Before any step runs, so the warning is read, not scrolled.
+    previous, previous_id = latest_manifest(workspace / "runs", pipeline)
+    if previous is not None:
+        moved = moved_since(previous.documents, documents)
+        if moved:
+            listed = ", ".join(f"{key} {how}" for key, how in moved.items())
+            typer.echo(f"warning: the source has moved since run {previous_id}: {listed}")
 
     try:
         report = execute(

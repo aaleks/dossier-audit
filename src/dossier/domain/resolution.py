@@ -254,6 +254,29 @@ def validate_input_arity(steps: Sequence[StepConfig], resolved: Sequence[Resolve
             )
 
 
+def moved_since(
+    previous: Sequence[PinnedDocument], current: Mapping[str, str]
+) -> dict[str, str]:
+    """Which documents the source moved since a past run pinned them (R4.9 row 4).
+
+    Keyed by document, saying how: `re-snapshotted` when the snapshot behind a
+    key changed, `new` when the key was not in the past run, `gone` when it is
+    not held now. Empty when nothing moved. A new run resolves against what is
+    held now whatever this says; this is the one line that tells a person two
+    runs are not over the same evidence, before R7.8 refuses to compare them.
+    """
+    before = {document.key: document.snapshot for document in previous}
+    moved: dict[str, str] = {}
+    for key in sorted(before.keys() | current.keys()):
+        if key not in before:
+            moved[key] = "new"
+        elif key not in current:
+            moved[key] = "gone"
+        elif before[key] != current[key]:
+            moved[key] = "re-snapshotted"
+    return moved
+
+
 def run_id(started_at: datetime, suffix: str) -> str:
     """The identifier one run is filed under (R0.8, R0.7 example 4).
 
