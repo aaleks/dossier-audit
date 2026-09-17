@@ -1,7 +1,7 @@
 # 009 — Model providers
 
-**Status:** Implemented
-**Rules:** R9.1 – R9.14
+**Status:** Partially implemented
+**Rules:** R9.1 – R9.15
 
 ## Purpose
 
@@ -253,7 +253,7 @@ provider prefix, and for `hf` also without the `@revision` dossier pins it by
 | 2 | `DOSSIER_GEMINI_API_KEY` set | sent as `Authorization: Bearer`; unset, no `Authorization` header at all |
 | 3 | the server answers 200 | `choices[0].message.content` is returned verbatim; validating it stays the stage's job (R6.1) |
 | 4 | the server answers 401, or any other non-2xx status | an error naming the URL and the status, never the key (R9.8 row 1) |
-| 5 | *counter-example* — `anthropic:claude-sonnet-4-5-20250929` | not this rule's; Anthropic has its own API |
+| 5 | *counter-example* — `anthropic:claude-sonnet-4-5-20250929` | not this rule's; Anthropic has its own API (R9.15) |
 
 ### R9.13 — an Ollama provider sends each completion to `<url>/api/chat`, naming the model by its tag
 
@@ -313,3 +313,40 @@ way R0.6's fixed ids are.
 | 3 | `openai:gpt-4o` | refused, naming the identifier; OpenAI moves it to each new snapshot |
 | 4 | `openai:chatgpt-4o-latest` | refused; `-latest` is re-pointed at each release |
 | 5 | *counter-example* — `anthropic:claude-sonnet-4-5-20250929` | not this rule's form; R0.6 pins it |
+
+### R9.15 — an Anthropic provider sends each completion to `<url>/messages`, naming the model as Anthropic does
+
+Anthropic is reached through its own Messages API, which R9.12 and R9.13 each
+left to a later rule. The model is named as Anthropic names it: the identifier
+without its provider prefix, which for Anthropic is already the dated snapshot
+R0.6 pins by. The key travels in Anthropic's own header, `x-api-key`, never as
+`Authorization: Bearer`; the API version is named on every request, because
+Anthropic changes behaviour by that header and not by the URL.
+
+Nothing about sampling is sent. R9.12 and R9.13 ask for temperature 0 so the
+same prompt asks for the same answer; Anthropic's current generation refuses
+sampling parameters outright, and dossier's reproducibility was never the
+model's to provide -- a model is reached only on a cache miss, and every answer
+it gives is cached under a key that names the prompt, the schema and the pinned
+model (R0.10, spec 005). `max_tokens` is required by the API and is a fixed
+ceiling, 16000, sized for a request that is not streamed.
+
+A reply is a list of content blocks, and the answer is the first of type `text`:
+a model that thinks by default puts its thinking first, and that is not the
+answer. A reply that stops with `refusal` has no text block at all, and is
+reported as what it is rather than handed to the stage as an empty answer for
+R6.2 to retry.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.models.anthropic`)
+- **Proved by:** `tests/unit/test_R009_15__anthropic_requests.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `anthropic:claude-sonnet-4-5-20250929` reached at `https://api.anthropic.com/v1` | one POST to `https://api.anthropic.com/v1/messages` with header `anthropic-version: 2023-06-01`; body: model `claude-sonnet-4-5-20250929`, one `user` message holding the prompt, `max_tokens` 16000, the stage's JSON Schema as `output_config.format` of type `json_schema`, and no `temperature`, `top_p` or `top_k` |
+| 2 | `DOSSIER_ANTHROPIC_API_KEY` set | sent as `x-api-key`, with no `Authorization` header; unset, no `x-api-key` header at all |
+| 3 | the server answers 200 with a `thinking` block and then a `text` block | the `text` block's text is returned verbatim; validating it stays the stage's job (R6.1) |
+| 4 | the server answers 200 with `stop_reason` `refusal` and no `text` block | an error naming the model and the stop reason; never an empty string handed to the stage as an answer |
+| 5 | the server answers 401, or any other non-2xx status | an error naming the URL and the status, never the key (R9.8 row 1) |
+| 6 | *counter-example* — `gemini:gemini-3.5-flash-lite` | not this rule's; R9.12 reaches it |
