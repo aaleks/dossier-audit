@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.9
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.12
 
 ## Purpose
 
@@ -40,8 +40,9 @@ Written to `runs/<run_id>/manifest.json` before the first stage executes:
 
 `dossier run <pipeline> --plan` resolves the pipeline, compares it against the
 most recent manifest for that pipeline, and prints per step: `cached`,
-`prompt changed`, `inputs changed`, `upstream changed`, or `new`. It executes
-nothing.
+`prompt changed`, `declaration changed`, `inputs changed`, `upstream changed`,
+or `new`. It executes nothing, and it is keyed exactly as a run is, so `cached`
+is a promise the run keeps (R4.12).
 
 Inserting a step between two others re-points the relative references below it.
 That is a real change to the graph and appears in the diff:
@@ -258,3 +259,29 @@ prompt receives. The sugar saves typing at the cost of a prompt nobody can write
 | 2 | the same, checked against the run directory | no `runs/<id>/` and no model call; a rendering that cannot exist is a resolution failure |
 | 3 | `report` declaring `input: [extract, verify]` with both placeholders | accepted; naming them is the workaround and is clearer than the sugar |
 | 4 | *counter-example* — `previous` and `previous(1)` | accepted; one declared input standing for one id renders exactly as R3.6 requires |
+
+### R4.12 — `--plan` reports a step as re-running exactly when a run would miss its cache
+
+A plan is a promise about a run: `cached` means the next run will serve that
+step from the cache, and anything else means it will ask the model. The promise
+holds only if the plan is keyed the way the run is. Until this rule `build_plan`
+resolved without the prompt and declaration hashes `execute` keys on, so a
+prompt edit printed `cached` and then missed -- one answer arrived at two ways.
+
+The statuses are the ones spec 004's "Plan diffing" lists, plus `declaration
+changed` for the file R6.11 hashes into a key: `new`, `inputs changed`, `prompt
+changed`, `declaration changed`, `upstream changed`, `cached`, checked in that
+order, so a step whose prompt *and* inputs moved is reported for the change
+that re-points the graph.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.plan.diff`)
+- **Proved by:** `tests/unit/test_R004_12__a_plan_reruns_exactly_what_a_run_would_miss.py`, `tests/acceptance/test_R004_12__plan_says_prompt_changed.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `prompts/02_verify.md` edited since the last run | `verify: prompt changed`; `report`, which reads it, `upstream changed`; `extract` `cached` -- exactly the steps a run would re-ask (R5.2) |
+| 2 | `schemas/incident.yaml` edited | every step declaring it `declaration changed` (R6.11) |
+| 3 | a comment added to `pipeline.yaml`, nothing else | every step `cached`; the pipeline hash moved and no key did (R4.5) |
+| 4 | *counter-example* — the retry wrapper dossier sends a validation error back in, edited | every step `cached`; in no key (R0.5 row 5), so in no plan |
