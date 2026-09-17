@@ -17,7 +17,8 @@ from dossier.application.run import StepReport
 from dossier.domain.gold import CalibrationCase, GoldDocument, gold_set_hash
 from dossier.domain.hashing import content_hash
 from dossier.domain.judges import MINIMUM_SAMPLE, Calibration, NotCalibrated
-from dossier.domain.ports import Tracker
+from dossier.domain.keys import JudgeInputs, cache_key, provenance
+from dossier.domain.ports import ArtifactStore, Tracker
 from dossier.domain.scoring import (
     DocumentScore,
     FieldKind,
@@ -220,6 +221,57 @@ def judged(
     if not isinstance(verdict, dict) or not isinstance(verdict.get("supported"), bool):
         raise ValueError(f"the judge answered with no `supported` boolean: {reply[:200]!r}")
     return verdict["supported"], str(verdict.get("evidence", ""))
+
+
+# What a cached verdict holds: the boolean a rule asserts and the evidence a
+# person reads (R7.18). Sorted keys and no whitespace, so the same verdict is
+# the same bytes wherever it was written (R5.5).
+def _verdict_bytes(supported: bool, evidence: str) -> bytes:
+    return json.dumps(
+        {"supported": supported, "evidence": evidence}, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+
+
+def judged_cached(
+    model,
+    cache: ArtifactStore,
+    *,
+    inputs: JudgeInputs,
+    rubric: str,
+    document: str,
+    text: str,
+    answer: str,
+    run_id: str,
+    dossier_version: str,
+) -> tuple[bool, str]:
+    """One judge verdict, served from the cache or asked of the judge on a miss (R7.18).
+
+    A judge is a model, and R0.10 says a model is asked only on a cache miss.
+    The verdict is an artifact like any stage's: content-addressed by
+    `JudgeInputs` and written with a provenance record, so a second eval of the
+    same run asks nothing and a run that changed one document's answer asks
+    about that candidate alone. Recorded under the field's name as its step,
+    since a judge has no step of its own.
+    """
+    key = cache_key(inputs)
+    hit = cache.get(key, require_record=True)
+    if hit is not None:
+        try:
+            verdict = json.loads(hit)
+            return bool(verdict["supported"]), str(verdict.get("evidence", ""))
+        except (ValueError, KeyError, TypeError):
+            # A damaged entry is a miss, not authority (R5.9): the judge is
+            # asked again and the entry rewritten below.
+            pass
+    supported, evidence = judged(
+        model, rubric=rubric, document=document, text=text, answer=answer
+    )
+    cache.put(
+        key,
+        _verdict_bytes(supported, evidence),
+        record=provenance(inputs, run_id=run_id, dossier_version=dossier_version, step="judge"),
+    )
+    return supported, evidence
 
 
 def agreement(
