@@ -505,7 +505,7 @@ of abstention verdicts and judged ones is the silent subset this rule replaces.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
-- **Proved by:** `tests/acceptance/test_R007_17__eval_scores_free_text_with_the_judge.py`
+- **Proved by:** `tests/unit/test_R007_17__a_free_text_field_is_scored_by_the_judge.py`, `tests/acceptance/test_R007_17__eval_scores_free_text_with_the_judge.py`
 - **Status:** IN PROGRESS
 
 | # | Given | Then |
