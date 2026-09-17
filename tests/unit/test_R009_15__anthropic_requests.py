@@ -148,3 +148,32 @@ class TestAnthropicRequests:
         message = str(error.value)
         assert "claude-sonnet-4-5-20250929" in message
         assert "refusal" in message
+
+    def test_a_denial_names_the_url_and_the_status_and_never_the_key(self):
+        """Example 5: the one where Anthropic answers 401."""
+        from dossier.infrastructure.models.anthropic import ModelRequestFailed
+
+        server = Server(status=401)
+
+        with pytest.raises(ModelRequestFailed) as error:
+            _client(server, api_key="sk-ant-4f1a").complete("x", schema=SCHEMA)
+
+        message = str(error.value)
+        assert "https://api.anthropic.com/v1/messages" in message
+        assert "401" in message
+        assert "sk-ant-4f1a" not in message
+
+    def test_a_gemini_model_is_not_reached_this_way(self):
+        """Counter-example (row 6): the one R9.12 reaches.
+
+        The installed `anthropic` provider is this client and the installed
+        `gemini` provider is not, so a Gemini model is never sent to a
+        Messages route it does not serve -- and an Anthropic model no longer
+        resolves to the placeholder that refused to build one.
+        """
+        from dossier.infrastructure.models.anthropic import Anthropic
+        from dossier.infrastructure.models.registry import provider
+
+        assert isinstance(provider("anthropic"), Anthropic)
+        assert not isinstance(provider("gemini"), Anthropic)
+        assert provider("anthropic").default_url == URL
