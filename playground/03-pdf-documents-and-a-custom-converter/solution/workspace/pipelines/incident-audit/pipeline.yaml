@@ -1,0 +1,16 @@
+# The same one-step pipeline as exercise 02, reading the PDF source instead.
+#
+# Nothing in it mentions PDFs. Which converter reads a snapshot is decided by the
+# pair `(media type, kind)` -- the media type the ledger recorded when the payload
+# was fetched, and the kind the source asked for -- so a pipeline is unchanged by
+# a corpus changing format (R8.3).
+sources: [postmortems-pdf]
+
+model: openai:gpt-5.4-mini
+
+steps:
+  - id: extract
+    prompt: prompts/01_extract.md
+    input: documents
+    mode: per_file
+    output: schemas/incident.yaml

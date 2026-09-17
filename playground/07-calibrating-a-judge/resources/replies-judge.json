@@ -1,0 +1,224 @@
+{
+  "_comment": [
+    "What the stub judge answers. Layer it in front of the stage replies:",
+    "    --replies resources/replies-judge.json --replies resources/replies.json",
+    "",
+    "A judge is asked a different question, in dossier's own wrapper (R7.19):",
+    "the rubric, the document in full, the candidate inside <claim>...</claim>, and",
+    "'Answer with JSON only'. Each rule below matches on that opening tag plus the",
+    "first words of one candidate -- anchored there on purpose. A rule matching a",
+    "phrase from the candidate alone would also match every other candidate about",
+    "the same document, because the wrapper puts the whole document in the prompt:",
+    "the stub would answer 'supported' to a planted claim and measure 90% instead",
+    "of 100%, and the number would look like a judge being careful.",
+    "",
+    "Only `supported` is asserted by any rule (R7.12). `evidence` is for the person",
+    "reading a disagreement back before signing off a threshold.",
+    "",
+    "This stub agrees with all twenty human verdicts on purpose, so the exercise",
+    "measures 100%. Flip one `supported` to see 95%, and to see why a bar at 1.0",
+    "would be one nobody can hold."
+  ],
+  "rules": [
+    {
+      "_comment": "rc-01 · PLAY-1001.md · human verdict: supported",
+      "match": [
+        "<claim>The gateway upgrade shipped a connection pool whose idle timeout was 3"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause section states exactly this."
+      }
+    },
+    {
+      "_comment": "rc-02 · PLAY-1001.md · human verdict: supported",
+      "match": [
+        "<claim>A mismatch between the connection pool's idle timeout and the load bal"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The same cause in the reviewer's own words; the note gives both timeouts."
+      }
+    },
+    {
+      "_comment": "rc-03 · PLAY-1001.md · human verdict: supported",
+      "match": [
+        "<claim>Requests handed an already-closed socket waited for the full client ti"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Stated in the root cause section."
+      }
+    },
+    {
+      "_comment": "rc-04 · PLAY-1001.md · human verdict: unsupported",
+      "match": [
+        "<claim>The payment gateway vendor had an outage during the window."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The note names the upgrade shipped the previous evening as the only change; it says nothing about a vendor outage."
+      }
+    },
+    {
+      "_comment": "rc-05 · PLAY-1001.md · human verdict: unsupported",
+      "match": [
+        "<claim>Checkout was overwhelmed by traffic after the upgrade was announced."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "No traffic figure appears anywhere in the note."
+      }
+    },
+    {
+      "_comment": "rc-06 · PLAY-1002.md · human verdict: supported",
+      "match": [
+        "<claim>The export job was scheduled at a fixed time rather than triggered by "
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause section states exactly this."
+      }
+    },
+    {
+      "_comment": "rc-07 · PLAY-1002.md · human verdict: supported",
+      "match": [
+        "<claim>The job had no knowledge of the reporting window it had to finish befo"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause section says the window was one it had no way of knowing about."
+      }
+    },
+    {
+      "_comment": "rc-08 · PLAY-1002.md · human verdict: supported",
+      "match": [
+        "<claim>An upstream warehouse load that finished late pushed the export past t"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The timeline states the late load and the 05:30 UTC window."
+      }
+    },
+    {
+      "_comment": "rc-09 · PLAY-1002.md · human verdict: unsupported",
+      "match": [
+        "<claim>The warehouse load failed, so the export had nothing to read."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The load finished late; the note never says it failed."
+      }
+    },
+    {
+      "_comment": "rc-10 · PLAY-1002.md · human verdict: unsupported",
+      "match": [
+        "<claim>A caching bug in the dashboard showed the previous day's figures."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The dashboard was stale because the export had not finished, not because of a caching bug."
+      }
+    },
+    {
+      "_comment": "rc-11 · PLAY-1003.md · human verdict: supported",
+      "match": [
+        "<claim>A firewall change written against a stale network inventory replaced t"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause section states exactly this."
+      }
+    },
+    {
+      "_comment": "rc-12 · PLAY-1003.md · human verdict: supported",
+      "match": [
+        "<claim>Terminal authentication traffic was dropped at the perimeter because t"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Stated in the root cause section."
+      }
+    },
+    {
+      "_comment": "rc-13 · PLAY-1003.md · human verdict: supported",
+      "match": [
+        "<claim>An overnight change replaced an allow rule for the terminal subnet wit"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The timeline and the root cause section both state this."
+      }
+    },
+    {
+      "_comment": "rc-14 · PLAY-1003.md · human verdict: unsupported",
+      "match": [
+        "<claim>The terminals' certificates expired overnight."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "Nothing in the note mentions certificates."
+      }
+    },
+    {
+      "_comment": "rc-15 · PLAY-1003.md · human verdict: unsupported",
+      "match": [
+        "<claim>The identity provider was unavailable, so authentication failed."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "Authentication requests were dropped at the firewall; no identity provider is mentioned."
+      }
+    },
+    {
+      "_comment": "rc-16 · PLAY-1004.md · human verdict: supported",
+      "match": [
+        "<claim>Each pod rebuilt the catalogue index locally at start-up, so scaling o"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause section states exactly this."
+      }
+    },
+    {
+      "_comment": "rc-17 · PLAY-1004.md · human verdict: supported",
+      "match": [
+        "<claim>Autoscaling made latency worse because each new pod served from a part"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Stated in the timeline and the root cause section."
+      }
+    },
+    {
+      "_comment": "rc-18 · PLAY-1004.md · human verdict: supported",
+      "match": [
+        "<claim>The spring campaign tripled search traffic within ten minutes, and the"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Both halves are stated: the traffic in the timeline, the rebuild in the root cause."
+      }
+    },
+    {
+      "_comment": "rc-19 · PLAY-1004.md · human verdict: unsupported",
+      "match": [
+        "<claim>Traffic exceeded the capacity the campaign had been planned for."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The notes section says the opposite: traffic was within the planned capacity."
+      }
+    },
+    {
+      "_comment": "rc-20 · PLAY-1004.md · human verdict: unsupported",
+      "match": [
+        "<claim>The autoscaler was misconfigured and added pods too slowly."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The notes section says the autoscaler reacted as configured."
+      }
+    }
+  ]
+}

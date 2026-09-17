@@ -1,0 +1,12 @@
+PRODUCTION INCIDENT NOTE
+Site: Distribution Centre 2
+Severity: minor
+Resolved: 2026-06-02
+Systems: badge-reader
+
+Badge readers at the north gate rejected valid badges for 40 minutes during the
+early shift. The reader firmware had rolled back to a previous version after a
+power interruption, and the badge format it expected was the older one.
+
+No financial loss was recorded. Staff were let through manually by the shift
+supervisor and the queue cleared within the hour.

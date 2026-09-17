@@ -1,0 +1,20 @@
+[project]
+name = "dossier-text-playground"
+version = "0.1.0"
+description = "Playground converter: a plain-text snapshot read as the markdown kind."
+requires-python = ">=3.12"
+
+# No dependencies. Worth noticing next to the PDF converter's `pypdf`: the reason
+# converters are packages is that some of them are heavy, and this one shows the
+# mechanism costs nothing when they are not.
+dependencies = []
+
+[project.entry-points."dossier.converters"]
+text-plain = "dossier_text_playground.plain:PlainTextConverter"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dossier_text_playground"]

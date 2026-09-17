@@ -1,0 +1,17 @@
+# One source, one model, one step. The pipeline's name is its directory name --
+# it is never written in the file (dossier.config.load sets it from the path).
+#
+# `model:` is pinned, and it is part of every cache key (spec 005). Where that
+# model is reached is `.env`'s business and is in no key (R9.2), which is why the
+# playground's stub endpoint can stand in for a real one without changing a
+# single key.
+sources: [incidents-manual]
+
+model: openai:gpt-5.4-mini
+
+steps:
+  - id: extract
+    prompt: prompts/01_extract.md
+    input: documents
+    mode: per_file
+    output: schemas/incident.yaml

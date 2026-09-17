@@ -1,0 +1,20 @@
+{
+  "_comment": [
+    "PLAY-1004 never produces the declared shape, correction or no correction.",
+    "",
+    "What that costs: two model calls for this document and nothing else. The stage",
+    "reports the document by name, the other three documents are still audited, the",
+    "command exits non-zero (R6.9), and nothing is written to the cache for it -- a",
+    "failed document is a recorded failure, not a computed artifact, and caching it",
+    "would make one bad afternoon permanent (R6.1, R5.8).",
+    "",
+    "Run it twice and watch the call log: the failure is paid for again every time,",
+    "which is the honest price of not caching it."
+  ],
+  "rules": [
+    {
+      "match": ["# PLAY-1004"],
+      "reply": "{\"document\": \"PLAY-1004.md\", \"findings\": [\"severity: major\"]}"
+    }
+  ]
+}

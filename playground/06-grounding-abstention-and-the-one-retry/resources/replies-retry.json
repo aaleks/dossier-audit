@@ -1,0 +1,62 @@
+{
+  "_comment": [
+    "PLAY-1003 answers with prose the first time and with the schema the second.",
+    "",
+    "The order of the rules is the exercise. The retry prompt is the original with a",
+    "<validation_error> block prepended, so it matches BOTH rules below -- and the",
+    "stub answers with the first rule that matches. Put them the other way round and",
+    "the model never corrects itself, which is exactly what a real model looks like",
+    "when a prompt cannot be satisfied.",
+    "",
+    "One retry, and exactly one (R6.2). A model that cannot produce the shape twice",
+    "will not produce it on the fifth attempt, and an unbounded retry loop turns a",
+    "bad prompt into a bill."
+  ],
+  "rules": [
+    {
+      "_comment": "second attempt: the correction arrives, so this one must come first",
+      "match": ["# PLAY-1003", "<validation_error>"],
+      "reply": {
+        "document": "PLAY-1003.md",
+        "fields": [
+          {
+            "field": "loss_amount",
+            "value": 61250.0,
+            "currency": "CHF",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1003.md",
+              "span": "credited at a recorded loss of CHF 61'250"
+            }
+          },
+          {
+            "field": "resolution_date",
+            "value": "2026-04-07",
+            "confidence": "high",
+            "source": {"document": "PLAY-1003.md", "span": "**Resolved:** 2026-04-07"}
+          },
+          {
+            "field": "severity",
+            "value": "critical",
+            "confidence": "high",
+            "source": {"document": "PLAY-1003.md", "span": "**Severity:** critical"}
+          },
+          {
+            "field": "affected_systems",
+            "value": "terminal-gateway, inventory-sync",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1003.md",
+              "span": "**Systems affected:** terminal-gateway, inventory-sync"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "first attempt: a helpful sentence, which is not the declared schema",
+      "match": ["# PLAY-1003"],
+      "reply": "The incident was caused by a firewall change and cost CHF 61'250."
+    }
+  ]
+}

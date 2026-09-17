@@ -1,0 +1,23 @@
+{
+  "document": "PLAY-1004.md",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-17",
+  "fields": {
+    "loss_amount": {
+      "value": 9900.0,
+      "currency": "CHF"
+    },
+    "resolution_date": {
+      "value": "2026-05-12"
+    },
+    "severity": {
+      "value": "major"
+    },
+    "affected_systems": {
+      "value": "search-api, catalogue-index"
+    },
+    "root_cause": {
+      "value": "Every pod rebuilt the catalogue index at start-up, so scaling out served partial results and made latency worse."
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "document": "PLAY-1003.md",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-17",
+  "fields": {
+    "loss_amount": {
+      "value": 61250.0,
+      "currency": "CHF"
+    },
+    "resolution_date": {
+      "value": "2026-04-07"
+    },
+    "severity": {
+      "value": "critical"
+    },
+    "affected_systems": {
+      "value": "terminal-gateway, inventory-sync"
+    },
+    "root_cause": {
+      "value": "A firewall change written against a stale network inventory dropped the allow rule for the active terminal subnet."
+    }
+  }
+}
