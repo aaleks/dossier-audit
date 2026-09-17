@@ -505,14 +505,14 @@ of abstention verdicts and judged ones is the silent subset this rule replaces.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
-- **Proved by:** `tests/unit/test_R007_17__a_free_text_field_is_scored_by_the_judge.py`, `tests/acceptance/test_R007_17__eval_scores_free_text_with_the_judge.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R007_17__eval_scores_free_text_with_the_judge.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
 | 1 | `INC-4830`, gold `root_cause` stated, the run answering `rc-01`'s wording, grounded; judge eligible | 1 judge call; supported, so correct |
 | 2 | the same, the run answering `rc-02`'s wording -- the planted claim | 1 judge call; unsupported, so incorrect, with the judge's evidence as the reason (R7.12) |
-| 3 | the report line for a field with two judged verdicts and two abstention verdicts | `root_cause  75.0%   (2 judged)`; the count is printed, never implied |
+| 3 | the report line for `root_cause` over the scoring example's four abstention verdicts and `INC-4830`'s judged one | `root_cause  60.0%   (1 judged)`; the count is printed, never implied |
 | 4 | *counter-example* — gold `root_cause: null`, or the run abstains | R7.3 decides; 0 judge calls |
 | 5 | *counter-example* — the run's value has no locatable span | R7.4 decides, incorrect; 0 judge calls |
 | 6 | *counter-example* — `root_cause` withheld: never measured, stale, or below the bar | withheld as R7.15 says, and 0 judge calls; nothing is measured for a field nobody may quote |
