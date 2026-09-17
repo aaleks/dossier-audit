@@ -175,6 +175,13 @@ If changing something changes the result, changing it invalidates the cache. The
 contrapositive is the useful half: a cache hit is a promise that nothing relevant
 changed.
 
+"Anything" is anything a pipeline author or a run can change: prompts, schemas,
+the pinned model, the inputs. What dossier itself says to a model -- the wrapper
+a retry carries its error in, a client's request ceiling -- moves only when
+dossier is released, and `dossier_version` in every provenance record is where
+that is written down (R0.3). Keying it would turn every release into a full
+re-run of every cache, to re-derive artifacts that had already validated.
+
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
 - **Proved by:** `tests/unit/test_R000_5__key_covers_every_output_determining_input.py`
@@ -186,6 +193,7 @@ changed.
 | 2 | `schemas/incident.json` is edited | the `verify` key changes |
 | 3 | the pinned model changes to `anthropic:claude-sonnet-4-5-20250929` from another pin | every stage key changes (R5.3) |
 | 4 | *counter-example* — the cache directory is deleted | no key changes; only the time taken (R5.9) |
+| 5 | *counter-example* — text dossier itself authors: the retry wrapper a validation error is sent back in (R6.2 row 3), a model client's `max_tokens`, its sampling settings | in no key; recorded by `dossier_version` (R0.3, R5.1 row 4). A change to what dossier says is a release, not a pipeline change: keying it would re-run every cache on every release, for artifacts that already validated |
 
 ### R0.6 — model identifiers are pinned exactly, and floating aliases are rejected at load time
 
