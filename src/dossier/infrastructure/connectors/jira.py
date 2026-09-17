@@ -18,13 +18,15 @@ never builds this connector should not pay for the import.
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from dossier.domain.conversion import reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
+from dossier.domain.sync import server_zone_floor
 
 SEARCH = "/rest/api/2/search"
 ISSUES = "/rest/api/2/issue"
@@ -137,10 +139,12 @@ class JiraConnector:
         return RawItem(
             key=key,
             payload=response.content,
-            # What Jira says the file is, not what its name suggests: a name on
-            # disk is not evidence about content (R2.16, R8.3).
-            media_type=attachment.get("mimeType")
-            or response.headers.get("content-type", "application/octet-stream"),
+            # What Jira says the file is, not what its name suggests (R2.16,
+            # R8.3); which of its two answers wins, and the canonical form, is
+            # the domain's.
+            media_type=reported_media_type(
+                attachment.get("mimeType"), response.headers.get("content-type")
+            ),
             remote_version=str(attachment["id"]),
         )
 
@@ -251,15 +255,13 @@ def _parsed(updated: str | None) -> datetime | None:
 
 
 def _updated_since(since: datetime) -> str:
-    """The JQL clause narrowing a search, widened by a day.
+    """The JQL clause narrowing a search, from the floor the domain sets (R1.4).
 
-    Jira reads `updated >= "2026-08-04 09:00"` in the server's timezone, which is
-    not knowable from here and need not match the workspace's. A day of slack
-    makes the answer a superset whatever the server's offset, which is the only
-    kind of error this rule permits (R1.4, R2.4's reasoning).
+    Jira reads `updated >= "2026-08-04 09:00"` in the server's timezone, which
+    is not knowable from here; how much slack that needs is decided in
+    `domain.sync`, and this only spells the clause.
     """
-    widened = since - timedelta(days=1)
-    return f'updated >= "{widened.strftime("%Y-%m-%d %H:%M")}"'
+    return f'updated >= "{server_zone_floor(since).strftime("%Y-%m-%d %H:%M")}"'
 
 
 # The entry point resolves to `JiraConnector.from_config`, and a bound method

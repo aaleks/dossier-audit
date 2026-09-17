@@ -116,3 +116,24 @@ class TestListSinceReturnsASuperset:
 
         assert since_recent == everything
         assert all(ref.updated_at is None for ref in FolderConnector(tmp_path).list(SINCE))
+
+
+class TestAServerZonedChangeTimeIsAskedFromAFloor:
+    """R1.4, the one decision a connector was making itself: how much slack a server
+    that compares change times in its own timezone needs."""
+
+    def test_the_floor_is_a_day_before_since_whatever_the_offset(self):
+        """The one where the server is fourteen hours from UTC and still answers a superset.
+
+        No timezone is more than a day from UTC, so a day earlier is enough
+        slack for any server, and the answer is a superset -- the one kind of
+        error this rule permits.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        from dossier.domain.sync import server_zone_floor
+
+        since = datetime(2026, 8, 5, 9, 0, tzinfo=UTC)
+
+        assert server_zone_floor(since) == datetime(2026, 8, 4, 9, 0, tzinfo=UTC)
+        assert server_zone_floor(since) <= since - timedelta(hours=14)

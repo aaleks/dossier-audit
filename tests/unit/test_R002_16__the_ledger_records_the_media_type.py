@@ -245,3 +245,29 @@ class TestTheConnectorsAnswerDoesNotDependOnTheMachine:
         (root / "figures.csv").write_bytes(b"a,b\n1,2\n")
 
         assert FolderConnector(root).fetch("figures.csv").media_type == "text/csv"
+
+
+class TestTheMediaTypeASourceReportsIsMadeCanonical:
+    """R2.16 at the decision: which of a source's two answers wins, and its one spelling."""
+
+    def test_what_the_source_records_wins_over_the_transport_header(self):
+        """Row 3's shape: the one where Jira says PDF and the transport says octet-stream."""
+        from dossier.domain.conversion import reported_media_type
+
+        assert reported_media_type("application/pdf", "application/octet-stream") == (
+            "application/pdf"
+        )
+
+    def test_the_header_is_the_fallback_and_a_guess_the_last_resort(self):
+        """The one where the source recorded nothing about the file."""
+        from dossier.domain.conversion import UNKNOWN_MEDIA_TYPE, reported_media_type
+
+        assert reported_media_type(None, "text/markdown") == "text/markdown"
+        assert reported_media_type(None, None) == UNKNOWN_MEDIA_TYPE
+
+    def test_parameters_and_case_are_not_part_of_the_kind(self):
+        """The one where two spellings would otherwise be two convert keys for one artifact."""
+        from dossier.domain.conversion import reported_media_type
+
+        assert reported_media_type("Application/PDF; charset=binary", None) == "application/pdf"
+        assert reported_media_type(None, "text/markdown; charset=utf-8") == "text/markdown"
