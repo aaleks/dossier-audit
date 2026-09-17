@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import httpx
 
-from dossier.infrastructure.models._http import TIMEOUT_SECONDS, request
+from dossier.infrastructure.models._http import TIMEOUT_SECONDS, ModelRequestFailed, request
 
-__all__ = ["AnthropicClient", "anthropic"]
+__all__ = ["AnthropicClient", "ModelRequestFailed", "anthropic"]
 
 # Anthropic changes behaviour by this header, not by the URL.
 API_VERSION = "2023-06-01"
@@ -73,12 +73,26 @@ class AnthropicClient:
         if schema is not None:
             body["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
         response = request(self._http, "POST", self._url, json=body)
+        try:
+            reply = response.json()
+            blocks = reply["content"]
+            stop = reply.get("stop_reason")
+        except (ValueError, KeyError, TypeError):
+            raise ModelRequestFailed(
+                f"POST {self._url} answered with no content blocks"
+            ) from None
         # A reply is a list of content blocks, and the answer is the first of
         # type `text`: a model that thinks by default puts its thinking first.
-        for block in response.json().get("content", []):
-            if block.get("type") == "text":
+        for block in blocks:
+            if isinstance(block, dict) and block.get("type") == "text":
                 return block["text"]
-        raise KeyError("text")
+        # No text block at all -- a `refusal`, or a reply cut off before any
+        # text. Reported as what it is rather than handed to the stage as an
+        # empty answer for R6.2 to retry: that would record a validation
+        # failure for a document the model never answered.
+        raise ModelRequestFailed(
+            f"{self._name} answered with no text block (stop_reason {stop!r})"
+        )
 
 
 class Anthropic:

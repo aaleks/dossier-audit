@@ -129,3 +129,22 @@ class TestAnthropicRequests:
         )
 
         assert _client(server).complete("x", schema=SCHEMA) == ANSWER
+
+    def test_a_refusal_is_an_error_naming_the_model_and_the_stop_reason(self):
+        """Example 4: the one where the model declined and there is no text block.
+
+        Reported as what it is. Handed to the stage as an empty answer, R6.2
+        would retry the same prompt once and then record a validation failure
+        for a document the model never answered -- the wrong finding, sent to
+        the wrong fix.
+        """
+        from dossier.infrastructure.models.anthropic import ModelRequestFailed
+
+        server = Server(blocks=[], stop="refusal")
+
+        with pytest.raises(ModelRequestFailed) as error:
+            _client(server).complete("x", schema=SCHEMA)
+
+        message = str(error.value)
+        assert "claude-sonnet-4-5-20250929" in message
+        assert "refusal" in message
