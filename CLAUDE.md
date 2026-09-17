@@ -66,8 +66,9 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**, and nothing is outstanding: all twelve specs are
-implemented, and 123 of the 131 rules are MET with the other 8 superseded.
+Currently open: **none**. One rule is outstanding: R9.15, the `anthropic`
+provider's Messages API client, is NOT MET and waiting for `/tdd`. 123 of the
+132 rules are MET, 8 superseded.
 
 The judge is gated end to end, which is what `/verify` set out after when it
 found `is_stale` with no caller anywhere in `src/`. A judged field's agreement
@@ -111,8 +112,8 @@ credential is *named* in `sources.yaml` and never written there, resolved by
 
 Spec 009's five providers are registered with their default endpoints: `openai`,
 `gemini` and `hf` reach a model through one OpenAI-compatible client over httpx
-(R9.12), `ollama` through its native API (R9.13), and `anthropic` stays a
-placeholder until its own API gets a rule. OpenWebUI is an endpoint, never a
+(R9.12), `ollama` through its native API (R9.13), and `anthropic` through the
+Messages API (R9.15). OpenWebUI is an endpoint, never a
 provider (R9.7), and a `.env` file fills what the shell leaves unset (R9.11).
 The project's default model is `gemini:gemini-3.5-flash-lite` through a local
 OpenWebUI (`.env.example`). A vLLM serving another repository, or an Ollama tag
