@@ -51,10 +51,9 @@ markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextCon
 
 # A model provider is a package declaring one of these (spec 009, R9.1). The
 # prefix of a `model:` value before its first `:` names one. Registered here so
-# a pipeline naming them loads; each states its default endpoint (R9.2), and a
-# real client replaces its placeholder as one is written.
+# a pipeline naming them loads, and each states its default endpoint (R9.2).
 [project.entry-points."dossier.models"]
-anthropic = "dossier.infrastructure.models.placeholder:anthropic"
+anthropic = "dossier.infrastructure.models.anthropic:anthropic"
 gemini = "dossier.infrastructure.models.openai_compatible:gemini"
 hf = "dossier.infrastructure.models.openai_compatible:hf"
 ollama = "dossier.infrastructure.models.ollama:ollama"

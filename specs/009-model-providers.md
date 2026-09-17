@@ -1,6 +1,6 @@
 # 009 — Model providers
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R9.1 – R9.15
 
 ## Purpose
@@ -340,7 +340,7 @@ R6.2 to retry.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.models.anthropic`)
 - **Proved by:** `tests/unit/test_R009_15__anthropic_requests.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
