@@ -11,11 +11,18 @@ The rows below are the rule's example table, transcribed.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
+from pathlib import Path
 
 from tests.fakes import FakeModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
+from tests.pipelines import prompt_for
 
 from dossier.application.extract import run_stage
+from dossier.application.run import execute
+from dossier.domain.fields import OutputSchema
+from dossier.domain.pipeline import PipelineConfig, StepConfig
+from dossier.infrastructure.cache import ArtifactCache
 
 PROMPT = "<source_document>{{documents}}</source_document>"
 SCHEMA = {"type": "object"}
@@ -102,15 +109,46 @@ class TestRetryBudget:
 
         assert "validation_error" not in model.calls[0]["prompt"]
 
-    def test_the_attempt_count_is_recorded(self):
-        """Example 2's other half: the retry is recorded, not just performed.
+    def test_the_attempt_count_is_recorded(self, tmp_path: Path):
+        """Example 1's other half: the retry is recorded, not just performed.
 
-        R0.3 puts this in the provenance record, so someone reading an artifact
-        later can see it took two goes.
+        The artifact's provenance record on disk says it took two goes (R0.3,
+        R5.1 row 5), so someone reading it months later can see the road was
+        longer -- and the key does not, so the artifact is never re-derived
+        for that reason alone.
         """
-        result, _ = run([MALFORMED, VALID])
-
+        result, model = run([MALFORMED, VALID])
         assert result.attempts == 2
+
+        execute(
+            workspace=tmp_path,
+            pipeline=PipelineConfig(
+                name="incident-audit",
+                sources=["incidents-manual"],
+                model=model.model_id,
+                steps=[
+                    StepConfig(
+                        id="extract",
+                        prompt="prompts/01_extract.md",
+                        input="documents",
+                        mode="per_file",
+                    )
+                ],
+            ),
+            pipeline_hash="0e52dd18" * 8,
+            documents={"INC-4821": "a3f9c1e2" * 8},
+            document_text=STAGE_INPUTS,
+            schemas={"extract": OutputSchema(schema=SCHEMA, declaration_hash="6e0d4b27" * 8)},
+            prompts={"extract": prompt_for(["documents"])},
+            model=FakeModelClient(responses=[MALFORMED, VALID]),
+            cache=ArtifactCache(tmp_path, namespace="stage"),
+            run_id="20260806T142203Z-4f1a",
+            started_at=datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC),
+            dossier_version="0.1.0",
+        )
+
+        (record,) = (tmp_path / ".dossier" / "cache").rglob("*.meta.json")
+        assert json.loads(record.read_text(encoding="utf-8"))["attempts"] == 2
 
     def test_a_transport_error_is_not_a_validation_retry(self):
         """Counter-example (row 4): the one where the budget does not apply.

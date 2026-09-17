@@ -32,7 +32,10 @@ from dossier.domain.hashing import content_hash
 # spec 005's K_stage does not contain it: two steps with identical prompt,
 # schema, model, options and inputs are the same computation and correctly share
 # a cache entry. The id is in the record so a reader still knows who wrote it.
-PROVENANCE_ONLY = frozenset({"step", "run_id", "dossier_version", "cache_key"})
+# `attempts` is how many times the model was asked before an answer validated
+# (R6.2 row 1): a person reading the record can see it took two goes, and no
+# output depends on it -- a retried answer that validated is the same answer.
+PROVENANCE_ONLY = frozenset({"step", "run_id", "dossier_version", "cache_key", "attempts"})
 
 
 class ArtifactInput(BaseModel):
@@ -180,6 +183,7 @@ def provenance(
     run_id: str,
     dossier_version: str,
     step: str | None = None,
+    attempts: int | None = None,
 ) -> dict[str, Any]:
     """The sibling `<name>.meta.json` for one artifact (R0.3, R5.1).
 
@@ -193,4 +197,6 @@ def provenance(
     record["run_id"] = run_id
     record["dossier_version"] = dossier_version
     record["step"] = step if step is not None else getattr(inputs, "step", None)
+    if attempts is not None:
+        record["attempts"] = attempts
     return record

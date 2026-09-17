@@ -142,6 +142,7 @@ of the key. The two are generated from one structure, so they cannot drift.
 | 2 | any single entry in the record perturbed | the recomputed key differs |
 | 3 | an input added to the record but not to the key | rejected at construction; one structure produces both |
 | 4 | *counter-example* — `run_id` and `dossier_version` in the record | present for provenance, excluded from the key; neither may change an output (R0.4) |
+| 5 | *counter-example* — `attempts` in the record of `verify/INC-4821.json`, written on the second try | present for provenance (R6.2 row 1), excluded from the key; a retried answer that validated is the same answer, and an artifact is never re-derived because the road to it was longer |
 
 ### R5.2 — changing a prompt changes that stage's key and every downstream key, and no upstream key
 
