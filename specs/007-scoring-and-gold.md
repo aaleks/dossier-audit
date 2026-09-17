@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.19
 
 ## Purpose
@@ -536,8 +536,8 @@ gold set it is scored against -- and neither is the run id.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
-- **Proved by:** `tests/unit/test_R007_18__a_judge_verdict_is_cached_and_the_judge_asked_on_a_miss.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R007_18__a_judge_verdict_is_cached_and_the_judge_asked_on_a_miss.py`, `tests/acceptance/test_R007_18__eval_asks_the_judge_only_on_a_miss.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
