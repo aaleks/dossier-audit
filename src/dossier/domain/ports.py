@@ -174,6 +174,10 @@ class SnapshotReader(Protocol):
         """The stored bytes, or `FileNotFoundError` naming the hash."""
         ...
 
+    def exists(self, digest: str) -> bool:
+        """Whether the store holds `digest`; a read, so a replay may ask (R4.7 row 4)."""
+        ...
+
 
 @runtime_checkable
 class ArtifactStore(Protocol):

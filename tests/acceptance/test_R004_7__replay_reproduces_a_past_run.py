@@ -166,6 +166,29 @@ class TestAReplayReproducesTheRun:
         assert "3 artifact(s) reproduced" in result.output
         assert manifest["plan"]["model"] == "anthropic:claude-sonnet-4-5-20250929"
 
+    def test_a_conversion_without_its_record_is_named_and_nothing_is_substituted(
+        self, workspace: Path, monkeypatch, completed: str
+    ):
+        """Counter-example (row 4), the other thing a replay may find missing.
+
+        A conversion's bytes are on disk but its provenance record is not --
+        the shape an interrupted write leaves (R5.8). A run treats that entry
+        as a miss and converts again; a replay may not, because converting
+        again is the substitution row 4 forbids. It stops and names the
+        document, as it does for a missing snapshot.
+        """
+        conversions = workspace / ".dossier" / "cache" / "convert"
+        records = [path for path in conversions.rglob("*.meta.json")]
+        assert records, "the run left conversions with records behind"
+        for record in records:
+            record.unlink()
+
+        result = _cli(workspace, monkeypatch, "run", PIPELINE, "--replay", f"runs/{completed}")
+
+        assert result.exit_code == 2
+        assert "no cached conversion" in result.output
+        assert "Nothing has been substituted" in result.output
+
     def test_a_missing_snapshot_is_named_and_nothing_is_substituted(
         self, workspace: Path, monkeypatch, completed: str
     ):

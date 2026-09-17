@@ -35,6 +35,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from dossier.application.convert import MARKDOWN, convert_inputs
 from dossier.application.extract import DocumentResult, run_stage
 from dossier.application.manifest import Manifest
 from dossier.domain.fields import OutputSchema
@@ -48,7 +49,7 @@ from dossier.domain.pipeline import (
     validate_references,
     validate_step_ids,
 )
-from dossier.domain.ports import ArtifactStore, ModelClient, Tracker
+from dossier.domain.ports import ArtifactStore, ModelClient, SnapshotReader, Tracker
 from dossier.domain.prompts import render
 from dossier.domain.resolution import (
     PinnedConverter,
@@ -620,6 +621,72 @@ class MissingFromReplay(FileNotFoundError):
     and present the result as the original run (R4.7 example 4), so whatever is
     missing is named.
     """
+
+
+def replayed_inputs(
+    manifest: Manifest, *, store: SnapshotReader, cache: ArtifactStore
+) -> dict[str, str]:
+    """The converted text a past run read, from the entries it wrote (R4.7).
+
+    Every snapshot the run read must still be held, even though the bytes are
+    not needed: a replay that succeeded while the documents it audited were
+    gone would reproduce a finding whose evidence no longer exists (R4.9).
+    Snapshots are never deleted (R0.2), so a missing one means the workspace
+    is damaged, and naming the hash is what makes that diagnosable.
+
+    Each conversion's key is recomposed from the manifest alone -- the pinned
+    snapshot, and the id and version of the converter that claimed that
+    document's media type -- through the same composition that wrote it.
+    Nothing is read from the ledger, from `pipeline.yaml`, or from the
+    converters installed today. An entry that is gone, or that has no
+    provenance record (an interrupted write, R5.8), stops the replay by name:
+    re-deriving it would mean converting with whatever is installed now, which
+    is precisely the substitution R4.7 row 4 forbids.
+    """
+    missing = [
+        f"  {document.key}: no snapshot for {document.snapshot[:12]}..."
+        for document in manifest.plan.documents
+        if not store.exists(document.snapshot)
+    ]
+    if missing:
+        raise MissingFromReplay(
+            f"{manifest.run_id} cannot be reproduced: its snapshots are not all held\n"
+            + "\n".join(missing)
+            + "\nSnapshots are never deleted (R0.2); this workspace is damaged."
+        )
+
+    claimed = {(c.media_type, c.kind): c for c in manifest.plan.converters}
+    text: dict[str, str] = {}
+    for document in manifest.plan.documents:
+        converter = claimed.get((document.media_type, MARKDOWN))
+        if converter is None:
+            missing.append(
+                f"  {document.key}: no converter recorded for {document.media_type!r}"
+            )
+            continue
+        key = cache_key(
+            convert_inputs(
+                snapshot=document.snapshot,
+                converter_id=converter.id,
+                converter_version=converter.version,
+            )
+        )
+        stored = cache.get(key, require_record=True)
+        if stored is None:
+            missing.append(
+                f"  {document.key}: no cached conversion for snapshot "
+                f"{document.snapshot[:12]}... by {converter.id} {converter.version}"
+            )
+            continue
+        text[document.key] = stored.decode("utf-8")
+
+    if missing:
+        raise MissingFromReplay(
+            f"{manifest.run_id} cannot be reproduced:\n"
+            + "\n".join(missing)
+            + "\nNothing has been substituted."
+        )
+    return text
 
 
 def replay(

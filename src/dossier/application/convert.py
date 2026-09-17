@@ -127,6 +127,28 @@ class ConvertReport:
         }
 
 
+def convert_inputs(
+    *,
+    snapshot: str,
+    converter_id: str,
+    converter_version: str,
+    options: Mapping[str, str] | None = None,
+) -> ConvertInputs:
+    """Everything a conversion's key is composed of, composed one way.
+
+    Used by a conversion when it is made and by a replay when it is read back
+    (R4.7): two compositions of the same key is how a replay comes to miss an
+    artifact the run wrote. A manifest pins no options (spec 004), so a replay
+    composes with none -- which is what every run passes today.
+    """
+    return ConvertInputs(
+        snapshot=snapshot,
+        converter_id=converter_id,
+        converter_version=converter_version,
+        options=dict(options or {}),
+    )
+
+
 def convert_source(
     *,
     source_id: str,
@@ -257,11 +279,11 @@ def _one_artifact(
     (R5.4, R8.2). Nothing else can make an artifact differ, which is the promise
     the cache is trading on.
     """
-    inputs = ConvertInputs(
+    inputs = convert_inputs(
         snapshot=held.snapshot,
         converter_id=converter.id,
         converter_version=converter.version,
-        options=dict(options),
+        options=options,
     )
     key = cache_key(inputs)
 
