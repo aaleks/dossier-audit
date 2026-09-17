@@ -115,6 +115,9 @@ class FieldScore:
     field: str
     verdict: Verdict
     detail: str | None = None
+    # Whether a judge decided this verdict (R7.17). Carried so a field's total
+    # can say how many of its verdicts were judged rather than implying it.
+    judged: bool = False
 
     @property
     def correct(self) -> bool:
@@ -131,8 +134,42 @@ class DocumentScore:
 
     @property
     def scored(self) -> tuple[FieldScore, ...]:
-        """The fields with a deterministic verdict, judge fields excluded."""
+        """The fields with a verdict: deterministic, or judged (R7.17).
+
+        A field still awaiting a judge is not scored. It stays out of the total
+        rather than counting as anything, which is what a withheld field looks
+        like from here: nobody asked, so nothing is known.
+        """
         return tuple(r for r in self.results if r.verdict is not Verdict.NEEDS_JUDGE)
+
+
+def with_judged(
+    score: DocumentScore, verdicts: Mapping[str, tuple[bool, str]]
+) -> DocumentScore:
+    """A document's score with the judge's verdicts in place of its deferrals (R7.17).
+
+    The judge decides only what was left to it: a field the deterministic
+    scorers already decided keeps its verdict, and a deferred field with no
+    verdict here -- withheld, so never asked -- stays deferred. The evidence is
+    the reason a person reads, as an ungrounded span is for R7.4.
+    """
+    results = []
+    for result in score.results:
+        if result.verdict is Verdict.NEEDS_JUDGE and result.field in verdicts:
+            supported, evidence = verdicts[result.field]
+            results.append(
+                FieldScore(
+                    result.field,
+                    Verdict.CORRECT if supported else Verdict.INCORRECT,
+                    evidence,
+                    judged=True,
+                )
+            )
+        else:
+            results.append(result)
+    return DocumentScore(
+        document=score.document, results=tuple(results), not_in_gold=score.not_in_gold
+    )
 
 
 def score_field(
@@ -244,6 +281,8 @@ class FieldTotal:
     field: str
     correct: int
     scored: int
+    # How many of `scored` a judge decided (R7.17): printed, never implied.
+    judged: int = 0
 
     @property
     def percentage(self) -> float:
@@ -272,6 +311,7 @@ def per_field(
                     field=field,
                     correct=sum(1 for r in results if r.correct),
                     scored=len(results),
+                    judged=sum(1 for r in results if r.judged),
                 )
             )
     return tuple(totals)

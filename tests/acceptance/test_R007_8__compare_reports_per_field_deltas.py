@@ -14,6 +14,7 @@ afresh. The gold set is the person-written one in `tests/fixtures/gold/incidents
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -32,6 +33,9 @@ from tests.scoring_example import (
     IssueTracker,
     RoutedModel,
 )
+
+from dossier.application.eval import judge_prompt_hash
+from dossier.domain.hashing import text_hash
 
 # R7.8 examples 1, 2 and 4, transcribed from `_fixtures.md`: `a`, `b`, delta.
 EXPECTED = {
@@ -111,6 +115,28 @@ def tracker(workspace: Path, monkeypatch) -> IssueTracker:
     register_connector(monkeypatch, SOURCE_TYPE, lambda config, *, workspace: source)
     result = _cli(workspace, monkeypatch, "sync", PIPELINE)
     assert result.exit_code == 0, result.output
+    # The judge is calibrated, so `root_cause` may be reported on both sides
+    # (R7.15, R7.17 row 7). Every gold `root_cause` here is null, so no judge is
+    # asked: the comparison still asks no model.
+    gold = workspace / "gold" / "incidents"
+    (gold / "calibrations").mkdir(parents=True, exist_ok=True)
+    (gold / "calibrations" / "root_cause.json").write_text(
+        json.dumps(
+            {
+                "judge_model": RoutedModel.model_id,
+                "rubric_hash": text_hash(
+                    workspace / "pipelines" / PIPELINE / "rubrics" / "root_cause.md"
+                ),
+                "prompt_hash": judge_prompt_hash(),
+                "agreement": 1.0,
+                "sample_size": 20,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     return source
 
 
