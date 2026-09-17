@@ -149,7 +149,7 @@ class TestJudgeAgreesWithHumanScores:
     """R7.11 — measured against the reviewer, and reported with what it was measured on."""
 
     def test_the_sample_is_large_enough_to_mean_anything(self, measured: dict):
-        """Example 1's precondition, and the reason the threshold is still OPEN.
+        """Example 1's precondition, and what made a threshold possible to agree.
 
         Twenty is the spec's number. Below it the honest report is "not
         measurable at this N", so there is nothing for a threshold to gate.

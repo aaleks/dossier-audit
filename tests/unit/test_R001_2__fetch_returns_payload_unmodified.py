@@ -4,8 +4,8 @@ Normalisation happens later, in the ledger layer, for hashing only. It never
 changes what is stored.
 
 Proved here for the `folder` connector. The JSON key-order row (example 1)
-belongs to a connector that receives JSON over the wire and is unproved until
-one exists -- which is why this rule stays NOT MET.
+belongs to the Jira connector, which returns `response.content` verbatim
+(`jira.py`); that row is not transcribed here yet.
 """
 
 from __future__ import annotations

@@ -5,7 +5,7 @@ serves it, and so does OpenWebUI's `/api` route -- so one client reaches all
 three, and each provider's entry point is this factory with its own default
 endpoint and its own way of naming a model.
 
-Left of the hash boundary, and one of only two packages that may be (R0.9).
+Left of the hash boundary, one of the three packages that may be (R0.10).
 What it sends is a pure function of the stage's prompt and schema and the pinned
 identifier; where it sends it is per machine and in no key (R9.2). Nothing here
 decides whether a call happens -- the stage key does, and a cache hit never

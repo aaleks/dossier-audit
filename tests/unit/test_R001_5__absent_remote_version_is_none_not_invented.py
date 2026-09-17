@@ -3,9 +3,9 @@
 A fabricated version marker is worse than none: it makes R2.1 skip a fetch for an
 item that did change.
 
-Proved here for the `folder` connector. The Confluence `v37` row (example 2) and
-the Jira missing-field row (example 3) belong to connectors that do not exist
-yet -- which is why this rule stays NOT MET.
+Proved here for the `folder` connector. The Jira missing-field row (example 3)
+is implemented in `jira.py` and not transcribed here yet; the Confluence `v37`
+row (example 2) names a connector that does not exist.
 """
 
 from __future__ import annotations

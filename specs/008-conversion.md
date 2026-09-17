@@ -108,7 +108,7 @@ answer depends on a corpus size nobody has measured.
 
 A converter reads the bytes it is given and its own options, and nothing else. No
 clock, no locale, no environment variable, no file outside its input, no network
-(R0.1).
+(R0.10).
 
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters`)

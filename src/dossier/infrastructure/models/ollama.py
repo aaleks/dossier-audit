@@ -47,7 +47,7 @@ class OllamaClient:
         self._url = self._base + "/api/chat"
         self._http = http_client(api_key, transport)
         # The digest is checked once, before the first completion -- the first
-        # moment a model is reached at all (R9.4, R0.9). A client that is never
+        # moment a model is reached at all (R9.4, R0.10). A client that is never
         # asked anything, as in a run served from cache, asks the server nothing.
         self._unchecked = True
 

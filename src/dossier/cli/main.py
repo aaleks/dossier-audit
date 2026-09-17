@@ -709,7 +709,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
         # Resolution failed, so nothing ran and nothing was written (R4.1).
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
-    except (EndpointUnset, NotImplementedError, UnknownProvider) as error:
+    except (EndpointUnset, UnknownProvider) as error:
         # The first cache miss needed a model this machine cannot reach. The run
         # stops there, before any model was asked (R9.2 row 3).
         typer.echo(f"{pipeline}: {error}", err=True)

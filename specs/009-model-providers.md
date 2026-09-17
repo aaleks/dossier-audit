@@ -106,7 +106,7 @@ first cache miss an hour into a run.
 ### R9.4 — a run stops before its first model call if the server's digest for the tag is not the pinned one
 
 Checked on the first cache miss, because that is the first moment a model is
-reached at all (R0.9).
+reached at all (R0.10).
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.model_id.check_served`)
@@ -118,7 +118,7 @@ reached at all (R0.9).
 | 1 | the server reports `7f3c29a1` for `qwen2.5:7b` | the run proceeds; one digest request for the run |
 | 2 | the model was re-pulled and the server now reports `e04b6d52` | the run stops naming both digests; 0 model calls and nothing cached |
 | 3 | `DOSSIER_OLLAMA_URL` pointing at OpenWebUI's Ollama passthrough, `https://ai.example.internal/ollama` | checked the same way (R9.7) |
-| 4 | *counter-example* — every stage served from cache | no digest request and no model call (R0.9) |
+| 4 | *counter-example* — every stage served from cache | no digest request and no model call (R0.10) |
 
 ### R9.5 — a model served by vLLM is pinned by its Hugging Face repository and revision
 

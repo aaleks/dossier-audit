@@ -3,9 +3,8 @@
 The full listing is what tombstoning is computed against, so an omission is
 silently destructive.
 
-Proved here for the `folder` connector. Jira pagination (example 2) belongs to
-the jira connector and is unproved until that connector exists -- which is why
-this rule stays NOT MET.
+Proved here for the `folder` connector. Jira pagination (example 2) is
+implemented in `jira.py` and not transcribed here yet.
 """
 
 from __future__ import annotations
