@@ -16,7 +16,11 @@ from pathlib import Path
 from dossier.application.run import StepReport
 from dossier.domain.gold import CalibrationCase, GoldDocument, gold_set_hash
 from dossier.domain.hashing import content_hash
-from dossier.domain.judges import MINIMUM_SAMPLE, Calibration, NotCalibrated
+from dossier.domain.judges import (
+    Calibration,
+    calibration,
+    require_measurable,
+)
 from dossier.domain.keys import JudgeInputs, cache_key, provenance
 from dossier.domain.ports import ArtifactStore, Tracker
 from dossier.domain.scoring import (
@@ -166,9 +170,9 @@ def start_eval(
     # its own says a judge agreed with a human without saying which judge or on
     # what question, so two evals under different judges would be read as one
     # measurement -- which is what R7.11 row 2 exists to prevent (R11.3 row 3).
-    for field, calibration in (judges or {}).items():
-        params[f"judge/{field}/agreement"] = str(calibration.agreement)
-        params[f"judge/{field}/model"] = calibration.judge_model
+    for field, measured in (judges or {}).items():
+        params[f"judge/{field}/agreement"] = str(measured.agreement)
+        params[f"judge/{field}/model"] = measured.judge_model
     tracker.log_params(params)
 
 
@@ -405,49 +409,6 @@ def judge_scores(
     return tuple(judged)
 
 
-def agreement(
-    *, verdicts: Mapping[str, bool], human: Mapping[str, bool]
-) -> tuple[float, tuple[str, ...]]:
-    """What proportion of the sample the judge and the reviewer agreed on, and where not.
-
-    Over the cases the reviewer scored, which is the sample R7.11 measures. A
-    case the judge could not be asked about is absent from `verdicts` and counts
-    as a disagreement rather than being dropped: a judge that fails on the hard
-    half of a corpus and is scored on the rest would report a figure the corpus
-    does not support.
-    """
-    if not human:
-        raise ValueError("no human-scored cases: there is nothing to agree with")
-
-    disagreed = tuple(case for case in sorted(human) if verdicts.get(case) is not human[case])
-    agreed = len(human) - len(disagreed)
-    return agreed / len(human), disagreed
-
-
-def calibration(
-    *,
-    verdicts: Mapping[str, bool],
-    human: Mapping[str, bool],
-    judge_model: str,
-    rubric_hash: str,
-) -> Calibration:
-    """The measurement, recorded with what it was made against (R7.11 row 2).
-
-    The model identifier, the rubric hash and the prompt hash travel with the
-    figure because an agreement number on its own says a judge agreed with a
-    human without saying which judge, or on what question -- and `is_stale`
-    needs all three to notice when any has moved since (R7.6, R7.19).
-    """
-    measured, _ = agreement(verdicts=verdicts, human=human)
-    return Calibration(
-        judge_model=judge_model,
-        rubric_hash=rubric_hash,
-        prompt_hash=judge_prompt_hash(),
-        agreement=measured,
-        sample_size=len(human),
-    )
-
-
 # Where a measurement is kept, beside the gold set it was measured against. A
 # subdirectory, so a calibration is not one of the `<document>.json` files the
 # gold set is made of, which `_validate_gold` would read as a verified answer
@@ -492,7 +453,7 @@ def calibrate_field(
     starts, and a calibration trace is exactly one call, so nothing that
     happens inside it goes unrecorded by waiting.
     """
-    _require_measurable(field, cases)
+    require_measurable(field, len(cases))
 
     human: dict[str, bool] = {}
     verdicts: dict[str, bool] = {}
@@ -520,7 +481,11 @@ def calibrate_field(
             tracker.end_trace(status="OK")
 
     measured = calibration(
-        verdicts=verdicts, human=human, judge_model=judge_model, rubric_hash=rubric_hash
+        verdicts=verdicts,
+        human=human,
+        judge_model=judge_model,
+        rubric_hash=rubric_hash,
+        prompt_hash=judge_prompt_hash(),
     )
 
     path = directory / CALIBRATIONS_DIR / f"{field}.json"
@@ -531,16 +496,6 @@ def calibrate_field(
         json.dumps(measured.model_dump(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     return measured
-
-
-def _require_measurable(field: str, cases: Sequence[CalibrationCase]) -> None:
-    """Refuse a sample too small to produce a figure that means anything (R7.11 row 3)."""
-    if len(cases) < MINIMUM_SAMPLE:
-        raise NotCalibrated(
-            f"{field}: the sample holds {len(cases)} case(s), and {MINIMUM_SAMPLE} is the "
-            "minimum at which agreement means anything. Report this as not measurable at "
-            "this N, never as a percentage (R7.11 example 3)."
-        )
 
 
 @dataclass(frozen=True)
@@ -579,7 +534,7 @@ def calibrate_fields(
     and worse, story than "refused" (R11.5 row 4).
     """
     for field, sample in sorted(samples.items()):
-        _require_measurable(field, sample.cases)
+        require_measurable(field, len(sample.cases))
     if tracker is not None:
         tracker.start_run(
             experiment=experiment,

@@ -425,7 +425,7 @@ latest, and a trace per case behind the agreement figure.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
-- **Proved by:** `tests/unit/test_R007_14__calibrate_writes_what_it_measured.py`, `tests/acceptance/test_R007_14__calibrate_writes_the_calibration_file.py`
+- **Proved by:** `tests/unit/test_R007_14__agreement_is_measured_over_the_reviewers_cases.py`, `tests/unit/test_R007_14__calibrate_writes_what_it_measured.py`, `tests/acceptance/test_R007_14__calibrate_writes_the_calibration_file.py`
 - **Status:** MET
 
 | # | Given | Then |

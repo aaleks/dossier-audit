@@ -26,11 +26,18 @@ from pathlib import Path
 import pytest
 from pypdf import PdfReader
 
-from dossier.application.eval import agreement, calibration, judged
+from dossier.application.eval import judge_prompt_hash, judged
 from dossier.config.endpoints import endpoint_for
 from dossier.config.environment import environment
 from dossier.domain.hashing import text_hash
-from dossier.domain.judges import MINIMUM_SAMPLE, Calibration, NotCalibrated, is_eligible
+from dossier.domain.judges import (
+    MINIMUM_SAMPLE,
+    Calibration,
+    NotCalibrated,
+    agreement,
+    calibration,
+    is_eligible,
+)
 from dossier.domain.model_id import provider_of
 from dossier.infrastructure.models.registry import provider as model_provider
 
@@ -133,6 +140,7 @@ def measured() -> dict:
             human=human,
             judge_model=JUDGE_MODEL,
             rubric_hash=text_hash(rubric_path),
+            prompt_hash=judge_prompt_hash(),
         ),
     }
 
