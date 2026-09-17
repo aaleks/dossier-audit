@@ -12,42 +12,15 @@ The rule forbids calling and writing, not reading.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 
 from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.domain.pipeline import PipelineConfig
-from dossier.domain.resolution import ResolvedPlan, ResolvedStep, resolve
+from dossier.domain.plan import StepPlan, diff
+from dossier.domain.resolution import ResolvedPlan, resolve
 from dossier.domain.sync import State
-
-
-class StepStatus(Enum):
-    """What `--plan` says would happen to one step (spec 004, "Plan diffing").
-
-    Ordered by how much explaining each one needs, which is also the order they
-    are checked in: a step whose prompt *and* inputs moved is reported as
-    `inputs changed`, because that is the change that re-points the graph.
-    """
-
-    NEW = "new"
-    INPUTS_CHANGED = "inputs changed"
-    PROMPT_CHANGED = "prompt changed"
-    UPSTREAM_CHANGED = "upstream changed"
-    CACHED = "cached"
-
-
-@dataclass(frozen=True)
-class StepPlan:
-    """One line of the plan, with the evidence behind it."""
-
-    step: ResolvedStep
-    status: StepStatus
-    was: list[str] | None = None
-
-    @property
-    def rerunning(self) -> bool:
-        return self.status is not StepStatus.CACHED
 
 
 @dataclass(frozen=True)
@@ -70,58 +43,28 @@ def build_plan(
     documents: dict[str, str],
     previous: ResolvedPlan | None,
     previous_id: str | None = None,
+    prompt_hashes: Mapping[str, str] | None = None,
+    schema_hashes: Mapping[str, str | None] | None = None,
 ) -> Plan:
     """Resolve the pipeline and say, per step, what would happen to it.
 
     `previous` is the resolved plan of the most recent run, or `None` when there
-    has never been one. Everything is `new` in that case, which is the honest
-    answer rather than a cheerful one -- a first plan has nothing to compare
-    against and should not imply otherwise.
+    has never been one. `prompt_hashes` and `schema_hashes` are the same ones a
+    run keys on, handed in by the same caller: a plan resolved without them
+    would print `cached` for a prompt a run is about to miss on (R4.12).
     """
-    resolved = resolve(pipeline=pipeline, pipeline_hash=pipeline_hash, documents=documents)
+    resolved = resolve(
+        pipeline=pipeline,
+        pipeline_hash=pipeline_hash,
+        documents=documents,
+        prompt_hashes=prompt_hashes,
+        schema_hashes=schema_hashes,
+    )
     return Plan(
         resolved=resolved,
-        steps=_diff(resolved, previous),
+        steps=diff(resolved, previous),
         compared_against=previous_id,
     )
-
-
-def _diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan]:
-    """Per step: what changed, and what it was before.
-
-    Upstream propagation is why this walks in declaration order and keeps a
-    running set. A step whose own inputs and prompt are untouched must still
-    re-run if anything it reads will, and that is a property of the whole chain
-    above it rather than of the step itself.
-    """
-    if previous is None:
-        return [StepPlan(step=step, status=StepStatus.NEW) for step in resolved.steps]
-
-    before = {step.id: step for step in previous.steps}
-    rerunning: set[str] = set()
-    plans: list[StepPlan] = []
-
-    # `prompt changed` is deliberately not decided here. The obvious shortcut --
-    # comparing the pipeline hash -- is wrong, and R4.5 says so in as many words:
-    # a comment added to pipeline.yaml changes that hash and must still leave
-    # every step `cached`. Answering it properly needs a per-step prompt file
-    # hash on the plan, which arrives with the slice that writes manifests.
-    for step in resolved.steps:
-        earlier = before.get(step.id)
-        if earlier is None:
-            status, was = StepStatus.NEW, None
-        elif earlier.inputs != step.inputs:
-            status, was = StepStatus.INPUTS_CHANGED, earlier.inputs
-        elif rerunning.intersection(step.inputs):
-            status, was = StepStatus.UPSTREAM_CHANGED, None
-        else:
-            status, was = StepStatus.CACHED, None
-
-        if status is not StepStatus.CACHED:
-            rerunning.add(step.id)
-        plans.append(StepPlan(step=step, status=status, was=was))
-
-    return plans
 
 
 def pinned_documents(rows) -> dict[str, str]:

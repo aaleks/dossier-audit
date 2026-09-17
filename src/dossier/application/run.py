@@ -149,18 +149,14 @@ def execute(
     """
     if tracker is not None and not experiment:
         raise ValueError("a tracker records to an experiment, and none was named")
+    prompt_hashes, schema_hashes = key_hashes(pipeline, prompts=prompts, schemas=schemas)
     plan = _resolve(
         pipeline=pipeline,
         pipeline_hash=pipeline_hash,
         documents=documents,
         media_types=media_types,
-        prompt_hashes={step: content_hash(text.encode()) for step, text in prompts.items()},
-        # The declaration's text, not the schema generated from it: the generated
-        # schema names fields and nothing else, so a key over it would miss every
-        # edit it cannot see (R6.11).
-        schema_hashes={
-            step.id: _declaration_hash(schemas.get(step.id)) for step in pipeline.steps
-        },
+        prompt_hashes=prompt_hashes,
+        schema_hashes=schema_hashes,
         # And what the model is shown, beside it: a change to dossier's own
         # generator moves no byte of the declaration (R6.12).
         generated_schema_hashes={
@@ -544,6 +540,25 @@ def _targets(declared: StepConfig, resolved: ResolvedStep) -> list[str]:
     earlier steps had spent model calls (R4.1).
     """
     return list(resolved.inputs)
+
+
+def key_hashes(
+    pipeline: PipelineConfig,
+    *,
+    prompts: Mapping[str, str],
+    schemas: Mapping[str, OutputSchema | None],
+) -> tuple[dict[str, str], dict[str, str | None]]:
+    """The prompt and declaration hashes a stage key is made of, per step.
+
+    One derivation for both a run and a plan (R4.12): a plan resolved from any
+    other would print `cached` for a step the run is about to miss on. The
+    declaration's own text is hashed, not the schema generated from it, because
+    the generated schema names fields and nothing else (R6.11).
+    """
+    return (
+        {step: content_hash(text.encode()) for step, text in prompts.items()},
+        {step.id: _declaration_hash(schemas.get(step.id)) for step in pipeline.steps},
+    )
 
 
 def _declaration_hash(output: OutputSchema | None) -> str | None:

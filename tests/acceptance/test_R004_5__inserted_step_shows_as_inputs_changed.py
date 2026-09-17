@@ -21,7 +21,8 @@ from pathlib import Path
 from tests.pipelines import PROVIDERS, write_pipeline
 
 from dossier.application.manifest import Manifest
-from dossier.config.load import load_pipeline
+from dossier.application.run import key_hashes
+from dossier.config.load import load_output_schemas, load_pipeline
 from dossier.domain.hashing import content_hash
 from dossier.domain.resolution import resolve
 
@@ -49,10 +50,24 @@ def _record_a_run(workspace: Path) -> None:
     invented by this test.
     """
     path = workspace / "pipelines" / PIPELINE / "pipeline.yaml"
+    config = load_pipeline(path, providers=PROVIDERS)
+    # Keyed as a run keys it: a manifest without the prompt and declaration
+    # hashes is a shape no run writes, and a plan compared against one would
+    # report every prompt as changed (R4.12).
+    prompt_hashes, schema_hashes = key_hashes(
+        config,
+        prompts={
+            step.id: (path.parent / step.prompt).read_text(encoding="utf-8")
+            for step in config.steps
+        },
+        schemas=load_output_schemas(config, path),
+    )
     plan = resolve(
-        pipeline=load_pipeline(path, providers=PROVIDERS),
+        pipeline=config,
         pipeline_hash=content_hash(path.read_bytes()),
         documents={},
+        prompt_hashes=prompt_hashes,
+        schema_hashes=schema_hashes,
     )
     Manifest(
         run_id=EARLIER_RUN,

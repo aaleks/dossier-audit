@@ -66,9 +66,8 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. One rule is outstanding: R4.12, `--plan` keyed exactly
-as a run is, so `cached` is a promise the run keeps. 127 of the 136 rules are
-MET, 8 superseded.
+Currently open: **none**, and nothing is outstanding: all twelve specs are
+implemented, and 128 of the 136 rules are MET with the other 8 superseded.
 
 The judge is asked. `dossier eval` scores a free-text field by putting the run's
 answer to the judge with the one question it was calibrated on -- is this
