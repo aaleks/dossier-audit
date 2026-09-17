@@ -109,12 +109,21 @@ can affect.
 
 ## The review loop
 
-A run emits `review.jsonl`: one record per field that is empty, ungrounded, low
-confidence, or disagrees with the gold set. A reviewer marks each `correct`,
-`incorrect`, or supplies the right value. Accepted corrections are merged into
-the gold set.
+**Not built.** What follows is the design, kept because three rules are shaped
+by it; no rule claims the file or the command, and `dossier` writes neither.
 
-Reviewing is how the gold set grows. There is no separate labelling exercise.
+A run would emit `review.jsonl`: one record per field that is empty,
+ungrounded, low confidence, or disagrees with the gold set. A reviewer would
+mark each `correct`, `incorrect`, or supply the right value, and accepted
+corrections would be merged into the gold set -- reviewing being how the gold
+set grows, with no separate labelling exercise.
+
+What exists today is the material the file would hold: every `FieldScore`
+carries a `detail` saying *why* it came out as it did -- abstained, ungrounded,
+a value mismatch, a judge's evidence (R6.5 row 2, R7.4 row 2, R7.17 row 2) --
+and `apply_correction` in `dossier.domain.gold` is the decision a correction
+would pass through (R7.7). The command that writes the file and reads the
+reviewer's answers back is a feature to scope with `/discover`, not a fix.
 
 ## The change gate
 
@@ -192,7 +201,7 @@ the grounding check decorative.
 | # | Given | Then |
 |---|-------|------|
 | 1 | `loss_amount` `48200.00`, span not locatable, gold `48200.00` | incorrect |
-| 2 | the same | it appears in `review.jsonl` as ungrounded rather than as a value mismatch |
+| 2 | the same | its detail says it was ungrounded, not that its value mismatched -- what a review listing would show a person ("The review loop", not built) |
 | 3 | `loss_amount` `48200.00`, span locatable, gold `48200.00` | correct |
 | 4 | *counter-example* — an abstaining field, which carries no span | not ungrounded and not incorrect on those grounds; it is scored against gold by R7.3 |
 

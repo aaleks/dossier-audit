@@ -47,12 +47,13 @@ class TestEvidenceIsRequired:
         assert result.verdict is Verdict.INCORRECT
 
     def test_it_is_reported_as_ungrounded_not_as_a_mismatch(self):
-        """Example 2: the one where the reason has to survive into review.
+        """Example 2: the one where the reason has to survive for a person to read.
 
         Both are incorrect, and they need completely different work: a mismatch
         means the model read the wrong thing, ungrounded means it read nothing.
-        A `review.jsonl` that called both "incorrect" would send someone hunting
-        for a disagreement that does not exist.
+        The verdict's detail is what a review listing would show (spec 007,
+        "The review loop" -- not built), and one that called both "incorrect"
+        would send someone hunting for a disagreement that does not exist.
         """
         result = score_field(record=loss(), gold=GOLD, check=UNGROUNDED, kind=FieldKind.AMOUNT)
         mismatch = score_field(

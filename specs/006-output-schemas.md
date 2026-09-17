@@ -137,7 +137,7 @@ instead.
 | # | Given | Then |
 |---|-------|------|
 | 1 | `root_cause` null with `reason: not stated in document` | valid; written and cached |
-| 2 | the same field in `review.jsonl` | listed for human review, which is not the same as failing (R7.x review loop) |
+| 2 | the same field, checked | not a failure: an abstaining field is for a person to review, which is not the same as failing (spec 007, "The review loop", not built) |
 | 3 | `root_cause` null with no `reason` | invalid; abstention must say why it abstained |
 | 4 | *counter-example* — `loss_amount` null when the gold set records `48200.00` | valid output, and scored incorrect; validity and correctness are different questions (R7.3) |
 
