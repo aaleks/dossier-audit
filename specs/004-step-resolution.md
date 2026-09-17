@@ -194,7 +194,7 @@ Newer snapshots are ignored. A past audit is defended by what it actually read.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
-- **Proved by:** `tests/unit/test_R004_9__superseded_snapshots_do_not_affect_replay.py`
+- **Proved by:** `tests/unit/test_R004_9__superseded_snapshots_do_not_affect_replay.py`, `tests/acceptance/test_R004_9__a_run_after_the_source_moved_warns.py`
 - **Status:** MET
 
 | # | Given | Then |
@@ -202,7 +202,7 @@ Newer snapshots are ignored. A past audit is defended by what it actually read.
 | 1 | a run pinned to `a3f9c1e2`, and `INC-4821` since re-snapshotted at a new hash | the replay reads `a3f9c1e2` |
 | 2 | the same, with `INC-4821` since tombstoned | the replay still resolves (R2.7) |
 | 3 | a *new* run of the same pipeline | pins the newer snapshot; only replay is frozen |
-| 4 | *counter-example* — `dossier run` without `--replay`, after the source moved | resolves against current snapshots and warns that the source has moved since the last run |
+| 4 | *counter-example* — `dossier run` without `--replay`, after `INC-4821` was re-snapshotted | resolves against the current snapshot and prints `warning: the source has moved since run 20260806T142203Z-4f1a: INC-4821 re-snapshotted` before any step runs -- a document added or tombstoned since is named the same way |
 
 ### R4.10 — a document key two sources both hold stops the run, naming both
 

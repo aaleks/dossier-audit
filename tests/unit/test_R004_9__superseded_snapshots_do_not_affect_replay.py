@@ -394,3 +394,38 @@ class TestTheReplayReadsByThePinnedHashNotJustRecordsIt:
 
         assert result.exit_code == 2
         assert "cannot be reproduced" in result.output
+
+
+class TestARunAfterTheSourceMovedSaysSo:
+    """R4.9 row 4, the decision: which documents moved since a past run pinned them."""
+
+    def test_a_re_snapshotted_document_is_named_and_an_unchanged_one_is_not(self):
+        """The one where `INC-4821` was re-snapshotted and `INC-4822` was not."""
+        from dossier.domain.resolution import PinnedDocument, moved_since
+
+        pinned = [
+            PinnedDocument(key="INC-4821", snapshot="a3f9c1e2" * 8),
+            PinnedDocument(key="INC-4822", snapshot="77c1b40a" * 8),
+        ]
+
+        moved = moved_since(pinned, {"INC-4821": "c4a70b93" * 8, "INC-4822": "77c1b40a" * 8})
+
+        assert moved == {"INC-4821": "re-snapshotted"}
+
+    def test_a_document_added_or_tombstoned_since_is_named_the_same_way(self):
+        """The one where the source gained `INC-5102` and lost `INC-4822`."""
+        from dossier.domain.resolution import PinnedDocument, moved_since
+
+        pinned = [PinnedDocument(key="INC-4822", snapshot="77c1b40a" * 8)]
+
+        moved = moved_since(pinned, {"INC-5102": "c4a70b93" * 8})
+
+        assert moved == {"INC-4822": "gone", "INC-5102": "new"}
+
+    def test_nothing_moved_is_nothing_to_say(self):
+        """The one where the source is exactly as the last run read it."""
+        from dossier.domain.resolution import PinnedDocument, moved_since
+
+        pinned = [PinnedDocument(key="INC-4821", snapshot="a3f9c1e2" * 8)]
+
+        assert moved_since(pinned, {"INC-4821": "a3f9c1e2" * 8}) == {}
