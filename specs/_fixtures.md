@@ -75,7 +75,8 @@ own directory, so one set can serve several pipelines (R3.7).
 | `gold/incidents/` | the verified answers, one `<document>.json` per document |
 | `gold/incidents/samples/root_cause.jsonl` | the human-scored cases a judge is measured against: candidate answers marked supported or unsupported, wrong ones included (R7.16) |
 | `gold/incidents/judge.yaml` | the agreement each judged field's judge must reach — `root_cause: 0.95`, agreed by `a.aleks` (R7.13) |
-| `gold/incidents/calibrations/root_cause.json` | what `dossier calibrate` measured for that judge: its model, the rubric hash, the agreement and the sample size (R7.14) |
+| `gold/incidents/calibrations/root_cause.json` | what `dossier calibrate` measured for that judge: its model, the rubric hash, the judge prompt hash, the agreement and the sample size (R7.14, R7.19) |
+| `.dossier/cache/judge/` | the judge's verdicts, one artifact per (judge, rubric, prompt, document, candidate), with a provenance record each (R7.18) |
 
 Three artifacts, and only the last is written by a machine. The sample and the
 bar are both a person's: what a judge is *shown* and what it is *required* to
@@ -176,6 +177,22 @@ example refers to.
 | `severity` | `major` | enum |
 | `root_cause` | `null`, reason `not stated in document` | the abstention example |
 | `affected_systems` | `["payments-api", "ledger-batch"]` | the field that regressed in the deck's comparison table |
+
+## Fields on `INC-4830`
+
+The document that states its root cause, and so the one a judge is asked about
+(R7.17). The two candidates are the committed sample's `rc-01` and `rc-02`
+(`tests/evals/golden/root_cause.jsonl`), quoted here so an example row and a
+test can name the same words.
+
+| Field | Gold value | Notes |
+|---|---|---|
+| `root_cause` | `the renewed TLS certificate was never deployed to the load balancers` | stated; the reviewer's own words, a reference for a person and not an input to the judge |
+
+| Candidate | Wording | Verdict |
+|---|---|---|
+| `rc-01` | `The renewed TLS certificate was issued into Vault but never deployed to the load balancers, because deployment needed a Terraform apply that nobody ran; the expiry alert went to an archived Slack channel.` | supported |
+| `rc-02` | `The quarter-end change freeze caused the checkout outage.` | unsupported -- the planted claim (R7.12) |
 
 ## Scoring example (R7.2)
 
