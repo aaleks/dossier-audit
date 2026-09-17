@@ -63,7 +63,7 @@ from dossier.config.load import (
 )
 from dossier.domain.conversion import NoConverter
 from dossier.domain.hashing import text_hash
-from dossier.domain.judges import Calibration, NotCalibrated, is_eligible, is_stale
+from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
 from dossier.domain.ports import ModelClient, Tracker
 from dossier.domain.resolution import PinnedConverter, moved_since, run_id
@@ -956,11 +956,9 @@ def _judge_gate(
 ) -> tuple[dict[str, Calibration], dict[str, str]]:
     """Which judged fields may be reported, and why the rest may not (R7.15).
 
-    R7.5 and R7.6 are the decisions; this asks them and keeps the answers. Three
-    states withhold a field, and each says which it is rather than all three
-    reading as "no score": never measured wants a `dossier calibrate`, a stale
-    calibration wants a re-measure, and one below the bar wants a better judge or
-    a figure somebody agrees to lower.
+    The reads are here -- the rubrics, the thresholds, each calibration file --
+    and the decision is `withholding`'s, in the domain, so it is provable with
+    a `Calibration` and four strings rather than a workspace.
     """
     rubrics = load_judge_rubrics(declaration)
     if not rubrics:
@@ -973,38 +971,21 @@ def _judge_gate(
 
     judges: dict[str, Calibration] = {}
     withheld: dict[str, str] = {}
+    prompt = judge_prompt_hash()
     for field, named in sorted(rubrics.items()):
         measured = load_calibration(directory, field)
-        if measured is None:
-            withheld[field] = "never measured -- run `dossier calibrate`"
-            continue
-        judges[field] = measured
-
-        current = text_hash(pipeline_dir / named)
-        prompt = judge_prompt_hash()
-        if is_stale(measured, judge_model=model, rubric_hash=current, prompt_hash=prompt):
-            if measured.judge_model != model:
-                moved = f"measured against {measured.judge_model}"
-            elif measured.rubric_hash != current:
-                moved = "the rubric has changed since"
-            elif measured.prompt_hash is None:
-                moved = "measured under a judge prompt nobody recorded (R7.19)"
-            else:
-                moved = "the judge prompt has changed since (R7.19)"
-            withheld[field] = f"calibration is stale: {moved}"
-            continue
-
-        threshold = thresholds.get(field)
-        if threshold is None:
-            withheld[field] = f"no agreement threshold declared in {JUDGE_FILE}"
-            continue
-        try:
-            if not is_eligible(measured, threshold=threshold):
-                withheld[field] = (
-                    f"agreement {measured.agreement} is below the agreed {threshold}"
-                )
-        except NotCalibrated as error:
-            withheld[field] = str(error)
+        if measured is not None:
+            judges[field] = measured
+        reason = withholding(
+            measured,
+            judge_model=model,
+            rubric_hash=text_hash(pipeline_dir / named),
+            prompt_hash=prompt,
+            threshold=thresholds.get(field),
+            threshold_file=JUDGE_FILE,
+        )
+        if reason is not None:
+            withheld[field] = reason
 
     return judges, withheld
 

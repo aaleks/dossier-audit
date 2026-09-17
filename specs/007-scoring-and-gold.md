@@ -448,8 +448,8 @@ line reads as a field nobody verified (R7.3 row 4), which is a different problem
 and wants different work.
 
 - **Kind:** deterministic
-- **Layer:** application (`dossier.application.eval`)
-- **Proved by:** `tests/acceptance/test_R007_15__eval_withholds_an_ungated_judged_field.py`
+- **Layer:** domain (`dossier.domain.judges.withholding`)
+- **Proved by:** `tests/unit/test_R007_15__why_a_judged_field_is_withheld.py`, `tests/acceptance/test_R007_15__eval_withholds_an_ungated_judged_field.py`
 - **Status:** MET
 
 | # | Given | Then |

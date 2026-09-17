@@ -121,3 +121,48 @@ def is_stale(
         or calibration.rubric_hash != rubric_hash
         or calibration.prompt_hash != prompt_hash
     )
+
+
+def withholding(
+    calibration: Calibration | None,
+    *,
+    judge_model: str,
+    rubric_hash: str,
+    prompt_hash: str,
+    threshold: float | None,
+    threshold_file: str = "judge.yaml",
+) -> str | None:
+    """Why a judged field may not be reported, or `None` when it may (R7.15).
+
+    R7.5 and R7.6 are the decisions; this asks them in order and words the
+    answer. Four states withhold a field, and each says which it is rather
+    than all four reading as "no score", because they want four different
+    fixes: never measured wants a `dossier calibrate`; a stale calibration
+    wants a re-measure, and says which of the judge, the rubric or the prompt
+    moved; no bar wants a line in the gold set's threshold file (R7.13); and
+    one below the bar wants a better judge or a figure somebody agrees to
+    lower. Stale is checked before the bar, because a figure measured against
+    something else is not a figure to compare with anything.
+    """
+    if calibration is None:
+        return "never measured -- run `dossier calibrate`"
+    if is_stale(
+        calibration, judge_model=judge_model, rubric_hash=rubric_hash, prompt_hash=prompt_hash
+    ):
+        if calibration.judge_model != judge_model:
+            moved = f"measured against {calibration.judge_model}"
+        elif calibration.rubric_hash != rubric_hash:
+            moved = "the rubric has changed since"
+        elif calibration.prompt_hash is None:
+            moved = "measured under a judge prompt nobody recorded (R7.19)"
+        else:
+            moved = "the judge prompt has changed since (R7.19)"
+        return f"calibration is stale: {moved}"
+    if threshold is None:
+        return f"no agreement threshold declared in {threshold_file}"
+    try:
+        if not is_eligible(calibration, threshold=threshold):
+            return f"agreement {calibration.agreement} is below the agreed {threshold}"
+    except NotCalibrated as error:
+        return str(error)
+    return None
