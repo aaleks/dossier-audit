@@ -90,7 +90,7 @@ class TestProvenanceAndKeyAgree:
         record = provenance(inputs, run_id=RUN_ID, dossier_version="0.1.0")
         keyed = set(inputs.keyed())
 
-        assert set(record) - keyed == PROVENANCE_ONLY, (
+        assert set(record) - keyed <= PROVENANCE_ONLY, (
             "a field in the record that is neither keyed nor a named exception is "
             "an input the cache does not know about"
         )
@@ -157,3 +157,20 @@ class TestTheStructureRefusesToDrift:
                 inputs=[CONVERTED],
                 endpoint="https://eu.example.invalid",
             )
+
+    def test_the_attempt_count_is_recorded_and_never_keyed(self):
+        """Counter-example (row 5): the one written on the second try.
+
+        `attempts` is in the record, so a person can see it took two goes
+        (R6.2 row 1), and out of the key: a retried answer that validated is
+        the same answer, and an artifact is never re-derived because the road
+        to it was longer.
+        """
+        inputs = verify_stage()
+
+        first = provenance(inputs, run_id=RUN_ID, dossier_version="0.1.0", attempts=1)
+        second = provenance(inputs, run_id=RUN_ID, dossier_version="0.1.0", attempts=2)
+
+        assert second["attempts"] == 2
+        assert set(second) - set(inputs.keyed()) == PROVENANCE_ONLY
+        assert first["cache_key"] == second["cache_key"] == cache_key(inputs)

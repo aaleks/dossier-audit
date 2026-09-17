@@ -390,7 +390,11 @@ def _run_one(
             key,
             _as_text(result).encode(),
             record=provenance(
-                key_inputs, run_id=run_id, dossier_version=dossier_version, step=step.id
+                key_inputs,
+                run_id=run_id,
+                dossier_version=dossier_version,
+                step=step.id,
+                attempts=result.attempts,
             ),
         )
     return result
