@@ -18,6 +18,8 @@ evidence. Refusing to print it is the only thing that tells the two apart.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from pydantic import BaseModel, ConfigDict
 
 # Below this, an agreement figure is not a weak measurement -- it is not a
@@ -166,3 +168,62 @@ def withholding(
     except NotCalibrated as error:
         return str(error)
     return None
+
+
+def require_measurable(field: str, count: int) -> None:
+    """Refuse a sample too small to produce a figure that means anything (R7.11 row 3).
+
+    Before a single judge call is made: judging it anyway would spend twenty
+    calls to arrive at a number nobody may quote, then leave a file behind that
+    reads exactly like a calibration (R7.14 row 3).
+    """
+    if count < MINIMUM_SAMPLE:
+        raise NotCalibrated(
+            f"{field}: the sample holds {count} case(s), and {MINIMUM_SAMPLE} is the "
+            "minimum at which agreement means anything. Report this as not measurable at "
+            "this N, never as a percentage (R7.11 example 3)."
+        )
+
+
+def agreement(
+    *, verdicts: Mapping[str, bool], human: Mapping[str, bool]
+) -> tuple[float, tuple[str, ...]]:
+    """What proportion of the sample the judge and the reviewer agreed on, and where not.
+
+    Over the cases the reviewer scored, which is the sample R7.11 measures. A
+    case the judge could not be asked about is absent from `verdicts` and counts
+    as a disagreement rather than being dropped: a judge that fails on the hard
+    half of a corpus and is scored on the rest would report a figure the corpus
+    does not support.
+    """
+    if not human:
+        raise ValueError("no human-scored cases: there is nothing to agree with")
+
+    disagreed = tuple(case for case in sorted(human) if verdicts.get(case) is not human[case])
+    agreed = len(human) - len(disagreed)
+    return agreed / len(human), disagreed
+
+
+def calibration(
+    *,
+    verdicts: Mapping[str, bool],
+    human: Mapping[str, bool],
+    judge_model: str,
+    rubric_hash: str,
+    prompt_hash: str,
+) -> Calibration:
+    """The measurement, recorded with what it was made against (R7.11 row 2).
+
+    The model identifier, the rubric hash and the prompt hash travel with the
+    figure because an agreement number on its own says a judge agreed with a
+    human without saying which judge, or on what question -- and `is_stale`
+    needs all three to notice when any has moved since (R7.6, R7.19).
+    """
+    measured, _ = agreement(verdicts=verdicts, human=human)
+    return Calibration(
+        judge_model=judge_model,
+        rubric_hash=rubric_hash,
+        prompt_hash=prompt_hash,
+        agreement=measured,
+        sample_size=len(human),
+    )
