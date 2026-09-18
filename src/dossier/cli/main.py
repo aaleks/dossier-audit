@@ -61,12 +61,12 @@ from dossier.config.load import (
     load_pipeline,
     load_sources,
 )
-from dossier.domain.conversion import NoConverter
+from dossier.domain.conversion import NoConverter, part_name, unpack_parts
 from dossier.domain.conversion import used as used_converters
 from dossier.domain.hashing import text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
-from dossier.domain.ports import ModelClient, Tracker
+from dossier.domain.ports import ImagePart, ModelClient, Tracker
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
 from dossier.domain.scoring import (
     check_same_documents,
@@ -357,10 +357,16 @@ class _BuiltOnFirstCall:
         self.model_id = model_id
         self._client: ModelClient | None = None
 
-    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+    def complete(
+        self,
+        prompt: str,
+        *,
+        schema: dict | None = None,
+        parts: Sequence[ImagePart] = (),
+    ) -> str:
         if self._client is None:
             self._client = build_model_client(self.model_id)
-        return self._client.complete(prompt, schema=schema)
+        return self._client.complete(prompt, schema=schema, parts=parts)
 
 
 @app.command()
@@ -695,6 +701,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
     # handed it (R3.11). A kind whose artifact is not text is absent from here
     # and reaches a step another way; this is what a prompt placeholder holds.
     content: dict[str, dict[str, str]] = {}
+    parts: dict[str, dict[str, list[tuple[str, ImagePart]]]] = {}
     documents: dict[str, str] = {}
     media_types: dict[str, str] = {}
     by_source: dict[str, list[str]] = {}
@@ -746,6 +753,17 @@ def _execute(workspace: Path, pipeline: str) -> None:
                         continue
                 if decoded:
                     content.setdefault(kind, {}).update(decoded)
+                # A kind whose artifact is a container of parts, unpacked once
+                # here so a per_part step can fan out over it (R3.12, R8.11).
+                for key, payload in produced.items():
+                    try:
+                        unpacked = unpack_parts(payload)
+                    except ValueError:
+                        continue
+                    parts.setdefault(kind, {})[key] = [
+                        (part_name(n, ".png"), ImagePart(media_type="image/png", data=b))
+                        for n, b in enumerate(unpacked, 1)
+                    ]
             documents.update({key: held[key].snapshot for key in converted.text})
             media_types.update({key: held[key].media_type for key in converted.text})
             # A document that could not be read is not silently absent from the
@@ -791,6 +809,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
             media_types=media_types,
             document_text=text,
             document_content=content,
+            document_parts=parts,
             schemas=schemas,
             prompts=prompts,
             # Built at the first cache miss, never before. That also keeps it

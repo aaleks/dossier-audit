@@ -50,10 +50,17 @@ from dossier.domain.pipeline import (
     SourceConfig,
     StepConfig,
     split_kind,
+    validate_modes,
     validate_references,
     validate_step_ids,
 )
-from dossier.domain.ports import ArtifactStore, ModelClient, SnapshotReader, Tracker
+from dossier.domain.ports import (
+    ArtifactStore,
+    ImagePart,
+    ModelClient,
+    SnapshotReader,
+    Tracker,
+)
 from dossier.domain.prompts import render
 from dossier.domain.resolution import (
     PinnedConverter,
@@ -131,6 +138,7 @@ def execute(
     media_types: Mapping[str, str] | None = None,
     document_text: Mapping[str, str],
     document_content: Mapping[str, Mapping[str, str]] | None = None,
+    document_parts: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]] | None = None,
     schemas: Mapping[str, OutputSchema | None],
     prompts: Mapping[str, str],
     model: ModelClient,
@@ -163,6 +171,9 @@ def execute(
     by_kind: Mapping[str, Mapping[str, str]] = (
         {DEFAULT_INPUT_KIND: document_text} if document_content is None else document_content
     )
+    # The parts of each kind that has any, for the per_part steps that fan out
+    # over them (R3.12). Absent for every kind whose artifact is one blob.
+    by_part: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]] = document_parts or {}
     prompt_hashes, schema_hashes = key_hashes(pipeline, prompts=prompts, schemas=schemas)
     plan = _resolve(
         pipeline=pipeline,
@@ -235,46 +246,72 @@ def execute(
                 # One trace per (step, document): the unit of a cache key, so one
                 # trace is one key computed or served (spec 011). Opened before
                 # the work, so what happens inside it is recorded inside it.
+                # Written as each part finishes, not when the run ends: a run
+                # killed in `verify` still leaves `describe/` complete for the
+                # person who opens it (R0.11 row 3). A failed part leaves
+                # nothing, as a failed document does (R0.13 row 3).
+                parts_done: list[DocumentResult] = []
                 if tracker is not None:
                     tracker.start_trace(
                         name=f"{step.id} · {key}",
                         tags={"dossier.step": step.id, "dossier.document": key},
                     )
-                result, stage_key = _run_one(
-                    step=step,
-                    declared=declared[step.id],
-                    document=key,
-                    documents=keys,
-                    document_text=document_text,
-                    by_kind=by_kind,
-                    produced=produced,
-                    schema=None if output is None else output.schema,
-                    prompt=prompts[step.id],
-                    model=model,
-                    cache=cache,
-                    run_id=run_id,
-                    dossier_version=dossier_version,
-                    tracker=tracker,
-                    capture=capture,
+                # A per_part step runs once per part of its input, keyed and
+                # retried per part (R3.12). `[None]` is every other step: one
+                # call, no part, and a key composed exactly as it always was.
+                for part in _parts_for(
+                    declared=declared[step.id], resolved=step, document=key, by_part=by_part
+                ):
+                    result, stage_key = _run_one(
+                        step=step,
+                        declared=declared[step.id],
+                        document=key,
+                        documents=keys,
+                        document_text=document_text,
+                        by_kind=by_kind,
+                        produced=produced,
+                        part=part,
+                        schema=None if output is None else output.schema,
+                        prompt=prompts[step.id],
+                        model=model,
+                        cache=cache,
+                        run_id=run_id,
+                        dossier_version=dossier_version,
+                        tracker=tracker,
+                        capture=capture,
+                    )
+                    if not result.failed:
+                        _publish(
+                            run_dir=manifest.parent,
+                            step=step.id,
+                            document=key,
+                            structured=output is not None,
+                            payload=_as_text(result).encode(),
+                            record=cache.record(stage_key),
+                            part=None if part is None else part[0],
+                        )
+                    parts_done.append(result)
+
+                if not parts_done:
+                    # A per_part step whose document has no parts. The document
+                    # is simply absent from this step, the same shape as one an
+                    # earlier step produced nothing for (R6.13) -- and better
+                    # than one call with no picture, which would ask the model
+                    # to describe nothing and cache the answer.
+                    if tracker is not None:
+                        tracker.end_trace(status="OK", error=None)
+                    continue
+
+                result = (
+                    parts_done[0]
+                    if len(parts_done) == 1 and declared[step.id].mode != "per_part"
+                    else _joined_parts(parts_done, document=key)
                 )
                 if tracker is not None:
                     tracker.end_trace(
                         status="ERROR" if result.failed else "OK", error=result.error
                     )
                 results.append(result)
-                # Written now, not when the run ends: a run killed in `verify`
-                # still leaves `extract/` complete for the person who opens it
-                # (R0.11 row 3). A failed document leaves nothing -- there is no
-                # artifact to copy, and nothing may stand in for one (row 4).
-                if not result.failed:
-                    _publish(
-                        run_dir=manifest.parent,
-                        step=step.id,
-                        document=key,
-                        structured=output is not None,
-                        payload=_as_text(result).encode(),
-                        record=cache.record(stage_key),
-                    )
             steps.append(StepReport(step=step.id, results=tuple(results)))
             produced[step.id] = {
                 result.document: _as_text(result) for result in results if not result.failed
@@ -329,6 +366,7 @@ def _run_one(
     document_text: Mapping[str, str],
     by_kind: Mapping[str, Mapping[str, str]],
     produced: Mapping[str, Mapping[str, str]],
+    part: tuple[str, ImagePart] | None = None,
     schema: dict | None,
     prompt: str,
     model: ModelClient,
@@ -369,7 +407,21 @@ def _run_one(
                 role=name, path=f"{name}/{document}", hash=content_hash(text.encode())
             )
             for name, text in sorted(values.items())
-        ],
+        ]
+        # The part is an input like any other, hashed by content. That is what
+        # makes each page its own key without spec 005 needing a rule about
+        # parts: page two differs from page one because its bytes do (R3.12).
+        + (
+            []
+            if part is None
+            else [
+                ArtifactInput(
+                    role="part",
+                    path=f"part/{document}/{part[0]}",
+                    hash=content_hash(part[1].data),
+                )
+            ]
+        ),
     )
     key = cache_key(key_inputs)
 
@@ -396,6 +448,7 @@ def _run_one(
         schema=schema,
         model=model,
         input_documents=document_text,
+        parts=() if part is None else (part[1],),
         tracker=tracker,
         capture=capture,
         # What a span may say under `hashes` (R10.8 row 2): the template, the
@@ -436,6 +489,7 @@ def _publish(
     structured: bool,
     payload: bytes,
     record: dict | None,
+    part: str | None = None,
 ) -> None:
     """Put one artifact and its record under `runs/<run_id>/` (R0.11).
 
@@ -445,7 +499,7 @@ def _publish(
     byte for byte (R0.3). Nothing here is ever read back -- `runs/` is a copy for
     a person, and the cache stays the only authority (row 6).
     """
-    name = output_path(step, document, structured=structured)
+    name = output_path(step, document, structured=structured, part=part)
     target = run_dir / name
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(payload)
@@ -534,7 +588,60 @@ def _missing_input(
     return any(
         document not in produced.get(target, {})
         for target in _targets(declared, resolved)
-        if target not in SOURCE_KEYWORDS
+        if split_kind(target)[0] not in SOURCE_KEYWORDS
+    )
+
+
+def _parts_for(
+    *,
+    declared: StepConfig,
+    resolved: ResolvedStep,
+    document: str,
+    by_part: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]],
+) -> list[tuple[str, ImagePart] | None]:
+    """The parts one call of this step runs over, or `[None]` for one call.
+
+    `[None]` rather than `[]` for every step that is not `per_part`: the loop
+    above runs once either way, and an empty list would silently skip the step
+    instead of running it once with no part.
+
+    A `per_part` step whose document has no parts yields nothing at all, and the
+    document is simply absent from the step -- the same shape as a document an
+    earlier step produced nothing for (R6.13).
+    """
+    if declared.mode != "per_part":
+        return [None]
+
+    for name in declared.inputs:
+        _, kind = split_kind(name)
+        if kind is None:
+            continue
+        found = by_part.get(kind, {}).get(document)
+        if found:
+            return list(found)
+    return []
+
+
+def _joined_parts(results: Sequence[DocumentResult], *, document: str) -> DocumentResult:
+    """One document's parts as the single result a later step reads (R3.12).
+
+    Each part wrapped in a tag naming it, in part order -- the shape `aggregate`
+    already uses for documents (spec 003, "Prompt files"), and for the same
+    reason: a model asked to attribute a finding needs to know which page it
+    read it on.
+
+    A part that failed is left out rather than represented by an empty tag, and
+    its failure is still carried: a document whose pages half worked is a
+    partial answer and has to read as one.
+    """
+    kept = [result for result in results if not result.failed]
+    failed = [result for result in results if result.failed]
+    body = "\n".join(f'<part name="{part.document}">{_as_text(part)}</part>' for part in kept)
+    return DocumentResult(
+        document=document,
+        attempts=sum(result.attempts for result in results),
+        text=body,
+        error="; ".join(result.error or "" for result in failed) or None,
     )
 
 
@@ -559,7 +666,10 @@ def _input_values(
     """
     values: dict[str, str] = {}
     for name, target in zip(declared.inputs, _targets(declared, resolved), strict=True):
-        if target in SOURCE_KEYWORDS:
+        # A resolved target keeps the kind it was declared with -- expansion
+        # only rewrites `previous`, and `documents@page_images` was already
+        # concrete. So the kind comes off before asking what this names.
+        if split_kind(target)[0] in SOURCE_KEYWORDS:
             # The kind the input asked for, which is `markdown` when it asked
             # for none (R3.11). Keeping only the markdown map here was what made
             # `page_images` an artifact no step could reach: the words existed
@@ -666,6 +776,7 @@ def _resolve(
     """
     validate_step_ids(pipeline)
     validate_references(pipeline)
+    validate_modes(pipeline)
     if source_configs is not None:
         # Refused here, from the configuration alone, before a byte is fetched
         # or a model is reached (R4.13). Skipped when the caller did not supply

@@ -55,7 +55,7 @@ class _Client:
         self.model_id = model_id
         self._provider = provider
 
-    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+    def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
         self._provider.calls += 1
         return json.dumps(
             {

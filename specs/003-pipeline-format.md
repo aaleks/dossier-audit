@@ -1,6 +1,6 @@
 # 003 — Configuration format
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R3.1 – R3.12
 
 ## Purpose
@@ -381,7 +381,7 @@ request is that its author expected an input this pipeline does not produce.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.pipeline`, `dossier.domain.resolution`)
 - **Proved by:** `tests/acceptance/test_R003_12__a_describe_step_reads_one_page_at_a_time.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

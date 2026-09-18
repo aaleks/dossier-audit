@@ -201,7 +201,7 @@ class RoutedModel:
     def call_count(self) -> int:
         return len(self.calls)
 
-    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+    def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
         asked = [key for key in ANSWERS if f"# {key}\n" in prompt]
         assert len(asked) == 1, f"expected one document in the prompt, found {asked}"
         self.calls.append(asked[0])

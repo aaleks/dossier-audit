@@ -76,7 +76,7 @@ class NoModelClient:
 
     model_id = "anthropic:claude-sonnet-4-5-20250929"
 
-    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+    def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
         raise FakeModelClientError(
             "a model call was made where the rule under test permits none"
         )

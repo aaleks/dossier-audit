@@ -12,13 +12,13 @@ calls happened rather than only what came back.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from pydantic import ValidationError
 
 from dossier.domain.grounding import FieldCheck, check_field, with_derived_page
-from dossier.domain.ports import ModelClient, Tracker
+from dossier.domain.ports import ImagePart, ModelClient, Tracker
 from dossier.domain.schemas import FieldRecord, StageOutput
 from dossier.domain.tracking import span_payload
 
@@ -82,6 +82,7 @@ def run_stage(
     schema: dict | None,
     model: ModelClient,
     input_documents: Mapping[str, str],
+    parts: Sequence[ImagePart] = (),
     tracker: Tracker | None = None,
     capture: str = "full",
     hashes: Mapping[str, object] | None = None,
@@ -95,7 +96,14 @@ def run_stage(
     """
     if schema is None:
         text = _asked(
-            tracker, model, prompt, schema=None, attempt=1, capture=capture, hashes=hashes
+            tracker,
+            model,
+            prompt,
+            schema=None,
+            attempt=1,
+            capture=capture,
+            hashes=hashes,
+            parts=parts,
         )
         _llm_span(
             tracker,
@@ -123,6 +131,7 @@ def run_stage(
             attempt=attempts,
             capture=capture,
             hashes=hashes,
+            parts=parts,
         )
 
         try:
@@ -187,6 +196,7 @@ def _asked(
     attempt: int,
     capture: str,
     hashes: Mapping[str, object] | None,
+    parts: Sequence[ImagePart] = (),
 ) -> str:
     """One model call. A call that raised is still one call, so still one LLM span.
 
@@ -196,7 +206,7 @@ def _asked(
     handling it.
     """
     try:
-        return model.complete(prompt, schema=schema)
+        return model.complete(prompt, schema=schema, parts=parts)
     except Exception as error:
         _llm_span(
             tracker,

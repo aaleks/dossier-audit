@@ -63,7 +63,7 @@ class ReportingModel(RoutedModel):
     key (spec 003), so its prompt names no single incident to route by.
     """
 
-    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+    def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
         if '<document key="' in prompt:
             self.calls.append("*")
             return "Four incidents; three stated a loss."

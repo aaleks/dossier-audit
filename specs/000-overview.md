@@ -1,6 +1,6 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R0.1 – R0.13
 
 ## Purpose
@@ -268,7 +268,7 @@ third mode does, and the two together cover all of them.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.store.output_path`)
 - **Proved by:** `tests/unit/test_R000_13__a_per_part_artifact_is_filed_under_its_document.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

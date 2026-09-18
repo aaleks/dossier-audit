@@ -102,7 +102,7 @@ class StepConfig(BaseModel):
     id: str
     prompt: str
     input: str | list[str]
-    mode: Literal["per_file", "aggregate"]
+    mode: Literal["per_file", "aggregate", "per_part"]
     output: str | None = None
 
     @property
@@ -198,6 +198,34 @@ def split_kind(reference: str) -> tuple[str, str | None]:
         )
 
     return (name, kind)
+
+
+def validate_modes(pipeline: PipelineConfig) -> None:
+    """R3.12 -- a `per_part` step reads an input that has parts.
+
+    Decidable from the configuration alone: a kind is written on the input
+    (R3.11), and the text kind has no parts to fan out over. Refusing it here
+    rather than at the first call means the author hears about it before a
+    single page is rendered.
+
+    A step id cannot be `per_part` either, and for the same reason: another
+    step's output is one artifact per document, not a container.
+    """
+    for step in pipeline.steps:
+        if step.mode != "per_part":
+            continue
+        for declared in step.inputs:
+            if is_relative_reference(declared):
+                name, kind = declared, None
+            else:
+                name, kind = split_kind(declared)
+            if kind is None or kind == DEFAULT_INPUT_KIND:
+                raise ValueError(
+                    f"step {step.id!r} is mode: per_part and reads {declared!r}, "
+                    "which has no parts to run over. A per_part step reads a "
+                    "converted kind that produces several artifacts per document, "
+                    "such as documents@page_images (R3.12)."
+                )
 
 
 def validate_references(pipeline: PipelineConfig) -> None:
