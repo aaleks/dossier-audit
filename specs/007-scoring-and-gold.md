@@ -447,8 +447,15 @@ Withheld rather than printed as zero, and named rather than omitted: a missing
 line reads as a field nobody verified (R7.3 row 4), which is a different problem
 and wants different work.
 
+The report is therefore written from the **declared** fields, not from the
+scored ones. A withheld field whose every verdict went to the judge has nothing
+deterministic to total, and a report built from the totals dropped it entirely --
+silently, and exactly in the case the withholding matters most, where the judge
+was the only thing that could have answered. `--compare` has always walked the
+declaration for this reason (R7.8); this says the single-run report does too.
+
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.judges.withholding`)
+- **Layer:** cli (`dossier.cli.eval`)
 - **Proved by:** `tests/unit/test_R007_15__why_a_judged_field_is_withheld.py`, `tests/acceptance/test_R007_15__eval_withholds_an_ungated_judged_field.py`
 - **Status:** MET
 
@@ -458,7 +465,9 @@ and wants different work.
 | 2 | a calibration measured against `openai:gpt-5.4-mini` where the pipeline now names another judge | no percentage; a line saying the calibration is stale and which half moved (R7.6) |
 | 3 | `root_cause` with no calibration file at all | no percentage; a line saying it was never measured, which is not the same as measured and found wanting |
 | 4 | `root_cause` calibrated at 0.95 against a declared 0.95 | reported; the bound is inclusive (R7.5 row 3) |
-| 5 | *counter-example* — `severity`, scored by exact match | reported; no judge, no threshold, and no calibration that could be stale (R7.1) |
+| 5 | a withheld `root_cause` whose every verdict was deferred — gold states a value for every document and every run answer is grounded | the line is still printed with its reason; there is no deterministic verdict to total, and a field that vanished would read as one nobody verified |
+| 6 | *counter-example* — `severity`, scored by exact match | reported; no judge, no threshold, and no calibration that could be stale (R7.1) |
+| 7 | *counter-example* — a declared field no gold file mentions at all | no line; absent is not withheld, and inventing one would report a field nobody verified as a field somebody refused (R7.3 row 4) |
 
 ### R7.16 — a calibration sample records candidate answers a human marked supported or unsupported
 
