@@ -48,6 +48,7 @@ jira = "dossier.infrastructure.connectors.jira:JiraConnector.from_config"
 # registers through the same group a third party would use, with no special case.
 [project.entry-points."dossier.converters"]
 markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextConverter"
+text-plain = "dossier.infrastructure.converters.text_plain:TextPlainConverter"
 
 # A model provider is a package declaring one of these (spec 009, R9.1). The
 # prefix of a `model:` value before its first `:` names one. Registered here so

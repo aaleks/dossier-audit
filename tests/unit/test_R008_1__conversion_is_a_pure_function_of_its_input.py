@@ -42,6 +42,7 @@ INSTALLED = installed_converters()
 # below can hand each converter something it will actually accept.
 PAYLOADS = {
     "text/markdown": b"# INC-4821\n\nTotal exposure CHF 48'200 on page 3.\n",
+    "text/plain": b"INC-4821\n\nTotal exposure CHF 48'200 on page 3.\n",
 }
 
 
