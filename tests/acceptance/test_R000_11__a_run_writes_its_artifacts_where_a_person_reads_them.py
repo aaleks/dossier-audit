@@ -20,8 +20,6 @@ from pathlib import Path
 import pytest
 from tests.pipelines import write_pipeline
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 # The folder source's keys are file names, so the artifact for `INC-4821.md`
 # is `INC-4821.md.json`: the key with `.json` appended, never a suffix replaced.
@@ -74,9 +72,19 @@ def _cached(workspace: Path) -> dict[tuple[str, str], tuple[bytes, bytes]]:
     return entries
 
 
-def _run_dirs(workspace: Path) -> list[Path]:
+def _run_dirs(workspace: Path) -> set[Path]:
     runs = workspace / "runs"
-    return sorted(runs.iterdir()) if runs.is_dir() else []
+    return set(runs.iterdir()) if runs.is_dir() else set()
+
+
+def _new_run(workspace: Path, before: set[Path]) -> Path:
+    """The one run directory that was not there before the command.
+
+    Not the last in sorted order: two runs in the same second differ only in
+    their random suffix, and sorting them says nothing about which came second.
+    """
+    (created,) = _run_dirs(workspace) - before
+    return created
 
 
 @pytest.fixture
@@ -93,9 +101,10 @@ def completed(synced: Path, monkeypatch) -> Path:
     from tests.fakes import FakeModelClient
 
     _use(monkeypatch, FakeModelClient(responses=[_answer(key) for key in DOCUMENTS]))
+    before = _run_dirs(synced)
     result = _cli(synced, monkeypatch, "run", PIPELINE)
     assert result.exit_code == 0, result.output
-    return _run_dirs(synced)[-1]
+    return _new_run(synced, before)
 
 
 class TestARunWritesItsArtifactsWhereAPersonReadsThem:
@@ -129,15 +138,15 @@ class TestARunWritesItsArtifactsWhereAPersonReadsThem:
         from tests.fakes import NoModelClient
 
         _use(monkeypatch, NoModelClient())
+        before = _run_dirs(synced)
 
         result = _cli(synced, monkeypatch, "run", PIPELINE)
 
         assert result.exit_code == 0, result.output
-        first, second = _run_dirs(synced)
-        assert first == completed
+        second = _new_run(synced, before)
         for document in DOCUMENTS:
             name = f"extract/{document}.json"
-            assert (second / name).read_bytes() == (first / name).read_bytes()
+            assert (second / name).read_bytes() == (completed / name).read_bytes()
 
     def test_a_run_that_dies_in_verify_leaves_extract_complete(self, synced: Path, monkeypatch):
         """Example 3: the one where the process is killed while `verify` is running.
@@ -151,11 +160,12 @@ class TestARunWritesItsArtifactsWhereAPersonReadsThem:
 
         write_pipeline(synced, steps=["extract", "verify"], inputs={"verify": "previous"})
         _use(monkeypatch, FakeModelClient(responses=[_answer(key) for key in DOCUMENTS]))
+        before = _run_dirs(synced)
 
         result = _cli(synced, monkeypatch, "run", PIPELINE)
 
         assert result.exit_code != 0
-        run = _run_dirs(synced)[-1]
+        run = _new_run(synced, before)
         expected = sorted(
             name
             for document in DOCUMENTS
@@ -175,11 +185,12 @@ class TestARunWritesItsArtifactsWhereAPersonReadsThem:
 
         responses = ["not json", "still not json", *(_answer(key) for key in DOCUMENTS[1:])]
         _use(monkeypatch, FakeModelClient(responses=responses))
+        before = _run_dirs(synced)
 
         result = _cli(synced, monkeypatch, "run", PIPELINE)
 
         assert result.exit_code == 1, result.output
-        run = _run_dirs(synced)[-1]
+        run = _new_run(synced, before)
         assert not (run / "extract" / "INC-4821.md.json").exists()
         assert not (run / "extract" / "INC-4821.md.meta.json").exists()
         for document in DOCUMENTS[1:]:
@@ -196,11 +207,12 @@ class TestARunWritesItsArtifactsWhereAPersonReadsThem:
         write_pipeline(synced, steps=["report"], outputs={"report": None})
         texts = {key: f"# Report on {key}\n\nNothing to add.\n" for key in DOCUMENTS}
         _use(monkeypatch, FakeModelClient(responses=list(texts.values())))
+        before = _run_dirs(synced)
 
         result = _cli(synced, monkeypatch, "run", PIPELINE)
 
         assert result.exit_code == 0, result.output
-        run = _run_dirs(synced)[-1]
+        run = _new_run(synced, before)
         for document, text in texts.items():
             written = run / "report" / f"{document}.md"
             assert written.is_file(), f"{written.relative_to(synced)} was not written"
@@ -220,12 +232,13 @@ class TestARunWritesItsArtifactsWhereAPersonReadsThem:
 
         (completed / "extract" / "INC-4821.md.json").unlink()
         _use(monkeypatch, NoModelClient())
+        before = _run_dirs(synced)
 
         result = _cli(synced, monkeypatch, "run", PIPELINE)
 
         assert result.exit_code == 0, result.output
         assert "3 from cache" in result.output
-        assert (_run_dirs(synced)[-1] / "extract" / "INC-4821.md.json").is_file()
+        assert (_new_run(synced, before) / "extract" / "INC-4821.md.json").is_file()
 
     def test_planning_writes_no_run_directory(self, synced: Path, monkeypatch, completed: Path):
         """Counter-example (row 7): the one where `--plan` reports work and does none (R4.6)."""

@@ -28,6 +28,7 @@ against `FakeModelClient` and lets the tests assert how many calls happened.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -59,6 +60,7 @@ from dossier.domain.resolution import (
     validate_input_arity,
 )
 from dossier.domain.schemas import StageOutput
+from dossier.domain.store import output_path, record_path
 from dossier.domain.sync import RESERVED_KEY
 from dossier.domain.tracking import tags as tracking_tags
 
@@ -226,7 +228,7 @@ def execute(
                         name=f"{step.id} · {key}",
                         tags={"dossier.step": step.id, "dossier.document": key},
                     )
-                result = _run_one(
+                result, stage_key = _run_one(
                     step=step,
                     declared=declared[step.id],
                     document=key,
@@ -247,6 +249,22 @@ def execute(
                         status="ERROR" if result.failed else "OK", error=result.error
                     )
                 results.append(result)
+                # Written now, not when the run ends: a run killed in `verify`
+                # still leaves `extract/` complete for the person who opens it
+                # (R0.11 row 3). A failed document leaves nothing -- there is no
+                # artifact to copy, and nothing may stand in for one (row 4).
+                # An aggregate result is keyed `*`, which R0.11 has no name for
+                # yet and Windows has no file for; it stays in the cache alone
+                # until the spec says what it is called.
+                if not result.failed and key != AGGREGATE_KEY:
+                    _publish(
+                        run_dir=manifest.parent,
+                        step=step.id,
+                        document=key,
+                        structured=output is not None,
+                        payload=_as_text(result).encode(),
+                        record=cache.record(stage_key),
+                    )
             steps.append(StepReport(step=step.id, results=tuple(results)))
             produced[step.id] = {
                 result.document: _as_text(result) for result in results if not result.failed
@@ -308,7 +326,7 @@ def _run_one(
     dossier_version: str,
     tracker: Tracker | None = None,
     capture: str = "full",
-) -> DocumentResult:
+) -> tuple[DocumentResult, str]:
     """One (step, document), served from cache or asked of the model.
 
     The key covers the prompt *template*, the schema, the model identifier and
@@ -358,7 +376,7 @@ def _run_one(
         # permanently fatal to a workspace whose inputs are all still present.
         if served is not None:
             _stage_span(tracker, step.id, key, cache="hit")
-            return served
+            return served, key
 
     _stage_span(tracker, step.id, key, cache="miss")
     result = run_stage(
@@ -394,7 +412,36 @@ def _run_one(
                 attempts=result.attempts,
             ),
         )
-    return result
+    # The key travels with the result so the caller can put the same bytes and
+    # the same record where a person reads them (R0.11) without recomputing it.
+    return result, key
+
+
+def _publish(
+    *,
+    run_dir: Path,
+    step: str,
+    document: str,
+    structured: bool,
+    payload: bytes,
+    record: dict | None,
+) -> None:
+    """Put one artifact and its record under `runs/<run_id>/` (R0.11).
+
+    The bytes are the cache entry's, not a re-rendering: a person opening
+    `extract/INC-4821.json` reads exactly what the next step was shown. The
+    record is serialised as the cache serialises it, so the two siblings match
+    byte for byte (R0.3). Nothing here is ever read back -- `runs/` is a copy for
+    a person, and the cache stays the only authority (row 6).
+    """
+    name = output_path(step, document, structured=structured)
+    target = run_dir / name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(payload)
+    if record is not None:
+        (run_dir / record_path(name)).write_bytes(
+            json.dumps(record, sort_keys=True, indent=2).encode("utf-8")
+        )
 
 
 def _stage_span(tracker: Tracker | None, step: str, key: str, *, cache: str) -> None:

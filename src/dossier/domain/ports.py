@@ -205,6 +205,15 @@ class ArtifactStore(Protocol):
         """
         ...
 
+    def record(self, key: str) -> dict | None:
+        """The provenance record beside the artifact at `key`, or `None`.
+
+        Read so a run can put the record beside the copy a person opens
+        (R0.11, R0.3) -- for a hit as for a miss, since a served artifact is
+        still an output. Never read as authority for anything else.
+        """
+        ...
+
     def put(self, key: str, payload: bytes, *, record: dict | None = None) -> None: ...
 
 
