@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from pydantic import ValidationError
 
-from dossier.domain.grounding import FieldCheck, check_field
+from dossier.domain.grounding import FieldCheck, check_field, with_derived_page
 from dossier.domain.ports import ModelClient, Tracker
 from dossier.domain.schemas import FieldRecord, StageOutput
 from dossier.domain.tracking import span_payload
@@ -151,12 +151,20 @@ def run_stage(
             capture=capture,
             hashes=hashes,
         )
+        # The page is read off the document before anything records it (R6.14).
+        # Done here rather than inside check_field because it is a different
+        # question: check_field says whether the evidence holds, this says where
+        # it is. Both search the same normalised text, so they cannot disagree.
+        records = tuple(
+            with_derived_page(record, input_documents=input_documents)
+            for record in output.fields
+        )
         checks = tuple(
-            check_field(record, input_documents=input_documents) for record in output.fields
+            check_field(record, input_documents=input_documents) for record in records
         )
         return DocumentResult(
             document=document,
-            records=tuple(output.fields),
+            records=records,
             checks=checks,
             attempts=attempts,
         )
