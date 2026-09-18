@@ -78,7 +78,6 @@ def image_workspace(workspace: Path) -> Path:
     return workspace
 
 
-@pytest.mark.outer_loop
 class TestAnImageSourceAsksForTheConverterItCanUse:
     """R8.10 row 4 — the default decides which pair must be claimed."""
 
