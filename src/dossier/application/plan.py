@@ -12,14 +12,14 @@ The rule forbids calling and writing, not reading.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.domain.pipeline import PipelineConfig
 from dossier.domain.plan import StepPlan, diff
-from dossier.domain.resolution import ResolvedPlan, resolve
+from dossier.domain.resolution import PinnedConverter, ResolvedPlan, resolve
 from dossier.domain.sync import State
 
 
@@ -45,13 +45,15 @@ def build_plan(
     previous_id: str | None = None,
     prompt_hashes: Mapping[str, str] | None = None,
     schema_hashes: Mapping[str, str | None] | None = None,
+    converters: Sequence[PinnedConverter] | None = None,
 ) -> Plan:
     """Resolve the pipeline and say, per step, what would happen to it.
 
     `previous` is the resolved plan of the most recent run, or `None` when there
-    has never been one. `prompt_hashes` and `schema_hashes` are the same ones a
-    run keys on, handed in by the same caller: a plan resolved without them
-    would print `cached` for a prompt a run is about to miss on (R4.12).
+    has never been one. `prompt_hashes`, `schema_hashes` and `converters` are the
+    same ones a run keys on, handed in by the same caller: a plan resolved
+    without them would print `cached` for a prompt, or a converter version, a run
+    is about to miss on (R4.12).
     """
     resolved = resolve(
         pipeline=pipeline,
@@ -59,6 +61,7 @@ def build_plan(
         documents=documents,
         prompt_hashes=prompt_hashes,
         schema_hashes=schema_hashes,
+        converters=converters,
     )
     return Plan(
         resolved=resolved,

@@ -47,12 +47,12 @@ asked the same question, so the second one is free (R7.18).
 
 What actually happened:
 
-| # | change | `--plan` said | the run did | agree? |
+| # | change | `--plan` says | the run does | agree? |
 |---|---|---|---|---|
 | 1 | prompt edited | `! extract: prompt changed` | 4 calls | ✅ |
 | 2 | declaration edited | `! extract: declaration changed` | 4 calls | ✅ |
-| 3 | one note edited, synced | `extract: cached` | 1 call, 3 from cache | ❌ |
-| 4 | model identifier changed | `extract: cached` | 4 calls | ❌ |
+| 3 | one note edited, synced | `! extract: documents changed` | 1 call, 3 from cache | ✅ |
+| 4 | model identifier changed | `! extract: model changed` | 4 calls | ✅ |
 | 5 | endpoint URL changed | `extract: cached` | 0 calls, 4 from cache | ✅ |
 | 6 | the stub's answer edited | `extract: cached` | 0 calls, 4 from cache | ✅ |
 
@@ -64,55 +64,61 @@ saying out loud:
 - The model's **answer** is not in the key; the question is. Editing the stub's
   reply changes nothing until the question changes.
 
-### The two rows where `--plan` was wrong
+Row 3 names the documents it would re-ask for, rather than counting them:
 
 ```console
-$ dossier run --plan incident-audit        # after changing model: to openai:gpt-4o-2024-08-06
-incident-audit  4 document(s) · model openai:gpt-4o-2024-08-06
-compared against 20260917T211133Z-1c63
-  extract: cached
-0 of 1 step(s) would run · nothing written
+$ dossier run incident-audit --plan
+incident-audit  4 document(s) · model openai:gpt-5.4-mini
+compared against 20260918T044720Z-45b2
+! extract: documents changed
+      moved: [PLAY-1001.md changed]
+1 of 1 step(s) would run · nothing written
 
 $ dossier run incident-audit
-  extract: 4 document(s) · 0 from cache · 0 failed
+  extract: 4 document(s) · 3 from cache · 0 failed
 ```
 
-The plan said nothing would run. The run made four model calls.
+One call, for the one document the plan named.
 
-The same shape for a changed document: `--plan` reports `cached`, and the run
-re-asks for the one document whose snapshot moved (`3 from cache`).
+### Rows 3 and 4 were wrong until this playground was written
 
-R4.12 is unambiguous about what that should be: "`--plan` reports a step as
-re-running exactly when a run would miss its cache… `cached` means the next run
-will serve that step from the cache, and anything else means it will ask the
-model." The rule's own history says why it exists — before it, `build_plan`
-resolved without the prompt and declaration hashes that `execute` keys on, so a
-prompt edit printed `cached` and then missed, "one answer arrived at two ways".
+They are worth keeping in the exercise because of how they were found, and
+because the fix is a small case study in how this repository changes behaviour.
 
-The prompt and declaration halves of that were fixed. The model identifier and the
-document hashes were not: `diff` in `src/dossier/domain/plan.py` compares a step's
-inputs, prompt hash and declaration hash against the previous manifest, while the
-stage key in `src/dossier/application/run.py` also covers `model.model_id` and the
-hash of each input document's text.
+Before, `--plan` printed `extract: cached` and `0 of 1 step(s) would run` for
+both — and the next run made four model calls after a `model:` change, and one
+after a re-synced note. R4.12 is unambiguous about what that should be: "`cached`
+means the next run will serve that step from the cache, and anything else means
+it will ask the model."
 
-**What a person relying on `--plan` would have concluded:** that switching models
-on a large corpus costs nothing, and that re-running after a sync is free. Both
-are exactly the questions `--plan` exists to answer, and both would be wrong in
-the expensive direction.
+`diff` in `src/dossier/domain/plan.py` compared what a person edits under
+`pipelines/` — the step's inputs, its prompt hash, its declaration hash — while
+the stage key in `src/dossier/application/run.py` also covers the pinned model
+identifier and the hash of each input document's text. The rule's own history
+records the same failure one level in: before R4.12, `build_plan` resolved
+without the prompt and declaration hashes, so a prompt edit printed `cached` and
+then missed, "one answer arrived at two ways".
 
-What this repository would do with that is not "patch `diff`". It is to report
-it — the rule and the code disagree, and which of them is right is a decision for
-whoever owns spec 004. Two candidate shapes, both worth arguing:
+**What a person relying on the old `--plan` would have concluded:** that
+switching models on a large corpus costs nothing, and that re-running after a
+sync is free. Both are exactly the questions `--plan` exists to answer, and both
+were wrong in the expensive direction.
 
-- **the plan is keyed the way the run is**: include the model identifier and the
-  documents' hashes in the comparison, and report `model changed` and
-  `documents changed` as statuses alongside `prompt changed`;
-- **the plan is about the pipeline, not the corpus**: keep `diff` as it is and
-  reword R4.12 so `cached` is a claim about the *step's configuration*, with the
-  per-document arithmetic reported separately.
+What the repository did with it was not "patch `diff`". The spec changed first,
+in its own commit — R4.12's status list grew `model changed`, `converters
+changed` and `documents changed`, with example rows for each and two
+counter-examples, because two things that look like changes are not:
 
-The first keeps the promise; the second admits it was never quite the promise
-being made. Either is a spec change first and a code change second.
+- **a departed document is not a miss.** A document that has left the source
+  leaves every remaining key unmoved, so a shrinking corpus stays `cached`;
+- **a manifest that pinned no converters has said nothing about them.** Reading
+  absence as a different converter would print `converters changed` against every
+  older run forever, which is how a plan becomes something people stop reading.
+
+Then the code followed, with the unit cases transcribed from the new rows and an
+acceptance test for each of the two commands that were wrong. Read the two
+commits together (`git log --oneline specs/004-step-resolution.md`); the shape of
+that pair is the working agreement in practice.
 
 ## Task 3 — the cache is not the truth
 

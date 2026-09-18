@@ -394,6 +394,16 @@ def run(
             previous_id=previous_id,
             prompt_hashes=prompt_hashes,
             schema_hashes=schema_hashes,
+            # Read here, as the run reads them, because a raised converter
+            # version changes the text every step reads and therefore every key
+            # above it (R5.4). Listing entry points opens no file a plan may not
+            # open and builds no client, so R4.6 is untouched.
+            converters=[
+                PinnedConverter(
+                    id=c.id, version=c.version, media_type=c.media_type, kind=c.kind
+                )
+                for c in installed_converters()
+            ],
         )
     except ValueError as error:
         # Resolution failed, so nothing ran and nothing was written (R4.1).
@@ -409,7 +419,9 @@ def _plan_lines(report: Plan) -> list[str]:
 
     A step whose inputs moved prints what they were and what they are now. That
     is the whole point of the command -- an insertion looks local in the YAML and
-    silently re-points every relative reference below it (R4.5).
+    silently re-points every relative reference below it (R4.5). A step whose
+    documents moved prints which ones, for the same reason: "documents changed"
+    over a corpus of four thousand is not something a person can check.
     """
     lines = [
         f"{report.resolved.pipeline}  {len(report.resolved.documents)} document(s) · "
@@ -426,6 +438,8 @@ def _plan_lines(report: Plan) -> list[str]:
         if step.was is not None:
             lines.append(f"      was: [{', '.join(step.was)}]")
             lines.append(f"      now: [{', '.join(step.step.inputs)}]")
+        if step.moved:
+            lines.append(f"      moved: [{', '.join(step.moved)}]")
 
     lines.append(
         f"{report.rerunning} of {len(report.steps)} step(s) would run · nothing written"
@@ -1058,19 +1072,29 @@ def eval_(
             f"overall {summed.percentage:.1f}%"
         )
     lowest = weakest(reported)
-    for total in totals:
-        if total.field in withheld:
+    scored = {total.field: total for total in totals}
+    # Walked over the *declared* fields, as `--compare` is (R7.8). A withheld
+    # field whose every verdict went to the judge has nothing deterministic to
+    # total, so a report written from the totals dropped it -- silently, and
+    # exactly where the withholding matters most (R7.15 row 5).
+    for field in kinds:
+        if field in withheld:
             # Named, not omitted. A line that simply vanished would read as a
             # field nobody verified (R7.3 row 4), which is a different problem
             # and wants different work (R7.15).
-            typer.echo(f"  {total.field:<18}     -- {withheld[total.field]}")
+            typer.echo(f"  {field:<18}     -- {withheld[field]}")
             continue
-        marker = "   <- weakest" if total.field in lowest else ""
+        total = scored.get(field)
+        if total is None:
+            # Nothing verified this field, so there is nothing to report and
+            # nothing was refused. Absent is not withheld (R7.3 row 4).
+            continue
+        marker = "   <- weakest" if field in lowest else ""
         # A judged field says how many of its verdicts the judge decided. A
         # percentage over an unknown mix of abstention and judged verdicts is
         # the silent subset R7.17 replaced.
-        judged = f"   ({total.judged} judged)" if kinds[total.field].needs_a_judge else ""
-        typer.echo(f"  {total.field:<18} {total.percentage:5.1f}%{judged}{marker}")
+        judged = f"   ({total.judged} judged)" if kinds[field].needs_a_judge else ""
+        typer.echo(f"  {field:<18} {total.percentage:5.1f}%{judged}{marker}")
 
     if tracker is not None:
         # The figures the lines above printed, recorded once rather than computed

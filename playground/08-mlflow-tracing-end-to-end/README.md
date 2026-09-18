@@ -135,23 +135,30 @@ the cache keys are identical with tracking on, off, `full` or `hashes` (R10.4).
 Prove it rather than believing it — hash the workspace, flip the setting, run
 again.
 
-## Task 6 — when traces do not arrive
+## Task 6 — the line that makes task 4 work
 
-On MLflow 3.x you may see, instead of traces:
+Find `mlflow.set_tracking_uri` in
+`src/dossier/infrastructure/tracking/mlflow.py`, comment it out, clear the stage
+cache and run again.
+
+**Checkpoint.** The run records perfectly — params, metrics, the manifest
+artifact, exit code zero — and every trace is lost:
 
 ```
 WARNING mlflow.tracing.export.mlflow_v3: Failed to send trace to MLflow backend:
 No Experiment with id=3 exists
 ```
 
-The runs, params and metrics all land; only traces vanish. Investigate before
-reading the solution — the question to answer is *which* tracking URI the trace
-exporter is using, given that `dossier` passes its URI to `MlflowClient` and
-deliberately never reads MLflow's own environment variables (R10.1).
+Work out why before reading the solution. `dossier` passes its URI to
+`MlflowClient`, so which tracking URI is the *trace* exporter using, and where
+did it get it? Then ask the question that matters more: why can the test suite
+not see this, when R11.1 claims one trace per (step, document) and has a test?
 
-**Checkpoint.** You can state the cause in one sentence, you have a workaround
-that makes traces appear, and you can say what the right fix would be in a
-repository where behaviour changes start as a spec amendment.
+Put the line back when you are done.
+
+**Checkpoint.** You can state the cause in one sentence, say why "read
+`MLFLOW_TRACKING_URI` as well" is the wrong fix (R10.1), and name the kind of bug
+a fake at a boundary will always hide.
 
 ---
 
@@ -160,6 +167,6 @@ repository where behaviour changes start as a spec amendment.
 - five experiments, each with the record its command printed;
 - a trace you can read, with its stage span and its LLM span;
 - text kept off the server, and a proof that keeping it off changed nothing else;
-- an explanation for any traces that went missing.
+- an explanation of what R10.9 is for, arrived at by breaking it.
 
 **Next:** [09 · Cache keys, determinism and replay](../09-cache-keys-determinism-and-replay/).

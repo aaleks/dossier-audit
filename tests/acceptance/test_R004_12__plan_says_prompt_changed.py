@@ -79,6 +79,45 @@ class TestPlanSaysPromptChanged:
 
         assert "extract: prompt changed" in output, output
 
+    def test_a_changed_model_is_reported_as_model_changed(self, ran: Path, monkeypatch):
+        """Example 4: the one where `model:` was changed after a real run.
+
+        The pinned identifier is in every stage key (R5.3), so a run would ask
+        the model for every document. Before this, the plan printed `cached` and
+        the next run made a call per document -- the same failure the rule was
+        written for, one level out from the prompt.
+        """
+        pipeline = ran / "pipelines" / PIPELINE / "pipeline.yaml"
+        pipeline.write_text(
+            pipeline.read_text(encoding="utf-8").replace(
+                "model: anthropic:claude-sonnet-4-5-20250929", "model: openai:gpt-5.4-mini"
+            ),
+            encoding="utf-8",
+        )
+
+        output = _plan(ran, monkeypatch)
+
+        assert "extract: model changed" in output, output
+        assert "cached" not in output, output
+
+    def test_a_resynced_document_is_reported_and_named(self, ran: Path, monkeypatch):
+        """Example 5: the one where a document was re-synced to new bytes.
+
+        Named rather than counted, because "documents changed" over a corpus of
+        four thousand is not something a person can check against their source.
+        """
+        moved = dict(ISSUES)
+        moved["INC-4821"] = ISSUES["INC-4821"] + "\nA line the reviewer added.\n"
+        register_connector(
+            monkeypatch, SOURCE_TYPE, lambda config, *, workspace: IssueTracker(moved)
+        )
+        assert _cli(ran, monkeypatch, "sync", PIPELINE).exit_code == 0
+
+        output = _plan(ran, monkeypatch)
+
+        assert "extract: documents changed" in output, output
+        assert "moved: [INC-4821 changed]" in output, output
+
     def test_an_untouched_pipeline_is_cached_throughout(self, ran: Path, monkeypatch):
         """Example 3's shape at the CLI: the one where nothing was edited.
 

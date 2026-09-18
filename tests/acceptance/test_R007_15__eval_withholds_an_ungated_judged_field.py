@@ -133,6 +133,24 @@ def _eval(workspace: Path, monkeypatch):
     return _cli(workspace, monkeypatch, "eval", PIPELINE, "--gold", GOLD)
 
 
+def _every_verdict_deferred(workspace: Path) -> None:
+    """A gold set of one document, whose `root_cause` a person did verify.
+
+    `INC-5455` is the one the run answers with a grounded value rather than an
+    abstention, so a gold value for it leaves the judge as the only thing that
+    could decide the field -- and with the judge withheld, `root_cause` has no
+    deterministic verdict anywhere in the set.
+    """
+    directory = workspace / "gold" / "incidents"
+    for path in directory.glob("*.json"):
+        if path.stem != "INC-5455":
+            path.unlink()
+    path = directory / "INC-5455.json"
+    gold = json.loads(path.read_text(encoding="utf-8"))
+    gold["fields"][JUDGED] = {"value": "an unbounded retry loop"}
+    path.write_text(json.dumps(gold, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 class TestEvalWithholdsAnUngatedJudgedField:
     """R7.15 — a judged field is reported only if its judge was measured and cleared."""
 
@@ -197,6 +215,31 @@ class TestEvalWithholdsAnUngatedJudgedField:
 
         assert result.exit_code == 0, result.output
         assert _percentage(_field_lines(result.output)[JUDGED]) == "50.0%"
+
+    def test_a_field_whose_every_verdict_was_deferred_is_still_named(
+        self, audited: Path, monkeypatch
+    ):
+        """Example 5: the one where the judge was the only thing that could answer.
+
+        Gold states a value and the run answered it with a locatable span, so
+        every `root_cause` verdict went to the judge -- and the judge is
+        withheld, so nothing came back. There is no deterministic verdict to
+        total, and a report written from the totals dropped the field entirely:
+        silently, and exactly where the withholding matters most.
+
+        The other fields still print, which is what makes the missing line a
+        disappearance rather than an empty report.
+        """
+        _every_verdict_deferred(audited)
+
+        result = _eval(audited, monkeypatch)
+
+        assert result.exit_code == 0, result.output
+        lines = _field_lines(result.output)
+        assert JUDGED in lines, f"{JUDGED} vanished from the report:\n{result.output}"
+        assert _percentage(lines[JUDGED]) is None, lines[JUDGED]
+        assert "measured" in lines[JUDGED].lower()
+        assert _percentage(lines["severity"]) == "100.0%"
 
     def test_a_field_scored_by_exact_match_is_unaffected(self, audited: Path, monkeypatch):
         """Counter-example (row 5): `severity` has no judge to be ineligible.

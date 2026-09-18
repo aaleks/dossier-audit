@@ -1,7 +1,7 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
 **Status:** Implemented
-**Rules:** R10.1 – R10.8
+**Rules:** R10.1 – R10.9
 
 ## Purpose
 
@@ -221,3 +221,37 @@ R9.8's promise, for MLflow.
 | 2 | `DOSSIER_MLFLOW_CAPTURE=hashes` | the same span holds prompt `0e52dd18`, inputs `a3f9c1e2` and `77c1b40a`, key `9f21c0a4`, and no text |
 | 3 | `DOSSIER_MLFLOW_CAPTURE=none` | refused before any work, naming the variable and `full`, `hashes` |
 | 4 | *counter-example* — step, document key, model identifier, attempt count, field names, verdicts | recorded under both values; they identify, they do not disclose |
+
+### R10.9 — the tracker points MLflow at the configured server before it records anything
+
+`DOSSIER_MLFLOW_TRACKING_URI` names one server, and everything dossier records
+goes there: runs, params, metrics, artifacts *and* traces.
+
+That needs saying because MLflow has two paths. A run is written through the
+`MlflowClient` dossier constructs with the URI; a trace is exported by MLflow's
+own asynchronous exporter, which reads the library's process-wide configuration
+rather than that client. Left unset, the exporter posts to MLflow's default local
+store, where the experiment ids dossier just created on the server do not exist,
+and every trace is dropped with a warning while the run itself records perfectly.
+That silently empties R11.1 and R11.2 -- the run carries no traces, so no span
+exists to count against a model call.
+
+The fix is not to read `MLFLOW_TRACKING_URI`. R10.1 is deliberate: a variable
+left in a shell from another project must switch nothing on and must not
+redirect a record. The tracker configures the library it is using, from the value
+dossier was given.
+
+Configuring MLflow is not an input to a run: it changes where records land and
+nothing about what the run computes (R10.4).
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow`)
+- **Proved by:** `tests/unit/test_R010_9__the_tracker_points_mlflow_at_the_configured_server.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a tracker built for `http://localhost:5000` | MLflow's tracking URI is set to `http://localhost:5000` before the first record |
+| 2 | `MLFLOW_TRACKING_URI` set to another server in the shell | the tracker still records to the URI dossier was configured with; MLflow's own variable decides nothing (R10.1 row 5) |
+| 3 | a run recorded against a live server | its traces are readable on the same server as its metrics, under the experiment the run was created in (R11.1) |
+| 4 | *counter-example* — tracking off | no tracker is built, nothing is configured, and MLflow's own configuration is left exactly as it was |
