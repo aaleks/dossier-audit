@@ -77,8 +77,8 @@ def held_address(path: str) -> str:
 RUNS_ROOT = "runs"
 
 
-def output_path(step: str, document: str, *, structured: bool) -> str:
-    """The run-relative path of a step's artifact for a document (R0.11).
+def output_path(step: str, document: str, *, structured: bool, part: str | None = None) -> str:
+    """The run-relative path of a step's artifact for a document (R0.11, R0.13).
 
     `extract/INC-4821.json`, and for the folder key `PLAY-1001.md`,
     `extract/PLAY-1001.md.json`: the key with the extension appended, never a
@@ -93,9 +93,17 @@ def output_path(step: str, document: str, *, structured: bool) -> str:
     An aggregate step's one artifact is filed under the reserved key `*` (spec
     003), which is not a file name on every platform -- and the step read every
     document, so its file is named for what it is rather than after any one.
+
+    A `per_part` step names a part as well, and then the document is a
+    directory with one file per part (R0.13). The part's own suffix is dropped:
+    what is written is the model's answer *about* that part, not the part, so
+    the file is named after the page and carries the artifact's extension.
     """
     name = "aggregate" if document == RESERVED_KEY else document
-    return f"{step}/{name}.{'json' if structured else 'md'}"
+    extension = "json" if structured else "md"
+    if part is None:
+        return f"{step}/{name}.{extension}"
+    return f"{step}/{name}/{part.rsplit('.', 1)[0]}.{extension}"
 
 
 def record_path(path: str) -> str:

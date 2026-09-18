@@ -188,7 +188,7 @@ class TestDeletingTheCacheChangesNothing:
         config = pipeline(("extract", "documents"), ("verify", "previous"))
 
         class Scrubbing(FakeModelClient):
-            def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+            def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
                 if self.call_count == 2:
                     scrub(tmp_path)
                 return super().complete(prompt, schema=schema)

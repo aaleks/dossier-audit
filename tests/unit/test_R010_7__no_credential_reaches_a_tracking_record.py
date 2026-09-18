@@ -146,7 +146,7 @@ class TestNoCredentialReachesATrackingRecord:
 
             model_id = "hf:Qwen/Qwen2.5-7B-Instruct@" + "1c0f8e6b" * 5
 
-            def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+            def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
                 endpoint_for("hf", default_url=None, environ={"DOSSIER_HF_API_KEY": KEY})
                 return ""
 

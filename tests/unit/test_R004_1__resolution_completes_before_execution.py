@@ -151,7 +151,7 @@ class TestTheManifestIsWrittenFirst:
         manifest = tmp_path / "runs" / RUN_ID / "manifest.json"
 
         class Watching(FakeModelClient):
-            def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+            def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
                 seen.append(manifest.is_file())
                 return super().complete(prompt, schema=schema)
 

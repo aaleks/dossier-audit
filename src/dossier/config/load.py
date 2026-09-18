@@ -32,6 +32,7 @@ from dossier.domain.model_id import check_pinned, provider_of
 from dossier.domain.pipeline import (
     PipelineConfig,
     SourceConfig,
+    validate_modes,
     validate_references,
     validate_step_ids,
 )
@@ -269,7 +270,7 @@ def load_pipeline(path: Path, *, providers: Collection[str]) -> PipelineConfig:
 
     # The pure checks live in domain and raise ValueError; this layer is what
     # knows which file the value came out of.
-    for check in (validate_step_ids, validate_references):
+    for check in (validate_step_ids, validate_references, validate_modes):
         try:
             check(pipeline)
         except ValueError as error:

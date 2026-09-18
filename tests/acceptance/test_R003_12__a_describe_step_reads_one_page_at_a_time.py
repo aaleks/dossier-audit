@@ -69,7 +69,6 @@ def describes_pages(workspace: Path) -> Path:
     return workspace
 
 
-@pytest.mark.outer_loop
 class TestADescribeStepReadsOnePageAtATime:
     """R3.12 — one call per page, one artifact per page."""
 
