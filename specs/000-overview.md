@@ -1,7 +1,7 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Implemented
-**Rules:** R0.1 – R0.12
+**Status:** Partially implemented
+**Rules:** R0.1 – R0.13
 
 ## Purpose
 
@@ -253,6 +253,29 @@ people. The two are kept apart so that deleting the first is always safe.
 | 2 | a completed `dossier run` | the manifest and artifacts under `runs/<run_id>/` (R0.11), which is not hidden and sits outside `.dossier/`; whether a workspace commits its runs is that workspace's own choice |
 | 3 | `.dossier/` deleted, then the same pipeline re-run after a re-sync | byte-identical outputs; only the time taken differs (R5.9) |
 | 4 | *counter-example* — `sources.yaml`, `pipelines/`, `gold/` | configuration and verified answers, committed to git; they are inputs, and deleting them is not recoverable |
+
+### R0.13 — a `per_part` step writes each part under its document, as `runs/<run_id>/<step>/<document>/<part>.md`
+
+R0.11 gives every artifact a path of `runs/<run_id>/<step>/<document>.json`. A
+`per_part` step produces several artifacts for one document (R3.12), so one more
+level exists: the document becomes a directory and each part is a file in it,
+named as the container names it.
+
+R0.11 is not superseded. It still describes every `per_file` and `aggregate`
+step, which is every step that existed when it was written; this says what the
+third mode does, and the two together cover all of them.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.store.output_path`)
+- **Proved by:** `tests/unit/test_R000_13__a_per_part_artifact_is_filed_under_its_document.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `describe` over `INC-4830`, three pages, run `20260806T142203Z-4f1a` | `runs/20260806T142203Z-4f1a/describe/INC-4830/page-001.md` and two more beside it, with a provenance record each (R0.3) |
+| 2 | the same, for a document whose key is `audit-note.pdf` | `describe/audit-note.pdf/page-001.md`; the key is a directory name exactly as it is a file name in R0.11, extension included |
+| 3 | the second page of that document failing | `page-001.md` and `page-003.md` are written and `page-002.md` is not; a failed part leaves nothing, as a failed document does (R0.11) |
+| 4 | *counter-example* — the `extract` step in the same run | `runs/<run_id>/extract/INC-4830.json`, unchanged; R0.11 still describes every step that is not `per_part` |
 
 ## Spec index
 
