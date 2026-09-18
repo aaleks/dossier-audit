@@ -67,7 +67,16 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all twelve specs are
-implemented, and 128 of the 136 rules are MET with the other 8 superseded.
+implemented, and 133 of the 141 rules are MET with the other 8 superseded.
+
+A hash change is observable. `dossier sync` names each item it repointed under
+its source line, with the snapshot address it held and the one it holds now,
+both in full (R2.18), and each item it tombstoned (R2.20); the ledger keeps
+every address a row has ever held in an append-only `revisions` table, seeded
+from `items` for a ledger that predates it (R2.19); and the sync's MLflow run
+carries the same two lists as `changes.json` (R11.6). Before this, the previous
+snapshot of an edited document was recoverable only by elimination against the
+store.
 
 The judge is asked. `dossier eval` scores a free-text field by putting the run's
 answer to the judge with the one question it was calibrated on -- is this
