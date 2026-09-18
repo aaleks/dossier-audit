@@ -70,6 +70,11 @@ class JiraKeys(BaseModel):
 class JiraConnector:
     """Issues matching a JQL query, and the files they carry."""
 
+    # `since` becomes a JQL clause, so a windowed listing omits every unchanged
+    # issue. Subtracting from one would tombstone the quiet majority of the
+    # source; sync asks for `since=None` when it needs the whole (R1.11, R2.22).
+    lists_everything = False
+
     def __init__(
         self,
         *,

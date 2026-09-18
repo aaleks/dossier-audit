@@ -55,6 +55,14 @@ class Connector(Protocol):
     package (R1.7).
     """
 
+    # Whether `list` ignores `since` and returns everything on every call. Sync
+    # computes tombstones only against a listing it knows to be complete, and
+    # it can see that for itself when it asked with `since=None`; this is the
+    # case it cannot see. Without it, a folder -- which always returns
+    # everything -- was believed only on its first sync, and a file deleted
+    # from it stayed `active` for ever (R1.11, R2.21).
+    lists_everything: bool
+
     def list(self, since: datetime | None) -> Iterator[ItemRef]:
         """Every item currently in scope.
 
