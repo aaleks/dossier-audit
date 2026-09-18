@@ -29,6 +29,8 @@ PAGES = {"OPS-114": "v37", "OPS-115": "v12", "OPS-116": "v3"}
 class Procedures:
     """A wiki of procedures, `_fixtures.md`'s `procedures-confluence`. It counts calls."""
 
+    lists_everything = False
+
     media_type = "text/markdown"
 
     def __init__(self) -> None:

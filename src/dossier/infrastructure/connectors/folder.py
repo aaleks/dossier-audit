@@ -36,6 +36,10 @@ class FolderKeys(BaseModel):
 class FolderConnector:
     """Every file under a directory, keyed by its path relative to that root."""
 
+    # A folder has no reliable change time to narrow by, so every listing is the
+    # whole folder -- and sync may subtract from it on every sync (R1.11).
+    lists_everything = True
+
     def __init__(self, path: Path) -> None:
         self._root = Path(path)
 

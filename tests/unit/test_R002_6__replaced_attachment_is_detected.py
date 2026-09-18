@@ -42,6 +42,8 @@ REPORT_V2 = b"%PDF-1.4\nreport, revised after review\n"
 class IssueTracker:
     """One issue at `v37`, carrying attachments it versions independently."""
 
+    lists_everything = False
+
     def __init__(self) -> None:
         # key -> (payload, remote_version). The issue itself never moves.
         self.attached: dict[str, tuple[bytes, str]] = {REPORT: (REPORT_V1, "a1")}

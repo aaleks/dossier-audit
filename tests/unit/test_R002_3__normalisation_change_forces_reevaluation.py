@@ -56,6 +56,8 @@ def source(fields: list[str] | None, *, overlap: str | None = None) -> SourceCon
 class IssueTracker:
     """Issues at version markers it vouches for. It counts what it is asked to fetch."""
 
+    lists_everything = False
+
     media_type = "application/json"
 
     def __init__(self) -> None:

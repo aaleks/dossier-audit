@@ -182,6 +182,8 @@ class VersionedFolderConnector:
     not about what came back, so a fake that only returns bytes cannot prove it.
     """
 
+    lists_everything = False
+
     media_type = "text/markdown"
 
     def __init__(self, root: Path, manifest: Path) -> None:

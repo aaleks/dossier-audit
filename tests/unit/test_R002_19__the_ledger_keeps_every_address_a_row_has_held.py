@@ -71,6 +71,8 @@ class Killed(BaseException):
 class Tracker:
     """`INC-4822` with no version marker, at whatever bytes it is handed."""
 
+    lists_everything = False
+
     def __init__(self, payload: bytes) -> None:
         self.payload = payload
 

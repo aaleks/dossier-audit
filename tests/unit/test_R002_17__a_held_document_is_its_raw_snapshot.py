@@ -46,6 +46,8 @@ RAW = issue("<p>Loss of CHF 48'200</p>")
 class IssueTracker:
     """One issue, at a version marker it vouches for."""
 
+    lists_everything = False
+
     media_type = "text/markdown"
 
     def __init__(self) -> None:

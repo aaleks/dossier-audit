@@ -72,6 +72,8 @@ def _configuration(workspace: Path) -> tuple[Path, Path]:
 class IssueTracker:
     """A Jira stand-in whose fetch goes over the network, as a real one's does."""
 
+    lists_everything = False
+
     media_type = "application/json"
 
     def list(self, since: datetime | None = None) -> Iterator[ItemRef]:

@@ -36,6 +36,8 @@ class Versioned:
     item between two syncs, and can be told to fail a fetch with a given error.
     """
 
+    lists_everything = False
+
     media_type = "text/markdown"
 
     def __init__(self, items: dict[str, str]) -> None:

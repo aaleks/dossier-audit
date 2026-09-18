@@ -103,6 +103,8 @@ class TestWindowStart:
 class _Recording:
     """A connector that lists nothing and remembers what it was asked for."""
 
+    lists_everything = False
+
     def __init__(self) -> None:
         self.asked: list[datetime | None] = []
 

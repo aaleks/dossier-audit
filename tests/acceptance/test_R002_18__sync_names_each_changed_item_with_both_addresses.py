@@ -46,6 +46,8 @@ class IssueTracker:
     issue or replace an attachment between two syncs.
     """
 
+    lists_everything = False
+
     media_type = "application/json"
 
     def __init__(self) -> None:

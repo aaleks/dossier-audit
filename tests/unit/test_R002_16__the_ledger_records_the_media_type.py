@@ -32,6 +32,8 @@ LATER = datetime(2026, 8, 7, 9, 0, tzinfo=UTC)
 class StubConnector:
     """A connector that reports exactly the media type it is told to."""
 
+    lists_everything = False
+
     def __init__(self, items: dict[str, tuple[bytes, str, str | None]]) -> None:
         self._items = items
         self.fetched: list[str] = []

@@ -35,6 +35,8 @@ def address(payload: bytes) -> str:
 class Tracker:
     """Two issues with no version markers; lists them in reverse so order is earned."""
 
+    lists_everything = False
+
     def __init__(self) -> None:
         self.issues = {"INC-4821": b"# INC-4821 v1\n", "INC-4822": b"# INC-4822 v1\n"}
 
