@@ -19,8 +19,6 @@ from pathlib import Path
 import pytest
 from tests.pipelines import write_pipeline
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 DOCUMENTS = ("INC-4821.md", "INC-4822.md", "audit-note.md")
 
@@ -140,7 +138,7 @@ class TestAReplayWritesWhatItReproduced:
             assert (replay / "extract" / f"{document}.meta.json").read_bytes() == record
         relative = replay.relative_to(workspace).as_posix()
         assert result.output.rstrip().endswith(
-            f"3 artifact(s) reproduced · written to {relative}/"
+            f"3 artifact(s) reproduced · no model calls · written to {relative}/"
         ), result.output
 
     def test_two_replays_are_two_identical_directories(

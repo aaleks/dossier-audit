@@ -8,7 +8,7 @@ spec assumes.
 
 | Spec | Covers | Rules | Status |
 |---|---|---|---|
-| `000-overview.md` | Vocabulary, the hash boundary, hashing, workspace layout, global invariants | R0.1 – R0.12 | Partially implemented |
+| `000-overview.md` | Vocabulary, the hash boundary, hashing, workspace layout, global invariants | R0.1 – R0.12 | Implemented |
 | `001-source-connectors.md` | The connector interface and its registration | R1.1 – R1.13 | Implemented |
 | `002-ledger-and-sync.md` | Change detection, incremental fetch, tombstoning, the store | R2.1 – R2.22 | Implemented |
 | `003-pipeline-format.md` | `sources.yaml` and `pipeline.yaml` schemas | R3.1 – R3.10 | Implemented |

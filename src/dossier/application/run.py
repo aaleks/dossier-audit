@@ -737,6 +737,7 @@ def replay(
     manifest: Manifest,
     document_text: Mapping[str, str],
     cache: ArtifactStore,
+    destination: Path | None = None,
 ) -> RunReport:
     """Reproduce a past run from its frozen manifest (R4.7).
 
@@ -750,16 +751,24 @@ def replay(
     model swapped, the file deleted -- the manifest is the only input (R4.7
     examples 2 and 3), and the snapshots it pinned are the only content, however
     the ledger has moved since (R4.9).
+
+    With a `destination`, what was reproduced is written there, named as a run
+    names its outputs (R0.11) -- and only once every key has resolved. A
+    missing entry raises before anything is written, so a failed replay leaves
+    no directory at all: three of four documents beside a manifest pinning four
+    would read as a complete run to anyone who did not see the error (R0.12).
     """
     plan = manifest.plan
     keys = [document.key for document in plan.documents]
     steps: list[StepReport] = []
     produced: dict[str, dict[str, str]] = {}
+    reproduced: list[tuple[str, str, bool, bytes, dict | None]] = []
 
     for step in plan.steps:
         over = [AGGREGATE_KEY] if step.mode == "aggregate" else keys
-        results = tuple(
-            _replay_one(
+        results: list[DocumentResult] = []
+        for document in over:
+            result, key = _replay_one(
                 step=step,
                 document=document,
                 documents=keys,
@@ -768,12 +777,31 @@ def replay(
                 produced=produced,
                 cache=cache,
             )
-            for document in over
-        )
-        steps.append(StepReport(step=step.id, results=results))
+            results.append(result)
+            reproduced.append(
+                (
+                    step.id,
+                    document,
+                    step.schema_hash is not None,
+                    _as_text(result).encode(),
+                    cache.record(key),
+                )
+            )
+        steps.append(StepReport(step=step.id, results=tuple(results)))
         produced[step.id] = {
             result.document: _as_text(result) for result in results if not result.failed
         }
+
+    if destination is not None:
+        for step_id, document, structured, payload, record in reproduced:
+            _publish(
+                run_dir=destination,
+                step=step_id,
+                document=document,
+                structured=structured,
+                payload=payload,
+                record=record,
+            )
 
     # No manifest path: a replay reads one and writes none. Reporting a path it
     # did not write would invite someone to diff against a file this run had no
@@ -790,7 +818,7 @@ def _replay_one(
     document_text: Mapping[str, str],
     produced: Mapping[str, Mapping[str, str]],
     cache: ArtifactStore,
-) -> DocumentResult:
+) -> tuple[DocumentResult, str]:
     """One (step, document), served from the entry the original run wrote.
 
     The key is recomposed from the manifest and from what the earlier steps of
@@ -852,7 +880,7 @@ def _replay_one(
             f"be read at {key[:12]}...; this run cannot be reproduced from this "
             "workspace, and nothing has been substituted for it."
         )
-    return served
+    return served, key
 
 
 def _replayed_input(

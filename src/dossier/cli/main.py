@@ -74,6 +74,7 @@ from dossier.domain.scoring import (
     per_field,
     weakest,
 )
+from dossier.domain.store import replay_path
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.domain.tracking import TrackingSettings, count_metrics, experiment_name
 from dossier.domain.tracking import capture as capture_setting
@@ -616,6 +617,9 @@ def _replay(workspace: Path, directory: Path) -> None:
 
     manifest = Manifest.read(path)
     cache = ArtifactCache(workspace, namespace="convert")
+    # A replay id has the form of a run id and is minted the same way. Where
+    # what is reproduced goes: under the run, never over it (R0.12).
+    destination = replay_path(manifest.run_id, run_id(datetime.now(UTC), token_hex(2)))
 
     try:
         # The conversions this run produced, read back by their keys rather than
@@ -628,6 +632,7 @@ def _replay(workspace: Path, directory: Path) -> None:
             manifest=manifest,
             document_text=text,
             cache=ArtifactCache(workspace, namespace="stage"),
+            destination=workspace / destination,
         )
     except MissingFromReplay as error:
         # A replay may fail; it may never substitute other content (R4.7 row 4).
@@ -637,7 +642,8 @@ def _replay(workspace: Path, directory: Path) -> None:
     typer.echo(f"replayed {manifest.run_id} · {manifest.plan.pipeline}")
     for step in report.steps:
         typer.echo(f"  {step.step}: {len(step.results)} artifact(s) from cache")
-    typer.echo(f"{report.cache_hits} artifact(s) reproduced · no model calls")
+    reproduced = f"{report.cache_hits} artifact(s) reproduced"
+    typer.echo(f"{reproduced} · no model calls · written to {destination}/")
 
 
 def _execute(workspace: Path, pipeline: str) -> None:
