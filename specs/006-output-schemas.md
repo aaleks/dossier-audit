@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Implemented
-**Rules:** R6.1 – R6.13
+**Status:** Partially implemented
+**Rules:** R6.1 – R6.14
 
 ## Purpose
 
@@ -352,3 +352,33 @@ could not produce its output; the steps above it have nothing to add.
 | 2 | `INC-4821` in the same run, which `extract` handled normally | `verify` runs for it as usual; one document's failure is not the corpus's (R6.9) |
 | 3 | the run's report afterwards | names `INC-4822` once, under `extract`, and not a second time under `verify`; a failure list is a list of causes |
 | 4 | *counter-example* — an `aggregate` step in the same run | runs, over the documents that did produce output. An aggregate reads a set, and a member that is absent from it is not a missing input |
+
+### R6.14 — `source.page` is derived from the located span, never taken from the model's answer
+
+The field record has carried a `page` since the shape was written, and nothing
+has ever checked it. The model asserts a number and no code disagrees, so the
+one part of a provenance record an auditor actually navigates by is the one part
+nothing verifies — which is worse than omitting it, because it looks checked.
+
+It becomes an output of grounding rather than an input to it. R6.4 already
+locates the span by string search; the page is the anchor that search landed
+after. A converter that emits no anchors yields `null`, which is the honest
+answer for a document that has no pages.
+
+The model is still *shown* a `page` in its schema and still free to answer one.
+Removing it would change the generated schema, and with it `d24c86e1` and every
+stage key downstream of it (R6.12) — a large blast radius to stop a model
+volunteering a number that is now discarded before anything reads it.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.grounding.page_of_span`)
+- **Proved by:** `tests/unit/test_R006_14__the_page_is_derived_from_the_located_span.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | span `total exposure CHF 48'200`, located under page 3's anchor in `INC-4821`'s converted text | `page: 3`; the number is read from the document, not from the answer |
+| 2 | the model answering `page: 8` for that same span | `page: 3`; the model's number is discarded rather than compared, so there is no mismatch to report and nothing to disagree about |
+| 3 | a span located in a converted markdown note, which carries no anchors | `page: null`; a document with no pages has no page to cite, and a fabricated `1` would be the same lie in a smaller font |
+| 4 | a span that cannot be located at all | `ungrounded` (R6.4) and no page; a page for evidence nobody found would be provenance for a claim that has none |
+| 5 | *counter-example* — a field with `value: null` and no span | no page and no grounding check; there is no claim to locate (R6.5) |
