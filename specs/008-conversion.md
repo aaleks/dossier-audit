@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.9
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.10
 
 ## Purpose
 
@@ -263,8 +263,33 @@ agree byte for byte.
 | 4 | *counter-example* — `pdf-markdown` raised to `1.4.0` with `OPS-114` still held | `converters changed` on every step reading `documents` (R4.12 row 6); a converter that *was* used is watched |
 | 5 | *counter-example* — a run over a source holding nothing | pins no converters, and R4.12 row 10 reads that as nothing said, not as none |
 
+### R8.10 — the default kind is read from a declared table, and a media type with no entry defaults to `markdown`
+
+R8.3 says a source declaring no `convert:` gets "the default kind for that media
+type" and leaves the table to be written. One constant answered for every media
+type instead, which is right for text and wrong for the first media type that
+has no text in it: a PNG resolved to `(image/png, markdown)`, so the pair a
+person had to claim was the one an image cannot honestly supply.
+
+The fallback stays `markdown` rather than becoming an error. A media type nobody
+has agreed a default for is not a reason to stop — R8.5 already stops on the pair
+that results, and it names a pair a reader can act on either way.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.conversion.default_kind`)
+- **Proved by:** `tests/unit/test_R008_10__the_default_kind_is_read_from_a_declared_table.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `audit-note.pdf`, `application/pdf`, its source declaring no `convert:` | `markdown`; the answer R8.3 row 3 already gives, unchanged |
+| 2 | `INC-5720`, `image/png`, its source declaring no `convert:` | `page_images`; an image has no text layer, so the kind a stage reads is the one it cannot be given |
+| 3 | `text/csv`, which the table has no entry for, its source declaring no `convert:` | `markdown`; a media type nobody has agreed a default for gets the one every text format already had, rather than no kind at all |
+| 4 | `INC-5720` with no converter installed for its pair | R8.5 stops the run naming `(image/png, page_images)` — the default decides *which* pair must be claimed, never whether one is |
+| 5 | *counter-example* — `INC-5720` from a source declaring `convert: [markdown]` | `markdown`; a declared kind wins and the table is not consulted at all (R8.3) |
+
 ## Open questions
 
 | # | Question | Resolution |
 |---|----------|------------|
-| 1 | What is the default `kind` for each media type, beyond `application/pdf → markdown`? | OPEN — needs the converter set to exist. The rule (R8.3) holds whatever the table says; the table itself is a data question best answered once there is more than one PDF converter |
+| 1 | What is the default `kind` for each media type, beyond `application/pdf → markdown`? | RESOLVED by R8.10 — the table is declared, `image/*` defaults to `page_images`, and anything absent falls back to `markdown` |
