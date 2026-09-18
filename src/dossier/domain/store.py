@@ -84,3 +84,14 @@ def output_path(step: str, document: str, *, structured: bool) -> str:
     wrote, not a JSON string holding it.
     """
     return f"{step}/{document}.{'json' if structured else 'md'}"
+
+
+def record_path(path: str) -> str:
+    """The sibling `<name>.meta.json` for an artifact at `path` (R0.3).
+
+    `extract/INC-4821.json` -> `extract/INC-4821.meta.json`, the last extension
+    replaced, which is how the cache names its own records -- so the pair under
+    `runs/` looks exactly like the pair under `.dossier/cache/`.
+    """
+    stem = path.rsplit(".", 1)[0]
+    return f"{stem}.meta.json"
