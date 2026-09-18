@@ -121,19 +121,40 @@ class TestAPdfConvertsToTheTextOfItsPages:
         assert pages == 3, "the fixture changed; the count below is about it"
         assert text.count("\n\n") >= pages - 1
 
-    def test_a_page_with_no_text_layer_converts_to_almost_nothing(
+    def test_each_page_is_introduced_by_its_anchor(self, converter: PdfMarkdownConverter):
+        """The one that makes `source.page` derivable at all (R6.14).
+
+        The anchor format is `domain`'s, imported rather than spelled again
+        here: a converter writing one spelling while grounding reads another is
+        the failure this shares one definition to avoid.
+        """
+        from dossier.domain.grounding import page_anchor, split_pages
+
+        text = converter.convert((CORPUS / COMPLETE).read_bytes(), {}).decode("utf-8")
+
+        assert text.startswith(page_anchor(1))
+        assert page_anchor(3) in text
+        assert len(split_pages(text)) == 3
+
+    def test_a_document_with_no_text_layer_still_says_which_pages_it_had(
         self, converter: PdfMarkdownConverter
     ):
         """Counter-example: the one where converting succeeds and finds nothing.
 
-        A scan has no text layer. That is not a conversion failure -- the
-        document converted, and the emptiness is the finding. `dossier convert`
-        exists to make it visible before a single model call is spent on it
-        (spec 008, "The command"), which it cannot do if the converter raises.
-        """
-        artifact = converter.convert((SCANS / NO_TEXT_LAYER).read_bytes(), {})
+        A photocopy has no text layer, so it converts to its anchors and nothing
+        else. That is not a conversion failure -- the document converted, the
+        page exists, and the emptiness is the finding. `dossier convert` exists
+        to make that visible before a model call is spent on it (spec 008, "The
+        command"), which it cannot do if the converter raises.
 
-        assert artifact == b"", "a photocopy has no text layer to read"
+        The anchor surviving is what lets a later step say *which* page it is
+        describing when nothing here could read it.
+        """
+        from dossier.domain.grounding import page_anchor
+
+        text = converter.convert((SCANS / NO_TEXT_LAYER).read_bytes(), {}).decode("utf-8")
+
+        assert text.strip() == page_anchor(1)
 
     def test_bytes_that_are_not_a_pdf_fail_against_their_own_document(
         self, converter: PdfMarkdownConverter

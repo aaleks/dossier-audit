@@ -12,21 +12,22 @@ own release cadence, and pinning every installation of `dossier` to it is the
 coupling R8.7 exists to avoid.
 
 **What this converter does not do.** It reads the text layer. A scanned page has
-none, and the artifact is then near-empty -- correctly, and visibly: that is what
-`dossier convert` is for (spec 008, "The command"), and it is the case OCR and a
-vision step exist to answer. An empty text layer is not a conversion failure, so
-it does not raise: the document converted, and what it contains is the finding.
+none, and the artifact is then its anchors and nothing else -- correctly, and
+visibly: that is what `dossier convert` is for (spec 008, "The command"), and it
+is the case OCR and a vision step exist to answer. An empty text layer is not a
+conversion failure, so it does not raise: the document converted, and what it
+contains is the finding.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
-# The page separator. A blank line, because the artifact is text a stage reads
-# and a span is searched in (R6.4) -- not a structured document. A marker
-# carrying the page number is what R6.x will need to make `source.page` a
-# derived fact rather than a claim, and adding one changes output for the same
-# input, so it arrives with a raised version rather than quietly here.
+from dossier.domain.grounding import page_anchor
+
+# Between one page's text and the next page's anchor. A blank line, because the
+# artifact is text a stage reads and a span is searched in (R6.4) -- not a
+# structured document.
 PAGE_SEPARATOR = "\n\n"
 
 
@@ -42,18 +43,23 @@ class PdfMarkdownConverter:
     # precisely so that its extraction is part of what this version describes;
     # widening that pin without raising this leaves a cache full of artifacts
     # claiming to be something they are not.
-    version = "1.0.0"
+    #
+    # 1.1.0 -- every page is introduced by its anchor, so `source.page` is derived
+    # from the document rather than asserted by the model (R6.14). Output changed
+    # for the same input, which is precisely when this moves: R5.4 then
+    # re-converts every PDF and leaves every other converter's artifacts alone.
+    version = "1.1.0"
     media_type = "application/pdf"
     kind = "markdown"
 
     def convert(self, payload: bytes, options: Mapping[str, str]) -> bytes:
-        """Every page's text layer, in page order, separated by a blank line.
+        """Every page's text layer, in page order, each behind its own anchor.
 
-        Imported here rather than at module scope so that the entry point loads
-        -- and `check_declared` can read this class's four attributes -- on an
-        installation that does not have the `pdf` extra. A converter that cannot
-        be listed cannot be reported as claiming a pair, and R8.5's message
-        would then be missing the very converter that answers it.
+        `pypdfium2` is imported here rather than at module scope so that the
+        entry point loads -- and `check_declared` can read this class's four
+        attributes -- on an installation without the `pdf` extra. A converter
+        that cannot be listed cannot be reported as claiming a pair, and R8.5's
+        message would then be missing the very converter that answers it.
         """
         try:
             import pypdfium2 as pdfium
@@ -71,9 +77,18 @@ class PdfMarkdownConverter:
             # misconfigured pipeline (R8.5).
             raise ValueError(f"{self.id} could not read this PDF: {error}") from error
 
-        # PDFium emits CRLF. Normalised to LF because this converter *generates*
-        # its artifact rather than passing one through: a generated artifact gets
-        # one line-ending convention, and the alternative leaks a PDF library's
-        # detail into every span a stage quotes back (R6.4).
-        text = PAGE_SEPARATOR.join(page.replace("\r\n", "\n") for page in pages)
+        # The anchor is what makes `source.page` a derived fact rather than a
+        # claim (R6.14). Its format is `domain`'s and is imported rather than
+        # spelled again here: a converter writing one spelling while grounding
+        # reads another is exactly the divergence that sharing one definition
+        # avoids.
+        #
+        # PDFium emits CRLF; the text is normalised to LF. This converter
+        # *generates* its artifact rather than passing one through, so it gets one
+        # line-ending convention -- the alternative leaks a PDF library's detail
+        # into every span a stage quotes back (R6.4).
+        text = PAGE_SEPARATOR.join(
+            f"{page_anchor(number)}\n{page.replace(chr(13) + chr(10), chr(10))}".rstrip()
+            for number, page in enumerate(pages, 1)
+        )
         return text.encode("utf-8")
