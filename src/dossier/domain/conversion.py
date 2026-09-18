@@ -17,13 +17,32 @@ from collections.abc import Iterable, Sequence
 
 from pydantic import BaseModel, ConfigDict
 
-# The kind a source gets when it declares none. `markdown` because a stage reads
-# text and grounding searches converted text (R6.4) -- page images are an
-# addition to that, never a replacement for it. Spec 008 records as OPEN what the
-# default should be for media types beyond `application/pdf`; until that is
-# settled one default answers for all of them, which is visible here rather than
-# spread across call sites.
-DEFAULT_KIND = "markdown"
+# The kind a source gets when it declares none and its media type has no entry
+# below. `markdown` because a stage reads text and grounding searches converted
+# text (R6.4) -- page images are an addition to that, never a replacement for it.
+FALLBACK_KIND = "markdown"
+
+# What each media type is wanted as when its source is silent (R8.10).
+#
+# Only the types whose answer is *not* the fallback need a row. An image is the
+# case the table was written for: it has no text layer, so resolving it to
+# `markdown` names a pair nobody can honestly claim, and R8.5 then sends the
+# reader off to install a converter that turns a picture into text.
+DEFAULT_KINDS = {
+    "image/png": "page_images",
+    "image/jpeg": "page_images",
+}
+
+
+def default_kind(media_type: str) -> str:
+    """The kind a source gets for this media type when it declares none (R8.10).
+
+    A media type with no entry falls back to `markdown` rather than raising. A
+    type nobody has agreed a default for is not in itself a reason to stop --
+    R8.5 already stops on the pair that results, and it names a pair a reader can
+    act on either way.
+    """
+    return DEFAULT_KINDS.get(media_type, FALLBACK_KIND)
 
 
 class Converter(BaseModel):
@@ -106,7 +125,7 @@ def select(
     it. Order among *equals* is never in play, because a pair matches at most one
     converter.
     """
-    wanted = [DEFAULT_KIND] if kinds is None else list(kinds)
+    wanted = [default_kind(media_type)] if kinds is None else list(kinds)
     claimed = _claims(available)
 
     chosen: list[Converter] = []
