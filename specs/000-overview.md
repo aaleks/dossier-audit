@@ -1,6 +1,6 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R0.1 – R0.12
 
 ## Purpose
@@ -388,11 +388,11 @@ is created only after every key has resolved.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run.replay`)
 - **Proved by:** `tests/acceptance/test_R000_12__a_replay_writes_what_it_reproduced.py`, `tests/unit/test_R000_12__a_replay_directory_sits_under_its_run.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `runs/20260806T142203Z-4f1a/` holding only `manifest.json`, every key resolving | `runs/20260806T142203Z-4f1a/replays/20260918T140000Z-1e2f/extract/INC-4821.json` and the rest, byte-identical to the cache; stdout ends `3 artifact(s) reproduced · written to runs/20260806T142203Z-4f1a/replays/20260918T140000Z-1e2f/` |
+| 1 | `runs/20260806T142203Z-4f1a/` holding only `manifest.json`, every key resolving | `runs/20260806T142203Z-4f1a/replays/20260918T140000Z-1e2f/extract/INC-4821.json` and the rest, byte-identical to the cache; stdout ends `3 artifact(s) reproduced · no model calls · written to runs/20260806T142203Z-4f1a/replays/20260918T140000Z-1e2f/` (R4.7) |
 | 2 | the same run replayed twice | two directories under `replays/`, byte-identical to each other (R4.7) |
 | 3 | `extract/INC-4821.json` under the run edited by hand, then the run replayed | the edited file is left as edited; the replay directory holds the cache bytes |
 | 4 | *counter-example* — the cache entry for `INC-4822` absent, the other two present | exit 2 with the R4.7 row 4 error, and no `replays/<id>/` directory is created |

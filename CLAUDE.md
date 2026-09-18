@@ -67,7 +67,19 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all twelve specs are
-implemented, and 138 of the 146 rules are MET with the other 8 superseded.
+implemented, and 140 of the 148 rules are MET with the other 8 superseded.
+
+A run leaves something to open. `dossier run` writes each artifact a step
+produced or served to `runs/<run_id>/<step>/<document>.json` -- the key with
+`.json` appended, `.md` for a step with no `output`, `aggregate.md` for an
+aggregate step -- as each document completes, byte-identical to the cache entry
+and with its provenance record beside it; a failed document leaves nothing, and
+nothing under `runs/` is ever read back (R0.11). `dossier run --replay` writes
+what it reproduced to `runs/<run_id>/replays/<replay_id>/`, never touching what
+the run wrote, and writes nothing at all if any one artifact cannot be
+reproduced (R0.12). Before this a run directory held only `manifest.json`,
+every artifact lived solely in `.dossier/cache/stage/` under its key, and a
+replay printed a count and showed nothing -- which playground exercise 01 found.
 
 A Jira credential lives where every other per-machine value does. `token_env`
 is resolved through the environment `.env` fills, so `DOSSIER_JIRA_TOKEN=…` in
