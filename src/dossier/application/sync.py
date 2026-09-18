@@ -32,6 +32,7 @@ from dossier.domain.sync import (
     State,
     classify,
     configured_overlap,
+    listing_is_complete,
     must_refetch,
     needs_fetch,
     normalise,
@@ -177,8 +178,11 @@ def sync_source(
         overlap=configured_overlap(config.watermark_overlap),
     )
 
-    # Tombstoning may only be computed against a full listing (R1.3, R2.7).
-    listing_is_complete = since is None
+    # Tombstoning may only be computed against a complete listing (R1.3, R2.7):
+    # one sync asked for whole, or one from a connector that never narrows.
+    # Deciding from `since` alone believed a folder on its first sync and
+    # never again, and a deleted file stayed active for ever (R1.11, R2.21).
+    complete = listing_is_complete(since=since, lists_everything=connector.lists_everything)
 
     held = {row.key: row for row in ledger.rows(config.id)}
     known = sum(1 for row in held.values() if row.state is State.ACTIVE)
@@ -230,7 +234,7 @@ def sync_source(
         )
 
     departed_keys: set[str] = set(departed_files)
-    if listing_is_complete:
+    if complete:
         active = {key for key, row in held.items() if row.state is State.ACTIVE}
         # The files just tombstoned are already handled. `held` was read before
         # this sync, so without them here they would be counted a second time.
@@ -242,7 +246,7 @@ def sync_source(
             held=active,
             listed=listed,
             already_tombstoned=already,
-            listing_was_complete=listing_is_complete,
+            listing_was_complete=complete,
         )
         ledger.set_state(config.id, departed, State.TOMBSTONED)
         departed_keys |= set(departed)

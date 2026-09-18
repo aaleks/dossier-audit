@@ -162,6 +162,20 @@ def sync_window(
     return window_start(last_sync_at, overlap=overlap)
 
 
+def listing_is_complete(*, since: datetime | None, lists_everything: bool) -> bool:
+    """Whether this listing may be subtracted from (R2.21).
+
+    Two ways to be complete: sync asked for everything, or the connector
+    returns everything whatever it is asked (R1.11). Only the first counted
+    before, so a folder -- which never narrows -- was believed on its first sync
+    and never again, and a file deleted from it stayed `active` for ever. The
+    third case, a windowed listing from a connector that narrows, is the one
+    R2.7 row 4 forbids subtracting from: its omissions are unchanged items, not
+    departures.
+    """
+    return since is None or lists_everything
+
+
 def must_refetch(*, reevaluating: bool, is_item: bool) -> bool:
     """Whether a target is fetched whatever its version says (R2.3).
 
