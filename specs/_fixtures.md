@@ -153,6 +153,10 @@ example refers to.
 | `http://localhost:8080/api` | `DOSSIER_GEMINI_URL` pointed at a local OpenWebUI's OpenAI-compatible route (R9.7, R9.11) |
 | `http://localhost:8080/ollama` | `DOSSIER_OLLAMA_URL` pointed at the same OpenWebUI's Ollama passthrough |
 | `https://generativelanguage.googleapis.com/v1beta/openai` | Google's OpenAI-compatible endpoint, and `DOSSIER_GEMINI_URL`'s default |
+| `https://jira.example.internal` | `url` of `incidents-jira`: a Jira Data Center, listed at `/rest/api/2/search` (R1.13) |
+| `https://example.atlassian.net` | a Jira Cloud `url`, listed at `/rest/api/2/search/jql` under `deployment: cloud` (R1.13) |
+| `DOSSIER_JIRA_TOKEN` | the variable `incidents-jira` names in `token_env`; prefixed so `.env` may hold it (R1.8 row 5) |
+| `DOSSIER_JIRA_USER` | the variable named in `user_env` when the pair is sent as Basic (R1.12) |
 | `incident-audit` | the pipeline name |
 | `extract` → `verify` → `report` | the three steps |
 
