@@ -112,7 +112,7 @@ clock, no locale, no environment variable, no file outside its input, no network
 
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters`)
-- **Proved by:** `tests/unit/test_R008_1__conversion_is_a_pure_function_of_its_input.py`
+- **Proved by:** `tests/unit/test_R008_1__conversion_is_a_pure_function_of_its_input.py`, `tests/unit/test_R008_1__a_pdf_converts_to_the_text_of_its_pages.py`
 - **Status:** MET
 
 | # | Given | Then |

@@ -27,6 +27,14 @@ dependencies = [
 # Run tracking, traces and judge scores (spec 007 R7.9). Heavy, and only the
 # infrastructure layer may import it, so it stays out of the default install.
 tracking = ["mlflow>=2.14"]
+# The PDF converters (spec 008). One pinned wheel does text extraction *and*
+# page rendering, so pdf-markdown and pdf-images share a single version-bump
+# obligation -- and that obligation is the one promise in this repository no
+# test can enforce, so halving the number of places it can be broken is worth
+# more than better table extraction. BSD-3/Apache-2.0 with prebuilt wheels and
+# no system binary; PyMuPDF was rejected on its AGPL licence, which would reach
+# everyone who installs dossier.
+pdf = ["pypdfium2>=4.30"]
 
 [dependency-groups]
 dev = [
@@ -48,6 +56,7 @@ jira = "dossier.infrastructure.connectors.jira:JiraConnector.from_config"
 # registers through the same group a third party would use, with no special case.
 [project.entry-points."dossier.converters"]
 markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextConverter"
+pdf-markdown = "dossier.infrastructure.converters.pdf_markdown:PdfMarkdownConverter"
 text-plain = "dossier.infrastructure.converters.text_plain:TextPlainConverter"
 
 # A model provider is a package declaring one of these (spec 009, R9.1). The

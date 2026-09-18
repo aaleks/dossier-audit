@@ -143,6 +143,37 @@ class TestEveryConverterIsPure:
         assert with_option == converter.convert(payload, {"ocr": "true"})
 
 
+class TestEveryMediaTypeInTheSampleIsCoveredOrNamed:
+    """A guard on the conformance rows above, not a rule of its own.
+
+    `payload_for` skips a converter whose media type it has no sample for, which
+    is right: a converter for a format this file knows nothing about should not
+    fail R8.1 for want of a fixture. But a skip is silent, and a whole converter
+    quietly exempted from the purity check is the one outcome nobody would
+    notice. The exemptions are named here instead, each with where it is proved.
+    """
+
+    def test_every_installed_converter_is_either_covered_or_a_named_exemption(self):
+        """The one where a converter drops out of the conformance sample unseen."""
+        EXEMPT = {
+            # A hundred kilobytes of binary: it survives neither a literal
+            # payload here nor the subprocess probe above. Proved by
+            # test_R008_1__a_pdf_converts_to_the_text_of_its_pages.py instead.
+            "application/pdf",
+        }
+
+        uncovered = {
+            converter.media_type
+            for converter in INSTALLED
+            if converter.media_type not in PAYLOADS
+        }
+
+        assert uncovered <= EXEMPT, (
+            f"{sorted(uncovered - EXEMPT)} has no sample payload, so every "
+            "converter claiming it is silently skipped by the rows above"
+        )
+
+
 class TestNoConverterReadsTheWorld:
     """R8.1 example 3 — checked by reading the code, not by hoping.
 
