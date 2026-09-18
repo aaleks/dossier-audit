@@ -387,7 +387,7 @@ is created only after every key has resolved.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run.replay`)
-- **Proved by:** `tests/acceptance/test_R000_12__a_replay_writes_what_it_reproduced.py`
+- **Proved by:** `tests/acceptance/test_R000_12__a_replay_writes_what_it_reproduced.py`, `tests/unit/test_R000_12__a_replay_directory_sits_under_its_run.py`
 - **Status:** IN PROGRESS
 
 | # | Given | Then |
