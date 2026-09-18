@@ -341,8 +341,8 @@ from the configuration alone, before a single byte is fetched.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.resolution.check_kinds`)
-- **Proved by:** `tests/unit/test_R004_13__a_kind_no_source_produces_stops_the_run.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R004_13__a_kind_no_source_produces_stops_the_run.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
