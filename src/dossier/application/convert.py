@@ -22,7 +22,7 @@ the snapshot bytes and the declared options (R8.1).
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pydantic import BaseModel, ConfigDict
 
@@ -65,12 +65,23 @@ class DocumentConversion:
 
     document: str
     artifacts: tuple[Artifact, ...] = ()
-    text: str | None = None
+    content: Mapping[str, bytes] = field(default_factory=dict)
     error: str | None = None
 
     @property
     def failed(self) -> bool:
         return self.error is not None
+
+    @property
+    def text(self) -> str | None:
+        """The `markdown` artifact as text, or `None` if this document has none.
+
+        Kept as a named property because it is what every step reading bare
+        `documents` gets (R3.11), and because a stage is handed text rather than
+        bytes it would have to guess an encoding for.
+        """
+        produced = self.content.get(MARKDOWN)
+        return None if produced is None else produced.decode("utf-8")
 
 
 @dataclass(frozen=True)
@@ -112,13 +123,26 @@ class ConvertReport:
         """
         return tuple(document for document in self.documents if document.failed)
 
+    def content(self, kind: str) -> dict[str, bytes]:
+        """Every document's artifact of `kind`, for the steps that read it.
+
+        A document that failed, or that this source never produced this kind
+        for, is absent rather than empty -- so a stage cannot silently audit a
+        blank page (R6.13's shape).
+        """
+        return {
+            document.document: document.content[kind]
+            for document in self.documents
+            if kind in document.content
+        }
+
     @property
     def text(self) -> dict[str, str]:
-        """The converted text per document, for the stages that read it.
+        """The converted text per document, for the stages reading bare `documents`.
 
-        Only the `markdown` kind: a stage grounds spans in text (R6.4), and page
-        images are not text. A document that failed is absent rather than empty,
-        so a stage cannot silently audit a blank page.
+        The `markdown` kind: a stage grounds spans in text (R6.4). Another kind
+        is reached through `content`, which is what R3.11 gave a step the words
+        to ask for.
         """
         return {
             document.document: document.text
@@ -235,7 +259,7 @@ def _convert_one(
     statement about that PDF and not about the other nine.
     """
     artifacts: list[Artifact] = []
-    text: str | None = None
+    content: dict[str, bytes] = {}
 
     try:
         payload = store.get(held.snapshot)
@@ -251,14 +275,14 @@ def _convert_one(
                 dossier_version=dossier_version,
             )
             artifacts.append(artifact)
-            if converter.kind == MARKDOWN:
-                # Decoded once, here, so a stage is handed text rather than
-                # bytes it would have to guess an encoding for.
-                text = produced.decode("utf-8")
+            # Every kind, not only `markdown`. Keeping one of them was what made
+            # `page_images` an artifact no step could name (R3.11): it was
+            # counted, keyed and invalidated, and then dropped on the floor.
+            content[converter.kind] = produced
     except Exception as error:  # noqa: BLE001 - a converter may raise anything
         return DocumentConversion(document=document, error=f"{type(error).__name__}: {error}")
 
-    return DocumentConversion(document=document, artifacts=tuple(artifacts), text=text)
+    return DocumentConversion(document=document, artifacts=tuple(artifacts), content=content)
 
 
 def _one_artifact(

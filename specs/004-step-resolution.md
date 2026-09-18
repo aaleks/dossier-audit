@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.13
 
 ## Purpose
@@ -341,8 +341,8 @@ from the configuration alone, before a single byte is fetched.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.resolution.check_kinds`)
-- **Proved by:** `tests/acceptance/test_R004_13__a_kind_no_source_produces_stops_the_run.py`
-- **Status:** IN PROGRESS
+- **Proved by:** `tests/unit/test_R004_13__a_kind_must_be_one_its_sources_produce.py`, `tests/acceptance/test_R004_13__a_kind_no_source_produces_stops_the_run.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

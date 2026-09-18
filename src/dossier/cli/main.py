@@ -67,7 +67,7 @@ from dossier.domain.hashing import text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
 from dossier.domain.ports import ModelClient, Tracker
-from dossier.domain.resolution import PinnedConverter, moved_since, run_id
+from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
 from dossier.domain.scoring import (
     check_same_documents,
     compare_totals,
@@ -670,12 +670,31 @@ def _execute(workspace: Path, pipeline: str) -> None:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
 
+    # Before a byte is fetched, because this is knowable from the two config
+    # files alone (R4.13). `execute` checks it again for a caller that never
+    # came through here, but by then conversion has already run -- and R8.5
+    # would report the same pipeline as an installation problem, which is the
+    # other failure with the other fix.
+    try:
+        check_kinds(
+            steps=config.steps,
+            sources=[declared[name] for name in config.sources if name in declared],
+            reference=[declared[name] for name in config.reference if name in declared],
+        )
+    except ValueError as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+
     tracker, experiment = _tracking_for(workspace, pipeline, kind="run")
     capture = _capture_for(workspace, pipeline) if tracker is not None else "full"
 
     store = SnapshotStore(workspace)
     converters = installed_converters()
     text: dict[str, str] = {}
+    # Every converted kind, not only `markdown`, so a step naming one can be
+    # handed it (R3.11). A kind whose artifact is not text is absent from here
+    # and reaches a step another way; this is what a prompt placeholder holds.
+    content: dict[str, dict[str, str]] = {}
     documents: dict[str, str] = {}
     media_types: dict[str, str] = {}
     by_source: dict[str, list[str]] = {}
@@ -714,6 +733,19 @@ def _execute(workspace: Path, pipeline: str) -> None:
             requests.extend((document.media_type, source.convert) for document in held.values())
             by_source[name] = sorted(converted.text)
             text.update(converted.text)
+            for kind in {a.kind for d in converted.documents for a in d.artifacts}:
+                produced = converted.content(kind)
+                decoded = {}
+                for key, payload in produced.items():
+                    try:
+                        decoded[key] = payload.decode("utf-8")
+                    except UnicodeDecodeError:
+                        # Not text. A kind like `page_images` is bytes, and a
+                        # prompt placeholder cannot hold it -- it reaches a step
+                        # as parts rather than as a substitution.
+                        continue
+                if decoded:
+                    content.setdefault(kind, {}).update(decoded)
             documents.update({key: held[key].snapshot for key in converted.text})
             media_types.update({key: held[key].media_type for key in converted.text})
             # A document that could not be read is not silently absent from the
@@ -758,6 +790,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
             documents=documents,
             media_types=media_types,
             document_text=text,
+            document_content=content,
             schemas=schemas,
             prompts=prompts,
             # Built at the first cache miss, never before. That also keeps it
@@ -771,6 +804,9 @@ def _execute(workspace: Path, pipeline: str) -> None:
             run_id=this_run,
             started_at=started_at,
             dossier_version=version("dossier"),
+            # What each source was told to make, so a step asking for a kind
+            # nobody produces is refused before anything else happens (R4.13).
+            source_configs=declared,
             converters=[
                 PinnedConverter(
                     id=c.id, version=c.version, media_type=c.media_type, kind=c.kind

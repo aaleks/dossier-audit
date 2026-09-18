@@ -19,7 +19,11 @@ from collections.abc import Sequence
 
 # `{{ name }}` with optional inner whitespace. Rejecting the spaced form would be
 # defensible and would waste an afternoon; it is unambiguously the same thing.
-_PLACEHOLDER = re.compile(r"\{\{\s*([a-z][a-z0-9_()]*)\s*\}\}")
+#
+# The `@kind` suffix is part of the name, not a separate thing to strip (R3.11).
+# A step may read two kinds of the same source -- `[documents, documents@page_images]`
+# -- and those are two inputs that must reach two different placeholders.
+_PLACEHOLDER = re.compile(r"\{\{\s*([a-z][a-z0-9_()]*(?:@[a-z][a-z0-9_]*)?)\s*\}\}")
 
 # Fenced blocks, both markdown fences. A prompt that teaches the model an output
 # format contains braces, and treating those as inputs would make the most useful

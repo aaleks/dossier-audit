@@ -54,7 +54,6 @@ def asks_for_page_images(workspace: Path) -> Path:
     return workspace
 
 
-@pytest.mark.outer_loop
 class TestAKindNoSourceProducesStopsTheRun:
     """R4.13 — named, before anything runs."""
 
