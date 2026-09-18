@@ -92,15 +92,16 @@ it — not to match it, but to see whether you covered the two questions that ma
 the difference: what the default *kind* is for an image, and what a stage does
 with an artifact that is not text.
 
-## Task 5 — the stale row
+## Task 5 — the row that leaves
 
 Take the `.png` out of `inbox/notes/` and sync again, then convert.
 
-**Checkpoint.** It still fails, on a file that is no longer there. You met the
-reason in exercise 01: a folder source's deletions are not tombstoned against an
-incremental listing, so the ledger row is still `active` and the document is
-still held. Work out the two ways to get a green convert from here, and which one
-you would use on a corpus of four thousand files.
+**Checkpoint.** The sync names the file as `tombstoned`, and convert is green:
+a tombstoned row is not an input. That is the folder connector saying its
+listing was complete (exercise 01, task 4; R2.21). Now suppose the source were
+Jira, which narrows by `since` and cannot say that. Work out what the same
+deletion would look like after a windowed sync, and which flag gets you the
+tombstone without re-fetching four thousand issues (R2.22).
 
 ---
 
@@ -115,6 +116,7 @@ acceptance test that asserts which converters a manifest recorded.
 - a `.txt` converter of your own, registered and converting;
 - a written argument for what to do about the `.png`, in the form the repository
   actually accepts;
-- you can say what a stale ledger row costs downstream.
+- you can say what a tombstoned row is to a run, and when a deletion is not
+  tombstoned on the next sync.
 
 **Next:** [05 · A gold set and `dossier eval`](../05-a-gold-set-and-dossier-eval/).
