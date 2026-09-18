@@ -394,6 +394,16 @@ def run(
             previous_id=previous_id,
             prompt_hashes=prompt_hashes,
             schema_hashes=schema_hashes,
+            # Read here, as the run reads them, because a raised converter
+            # version changes the text every step reads and therefore every key
+            # above it (R5.4). Listing entry points opens no file a plan may not
+            # open and builds no client, so R4.6 is untouched.
+            converters=[
+                PinnedConverter(
+                    id=c.id, version=c.version, media_type=c.media_type, kind=c.kind
+                )
+                for c in installed_converters()
+            ],
         )
     except ValueError as error:
         # Resolution failed, so nothing ran and nothing was written (R4.1).
@@ -409,7 +419,9 @@ def _plan_lines(report: Plan) -> list[str]:
 
     A step whose inputs moved prints what they were and what they are now. That
     is the whole point of the command -- an insertion looks local in the YAML and
-    silently re-points every relative reference below it (R4.5).
+    silently re-points every relative reference below it (R4.5). A step whose
+    documents moved prints which ones, for the same reason: "documents changed"
+    over a corpus of four thousand is not something a person can check.
     """
     lines = [
         f"{report.resolved.pipeline}  {len(report.resolved.documents)} document(s) · "
@@ -426,6 +438,8 @@ def _plan_lines(report: Plan) -> list[str]:
         if step.was is not None:
             lines.append(f"      was: [{', '.join(step.was)}]")
             lines.append(f"      now: [{', '.join(step.step.inputs)}]")
+        if step.moved:
+            lines.append(f"      moved: [{', '.join(step.moved)}]")
 
     lines.append(
         f"{report.rerunning} of {len(report.steps)} step(s) would run · nothing written"

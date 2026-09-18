@@ -302,6 +302,11 @@ A departure is not a miss. A document that has left the source means strictly
 less work -- every key that remains is the key it was -- so a shrinking corpus is
 `cached`, and only an added or changed document re-asks.
 
+Absence is not a change either. A manifest that pinned no converters has said
+nothing about them, and reading that as "different converters" would print
+`converters changed` on every plan against every older run. Not stated is its
+own answer, as it is in a gold file (R7.3), and it is not "no".
+
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.plan.diff`)
 - **Proved by:** `tests/unit/test_R004_12__a_plan_reruns_exactly_what_a_run_would_miss.py`, `tests/acceptance/test_R004_12__plan_says_prompt_changed.py`
@@ -318,3 +323,4 @@ less work -- every key that remains is the key it was -- so a shrinking corpus i
 | 7 | *counter-example* — the retry wrapper dossier sends a validation error back in, edited | every step `cached`; in no key (R0.5 row 5), so in no plan |
 | 8 | *counter-example* — `INC-4901` tombstoned since the last run, nothing else changed | every step `cached`; a departure is less work, and every remaining key is unmoved |
 | 9 | *counter-example* — `DOSSIER_OPENAI_URL` pointed at another host | every step `cached`; where a model is served is in no key (R9.2) |
+| 10 | *counter-example* — a manifest that pinned no converters at all | every step `cached`; absence is not a different converter, and reading it as one would report a change against every older run |
