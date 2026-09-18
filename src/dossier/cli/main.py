@@ -46,7 +46,7 @@ from dossier.application.run import (
     replay,
     replayed_inputs,
 )
-from dossier.application.sync import SourceReport, sync_source
+from dossier.application.sync import CHANGES_NAME, SourceReport, changes_artifact, sync_source
 from dossier.config.credentials import credential_for
 from dossier.config.endpoints import EndpointUnset, endpoint_for
 from dossier.config.environment import environment
@@ -196,6 +196,9 @@ def sync(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines
                 )
             )
         tracker.log_metrics(metrics)
+        # What the lines under each source named, handed over as the report's
+        # own list rather than read back from the ledger (R11.6).
+        tracker.log_artifact(CHANGES_NAME, changes_artifact(reports))
         failed_items = any(report.failed for report in reports)
         tracker.end_run(status="FAILED" if failed_items else "FINISHED")
 
