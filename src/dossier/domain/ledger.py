@@ -11,6 +11,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from dossier.domain.store import held_address
 from dossier.domain.sync import State
 
 
@@ -46,7 +47,7 @@ class LedgerRow(BaseModel):
         nothing ever stored. What a held document is, is the payload as fetched
         (R2.17); for a source without `fields` the two coincide (R2.10).
         """
-        return self.snapshot_path.rsplit("/", 1)[-1]
+        return held_address(self.snapshot_path)
 
     def content(self) -> tuple:
         """Everything about this row except when it was last observed.
@@ -67,3 +68,21 @@ class LedgerRow(BaseModel):
             self.first_seen,
             self.state,
         )
+
+
+class Revision(BaseModel):
+    """One address a row has held, and since when (R2.19).
+
+    Appended when an item is first seen and each time its row is repointed, and
+    never rewritten: the `items` row answers "what is held now", and this is the
+    answer to "what was held before" that the store's immutability (R0.2) had
+    been keeping without anything to say which item the old bytes belonged to.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    source_id: str
+    key: str
+    content_hash: str
+    snapshot_path: str
+    recorded_at: datetime

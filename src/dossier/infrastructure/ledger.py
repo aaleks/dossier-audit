@@ -15,7 +15,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from dossier.domain.ledger import LedgerRow
+from dossier.domain.ledger import LedgerRow, Revision
 from dossier.domain.sync import State
 
 LEDGER_PATH = ".dossier/ledger.db"
@@ -49,6 +49,17 @@ CREATE TABLE IF NOT EXISTS source_config (
     source_id   TEXT PRIMARY KEY,
     config_hash TEXT NOT NULL
 );
+
+-- Every address a row has ever held, appended to and never updated (R2.19).
+-- `rowid` is the order: two revisions written by one sync share a
+-- `recorded_at`, and the sequence is the record, not the set of hashes.
+CREATE TABLE IF NOT EXISTS revisions (
+    source_id     TEXT NOT NULL,
+    key           TEXT NOT NULL,
+    content_hash  TEXT NOT NULL,
+    snapshot_path TEXT NOT NULL,
+    recorded_at   TEXT NOT NULL
+);
 """
 
 
@@ -63,6 +74,30 @@ class Ledger:
         self._connection.executescript(_SCHEMA)
         self._connection.commit()
         self._add_missing_columns()
+        self._seed_revisions()
+
+    def _seed_revisions(self) -> None:
+        """Give a ledger written before `revisions` existed the history it can vouch for.
+
+        One row per `items` row, at the address it holds now, `recorded_at` its
+        `last_seen`: the last sync that confirmed those bytes, which is the most
+        the old table can honestly say (R2.19 row 4). Only ever true of such a
+        ledger: `record` writes the two tables together, so an empty
+        `revisions` beside a populated `items` cannot arise any other way.
+        """
+        (empty,) = self._connection.execute(
+            "SELECT NOT EXISTS (SELECT 1 FROM revisions)"
+        ).fetchone()
+        if not empty:
+            return
+        self._connection.execute(
+            """
+            INSERT INTO revisions (source_id, key, content_hash, snapshot_path, recorded_at)
+            SELECT source_id, key, content_hash, snapshot_path, last_seen
+            FROM items ORDER BY source_id, key
+            """
+        )
+        self._connection.commit()
 
     def _add_missing_columns(self) -> None:
         """Add columns a ledger written by an older dossier does not have.
@@ -149,7 +184,40 @@ class Ledger:
                 row.state.value,
             ),
         )
+        # In the same transaction as the row, so a process dying here leaves
+        # either both or neither: a history claiming a repoint `items` does not
+        # show would be the ledger disagreeing with itself (R2.8, R2.19).
+        self._connection.execute(
+            """
+            INSERT INTO revisions (source_id, key, content_hash, snapshot_path, recorded_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                row.source_id,
+                row.key,
+                row.content_hash,
+                row.snapshot_path,
+                _to_text(row.last_seen),
+            ),
+        )
         self._connection.commit()
+
+    def revisions(self, source_id: str, key: str) -> list[Revision]:
+        """Every address this row has held, oldest first (R2.19)."""
+        cursor = self._connection.execute(
+            "SELECT * FROM revisions WHERE source_id = ? AND key = ? ORDER BY rowid",
+            (source_id, key),
+        )
+        return [
+            Revision(
+                source_id=record["source_id"],
+                key=record["key"],
+                content_hash=record["content_hash"],
+                snapshot_path=record["snapshot_path"],
+                recorded_at=_from_text(record["recorded_at"]),
+            )
+            for record in cursor.fetchall()
+        ]
 
     def touch(self, source_id: str, key: str, *, seen_at: datetime) -> None:
         """Record that an unchanged item was observed again.
