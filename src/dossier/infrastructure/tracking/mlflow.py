@@ -76,8 +76,21 @@ class MlflowTracker:
     """
 
     def __init__(self, uri: str) -> None:
+        import mlflow
         from mlflow import MlflowClient
 
+        # Both of MLflow's paths, pointed at the one server dossier was given
+        # (R10.9). A run is written through this client; a trace is exported by
+        # MLflow's own asynchronous exporter, which reads the library's
+        # process-wide configuration and not this client -- so without this line
+        # every trace goes to MLflow's default local store, where the experiment
+        # this client just created does not exist, and is dropped with a warning
+        # while the run records perfectly. R11.1 and R11.2 are silently empty.
+        #
+        # Set from dossier's own configuration, never read from MLflow's
+        # environment: a `MLFLOW_TRACKING_URI` left over from another project
+        # decides nothing here (R10.1).
+        mlflow.set_tracking_uri(uri)
         self._client = MlflowClient(tracking_uri=uri)
         self._experiment_id: str | None = None
         self._run_id: str | None = None
