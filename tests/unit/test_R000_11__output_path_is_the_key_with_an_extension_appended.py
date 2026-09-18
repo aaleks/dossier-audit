@@ -30,3 +30,9 @@ class TestOutputPathIsTheKeyWithAnExtensionAppended:
         from dossier.domain.store import output_path
 
         assert output_path(step, document, structured=True) == expected
+
+    def test_a_text_artifact_is_the_key_plus_md(self):
+        """The one where `report` declares no output, so its artifact is text (row 5)."""
+        from dossier.domain.store import output_path
+
+        assert output_path("report", "INC-4821", structured=False) == "report/INC-4821.md"
