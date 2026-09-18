@@ -490,7 +490,7 @@ from a connector that narrows is still never subtracted from (R2.7 row 4).
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync.listing_is_complete`)
-- **Proved by:** `tests/acceptance/test_R002_21__a_file_deleted_from_a_folder_is_tombstoned_on_the_next_sync.py`
+- **Proved by:** `tests/unit/test_R002_21__a_listing_the_connector_declares_complete_is_subtracted_from.py`, `tests/acceptance/test_R002_21__a_file_deleted_from_a_folder_is_tombstoned_on_the_next_sync.py`
 - **Status:** IN PROGRESS
 
 | # | Given | Then |
