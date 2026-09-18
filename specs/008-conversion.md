@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.8
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.9
 
 ## Purpose
 
@@ -233,6 +233,35 @@ says nothing is indistinguishable from one that was served entirely from cache.
 | 2 | the same command run twice with nothing changed | the second reports `0 converted · 3 cached`, and writes nothing |
 | 3 | `pdf-markdown` raised between the two runs | `3 converted · 0 cached`; the version is part of the key (R5.4) |
 | 4 | *counter-example* — a source whose documents all failed | reported as failed with reasons and excluded from the converted count; a failure is not zero work (R8.6, R1.9's shape) |
+
+### R8.9 — a manifest pins the converters the run used, and only those
+
+R8.2 row 2 says every converter used is listed. The run pinned every converter
+*installed* instead, and the difference is observable twice over. A manifest is
+meant to be byte-identical across machines given the same inputs (R4.8), and
+the packages a machine happens to carry are not an input the run read. And
+`--plan` compares the pinned set to today's (R4.12 row 6), so installing or
+uninstalling a plugin the corpus never needed printed `converters changed` on
+every step reading documents -- a promise to re-ask that the run would not
+keep, which is the one thing R4.12 forbids a plan to say.
+
+"Used" is decided the way selection is (R8.3): a converter is used when it
+claims the `(media type, kind)` pair of some document the run holds, under that
+document's source's `convert:` list. Pinned in a stable order, so two machines
+agree byte for byte.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.conversion.used`)
+- **Proved by:** `tests/unit/test_R008_9__a_manifest_pins_only_the_converters_the_run_used.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents-manual` holding markdown only, with `pdf-markdown` `1.3.0` installed beside `markdown-text` `1.0.0` | the manifest lists `markdown-text 1.0.0` alone |
+| 2 | that run, then `pdf-markdown` uninstalled, then `dossier run --plan` | every step `cached`; nothing the run read moved (R4.12) |
+| 3 | `OPS-114`, a PDF, held beside the markdown | `pdf-markdown 1.3.0` listed too; a converter is used when it claims a pair some held document has |
+| 4 | *counter-example* — `pdf-markdown` raised to `1.4.0` with `OPS-114` still held | `converters changed` on every step reading `documents` (R4.12 row 6); a converter that *was* used is watched |
+| 5 | *counter-example* — a run over a source holding nothing | pins no converters, and R4.12 row 10 reads that as nothing said, not as none |
 
 ## Open questions
 

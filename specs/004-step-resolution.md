@@ -32,7 +32,7 @@ Written to `runs/<run_id>/manifest.json` before the first stage executes:
 - pipeline name and the hash of `pipeline.yaml`
 - every step with its **expanded** input ids
 - the exact snapshot content hashes pinned for this run
-- prompt file hashes, schema hashes, converter versions
+- prompt file hashes, schema hashes, and the converters the run used with their versions (R8.9)
 - the pinned model identifier
 - `dossier` version and run start time
 

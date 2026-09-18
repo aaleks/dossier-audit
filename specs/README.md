@@ -16,7 +16,7 @@ spec assumes.
 | `005-caching-and-keys.md` | Cache key composition, cascade, provenance records | R5.1 – R5.9 | Implemented |
 | `006-output-schemas.md` | Structured output, grounding, abstention, validation | R6.1 – R6.13 | Implemented |
 | `007-scoring-and-gold.md` | Gold sets, scorers, judge calibration, the change gate | R7.1 – R7.19 | Implemented |
-| `008-conversion.md` | The converter interface, its registration, versioning and selection | R8.1 – R8.8 | Implemented |
+| `008-conversion.md` | The converter interface, its registration, versioning and selection | R8.1 – R8.9 | Partially implemented |
 | `009-model-providers.md` | Model providers, their pinned forms, and where each is reached | R9.1 – R9.15 | Implemented |
 | `010-mlflow-tracking.md` | MLflow tracking: the switch, experiment routing, and what tracking may not do | R10.1 – R10.8 | Implemented |
 | `011-tracking-records.md` | What each command records to MLflow: runs, traces, spans and metrics | R11.1 – R11.6 | Implemented |
