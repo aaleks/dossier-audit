@@ -1,7 +1,7 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Implemented
-**Rules:** R2.1 – R2.20
+**Status:** Partially implemented
+**Rules:** R2.1 – R2.22
 
 ## Purpose
 
@@ -40,7 +40,9 @@ now"; `revisions` answers "what was held before, and since when".
 
 ```
 1.  since := last_sync_at - overlap        (overlap default 24h)
+              or None: never synced, `fields` changed (R2.3), or `--full` (R2.22)
 2.  refs  := connector.list(since)
+    complete := since is None or connector.lists_everything   (R1.11, R2.21)
 3.  for each ref:
       a. if remote_version is present and equals the ledger row  -> skip
       b. payload := connector.fetch(ref.key)
@@ -49,8 +51,8 @@ now"; `revisions` answers "what was held before, and since when".
       e. else store the payload itself as a snapshot, at a path
          derived from its own hash (R2.17), then update the ledger row
       f. repeat (b)-(e) independently for each attachment
-4.  items in the ledger that were active but absent from a full
-    listing are marked tombstoned; they are never deleted
+4.  if complete: items in the ledger that were active but absent from
+    the listing are marked tombstoned; they are never deleted
 5.  last_sync_at := start time of this sync
 ```
 
@@ -476,3 +478,46 @@ not what.
 | 2 | `INC-4821` and `INC-4822` both absent | two lines, in key order, and the summary still reads `2 tombstoned` (R2.13) |
 | 3 | *counter-example* — an incremental listing with `since` set, `INC-4821` legitimately absent | nothing tombstoned, nothing named (R2.7 row 4) |
 | 4 | *counter-example* — `INC-4821` returning to scope with the same bytes (R2.7 row 3) | not named: it is not tombstoned, and R2.18 does not name an unchanged hash |
+
+### R2.21 — tombstones are computed against any listing that is complete, whether nothing was subtracted or the connector never subtracts
+
+A listing is complete for one of two reasons: sync asked for everything
+(`since=None`), or the connector declares that it returns everything whatever
+it is asked (`lists_everything`, R1.11). Before this rule only the first
+counted, and a folder -- which returns everything on every sync -- was believed
+only on its first one. The safety rule does not move: an incremental listing
+from a connector that narrows is still never subtracted from (R2.7 row 4).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.sync.listing_is_complete`)
+- **Proved by:** `tests/unit/test_R002_21__a_listing_the_connector_declares_complete_is_subtracted_from.py`, `tests/acceptance/test_R002_21__a_file_deleted_from_a_folder_is_tombstoned_on_the_next_sync.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents-manual` watermarked `2026-08-06T09:00:00Z`, so `since = 2026-08-05T09:00:00Z`; the connector declares `lists_everything`; `audit-note.pdf` deleted from the folder | the listing is complete; `audit-note.pdf` goes `tombstoned` on this sync and is named under the source line (R2.20); the summary reads `1 tombstoned` |
+| 2 | any connector asked with `since=None` | complete; the path every sync took before this rule, unchanged |
+| 3 | `audit-note.pdf` restored to the folder before the following sync | the same row goes back to `active`; `first_seen` is not rewritten (R2.7 row 3, reachable for a folder for the first time) |
+| 4 | *counter-example* — `incidents-jira` with `since = 2026-08-05T09:00:00Z`, `lists_everything` `False`, `INC-4821` legitimately absent | not complete; `0 tombstoned` (R2.7 row 4) |
+
+### R2.22 — `dossier sync --full <pipeline>` lists every source the pipeline declares without a window
+
+A source that narrows its listings (R1.11) is subtracted from only when sync
+asked it for everything, and until now that happened once: the first sync, or a
+change to `fields` (R2.3). `--full` is the same question asked on demand, so an
+issue deleted from Jira can be tombstoned without editing the source's
+projection to force it. It is a full *listing*, not a re-evaluation: an item
+whose version marker is unchanged is still not fetched (R2.1), so on a quiet
+source the flag costs one listing and nothing else.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.sync`)
+- **Proved by:** `tests/unit/test_R002_22__a_full_sync_starts_from_nothing.py`, `tests/acceptance/test_R002_22__sync_full_tombstones_what_a_windowed_source_dropped.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents-jira` watermarked `2026-08-06T09:00:00Z`, `INC-4821` deleted at the source, `dossier sync --full incident-audit` | the connector is asked `list(since=None)`; `INC-4821` goes `tombstoned` and is named under the source line (R2.20) |
+| 2 | the same, with every remaining issue's `remote_version` unchanged | `0 fetched`, `0 new snapshots`; a full listing is not a re-fetch (R2.1) |
+| 3 | the same, no item failing | `last_sync_at` advances to the sync's start time as on any sync (R2.8 row 4); `--full` asks one question, it does not reset the watermark |
+| 4 | *counter-example* — `dossier sync incident-audit` without the flag | the connector is asked `list(since=2026-08-05T09:00:00Z)`; `INC-4821`, absent from that listing, stays `active` (R2.7 row 4) |

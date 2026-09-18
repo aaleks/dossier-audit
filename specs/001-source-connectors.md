@@ -1,7 +1,7 @@
 # 001 — Source connectors
 
-**Status:** Implemented
-**Rules:** R1.1 – R1.10
+**Status:** Partially implemented
+**Rules:** R1.1 – R1.11
 
 ## Purpose
 
@@ -16,10 +16,18 @@ is assumed not to be.
 
 ## Interface
 
-A connector implements exactly three operations.
+A connector implements exactly three operations, and declares one fact about
+the first of them.
 
 ```python
 class Connector(Protocol):
+    lists_everything: bool
+    """Whether every listing this connector returns is complete -- that is,
+    whether `list` ignores `since`. A folder has no change times and always
+    returns everything; Jira narrows its query. Sync computes tombstones
+    against a listing it knows to be complete, and this is how a connector
+    that never narrows says so (R1.11, R2.21)."""
+
     def list(self, since: datetime | None) -> Iterator[ItemRef]:
         """Every item currently in scope. When `since` is given, the connector
         MAY restrict the result to items changed at or after it. Returning more
@@ -50,6 +58,14 @@ class AttachmentRef(BaseModel):
     item_key: str                 # the item carrying it, e.g. "INC-4821"
     remote_version: str | None    # the attachment's marker, not its item's
 ```
+
+`lists_everything` is a fact about the source type, not about one call. A Jira
+listing asked for with `since=None` is complete, but the connector still says
+`False`: whether a particular call was complete is sync's to work out from the
+`since` it passed (R2.21), and the declaration only adds the case sync cannot
+see -- a connector that would have returned everything whatever it was asked.
+A connector that declares nothing is refused when it is built for a source
+(R1.11): silence here is exactly the gap that left a deleted file `active`.
 
 An attachment is addressed exactly as an item is, and `fetch` takes either key:
 `attachments()` says which files an item carries, and the `key` on each ref is
@@ -263,3 +279,30 @@ no connection, no credential (R3.8, R1.8).
 | 4 | a package declaring entry point `sharepoint` with its own keys | its sources load and are checked, with no edit to `dossier` (R1.7 row 2) |
 | 5 | `type: sharepoint` with no package providing it | load-time error naming the type and the types available; a source cannot be checked against a declaration that does not exist |
 | 6 | *counter-example* — `incidents-jira` with `watermark_overlap: 24h` | checked by the core as a duration, not by the connector; it is a shared key every source may carry (R2.4, R3.1 row 3) |
+
+### R1.11 — a connector declares whether every listing it returns is complete
+
+Tombstoning is a subtraction -- held minus listed -- and it is only safe against
+a listing that omitted nothing (R1.3, R2.7). Sync can tell that a listing it
+asked for with `since=None` is complete; it cannot tell that a connector would
+have returned everything anyway. Before this rule the folder connector did
+exactly that on every sync, and a file deleted from the folder stayed `active`
+for ever, because the interface gave the connector no way to say so.
+
+A connector that declares nothing is refused when it is built for a source,
+before its first `list`, as a converter declaring no version is refused where
+it is registered (R8.2 row 4). Defaulting an absent declaration to "may be
+partial" would be safe, and would silently keep the bug this rule exists to
+close for every folder-like connector written outside this repository.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors`)
+- **Proved by:** `tests/unit/test_R001_11__a_connector_declares_whether_its_listings_are_complete.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the folder connector | `lists_everything` is `True`; `list(since=2026-08-05T09:00:00Z)` and `list(None)` yield the same three `ItemRef`s (R1.4 row 4) |
+| 2 | the Jira connector | `lists_everything` is `False`; `since` narrows its JQL |
+| 3 | a connector declaring nothing, built for `incidents-manual` | refused with an error naming the source, its type and `lists_everything`; `list` is never called |
+| 4 | *counter-example* — the Jira connector asked with `since=None` | that one listing is complete, but the declaration stays `False`; it describes the type, and completeness of a call is sync's to decide (R2.21) |
