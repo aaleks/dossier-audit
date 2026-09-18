@@ -78,5 +78,9 @@ def output_path(step: str, document: str, *, structured: bool) -> str:
     suffix replaced. Replacing it would collide `PLAY-1001.md` with
     `PLAY-1001.pdf`, which R4.10 says are two documents and a run must keep
     apart.
+
+    A step with no `output` declaration returns text rather than a field
+    record, and its file carries `.md`: what a person opens is what the model
+    wrote, not a JSON string holding it.
     """
-    return f"{step}/{document}.json"
+    return f"{step}/{document}.{'json' if structured else 'md'}"
