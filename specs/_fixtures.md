@@ -24,7 +24,7 @@ Do not invent a new incident key for a new example. Add to this file instead.
 | `OPS-115` | `procedures-confluence` | page | Unchanged throughout. `remote_version` `v12`. The item R2.15 asserts is *not* read. |
 | `OPS-116` | `procedures-confluence` | page | Unchanged throughout. `remote_version` `v3`. |
 | `audit-note.pdf` | `incidents-manual` | file | Folder source. No `remote_version`. |
-| `INC-5720` | `incidents-manual` | file | A postmortem delivered as one PNG screenshot, `INC-5720-checkout-latency-postmortem.png`: prose and a latency chart in a single image. The standalone-image case, and the document whose `loss_amount` is stated *only* in the chart. |
+| `INC-5720-checkout-latency-postmortem.png` | `incidents-screenshots` | file | A postmortem delivered as one PNG: prose and a latency chart in a single image, with no text layer at all. Referred to as `INC-5720` in prose. Its key carries the extension because a folder source names a document by its filename, as `audit-note.pdf` does. The standalone-image case, and the document whose `loss_amount` is stated *only* in the chart's axis. |
 
 ## The PDF postmortem corpus
 

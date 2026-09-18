@@ -277,16 +277,16 @@ that results, and it names a pair a reader can act on either way.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.conversion.default_kind`)
-- **Proved by:** `tests/unit/test_R008_10__the_default_kind_is_read_from_a_declared_table.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R008_10__an_image_source_asks_for_a_page_images_converter.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
 | 1 | `audit-note.pdf`, `application/pdf`, its source declaring no `convert:` | `markdown`; the answer R8.3 row 3 already gives, unchanged |
-| 2 | `INC-5720`, `image/png`, its source declaring no `convert:` | `page_images`; an image has no text layer, so the kind a stage reads is the one it cannot be given |
+| 2 | `INC-5720-checkout-latency-postmortem.png`, `image/png`, its source declaring no `convert:` | `page_images`; an image has no text layer, so the kind a stage reads is the one it cannot be given |
 | 3 | `text/csv`, which the table has no entry for, its source declaring no `convert:` | `markdown`; a media type nobody has agreed a default for gets the one every text format already had, rather than no kind at all |
-| 4 | `INC-5720` with no converter installed for its pair | R8.5 stops the run naming `(image/png, page_images)` — the default decides *which* pair must be claimed, never whether one is |
-| 5 | *counter-example* — `INC-5720` from a source declaring `convert: [markdown]` | `markdown`; a declared kind wins and the table is not consulted at all (R8.3) |
+| 4 | that screenshot, with no converter installed for its pair | R8.5 stops the run naming `(image/png, page_images)` — the default decides *which* pair must be claimed, never whether one is |
+| 5 | *counter-example* — that screenshot, from a source declaring `convert: [markdown]` | `markdown`; a declared kind wins and the table is not consulted at all (R8.3) |
 
 ## Open questions
 
