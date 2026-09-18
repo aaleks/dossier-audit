@@ -46,3 +46,20 @@ def snapshot_path(digest: str) -> str:
         for index in range(_SHARD_DEPTH)
     ]
     return "/".join([*shards, digest])
+
+
+def held_address(path: str) -> str:
+    """The content hash a snapshot path was built from: its last segment.
+
+    The inverse of `snapshot_path`, which puts the full digest in the filename
+    precisely so that this needs no lookup (R2.11). It is what a sync prints
+    when a row is repointed (R2.18): the row's `snapshot_path` is the address a
+    person can open, and its `content_hash` is not (R2.17).
+    """
+    digest = path.rsplit("/", 1)[-1]
+    if not is_content_hash(digest):
+        raise ValueError(
+            f"{path!r} does not end in a content hash, so it is not a snapshot path. "
+            "Expected 64 lowercase hex characters as the filename (R0.7, R2.11)."
+        )
+    return digest

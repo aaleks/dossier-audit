@@ -26,6 +26,7 @@ from dossier.domain.ports import Connector, LedgerWriter, SnapshotWriter
 from dossier.domain.store import snapshot_path
 from dossier.domain.sync import (
     Change,
+    Repointed,
     State,
     classify,
     configured_overlap,
@@ -34,6 +35,7 @@ from dossier.domain.sync import (
     normalise,
     projection_changed,
     reactivated,
+    repointed,
     source_config_hash,
     sync_window,
     tombstones,
@@ -56,6 +58,10 @@ class SourceReport:
     # work, so it is reported with what went wrong rather than only counted
     # (R2.13 row 4, R1.9).
     failures: tuple[tuple[str, str], ...] = ()
+    # Each changed item with the address it held and the one it holds now, in
+    # key order. The count says how many moved; a person needs which, and from
+    # what, to open the two and diff them (R2.18).
+    repointed: tuple[Repointed, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -104,6 +110,7 @@ class _Stored:
     new: int = 0
     written: int = 0
     failure: tuple[str, str] | None = None
+    repointed: Repointed | None = None
 
 
 def sync_source(
@@ -145,6 +152,7 @@ def sync_source(
     changed = new = fetched = written = 0
     failed: list[str] = []
     failures: list[tuple[str, str]] = []
+    moved: list[Repointed] = []
 
     for ref in connector.list(since):
         # Asked for every listed item, changed or not: an issue's own version
@@ -174,6 +182,8 @@ def sync_source(
             if outcome.failure is not None:
                 failed.append(outcome.failure[0])
                 failures.append(outcome.failure)
+            if outcome.repointed is not None:
+                moved.append(outcome.repointed)
 
         departed_files |= _settle_attachments(
             item_key=ref.key,
@@ -222,6 +232,10 @@ def sync_source(
         tombstoned=tombstoned,
         failed=tuple(failed),
         failures=tuple(failures),
+        # Sorted here rather than where it is printed: a connector lists in
+        # whatever order it likes, and the report is what the tracker records
+        # as well as what the terminal shows (R11.6).
+        repointed=tuple(sorted(moved, key=lambda item: item.key)),
     )
 
 
@@ -295,6 +309,12 @@ def _store(
         changed=int(outcome is Change.CHANGED),
         new=int(outcome is Change.NEW),
         written=0 if already_held else 1,
+        repointed=repointed(
+            key=target.key,
+            outcome=outcome,
+            previous=recorded.snapshot_path if recorded else None,
+            stored=stored,
+        ),
     )
 
 

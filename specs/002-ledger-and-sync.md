@@ -427,8 +427,8 @@ are in key order.
 
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.sync`)
-- **Proved by:** `tests/acceptance/test_R002_18__sync_names_each_changed_item_with_both_addresses.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R002_18__a_changed_outcome_names_both_addresses.py`, `tests/unit/test_R002_18__the_source_report_carries_each_repointed_item.py`, `tests/acceptance/test_R002_18__sync_names_each_changed_item_with_both_addresses.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
