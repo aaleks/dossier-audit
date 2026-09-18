@@ -210,9 +210,15 @@ def _source_error(
     elif problem["type"] == "missing":
         line = _line_of(text, "sources", index)
         detail = f"missing key {key!r}, which its type requires"
-    else:
+    elif key:
         line = _line_of(text, "sources", index, key)
         detail = f"{key!r} -- {problem['msg']}"
+    else:
+        # A problem between keys rather than with one -- a connector's own
+        # validator over the whole entry, as `user_env` without `token_env`
+        # (R1.12 row 5). No key to point at, so the source's line is named.
+        line = _line_of(text, "sources", index)
+        detail = problem["msg"].removeprefix("Value error, ")
     where = f", line {line}" if line is not None else ""
     identifier = entry.get("id")
     owner = f" in {identifier!r}," if identifier else ""

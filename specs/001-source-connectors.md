@@ -1,6 +1,6 @@
 # 001 — Source connectors
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R1.1 – R1.13
 
 ## Purpose
@@ -363,7 +363,7 @@ inference is a second thing to be wrong about when the route answers 410.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.jira`)
 - **Proved by:** `tests/unit/test_R001_13__a_jira_source_declares_its_deployment.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
