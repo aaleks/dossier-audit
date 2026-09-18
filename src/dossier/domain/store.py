@@ -107,3 +107,13 @@ def record_path(path: str) -> str:
     """
     stem = path.rsplit(".", 1)[0]
     return f"{stem}.meta.json"
+
+
+def replay_path(run_id: str, replay_id: str) -> str:
+    """Where a replay of `run_id` writes what it reproduced (R0.12).
+
+    `runs/<run_id>/replays/<replay_id>`: under the run, never beside it, so a
+    replay cannot be mistaken for a run and never touches what the run wrote.
+    A replay id has the form of a run id, minted the same way.
+    """
+    return f"{RUNS_ROOT}/{run_id}/replays/{replay_id}"
