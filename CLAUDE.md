@@ -67,7 +67,32 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all twelve specs are
-implemented, and 141 of the 149 rules are MET with the other 8 superseded.
+implemented, and 149 of the 157 rules are MET with the other 8 superseded.
+
+A picture is evidence now. `dossier[pdf]` ships `pdf-markdown`, which reads a
+PDF's text layer and introduces each page with its anchor, and `pdf-images`,
+which renders every page to a PNG -- one artifact, a deterministic container of
+parts, because forty keys for a forty-page document would let a version bump
+invalidate its pages one at a time (R8.11). An input names the kind it reads,
+`documents@page_images`, and bare `documents` still means `markdown` so no
+pipeline written before it changed (R3.11); a kind no source was told to make
+stops the run from the configuration alone, before a byte is fetched (R4.13).
+A `per_part` step is shown one page at a time, keyed and cached and retried per
+page (R3.12), and writes each answer under its document (R0.13). A stage may
+hand a model image parts, and each provider sends them in its own form -- a data
+URI, a base64 source block, an array beside the message (R9.16). Before this the
+only media type a stage could read was text, `page_images` was an artifact no
+step could name, and a chart was unreadable by construction.
+
+A page number is derived, not asserted. `source.page` has been in the field
+record since the shape was written and nothing ever checked it: the model said a
+number and no code disagreed. It is now read off the anchor the located span
+sits after, and `null` for a document with no pages -- because a fabricated `1`
+is the same lie in a smaller font (R6.14).
+
+The default kind is a table. An image resolves to `page_images` rather than to
+`markdown`, so the pair a person is told to claim is not the one an image cannot
+honestly supply (R8.10). `text/plain` converts instead of stopping the run.
 
 A run leaves something to open. `dossier run` writes each artifact a step
 produced or served to `runs/<run_id>/<step>/<document>.json` -- the key with
@@ -186,6 +211,11 @@ pytest -m live          # the evaluated rules. Real model calls, run deliberatel
 | `/eval` | The `evaluated` rules — a judge against an agreed threshold | — |
 | `/verify` | Reads spec against test and asks whether it is really proved | — |
 | `/quality` | Fans out to the agents, writes `quality-report.md` | — |
+
+```bash
+pip install dossier          # markdown-text, text-plain
+pip install dossier[pdf]     # pdf-markdown, pdf-images
+```
 
 ## Non-negotiable technical constraints
 
