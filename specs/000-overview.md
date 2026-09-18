@@ -388,7 +388,7 @@ is created only after every key has resolved.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run.replay`)
 - **Proved by:** `tests/acceptance/test_R000_12__a_replay_writes_what_it_reproduced.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
@@ -396,4 +396,4 @@ is created only after every key has resolved.
 | 2 | the same run replayed twice | two directories under `replays/`, byte-identical to each other (R4.7) |
 | 3 | `extract/INC-4821.json` under the run edited by hand, then the run replayed | the edited file is left as edited; the replay directory holds the cache bytes |
 | 4 | *counter-example* — the cache entry for `INC-4822` absent, the other two present | exit 2 with the R4.7 row 4 error, and no `replays/<id>/` directory is created |
-| 5 | *counter-example* — `dossier eval --run 20260806T142203Z-4f1a`, which reproduces through the same path | nothing written under `runs/`; eval reads a run, it does not add to one |
+| 5 | *counter-example* — `dossier eval incident-audit --gold gold/incidents`, which reproduces the latest run through the same path | nothing written under `runs/`; eval reads a run, it does not add to one |
