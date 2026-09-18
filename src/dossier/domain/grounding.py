@@ -57,6 +57,78 @@ def locate_span(span: str, *, document_text: str) -> bool:
     return needle in normalise_whitespace(document_text)
 
 
+# The page marker a converter writes ahead of each page's text, and the only
+# thing that makes `source.page` a derived fact rather than a claim (R6.14).
+#
+# An HTML comment for two reasons. It is invisible wherever the artifact is
+# rendered, so the text a person reads is the text the document had. And it is
+# not something PDF extraction produces: a bare `Page 3` would be indistinguishable
+# from the printed footer on page 12 of a corporate template, and the page would
+# then be derived from the wrong thing entirely.
+#
+# It lives here rather than beside the converter that writes it because both
+# sides must agree, and a format written down in two places is a format that
+# eventually differs. A converter imports this; `domain` never imports a
+# converter.
+_PAGE_ANCHOR = re.compile(r"<!--\s*page\s+(\d+)\s*-->")
+
+
+def page_anchor(page: int) -> str:
+    """The marker a converter emits ahead of page `page`. 1-based (R6.14)."""
+    return f"<!-- page {page} -->"
+
+
+def split_pages(text: str) -> list[str]:
+    """The pages in converted text, in order.
+
+    The inverse of what a converter did. Nothing in a run needs it -- grounding
+    searches the whole document (R6.4) -- but a converter author and a test both
+    do, and defining it beside the format is what stops the format being written
+    down twice.
+
+    Text with no anchors is one page worth of text rather than zero: the caller
+    asked to split something that has no splits in it, and the honest answer is
+    what they passed in.
+    """
+    parts = _PAGE_ANCHOR.split(text)
+    if len(parts) == 1:
+        return [text]
+    # `re.split` with one capture group yields [before, page, text, page, text...].
+    # The leading element is whatever preceded the first anchor, which for a
+    # converter's own output is empty.
+    return parts[2::2]
+
+
+def page_of_span(span: str, *, document_text: str) -> int | None:
+    """The page the located span sits on, or `None` (R6.14).
+
+    `None` covers three different situations on purpose, because all three mean
+    the same thing to a reader: there is no page to turn to. The document has no
+    anchors, the span is not in it, or nothing was claimed at all.
+
+    Searched in the normalised text, exactly as `locate_span` does. The two must
+    agree -- a span that grounds and then has no page would be the halves of one
+    check disagreeing about the same document -- and normalising is what lets
+    them share one index. The anchors survive normalisation because they are not
+    whitespace.
+    """
+    needle = normalise_whitespace(span)
+    if not needle:
+        # An empty span is located nowhere (R6.6). Without this it would land at
+        # position zero and be credited to the first anchor in the document.
+        return None
+
+    haystack = normalise_whitespace(document_text)
+    at = haystack.find(needle)
+    if at < 0:
+        return None
+
+    preceding = [match for match in _PAGE_ANCHOR.finditer(haystack) if match.start() <= at]
+    if not preceding:
+        return None
+    return int(preceding[-1].group(1))
+
+
 class FieldVerdict(Enum):
     """What a checked field record turned out to be (spec 006).
 
