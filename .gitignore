@@ -64,6 +64,7 @@ mlflow.db
 # hidden -- a person opens it -- but it is still not source.
 .dossier/
 runs/
+playground/work/
 
 # ---- Reports produced by the /quality skill ----
 quality-report.md
