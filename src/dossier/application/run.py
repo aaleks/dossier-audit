@@ -40,7 +40,7 @@ from dossier.application.convert import MARKDOWN, convert_inputs
 from dossier.application.extract import DocumentResult, run_stage
 from dossier.application.manifest import Manifest
 from dossier.domain.fields import OutputSchema
-from dossier.domain.grounding import check_field
+from dossier.domain.grounding import check_field, with_derived_page
 from dossier.domain.hashing import content_hash
 from dossier.domain.keys import ArtifactInput, StageInputs, cache_key, provenance
 from dossier.domain.pipeline import (
@@ -481,12 +481,13 @@ def _from_cache(
         # should be decided here: `execute` can recompute, a replay cannot
         # (R5.9, R4.7).
         return None
-    checks = tuple(
-        check_field(record, input_documents=document_text) for record in output.fields
+    records = tuple(
+        with_derived_page(record, input_documents=document_text) for record in output.fields
     )
+    checks = tuple(check_field(record, input_documents=document_text) for record in records)
     return DocumentResult(
         document=document,
-        records=tuple(output.fields),
+        records=records,
         checks=checks,
         attempts=0,
         # The stored bytes travel on rather than being re-derived from the

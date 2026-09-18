@@ -94,7 +94,6 @@ def last_page_span(pdf_workspace: Path) -> tuple[str, int]:
     return line, last
 
 
-@pytest.mark.outer_loop
 class TestARunCitesThePageTheSpanIsOn:
     """R6.14 — the page in the artifact is the document's, not the answer's."""
 

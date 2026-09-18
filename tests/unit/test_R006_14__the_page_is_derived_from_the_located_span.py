@@ -109,3 +109,85 @@ class TestTheAnchorIsAContractBetweenLayers:
         """
         assert page_anchor(3) == "<!-- page 3 -->"
         assert page_of_span("Page 3 of 12", document_text="Page 3 of 12") is None
+
+
+class TestTheRecordCarriesTheDerivedPage:
+    """R6.14 — what a stage writes down is the document's page, not the model's."""
+
+    def _record(self, page):
+        from dossier.domain.schemas import Evidence, FieldRecord
+
+        return FieldRecord(
+            field="loss_amount",
+            value=48200.00,
+            currency="CHF",
+            source=Evidence(document="INC-4821", span="total exposure CHF 48'200", page=page),
+        )
+
+    def test_the_models_number_is_replaced_by_the_documents(self):
+        """Example 2: the one where the model says 8 and the span is on 3.
+
+        Replaced rather than compared. There is deliberately no mismatch to
+        report: the model's number was never evidence of anything, so a rule
+        that flagged a disagreement would be treating it as though it were.
+        """
+        from dossier.domain.grounding import with_derived_page
+
+        derived = with_derived_page(self._record(8), input_documents={"INC-4821": ANCHORED})
+
+        assert derived.source.page == 3
+
+    def test_a_number_for_a_document_with_no_pages_is_dropped(self):
+        """Example 3: the one where the model volunteered a page anyway.
+
+        The markdown note has no anchors, so the honest answer is `None` -- and
+        the model's `2` has to go, or the unverified number survives in exactly
+        the records this rule exists to clean up.
+        """
+        from dossier.domain.grounding import with_derived_page
+
+        derived = with_derived_page(self._record(2), input_documents={"INC-4821": UNPAGED})
+
+        assert derived.source.page is None
+
+    def test_everything_else_about_the_record_is_untouched(self):
+        """The one where deriving a page quietly rewrote a value.
+
+        The record is frozen and rebuilt, so this is the assertion that the
+        rebuild copied the answer rather than reconstructing part of it.
+        """
+        from dossier.domain.grounding import with_derived_page
+
+        before = self._record(8)
+        after = with_derived_page(before, input_documents={"INC-4821": ANCHORED})
+
+        assert after.model_dump(exclude={"source"}) == before.model_dump(exclude={"source"})
+        assert after.source.span == before.source.span
+        assert after.source.document == before.source.document
+
+    def test_an_abstaining_field_is_returned_as_it_stands(self):
+        """Counter-example (row 5): the one where there is no claim to locate.
+
+        `value: null` with a reason and no source at all. Deriving a page would
+        mean inventing a source for a field that deliberately has none (R6.5).
+        """
+        from dossier.domain.grounding import with_derived_page
+        from dossier.domain.schemas import FieldRecord
+
+        abstained = FieldRecord(field="root_cause", value=None, reason="not stated in document")
+
+        assert with_derived_page(abstained, input_documents={"INC-4821": ANCHORED}) is abstained
+
+    def test_a_field_citing_a_document_this_stage_never_read_is_untouched(self):
+        """The one where R6.3 has a finding and this must not hide it.
+
+        `check_field` marks it invalid for citing a document that was not an
+        input. Deriving against a document that is not there would be inventing
+        the evidence the check is about to reject.
+        """
+        from dossier.domain.grounding import with_derived_page
+
+        record = self._record(8)
+        derived = with_derived_page(record, input_documents={"INC-9999": ANCHORED})
+
+        assert derived is record

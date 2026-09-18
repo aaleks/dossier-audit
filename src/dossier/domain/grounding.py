@@ -129,6 +129,37 @@ def page_of_span(span: str, *, document_text: str) -> int | None:
     return int(preceding[-1].group(1))
 
 
+def with_derived_page(
+    record: FieldRecord,
+    *,
+    input_documents: Mapping[str, str],
+) -> FieldRecord:
+    """The same record, with `source.page` read from the document (R6.14).
+
+    Replaced rather than compared. The model's number was never evidence of
+    anything, so a rule that reported a disagreement would be treating it as
+    though it were -- and would turn one real finding, "this page is unverified",
+    into a stream of cosmetic ones.
+
+    Returned unchanged, and identically, in the three cases where there is
+    nothing to derive against: an abstaining field has no source at all (R6.5),
+    and a field citing a document this stage never read is R6.3's finding to
+    make rather than this function's to paper over.
+    """
+    if record.source is None:
+        return record
+
+    text = input_documents.get(record.source.document)
+    if text is None:
+        return record
+
+    page = page_of_span(record.source.span, document_text=text)
+    if page == record.source.page:
+        return record
+
+    return record.model_copy(update={"source": record.source.model_copy(update={"page": page})})
+
+
 class FieldVerdict(Enum):
     """What a checked field record turned out to be (spec 006).
 
