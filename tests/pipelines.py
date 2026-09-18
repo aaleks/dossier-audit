@@ -58,6 +58,7 @@ def write_pipeline(
     steps: list[str] | None = None,
     inputs: dict[str, str] | None = None,
     outputs: dict[str, str | None] | None = None,
+    modes: dict[str, str] | None = None,
     sources: list[str] | None = None,
     reference: list[str] | None = None,
     model: str = "anthropic:claude-sonnet-4-5-20250929",
@@ -67,6 +68,7 @@ def write_pipeline(
     steps = ["extract"] if steps is None else steps
     inputs = inputs or {}
     outputs = outputs or {}
+    modes = modes or {}
 
     directory = root / "pipelines" / name
     (directory / "prompts").mkdir(parents=True, exist_ok=True)
@@ -92,7 +94,7 @@ def write_pipeline(
         lines.append(f"  - id: {step}")
         lines.append(f"    prompt: prompts/{step}.md")
         lines.append(f"    input: {declared}")
-        lines.append("    mode: per_file")
+        lines.append(f"    mode: {modes.get(step, 'per_file')}")
         output = outputs.get(step, "schemas/incident.yaml")
         if output is not None:
             lines.append(f"    output: {output}")

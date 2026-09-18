@@ -46,8 +46,17 @@ class FakeModelClient:
     def call_count(self) -> int:
         return len(self.calls)
 
-    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
-        self.calls.append({"prompt": prompt, "schema": schema, "model_id": self.model_id})
+    def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
+        self.calls.append(
+            {
+                "prompt": prompt,
+                "schema": schema,
+                "model_id": self.model_id,
+                # Recorded, because several rules are claims about which picture
+                # a call was shown -- not only how many calls there were (R3.12).
+                "parts": tuple(parts),
+            }
+        )
         if not self.responses:
             raise FakeModelClientError(
                 f"call {self.call_count} was made with no scripted response left. "
