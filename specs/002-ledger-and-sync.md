@@ -512,8 +512,8 @@ source the flag costs one listing and nothing else.
 
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.sync`)
-- **Proved by:** `tests/unit/test_R002_22__a_full_sync_starts_from_nothing.py`, `tests/acceptance/test_R002_22__sync_full_tombstones_what_a_windowed_source_dropped.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R002_22__sync_full_tombstones_what_a_windowed_source_dropped.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
