@@ -1,0 +1,10 @@
+# Workspaces built while working through the exercises. Everything under here is
+# generated: snapshots, ledgers, caches, run manifests and the odd `.env`.
+#
+# The repository's own .gitignore already covers `.dossier/`, `runs/` and `.env`
+# wherever they appear. This covers the workspaces themselves, so a half-finished
+# exercise never shows up in `git status`.
+work/
+
+# Editable installs of the converter packages built in exercises 03 and 04.
+*.egg-info/

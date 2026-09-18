@@ -1,0 +1,14 @@
+# The fields `extract` asks for, and what kind of answer each holds (R6.10).
+#
+# This file is the only place the field names and kinds are written. The JSON
+# Schema the model is shown and the field list the scorer works from are both
+# generated from it, so they cannot disagree with it or with each other.
+#
+# No `free_text` field here on purpose: a free_text field must name a `judge:`
+# rubric and would be withheld at eval time until a judge has been calibrated.
+# That is exercise 07.
+fields:
+  loss_amount:      {kind: amount, currency: CHF}
+  resolution_date:  {kind: date}
+  severity:         {kind: enum, values: [minor, major, critical]}
+  affected_systems: {kind: reference}

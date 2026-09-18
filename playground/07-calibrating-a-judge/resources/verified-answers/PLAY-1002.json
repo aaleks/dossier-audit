@@ -1,0 +1,23 @@
+{
+  "document": "PLAY-1002.md",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-17",
+  "fields": {
+    "loss_amount": {
+      "value": null,
+      "reason": "the note states that no financial loss was recorded for this incident"
+    },
+    "resolution_date": {
+      "value": "2026-03-19"
+    },
+    "severity": {
+      "value": "minor"
+    },
+    "affected_systems": {
+      "value": "reporting-export"
+    },
+    "root_cause": {
+      "value": "The export ran on a fixed schedule instead of being triggered by the warehouse load it depends on."
+    }
+  }
+}

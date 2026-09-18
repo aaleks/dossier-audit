@@ -1,0 +1,26 @@
+# PROPOSED. Copy this into `gold/incidents/judge.yaml` yourself, once you agree
+# with the reasoning below -- and change the name and the date to yours.
+#
+# The agreement each judged field's judge must reach against this gold set's
+# sample (R7.13). One threshold per judged field, as a proportion in [0, 1].
+#
+# Written by a person, never by a run: `dossier calibrate` measures a judge and
+# records what it measured under `calibrations/`, and may not touch this file
+# (R7.14). A run able to move the bar it is judged against would be a judge
+# grading its own paper.
+#
+# Why 0.95 and not 1.0, and not 0.80:
+#
+#   * The stub judge in this playground agrees with all twenty human verdicts,
+#     so it measures 1.00. Setting the bar at what one measurement happened to
+#     produce leaves no room for a single disagreement on the twenty-first case;
+#     20 of 20 at N=20 supports a lower bound near 0.84, not 1.00.
+#   * A judge that answered "supported" to everything would score 0.60 on this
+#     sample -- twelve of the twenty cases are supported. Any bar at or below
+#     0.60 would pass a judge that decides nothing.
+#   * 0.95 sits above the figure a useless judge reaches and below the figure a
+#     working one measured. That is the whole argument, and it is the argument
+#     you are signing when you commit this file.
+#
+# root_cause: agreed by <your name> on <today's date>.
+root_cause: 0.95

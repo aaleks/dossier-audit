@@ -1,0 +1,16 @@
+# The same four fields as exercise 05, and one more that no `==` can score.
+#
+# `root_cause` is `free_text`, so it names a rubric. A free_text field with no
+# `judge:` is refused at load time: without one it could only be string-compared,
+# which is the defect the declaration refuses to allow (R6.10).
+#
+# Naming a rubric is not the same as being allowed to report the field. Until a
+# judge has been measured against this gold set's sample and that measurement
+# clears the threshold the gold set declares, `dossier eval` withholds the field
+# and says which of the reasons applies (R7.15).
+fields:
+  loss_amount:      {kind: amount, currency: CHF}
+  resolution_date:  {kind: date}
+  severity:         {kind: enum, values: [minor, major, critical]}
+  affected_systems: {kind: reference}
+  root_cause:       {kind: free_text, judge: rubrics/root_cause.md}

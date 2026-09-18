@@ -1,0 +1,23 @@
+{
+  "document": "PLAY-1001.md",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-17",
+  "fields": {
+    "loss_amount": {
+      "value": 18400.0,
+      "currency": "CHF"
+    },
+    "resolution_date": {
+      "value": "2026-03-04"
+    },
+    "severity": {
+      "value": "major"
+    },
+    "affected_systems": {
+      "value": "checkout-api, payments-gateway"
+    },
+    "root_cause": {
+      "value": "The connection pool shipped by the gateway upgrade had a shorter idle timeout than the load balancer, so it handed out sockets the balancer had already closed."
+    }
+  }
+}

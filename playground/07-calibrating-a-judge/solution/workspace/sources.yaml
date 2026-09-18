@@ -1,0 +1,9 @@
+# The one source this exercise audits: a folder of incident notes.
+#
+# A folder source has no version marker of its own, so change detection falls
+# through to hashing the payload (R1.5, R2.2). `path` is resolved against the
+# workspace, so this file is portable.
+sources:
+  - id: incidents-manual
+    type: folder
+    path: inbox/incidents/

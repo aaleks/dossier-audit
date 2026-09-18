@@ -1,0 +1,11 @@
+# A folder of shift notes. No `convert:` list, so every document gets the default
+# kind for its media type -- `markdown`, the kind a stage reads (R8.3).
+#
+# The default is one value for every media type on purpose, and spec 008 records
+# as OPEN what it should be for media types beyond `application/pdf`. Until that
+# is settled, one default answers for all of them, visible in one place rather
+# than spread across call sites.
+sources:
+  - id: shift-notes
+    type: folder
+    path: inbox/notes/

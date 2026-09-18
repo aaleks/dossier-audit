@@ -1,0 +1,54 @@
+{
+  "_comment": [
+    "Layer in front of the base replies:",
+    "    --replies resources/replies-ungrounded.json --replies ../02-.../resources/replies.json",
+    "",
+    "One character is wrong. The span cites `CHF 18,400` where PLAY-1001 writes",
+    "`CHF 18'400`, so the span cannot be located in the document and the field is",
+    "ungrounded (R6.4). The value is exactly right and gold agrees with it -- and it",
+    "is still scored incorrect (R7.4), because a value that happens to be right is",
+    "not evidence.",
+    "",
+    "Grounding normalises whitespace on both sides, so a span broken across two",
+    "lines in the document still matches. It does not normalise anything else: an",
+    "apostrophe is not a comma, and case is compared exactly."
+  ],
+  "rules": [
+    {
+      "match": ["# PLAY-1001"],
+      "reply": {
+        "document": "PLAY-1001.md",
+        "fields": [
+          {
+            "field": "loss_amount",
+            "value": 18400.0,
+            "currency": "CHF",
+            "confidence": "high",
+            "source": {"document": "PLAY-1001.md", "span": "a recorded loss of CHF 18,400"}
+          },
+          {
+            "field": "resolution_date",
+            "value": "2026-03-04",
+            "confidence": "high",
+            "source": {"document": "PLAY-1001.md", "span": "**Resolved:** 2026-03-04"}
+          },
+          {
+            "field": "severity",
+            "value": "major",
+            "confidence": "high",
+            "source": {"document": "PLAY-1001.md", "span": "**Severity:** major"}
+          },
+          {
+            "field": "affected_systems",
+            "value": "checkout-api, payments-gateway",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1001.md",
+              "span": "**Systems affected:** checkout-api, payments-gateway"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
