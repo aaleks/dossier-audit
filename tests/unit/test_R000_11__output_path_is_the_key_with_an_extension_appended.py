@@ -36,3 +36,14 @@ class TestOutputPathIsTheKeyWithAnExtensionAppended:
         from dossier.domain.store import output_path
 
         assert output_path("report", "INC-4821", structured=False) == "report/INC-4821.md"
+
+    def test_an_aggregate_artifact_is_named_for_what_it_is(self):
+        """The one where the step read every document, so its file is `aggregate` (row 8).
+
+        The reserved key `*` (spec 003) is not a file name on every platform,
+        and naming the file after any one document would be wrong.
+        """
+        from dossier.domain.store import output_path
+
+        assert output_path("report", "*", structured=False) == "report/aggregate.md"
+        assert output_path("report", "*", structured=True) == "report/aggregate.json"
