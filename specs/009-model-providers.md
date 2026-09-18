@@ -1,6 +1,6 @@
 # 009 — Model providers
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R9.1 – R9.16
 
 ## Purpose
@@ -371,7 +371,7 @@ moves and no provider sees a request shape it did not see yesterday.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.models`)
 - **Proved by:** `tests/unit/test_R009_16__a_provider_sends_image_parts_in_its_own_form.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

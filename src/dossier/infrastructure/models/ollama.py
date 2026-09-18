@@ -12,11 +12,15 @@ is reported is `_http`'s, shared with the OpenAI-compatible client.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import httpx
 
 from dossier.domain.model_id import check_served
+from dossier.domain.ports import ImagePart
 from dossier.infrastructure.models._http import (
     ModelRequestFailed,
+    encoded,
     http_client,
     request,
     text_at,
@@ -51,7 +55,13 @@ class OllamaClient:
         # asked anything, as in a run served from cache, asks the server nothing.
         self._unchecked = True
 
-    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+    def complete(
+        self,
+        prompt: str,
+        *,
+        schema: dict | None = None,
+        parts: Sequence[ImagePart] = (),
+    ) -> str:
         """The model's answer to `prompt`, as the text it returned.
 
         `stream` false, so one request is one answer; temperature 0, so the same
@@ -65,7 +75,7 @@ class OllamaClient:
 
         body: dict = {
             "model": self._name,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [_message(prompt, parts)],
             "stream": False,
             # A reasoning model under a constrained `format` can spend its whole
             # budget thinking and answer with an empty string -- 268s and nothing
@@ -129,3 +139,20 @@ class Ollama:
 
 
 ollama = Ollama("http://localhost:11434")
+
+
+def _message(prompt: str, parts: Sequence[ImagePart]) -> dict:
+    """One user message, with its images beside it rather than inside it (R9.16).
+
+    Ollama's own API takes images as an array on the message, not as content
+    items. A client that reshaped the message into an OpenAI-style content list
+    would be sending a request this server does not read -- which is the whole
+    reason spec 009 has a separate client for it (R9.13).
+
+    No `images` key at all when there are no parts, so the request is what it
+    was before this rule and no cache key moves (R5.6).
+    """
+    message: dict = {"role": "user", "content": prompt}
+    if parts:
+        message["images"] = [encoded(part) for part in parts]
+    return message
