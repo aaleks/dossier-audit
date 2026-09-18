@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.12
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.13
 
 ## Purpose
 
@@ -183,7 +183,9 @@ Regardless of what `pipeline.yaml` says today.
 | 1 | `runs/20260806T142203Z-4f1a/` replayed with the network stubbed to raise | completes; every artifact is byte-identical to the original |
 | 2 | the same, with `pipeline.yaml` since edited to add a step | the edit is ignored; the manifest is the only input |
 | 3 | the same, with the pinned model no longer named in `pipeline.yaml` | the manifest's model identifier is used (R0.6) |
-| 4 | *counter-example* — a replay whose pinned snapshot is missing from the store | a clear error naming the missing hash; a replay may fail, but it may never silently substitute other content |
+| 4 | a replay of a run that recorded `extract` failing on `INC-5044` (R4.13) | `INC-5044` is reproduced as failed, by name and with its recorded error; no artifact is looked for, and the other three documents reproduce byte-for-byte |
+| 5 | *counter-example* — a replay whose pinned snapshot is missing from the store | a clear error naming the missing hash; a replay may fail, but it may never silently substitute other content |
+| 6 | *counter-example* — a replay of a run that recorded no failure for `INC-4821`, whose cache entry has since gone | refused by key, exactly as before: the run produced an answer there and this workspace cannot give it back, which is a different thing from a run that produced none |
 
 ### R4.8 — resolving the same pipeline twice produces a byte-identical manifest
 
@@ -324,3 +326,41 @@ own answer, as it is in a gold file (R7.3), and it is not "no".
 | 8 | *counter-example* — `INC-4901` tombstoned since the last run, nothing else changed | every step `cached`; a departure is less work, and every remaining key is unmoved |
 | 9 | *counter-example* — `DOSSIER_OPENAI_URL` pointed at another host | every step `cached`; where a model is served is in no key (R9.2) |
 | 10 | *counter-example* — a manifest that pinned no converters at all | every step `cached`; absence is not a different converter, and reading it as one would report a change against every older run |
+
+### R4.13 — a run that finishes records the documents it produced nothing for
+
+A failed document is a recorded failure rather than a computed artifact, so
+nothing is written to the cache for it (R6.1). That leaves a replay unable to
+tell two situations apart, and they could hardly be less alike: a run that
+produced nothing for a document, and a workspace that has lost what a run did
+produce. Both arrive as a missing cache entry. Refusing is right for the second
+and wrong for the first, and until this rule the first was not recordable
+anywhere.
+
+So a run that reaches the end writes `runs/<run_id>/outcome.json` beside its
+manifest, naming every (step, document) that produced no usable output. The
+manifest itself is untouched: it is written before the first stage runs and
+describes what *would* happen (R4.1), and a run interrupted halfway must not
+leave one that claims nothing failed.
+
+The file's absence is therefore meaningful, and is the safe answer. A run killed
+between two steps leaves none, nothing is claimed about what it produced, and a
+replay refuses by key as it always did -- as does every run recorded before this
+rule existed.
+
+Recording a failure is not caching one. Nothing here is addressed by a cache key
+and nothing serves it back to a stage: re-running still re-asks the model for
+that document, which is what R6.1 is about.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R004_13__a_run_records_what_it_produced_nothing_for.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a run where `extract` failed on `INC-5044` after both attempts | `runs/<run_id>/outcome.json` names the step, the document and the error it failed with |
+| 2 | a run where every document produced output | the file is written with an empty list; its existence is the claim that the run finished, not that something failed |
+| 3 | a run of 400 documents where 3 failed | three entries, each naming its own step and document; "3 failed" is not something anyone can act on (R6.9) |
+| 4 | *counter-example* — a run killed between two steps | no file at all; nothing is claimed, and a replay refuses by key (R4.7 row 6) |
+| 5 | *counter-example* — `audit-note.pdf`, which no installed converter could read | absent from both the manifest and this file; it never entered the plan, and R8.6 reported it when the run happened |

@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.19
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.20
 
 ## Purpose
 
@@ -259,8 +259,11 @@ edit to it is an unaudited change to the definition of correct.
 ### R7.8 — `--compare` scores both configurations over the same documents and flags every regression
 
 `a` and `b` are run ids, each reproduced from its own manifest and cache (see
-the change gate). The same documents means both manifests pinned the same set of
-document keys.
+the change gate). The same documents means both runs *scored* the same set of
+document keys -- what each one pinned, less what it produced nothing for (R4.13).
+Comparing on what was pinned would let a run of four documents be compared with
+one that scored three, which is the delta over different evidence this rule
+exists to refuse.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
@@ -272,7 +275,8 @@ document keys.
 | 1 | runs `a` and `b` of `incident-audit` over the four documents of the scoring example | a per-field table: each field's score in `a`, in `b`, and the delta |
 | 2 | `affected_systems` moving 75.0% to 50.0% while the overall figure moves 80.0% to 90.0% | flagged as a regression, even though the overall figure improved |
 | 3 | run `b` covering a fifth document, `INC-5102`, that run `a` did not | an error; a comparison over different documents is not a comparison |
-| 4 | *counter-example* — `severity` at 100.0% in both runs | reported with a delta of zero, not omitted; a silent row is indistinguishable from a missing one |
+| 4 | run `b` pinning the same four documents as `a` but producing nothing for `INC-5044` | an error naming `INC-5044`; both pinned it and only one scored it, so the delta would be over different evidence (R4.13, R7.20) |
+| 5 | *counter-example* — `severity` at 100.0% in both runs | reported with a delta of zero, not omitted; a silent row is indistinguishable from a missing one |
 
 ### R7.9 — every run, its per-field scores, its pinned model and its judge calibration are recorded to MLflow
 
@@ -591,3 +595,41 @@ recorded, which is not the same as measured under this one.
 | 1 | the judge prompt edited; rubric and judge model unchanged | stale; `dossier eval` withholds the field saying the judge prompt has changed |
 | 2 | a `calibrations/root_cause.json` with no `prompt_hash` | stale, naming the missing field; measured under a prompt nobody recorded |
 | 3 | *counter-example* — rubric, judge model and prompt all unchanged | proceeds (R7.6 row 3) |
+
+### R7.20 — `dossier eval` scores the documents the run produced and names the ones it did not
+
+A run may fail on one document and audit the rest (R6.9). Scoring reproduces a
+run from its manifest and its cache entries (R7.10), and there is no entry for a
+document the run produced nothing for -- so before this rule one bad PDF in four
+hundred made the whole audit unscoreable, and the nine tenths of the corpus that
+had been audited perfectly well could not be reported at all.
+
+What makes this safe rather than convenient is R4.13. A document the run recorded
+as failed is *known* to have produced nothing, and is excluded and named. A
+document with no cache entry and no such record is not known to have failed --
+the entry may simply be gone -- and the whole command is still refused (R4.7). A
+partial score over a set nobody chose is the outcome this keeps out: clear a
+cache and a percentage over two documents of four hundred reads exactly like a
+percentage over four hundred.
+
+A failed document is excluded rather than scored incorrect. Charging the model
+for an answer it never gave would make a converter's bad afternoon read as a
+quality problem, and the two want different work.
+
+The line comes above the report and names each document, as the withheld line
+names each field (R7.15): the count in the report is then the number of documents
+actually scored, and the two figures agree.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.eval`)
+- **Proved by:** `tests/acceptance/test_R007_20__eval_scores_what_the_run_produced.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a run of the four scoring-example documents where `extract` failed on `INC-5044` | the other three are scored; a line above the report names `INC-5044` and the step it failed in; the report reads `3 documents` |
+| 2 | the same | exit 0; the failure had its own non-zero exit when the run happened (R6.9), and this scoring did everything it could |
+| 3 | the same, with `INC-5044` verified in the gold set | still not scored; the run gave no answer to score, and gold cannot supply one |
+| 4 | a run where every document failed | all four named, nothing scored, and no overall figure printed -- there is nothing to average |
+| 5 | *counter-example* — a run that recorded no failures whose cache entry for `INC-4821` has gone | refused entirely, naming the key (R4.7); nothing is known about what that document produced |
+| 6 | *counter-example* — `audit-note.pdf`, which no converter could read | never in the manifest, so not named here; R8.6 reported it when the run happened |
