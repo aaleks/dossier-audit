@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.10
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.11
 
 ## Purpose
 
@@ -287,6 +287,37 @@ that results, and it names a pair a reader can act on either way.
 | 3 | `text/csv`, which the table has no entry for, its source declaring no `convert:` | `markdown`; a media type nobody has agreed a default for gets the one every text format already had, rather than no kind at all |
 | 4 | that screenshot, with no converter installed for its pair | R8.5 stops the run naming `(image/png, page_images)` — the default decides *which* pair must be claimed, never whether one is |
 | 5 | *counter-example* — that screenshot, from a source declaring `convert: [markdown]` | `markdown`; a declared kind wins and the table is not consulted at all (R8.3) |
+
+### R8.11 — a conversion that produces several parts produces one artifact, a deterministic container
+
+A page-images conversion of a forty-page PDF is forty pictures. R8.4 says one
+declared conversion is one artifact with one key, and that is the right answer:
+forty keys would let a version bump invalidate the pages of one document
+separately, and no rule anywhere says what a document with nineteen old pages
+and twenty-one new ones is.
+
+So the parts travel together, in a container that is a pure function of its
+contents. No timestamps, no compression that varies by library version, entries
+in part order. R8.1 already requires the artifact to be byte-identical across
+machines; this is what makes that achievable for an artifact that is not one
+blob to begin with.
+
+The container's format belongs to `domain` rather than to the converter that
+writes it, for the reason the page anchor does (R6.14): a step will read what a
+converter wrote, and a format written down twice is one that eventually differs.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.conversion.pack_parts`, `unpack_parts`)
+- **Proved by:** `tests/unit/test_R008_11__a_multi_part_conversion_is_one_container.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4830`, three pages, converted by `pdf-images` | one artifact and one `K_convert`, holding three parts named `page-001.png`, `page-002.png`, `page-003.png` |
+| 2 | the same conversion run twice, in two processes with different working directories | byte-identical containers (R8.1 row 2); nothing about the machine or the clock is in them |
+| 3 | `PLAY-2002`, which has no text layer | one part; rendering a page does not depend on there being text on it, which is the whole reason this kind exists |
+| 4 | a container written and read back | the same ordered parts, so the format has exactly one definition and a converter and a step cannot disagree about it |
+| 5 | *counter-example* — the three pages as three artifacts under three keys | not this; R8.4 says one declared conversion is one artifact, and three keys would let R5.4 invalidate a document's pages one at a time |
 
 ## Open questions
 
