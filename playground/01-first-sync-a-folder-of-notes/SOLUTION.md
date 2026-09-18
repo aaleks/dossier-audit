@@ -146,6 +146,7 @@ than patched.
 $ printf '\n- Added by the reviewer: the credit note was issued on 2026-04-09.\n' >> inbox/incidents/PLAY-1003.md
 $ dossier sync incident-audit
 incidents-manual  4 known · 1 changed · 0 new -> 4 fetched
+      PLAY-1003.md  9b1c…e7f2 -> 4d80…a613
 ledger updated · 1 new snapshots · 0 tombstoned
 
 $ find .dossier/snapshots -type f | wc -l
@@ -156,6 +157,25 @@ Five snapshots for four documents. The old bytes of `PLAY-1003.md` are still
 there under their own hash, and the ledger row now points at the new one. Nothing
 under the snapshot store is ever rewritten (R0.2) — which is what lets a manifest
 written before your edit still resolve to the document that run actually read.
+
+The indented line names the item that moved, with the address it held and the
+one it holds now — both printed in full, abbreviated here (R2.18). Those are the
+two files under `.dossier/snapshots/`, so the edit is one `diff` away:
+
+```console
+$ diff .dossier/snapshots/9b/1c/9b1c…e7f2 .dossier/snapshots/4d/80/4d80…a613
+```
+
+And the ledger keeps the history after the terminal has scrolled by. Every
+address a row has ever held is in `revisions`, oldest first (R2.19):
+
+```console
+$ sqlite3 .dossier/ledger.db "select recorded_at, content_hash from revisions where key = 'PLAY-1003.md' order by rowid"
+```
+
+Two rows: the first sync's, and this one's. A `1 tombstoned` would have been
+named the same way, as `      PLAY-1002.md  tombstoned` (R2.20) — though as the
+next step shows, that is not what happens here.
 
 Now the deletion:
 
