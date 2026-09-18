@@ -71,6 +71,8 @@ That is a real change to the graph and appears in the diff:
 
 `dossier run --replay runs/<run_id>/` executes from that run's frozen manifest
 and ignores the current `pipeline.yaml` entirely.
+What it reproduces is written to a new directory under that run, or nowhere
+(R0.12).
 
 ## Must hold
 

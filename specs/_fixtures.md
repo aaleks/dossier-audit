@@ -130,6 +130,8 @@ example refers to.
 | `2026-07-30T09:14:00Z` | `INC-4821` remote version marker |
 | `2026-08-05T16:02:00Z` | `INC-4822` remote version marker |
 | `20260806T142203Z-4f1a` | the run id used in provenance examples. ISO 8601 *basic* format on purpose: a run id is a directory name (`runs/<run_id>/`, R0.8), and the extended form's colons are illegal in a Windows filename |
+| `20260907T090000Z-bbbb` | a second run of the same pipeline, served from cache; the id R0.8 row 3 and R0.11 row 2 write under |
+| `20260918T140000Z-1e2f` | the replay id: a directory under `runs/20260806T142203Z-4f1a/replays/`, in the run-id form (R0.12) |
 
 ## Configuration
 
