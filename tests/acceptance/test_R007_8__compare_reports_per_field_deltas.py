@@ -208,6 +208,42 @@ class TestCompareReportsPerFieldDeltas:
         assert result.exit_code != 0
         assert "INC-5102" in result.output
 
+    def test_runs_that_pinned_the_same_documents_but_scored_different_ones_are_refused(
+        self, workspace: Path, monkeypatch, tracker: IssueTracker
+    ):
+        """Example 4: the one where run `b` produced nothing for `INC-5455`.
+
+        Both runs pinned the same four documents, so comparing on what was
+        *pinned* would have compared four scores against three and called the
+        difference an effect of the prompt. The comparison is over what each run
+        scored -- pinned, less what it recorded producing nothing for (R4.13,
+        R7.20).
+        """
+        failing = "INC-5455"
+
+        class PartlyUnusable(RoutedModel):
+            def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+                if f"# {failing}\n" in prompt:
+                    self.calls.append(failing)
+                    return "The figures were reviewed and look right."
+                return super().complete(prompt, schema=schema)
+
+        import dossier.cli.main as cli
+
+        a = _run(workspace, monkeypatch, ANSWERS)
+        _edit_prompt(workspace)
+        model = PartlyUnusable(ANSWERS_AFTER)
+        monkeypatch.setattr(cli, "build_model_client", lambda model_id: model)
+        partial = _cli(workspace, monkeypatch, "run", PIPELINE)
+        assert partial.exit_code == 1, partial.output
+        b = re.search(r"^run (\S+)", partial.output, re.MULTILINE).group(1)
+        monkeypatch.setattr(cli, "build_model_client", lambda model_id: NoModelClient())
+
+        result = _compare(workspace, monkeypatch, a, b)
+
+        assert result.exit_code != 0
+        assert failing in result.output
+
     def test_a_field_that_did_not_move_is_reported_with_a_delta_of_zero(
         self, workspace: Path, monkeypatch, two_runs: tuple[str, str]
     ):

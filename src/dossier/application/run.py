@@ -37,7 +37,7 @@ from pydantic import ValidationError
 
 from dossier.application.convert import MARKDOWN, convert_inputs
 from dossier.application.extract import DocumentResult, run_stage
-from dossier.application.manifest import Manifest
+from dossier.application.manifest import DocumentFailure, Manifest, Outcome
 from dossier.domain.fields import OutputSchema
 from dossier.domain.grounding import check_field
 from dossier.domain.hashing import content_hash
@@ -259,6 +259,18 @@ def execute(
         raise
 
     report = RunReport(run_id=run_id, manifest_path=manifest, steps=tuple(steps))
+    # The run reached the end, so what it could not produce is now a fact rather
+    # than an absence, and it is recorded beside the manifest (R4.13). Written
+    # here rather than into the manifest: that one is written before the first
+    # stage, and a run killed halfway must not leave one claiming nothing failed.
+    Outcome(
+        run_id=run_id,
+        failed=tuple(
+            DocumentFailure(step=done.step, document=result.document, error=result.error or "")
+            for done in report.steps
+            for result in done.failed
+        ),
+    ).write(workspace / "runs")
     if tracker is not None:
         # The figures the command already knows and prints; MLflow is a second
         # place to read them, never a second way of computing them (spec 011).
@@ -694,6 +706,7 @@ def replay(
     manifest: Manifest,
     document_text: Mapping[str, str],
     cache: ArtifactStore,
+    outcome: Outcome | None = None,
 ) -> RunReport:
     """Reproduce a past run from its frozen manifest (R4.7).
 
@@ -707,11 +720,22 @@ def replay(
     model swapped, the file deleted -- the manifest is the only input (R4.7
     examples 2 and 3), and the snapshots it pinned are the only content, however
     the ledger has moved since (R4.9).
+
+    `outcome` is what the run recorded producing nothing for (R4.13). A (step,
+    document) it names is reproduced as the failure it was, and no artifact is
+    looked for -- there never was one, because a failed document is not cached
+    (R6.1). Without it, every missing entry is refused by key, which is the
+    honest answer for a run that recorded nothing: the entry may have been lost
+    rather than never written, and those two want opposite treatment.
     """
     plan = manifest.plan
     keys = [document.key for document in plan.documents]
     steps: list[StepReport] = []
     produced: dict[str, dict[str, str]] = {}
+    recorded = {
+        (failure.step, failure.document): failure
+        for failure in (outcome.failed if outcome is not None else ())
+    }
 
     for step in plan.steps:
         over = [AGGREGATE_KEY] if step.mode == "aggregate" else keys
@@ -724,6 +748,7 @@ def replay(
                 document_text=document_text,
                 produced=produced,
                 cache=cache,
+                recorded_failure=recorded.get((step.id, document)),
             )
             for document in over
         )
@@ -747,6 +772,7 @@ def _replay_one(
     document_text: Mapping[str, str],
     produced: Mapping[str, Mapping[str, str]],
     cache: ArtifactStore,
+    recorded_failure: DocumentFailure | None = None,
 ) -> DocumentResult:
     """One (step, document), served from the entry the original run wrote.
 
@@ -754,7 +780,17 @@ def _replay_one(
     *this replay* produced -- never from anything read out of the workspace
     today. It is therefore the same key the original computation used, or the
     entry is not found and the replay says so rather than pretending.
+
+    Unless the run recorded producing nothing here, in which case that *is* what
+    it produced, and reproducing it faithfully means reporting the failure rather
+    than hunting for an artifact nobody wrote (R4.13, R4.7 row 4).
     """
+    if recorded_failure is not None:
+        return DocumentResult(
+            document=document,
+            error=recorded_failure.error or "the run recorded no usable output",
+        )
+
     contents = [
         _replayed_input(
             target=target,

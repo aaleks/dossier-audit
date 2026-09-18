@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.13
 
 ## Purpose
@@ -355,7 +355,7 @@ that document, which is what R6.1 is about.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R004_13__a_run_records_what_it_produced_nothing_for.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

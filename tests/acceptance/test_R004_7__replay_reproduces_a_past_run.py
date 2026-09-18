@@ -74,6 +74,41 @@ def completed(workspace: Path, monkeypatch) -> str:
     return sorted(path.name for path in (workspace / "runs").iterdir())[-1]
 
 
+@pytest.fixture
+def partly_failed(workspace: Path, monkeypatch) -> str:
+    """A finished run where the last document never produced the declared shape.
+
+    Two documents answer; the third is asked twice -- its answer and the one
+    correction R6.2 allows -- and neither validates. The run exits non-zero and
+    records what it produced nothing for (R4.13).
+    """
+    from tests.fakes import FakeModelClient
+
+    import dossier.cli.main as cli
+
+    write_pipeline(workspace, steps=["extract"])
+    assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
+
+    keys = sorted(path.name for path in (workspace / "inbox" / "incidents").iterdir())
+    client = FakeModelClient(
+        responses=[_answer(key) for key in keys[:-1]] + ["not the shape", "nor is this"]
+    )
+    monkeypatch.setattr(cli, "build_model_client", lambda model_id: client, raising=False)
+
+    result = _cli(workspace, monkeypatch, "run", PIPELINE)
+    assert result.exit_code == 1, result.output
+    assert keys[-1] in result.output
+    return sorted(path.name for path in (workspace / "runs").iterdir())[-1]
+
+
+def _failed_document(workspace: Path, run: str) -> str:
+    """The document that run recorded producing nothing for."""
+    outcome = json.loads(
+        (workspace / "runs" / run / "outcome.json").read_text(encoding="utf-8")
+    )
+    return outcome["failed"][0]["document"]
+
+
 def _artifacts(workspace: Path) -> dict[str, bytes]:
     root = workspace / ".dossier" / "cache" / "stage"
     return {
@@ -165,6 +200,51 @@ class TestAReplayReproducesTheRun:
         assert result.exit_code == 0, result.output
         assert "3 artifact(s) reproduced" in result.output
         assert manifest["plan"]["model"] == "anthropic:claude-sonnet-4-5-20250929"
+
+    def test_a_recorded_failure_replays_as_the_failure_it_was(
+        self, workspace: Path, monkeypatch, partly_failed: str
+    ):
+        """Example 4: the one where `extract` produced nothing for one document.
+
+        Nothing was cached for it, deliberately (R6.1), and the run recorded
+        that (R4.13) -- so the replay reproduces the failure rather than hunting
+        for an artifact nobody wrote. The other two documents come back
+        byte-for-byte, which is what makes this a reproduction and not a shrug.
+        """
+        result = _cli(
+            workspace, monkeypatch, "run", PIPELINE, "--replay", f"runs/{partly_failed}"
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "extract: 2 artifact(s) from cache" in result.output
+        assert "2 artifact(s) reproduced" in result.output
+        assert "produced nothing" in result.output
+        assert _failed_document(workspace, partly_failed) in result.output
+
+    def test_a_missing_entry_with_no_such_record_is_still_refused(
+        self, workspace: Path, monkeypatch, completed: str
+    ):
+        """Counter-example (row 6): the same absence, and the opposite answer.
+
+        This run recorded no failure, so its missing artifact is not something it
+        produced nothing for -- it is something this workspace has lost. The two
+        arrive identically, as no cache entry, and only the record tells them
+        apart. Reproducing one as a failure would report an audit the run never
+        performed.
+        """
+        artifacts = [
+            path
+            for path in (workspace / ".dossier" / "cache" / "stage").rglob("*")
+            if path.is_file() and not path.name.endswith(".meta.json")
+        ]
+        assert artifacts, "the run left artifacts behind"
+        artifacts[0].unlink()
+
+        result = _cli(workspace, monkeypatch, "run", PIPELINE, "--replay", f"runs/{completed}")
+
+        assert result.exit_code == 2
+        assert "no cached artifact" in result.output
+        assert "nothing has been substituted for it" in result.output
 
     def test_a_conversion_without_its_record_is_named_and_nothing_is_substituted(
         self, workspace: Path, monkeypatch, completed: str

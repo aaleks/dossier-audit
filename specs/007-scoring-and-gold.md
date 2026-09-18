@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.20
 
 ## Purpose
@@ -623,7 +623,7 @@ actually scored, and the two figures agree.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R007_20__eval_scores_what_the_run_produced.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

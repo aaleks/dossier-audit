@@ -32,7 +32,7 @@ from dossier.application.eval import (
     score_run,
     start_eval,
 )
-from dossier.application.manifest import MANIFEST_NAME, Manifest
+from dossier.application.manifest import MANIFEST_NAME, Manifest, Outcome
 from dossier.application.plan import (
     Plan,
     build_plan,
@@ -578,6 +578,10 @@ def _replay(workspace: Path, directory: Path) -> None:
 
     manifest = Manifest.read(path)
     cache = ArtifactCache(workspace, namespace="convert")
+    # What the run recorded producing nothing for, or `None` where it recorded
+    # nothing at all -- a run that was interrupted, or one from before R4.13.
+    # `None` is the safe answer: every missing entry is then refused by key.
+    outcome = Outcome.read(directory)
 
     try:
         # The conversions this run produced, read back by their keys rather than
@@ -590,6 +594,7 @@ def _replay(workspace: Path, directory: Path) -> None:
             manifest=manifest,
             document_text=text,
             cache=ArtifactCache(workspace, namespace="stage"),
+            outcome=outcome,
         )
     except MissingFromReplay as error:
         # A replay may fail; it may never substitute other content (R4.7 row 4).
@@ -598,7 +603,13 @@ def _replay(workspace: Path, directory: Path) -> None:
 
     typer.echo(f"replayed {manifest.run_id} · {manifest.plan.pipeline}")
     for step in report.steps:
-        typer.echo(f"  {step.step}: {len(step.results)} artifact(s) from cache")
+        reproduced = len(step.results) - len(step.failed)
+        typer.echo(f"  {step.step}: {reproduced} artifact(s) from cache")
+        for result in step.failed:
+            # Reproduced as the failure it was, and said so: a replay that
+            # printed only the artifacts would read as a run that audited the
+            # whole corpus (R4.13, R6.9).
+            typer.echo(f"    {result.document} produced nothing: {_summarised(result.error)}")
     typer.echo(f"{report.cache_hits} artifact(s) reproduced · no model calls")
 
 
@@ -1014,8 +1025,22 @@ def eval_(
         raise typer.Exit(code=2)
     manifest = Manifest.read(workspace / "runs" / run_dir / MANIFEST_NAME)
 
-    scored, text = _reproduced(workspace, manifest, step.id)
+    scored, text = _reproduced(workspace, manifest, step.id, run_dir)
     scores = score_run(report=scored, gold=load_gold(workspace / gold), kinds=kinds)
+
+    # Above the report, and named rather than counted, as a withheld field is
+    # (R7.15): the document count below is then what was actually scored, and a
+    # reader is never left to work out which of the four is missing (R7.20).
+    if scored.failed:
+        typer.echo(
+            f"{_count(len(scored.failed), 'document')} produced nothing in run "
+            f"{Path(run_dir).name} and {'is' if len(scored.failed) == 1 else 'are'} "
+            "not scored:"
+        )
+        for result in scored.failed:
+            typer.echo(
+                f"  {result.document} — {scored.step} failed: {_summarised(result.error)}"
+            )
 
     judges, withheld = _judge_gate(
         workspace / gold, path.parent / step.output, path.parent, config.model
@@ -1138,8 +1163,16 @@ def _compare_runs(
         manifests.append(manifest)
 
     try:
+        # What each run *scored*, not what it pinned: a run that produced nothing
+        # for one document scored one fewer than a run that pinned the same four,
+        # and a delta across that difference is the comparison over different
+        # evidence this rule refuses (R7.8 row 4, R4.13).
         check_same_documents(
-            *([document.key for document in m.plan.documents] for m in manifests), runs=runs
+            *(
+                _scored_documents(workspace, manifest, run)
+                for manifest, run in zip(manifests, runs, strict=True)
+            ),
+            runs=runs,
         )
     except ValueError as error:
         typer.echo(f"{pipeline}: {error}", err=True)
@@ -1152,7 +1185,7 @@ def _compare_runs(
     _, withheld = _judge_gate(workspace / gold, declaration, pipeline_dir, model)
     totals: list[tuple] = []
     for run, manifest in zip(runs, manifests, strict=True):
-        scored, text = _reproduced(workspace, manifest, step)
+        scored, text = _reproduced(workspace, manifest, step, run)
         scores = judge_scores(
             score_run(report=scored, gold=gold_documents, kinds=kinds),
             report=scored,
@@ -1233,13 +1266,33 @@ def _judging(
     )
 
 
-def _reproduced(workspace: Path, manifest: Manifest, step: str):
+def _scored_documents(workspace: Path, manifest: Manifest, run: str) -> list[str]:
+    """The documents a past run produced output for: what it pinned, less what failed.
+
+    A run that recorded nothing scored everything it pinned, which is what every
+    run from before R4.13 reads as -- the same answer this function gave before
+    there was anything to subtract.
+    """
+    outcome = Outcome.read(workspace / "runs" / run)
+    produced = outcome.failed_documents if outcome else frozenset()
+    return [
+        document.key for document in manifest.plan.documents if document.key not in produced
+    ]
+
+
+def _reproduced(workspace: Path, manifest: Manifest, step: str, run_dir: str):
     """One step's results as a past run produced them, served from its cache (R4.7).
 
     A run that cannot be reproduced stops the command by name. Recomputing it
     would score answers the run never gave. The converted text comes back too:
     a judge is shown the document as the run was (R7.17), not as the workspace
     holds it now.
+
+    A document the run recorded producing nothing for comes back as the failure
+    it was, and is scored as nothing at all (R4.13, R7.20). One with no record
+    and no entry still stops the command: the entry may have been lost rather
+    than never written, and a partial score over a set nobody chose is the
+    outcome that would make the difference invisible.
     """
     try:
         text = replayed_inputs(
@@ -1251,11 +1304,24 @@ def _reproduced(workspace: Path, manifest: Manifest, step: str):
             manifest=manifest,
             document_text=text,
             cache=ArtifactCache(workspace, namespace="stage"),
+            outcome=Outcome.read(workspace / "runs" / run_dir),
         )
     except MissingFromReplay as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
     return next(result for result in report.steps if result.step == step), text
+
+
+def _summarised(error: str | None) -> str:
+    """One line of a recorded failure, for a report that summarises (R4.13).
+
+    A schema validation error runs to a dozen lines and belongs in
+    `runs/<run_id>/outcome.json`, which keeps it in full. Pasting it into the
+    middle of a per-field report buries the figures it sits above -- so the line
+    says what failed and where the whole story is.
+    """
+    first, _, rest = (error or "produced no usable output").strip().partition("\n")
+    return f"{first} […]" if rest.strip() else first
 
 
 def _count(n: int, noun: str) -> str:
