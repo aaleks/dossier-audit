@@ -1072,19 +1072,29 @@ def eval_(
             f"overall {summed.percentage:.1f}%"
         )
     lowest = weakest(reported)
-    for total in totals:
-        if total.field in withheld:
+    scored = {total.field: total for total in totals}
+    # Walked over the *declared* fields, as `--compare` is (R7.8). A withheld
+    # field whose every verdict went to the judge has nothing deterministic to
+    # total, so a report written from the totals dropped it -- silently, and
+    # exactly where the withholding matters most (R7.15 row 5).
+    for field in kinds:
+        if field in withheld:
             # Named, not omitted. A line that simply vanished would read as a
             # field nobody verified (R7.3 row 4), which is a different problem
             # and wants different work (R7.15).
-            typer.echo(f"  {total.field:<18}     -- {withheld[total.field]}")
+            typer.echo(f"  {field:<18}     -- {withheld[field]}")
             continue
-        marker = "   <- weakest" if total.field in lowest else ""
+        total = scored.get(field)
+        if total is None:
+            # Nothing verified this field, so there is nothing to report and
+            # nothing was refused. Absent is not withheld (R7.3 row 4).
+            continue
+        marker = "   <- weakest" if field in lowest else ""
         # A judged field says how many of its verdicts the judge decided. A
         # percentage over an unknown mix of abstention and judged verdicts is
         # the silent subset R7.17 replaced.
-        judged = f"   ({total.judged} judged)" if kinds[total.field].needs_a_judge else ""
-        typer.echo(f"  {total.field:<18} {total.percentage:5.1f}%{judged}{marker}")
+        judged = f"   ({total.judged} judged)" if kinds[field].needs_a_judge else ""
+        typer.echo(f"  {field:<18} {total.percentage:5.1f}%{judged}{marker}")
 
     if tracker is not None:
         # The figures the lines above printed, recorded once rather than computed
