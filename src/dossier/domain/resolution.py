@@ -20,7 +20,14 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from dossier.domain.pipeline import PipelineConfig, StepConfig, is_relative_reference
+from dossier.domain.pipeline import (
+    DEFAULT_INPUT_KIND,
+    PipelineConfig,
+    SourceConfig,
+    StepConfig,
+    is_relative_reference,
+    split_kind,
+)
 
 # Kept beside `is_relative_reference`, which decides *whether* a reference is
 # sugar; this one reads the count out of it. One pattern, asked two questions.
@@ -252,6 +259,52 @@ def validate_input_arity(steps: Sequence[StepConfig], resolved: Sequence[Resolve
                 "agreed rendering: spec 003 puts multiple inputs under distinct "
                 "labelled tags, and one placeholder cannot carry several."
             )
+
+
+def check_kinds(
+    *,
+    steps: Sequence[StepConfig],
+    sources: Sequence[SourceConfig],
+    reference: Sequence[SourceConfig],
+) -> None:
+    """Refuse a step reading a kind its sources were not told to make (R4.13).
+
+    Checked at resolution rather than at conversion, because the two failures
+    have different fixes and different blast radii. R8.5 is "nothing converts
+    this pair", fixed by an installation. This is "your pipeline asked a source
+    for something it was never told to make", fixed by a line in `sources.yaml`
+    -- and it is knowable from the configuration alone, before a byte is
+    fetched or a model is reached (R4.1).
+
+    A step reads its *whole* set, so one source of two failing to supply the
+    kind is refused. A half-answered input would run, over fewer documents than
+    the author believes, and nothing anywhere would say so.
+    """
+    sets = {"documents": sources, "reference": reference}
+
+    for step in steps:
+        for declared in step.inputs:
+            if is_relative_reference(declared):
+                continue
+            name, kind = split_kind(declared)
+            if kind is None:
+                # A step id. It names another step's output, which is not a
+                # conversion and has no source to be checked against (R3.11).
+                continue
+
+            for source in sets[name]:
+                # A source declaring no `convert:` produces its media type's
+                # default (R8.10), and for every text source that is `markdown`.
+                # Refusing a silent source here would break every pipeline
+                # written before R3.11 existed.
+                produced = source.convert or [DEFAULT_INPUT_KIND]
+                if kind not in produced:
+                    raise ValueError(
+                        f"step {step.id!r} reads {declared!r}, but source "
+                        f"{source.id!r} was never told to make {kind!r}. It "
+                        f"produces {sorted(produced)}. Add {kind!r} to that "
+                        f"source's convert: list in sources.yaml (R4.13)."
+                    )
 
 
 def moved_since(

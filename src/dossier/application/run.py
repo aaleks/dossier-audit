@@ -44,9 +44,12 @@ from dossier.domain.grounding import check_field, with_derived_page
 from dossier.domain.hashing import content_hash
 from dossier.domain.keys import ArtifactInput, StageInputs, cache_key, provenance
 from dossier.domain.pipeline import (
+    DEFAULT_INPUT_KIND,
     SOURCE_KEYWORDS,
     PipelineConfig,
+    SourceConfig,
     StepConfig,
+    split_kind,
     validate_references,
     validate_step_ids,
 )
@@ -56,6 +59,7 @@ from dossier.domain.resolution import (
     PinnedConverter,
     ResolvedPlan,
     ResolvedStep,
+    check_kinds,
     resolve,
     validate_input_arity,
 )
@@ -126,6 +130,7 @@ def execute(
     documents: Mapping[str, str],
     media_types: Mapping[str, str] | None = None,
     document_text: Mapping[str, str],
+    document_content: Mapping[str, Mapping[str, str]] | None = None,
     schemas: Mapping[str, OutputSchema | None],
     prompts: Mapping[str, str],
     model: ModelClient,
@@ -134,6 +139,7 @@ def execute(
     started_at: datetime,
     dossier_version: str,
     converters: Sequence[PinnedConverter] | None = None,
+    source_configs: Mapping[str, SourceConfig] | None = None,
     tracker: Tracker | None = None,
     experiment: str | None = None,
     capture: str = "full",
@@ -151,6 +157,12 @@ def execute(
     """
     if tracker is not None and not experiment:
         raise ValueError("a tracker records to an experiment, and none was named")
+    # What each kind holds, for the steps that name one (R3.11). A caller that
+    # passes only `document_text` is passing the markdown kind, which is what
+    # every input meant before a kind could be written down.
+    by_kind: Mapping[str, Mapping[str, str]] = (
+        {DEFAULT_INPUT_KIND: document_text} if document_content is None else document_content
+    )
     prompt_hashes, schema_hashes = key_hashes(pipeline, prompts=prompts, schemas=schemas)
     plan = _resolve(
         pipeline=pipeline,
@@ -165,6 +177,7 @@ def execute(
             step.id: _generated_schema_hash(schemas.get(step.id)) for step in pipeline.steps
         },
         converters=converters,
+        source_configs=source_configs,
     )
 
     # Only now does anything touch the disk. Every check that could refuse this
@@ -233,6 +246,7 @@ def execute(
                     document=key,
                     documents=keys,
                     document_text=document_text,
+                    by_kind=by_kind,
                     produced=produced,
                     schema=None if output is None else output.schema,
                     prompt=prompts[step.id],
@@ -313,6 +327,7 @@ def _run_one(
     document: str,
     documents: Sequence[str],
     document_text: Mapping[str, str],
+    by_kind: Mapping[str, Mapping[str, str]],
     produced: Mapping[str, Mapping[str, str]],
     schema: dict | None,
     prompt: str,
@@ -336,7 +351,7 @@ def _run_one(
         document=document,
         documents=documents,
         aggregate=declared.mode == "aggregate",
-        document_text=document_text,
+        by_kind=by_kind,
         produced=produced,
     )
     key_inputs = StageInputs(
@@ -530,7 +545,7 @@ def _input_values(
     document: str,
     documents: Sequence[str],
     aggregate: bool,
-    document_text: Mapping[str, str],
+    by_kind: Mapping[str, Mapping[str, str]],
     produced: Mapping[str, Mapping[str, str]],
 ) -> dict[str, str]:
     """What each declared input holds, for this call.
@@ -544,7 +559,15 @@ def _input_values(
     """
     values: dict[str, str] = {}
     for name, target in zip(declared.inputs, _targets(declared, resolved), strict=True):
-        source = document_text if target in SOURCE_KEYWORDS else produced.get(target, {})
+        if target in SOURCE_KEYWORDS:
+            # The kind the input asked for, which is `markdown` when it asked
+            # for none (R3.11). Keeping only the markdown map here was what made
+            # `page_images` an artifact no step could reach: the words existed
+            # in the pipeline and nothing acted on them.
+            _, kind = split_kind(name)
+            source = by_kind.get(kind or DEFAULT_INPUT_KIND, {})
+        else:
+            source = produced.get(target, {})
         if aggregate:
             values[name] = _joined(source, documents)
         else:
@@ -631,6 +654,7 @@ def _resolve(
     schema_hashes: Mapping[str, str | None] | None = None,
     generated_schema_hashes: Mapping[str, str | None] | None = None,
     converters: Sequence[PinnedConverter] | None = None,
+    source_configs: Mapping[str, SourceConfig] | None = None,
 ) -> ResolvedPlan:
     """Every check that can refuse a run, run before a run exists.
 
@@ -642,6 +666,20 @@ def _resolve(
     """
     validate_step_ids(pipeline)
     validate_references(pipeline)
+    if source_configs is not None:
+        # Refused here, from the configuration alone, before a byte is fetched
+        # or a model is reached (R4.13). Skipped when the caller did not supply
+        # the sources -- a replay resolves a pipeline whose sources.yaml may no
+        # longer exist, and refusing it on that would break R4.7.
+        check_kinds(
+            steps=pipeline.steps,
+            sources=[
+                source_configs[name] for name in pipeline.sources if name in source_configs
+            ],
+            reference=[
+                source_configs[name] for name in pipeline.reference if name in source_configs
+            ],
+        )
     plan = resolve(
         pipeline=pipeline,
         pipeline_hash=pipeline_hash,

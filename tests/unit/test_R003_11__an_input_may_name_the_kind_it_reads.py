@@ -68,3 +68,55 @@ class TestAnInputCarriesItsKind:
         """
         with pytest.raises(ValueError, match="documents@"):
             split_kind("documents@")
+
+
+class TestTheKindPicksTheArtifactAStepIsHanded:
+    """R3.11 rows 1-3 — the words in the pipeline reach the prompt."""
+
+    def _values(self, declared_input, by_kind):
+        from dossier.application.run import _input_values
+        from dossier.domain.pipeline import StepConfig
+        from dossier.domain.resolution import ResolvedStep
+
+        declared = StepConfig(
+            id="describe", prompt="p.md", input=declared_input, mode="per_file"
+        )
+        inputs = [name.split("@", 1)[0] for name in declared.inputs]
+        return _input_values(
+            declared=declared,
+            resolved=ResolvedStep(id="describe", inputs=inputs, prompt_hash="h"),
+            document="INC-4821",
+            documents=["INC-4821"],
+            aggregate=False,
+            by_kind=by_kind,
+            produced={},
+        )
+
+    BY_KIND = {
+        "markdown": {"INC-4821": "the converted text"},
+        "captions": {"INC-4821": "a description of the chart"},
+    }
+
+    def test_a_qualified_input_is_handed_that_kind(self):
+        """Example 1: the one the whole rule exists for."""
+        values = self._values("documents@captions", self.BY_KIND)
+
+        assert values["documents@captions"] == "a description of the chart"
+
+    def test_a_bare_input_is_handed_the_markdown_kind(self):
+        """Example 2: the one where nothing about an old pipeline changes."""
+        values = self._values("documents", self.BY_KIND)
+
+        assert values["documents"] == "the converted text"
+
+    def test_a_step_may_read_two_kinds_of_the_same_source(self):
+        """Example 3: the one where a kind is per input rather than per step.
+
+        Both reach the prompt, under their own placeholders. A step that could
+        only choose one kind would make `documents@captions` a replacement for
+        the document rather than an addition to it.
+        """
+        values = self._values(["documents", "documents@captions"], self.BY_KIND)
+
+        assert values["documents"] == "the converted text"
+        assert values["documents@captions"] == "a description of the chart"
