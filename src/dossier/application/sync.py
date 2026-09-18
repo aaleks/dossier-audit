@@ -62,6 +62,10 @@ class SourceReport:
     # key order. The count says how many moved; a person needs which, and from
     # what, to open the two and diff them (R2.18).
     repointed: tuple[Repointed, ...] = ()
+    # Each key this sync tombstoned, in key order: the item absent from a full
+    # listing (R2.7) and the file its item no longer carries (R2.6 row 3) alike.
+    # `1 tombstoned` says something left and not what (R2.20).
+    departed: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -193,7 +197,7 @@ def sync_source(
             ledger=ledger,
         )
 
-    tombstoned = len(departed_files)
+    departed_keys: set[str] = set(departed_files)
     if listing_is_complete:
         active = {key for key, row in held.items() if row.state is State.ACTIVE}
         # The files just tombstoned are already handled. `held` was read before
@@ -209,7 +213,7 @@ def sync_source(
             listing_was_complete=listing_is_complete,
         )
         ledger.set_state(config.id, departed, State.TOMBSTONED)
-        tombstoned += len(departed)
+        departed_keys |= set(departed)
 
         returned = reactivated(listed=listed, already_tombstoned=already)
         ledger.set_state(config.id, returned, State.ACTIVE)
@@ -229,13 +233,14 @@ def sync_source(
         new=new,
         fetched=fetched,
         snapshots_written=written,
-        tombstoned=tombstoned,
+        tombstoned=len(departed_keys),
         failed=tuple(failed),
         failures=tuple(failures),
         # Sorted here rather than where it is printed: a connector lists in
         # whatever order it likes, and the report is what the tracker records
         # as well as what the terminal shows (R11.6).
         repointed=tuple(sorted(moved, key=lambda item: item.key)),
+        departed=tuple(sorted(departed_keys)),
     )
 
 

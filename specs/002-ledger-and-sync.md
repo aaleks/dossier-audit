@@ -467,8 +467,8 @@ not what.
 
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.sync`)
-- **Proved by:** `tests/acceptance/test_R002_20__sync_names_each_tombstoned_item.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R002_20__the_source_report_carries_each_departed_key.py`, `tests/acceptance/test_R002_20__sync_names_each_tombstoned_item.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -160,7 +160,7 @@ def sync(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines
             )
             reports.append(report)
             typer.echo(_source_line(report))
-            for line in _repointed_lines(report):
+            for line in _named_lines(report):
                 typer.echo(line)
             for key, error in report.failures:
                 # With the error the source gave: "failed" alone sends someone to
@@ -218,14 +218,19 @@ def _source_line(report: SourceReport) -> str:
     )
 
 
-def _repointed_lines(report: SourceReport) -> list[str]:
-    """Each changed item under its source line, from where to where (R2.18).
+def _named_lines(report: SourceReport) -> list[str]:
+    """What moved and what left, one item per line under its source (R2.18, R2.20).
 
-    `1 changed` over four thousand items is not something a person can check.
-    Both addresses are full: an 8-character prefix reads well and opens nothing,
-    and the point of the line is to be able to diff the two files it names.
+    `1 changed` over four thousand items is not something a person can check,
+    and `1 tombstoned` says something left and not what. Both addresses of a
+    changed item are printed in full: an 8-character prefix reads well and
+    opens nothing, and the point of the line is to be able to diff the two
+    files it names.
     """
-    return [f"      {item.key}  {item.held} -> {item.now}" for item in report.repointed]
+    return [
+        *(f"      {item.key}  {item.held} -> {item.now}" for item in report.repointed),
+        *(f"      {key}  tombstoned" for key in report.departed),
+    ]
 
 
 def _pipeline_path(workspace: Path, name: str) -> Path:
