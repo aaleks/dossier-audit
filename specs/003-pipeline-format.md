@@ -1,6 +1,6 @@
 # 003 — Configuration format
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R3.1 – R3.11
 
 ## Purpose
@@ -333,9 +333,9 @@ existence is unaffected. Only `documents` and `reference` take a kind: a step id
 names another step's output, which is not a conversion and has no kind to pick.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.resolution.split_kind`)
+- **Layer:** domain (`dossier.domain.pipeline.split_kind`)
 - **Proved by:** `tests/unit/test_R003_11__an_input_may_name_the_kind_it_reads.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

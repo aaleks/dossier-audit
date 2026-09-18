@@ -152,6 +152,54 @@ def validate_step_ids(pipeline: PipelineConfig) -> None:
         seen.add(step.id)
 
 
+# What separates an input from the kind it reads (R3.11). `@` rather than `:` or
+# `.`: `:` already separates a provider from a model (spec 009), a bare `.` reads
+# as an attribute of something, and `@` already means "qualified by" in this
+# project -- `hf:Qwen/Qwen2.5-7B@1c0f8e6b`.
+KIND_SEPARATOR = "@"
+
+# What a source keyword resolves to when no kind is written. `markdown` because
+# a stage reads text and grounding searches converted text (R6.4), and because
+# every pipeline written before R3.11 says `documents` and must keep meaning
+# exactly what it meant.
+#
+# Deliberately not `conversion.default_kind`: that answers "what should this
+# media type be converted to", which is a question about bytes. This answers
+# "what does an unqualified input mean", which is a question about the pipeline
+# language. They agree today for text and would diverge the moment a source of
+# PNGs made `documents` mean `page_images` for one pipeline and not another.
+DEFAULT_INPUT_KIND = "markdown"
+
+
+def split_kind(reference: str) -> tuple[str, str | None]:
+    """An input split into what it names and the kind it reads (R3.11).
+
+    The kind is `None` for a step id: a step's output is not a conversion, so it
+    has no media type, no converter and no kind to pick. Returning the default
+    there would be inventing a property the artifact does not have.
+    """
+    name, separator, kind = reference.partition(KIND_SEPARATOR)
+
+    if not separator:
+        return (name, DEFAULT_INPUT_KIND if name in SOURCE_KEYWORDS else None)
+
+    if name not in SOURCE_KEYWORDS:
+        raise ValueError(
+            f"step input {reference!r} names a kind on {name!r}, which is not a "
+            f"source. Only {sorted(SOURCE_KEYWORDS)} read a conversion; a step id "
+            "names another step's output, which has no kind to choose (R3.11)."
+        )
+
+    if not kind:
+        raise ValueError(
+            f"step input {reference!r} ends in {KIND_SEPARATOR!r} with no kind after "
+            f"it. Write the kind, or drop the {KIND_SEPARATOR!r} to read "
+            f"{DEFAULT_INPUT_KIND!r} (R3.11)."
+        )
+
+    return (name, kind)
+
+
 def validate_references(pipeline: PipelineConfig) -> None:
     """R3.3 — a step may only read a source keyword or an earlier step."""
     available: set[str] = set(SOURCE_KEYWORDS)
@@ -162,6 +210,15 @@ def validate_references(pipeline: PipelineConfig) -> None:
                 # would make every rule in spec 004 unreachable through the CLI:
                 # no pipeline written with the sugar could ever be loaded.
                 continue
+            # The kind an input reads is checked against what its sources make,
+            # which is a resolution question (R4.13). What is checked here is
+            # only that the thing being read exists -- so the kind is split off
+            # first, and `documents@page_images` is looked up as `documents`.
+            #
+            # Split rather than stripped: split_kind is also what refuses a kind
+            # on a step id, and doing that here rather than later is what makes
+            # it a load-time error naming the file (R3.1).
+            reference, _ = split_kind(reference)
             if reference not in available:
                 raise ValueError(
                     f"step {step.id!r} reads {reference!r}, which is not available at "
