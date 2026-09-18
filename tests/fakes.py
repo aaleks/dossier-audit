@@ -11,6 +11,7 @@ cannot prove any of them.
 
 from __future__ import annotations
 
+import inspect
 import json
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
@@ -294,13 +295,18 @@ def register_connector(monkeypatch, type_name: str, factory, *, keys=None) -> No
     if keys is not None:
         factory.keys = keys
 
+    takes_credential = "credential" in inspect.signature(factory).parameters
+
     def built(config, *, workspace, credential=None):
         """The factory a test gave, taking the argument `build_connector` passes.
 
         Absorbed here so that a stub can stay the two-line lambda it wants to be:
         a credential is resolved by the composition root and handed to every
-        connector (R1.8), and a fake source needs none.
+        connector (R1.8), and most fake sources need none. One that declares
+        the parameter is handed it, as a real factory is.
         """
+        if takes_credential:
+            return factory(config, workspace=workspace, credential=credential)
         return factory(config, workspace=workspace)
 
     built.keys = getattr(factory, "keys", None)
