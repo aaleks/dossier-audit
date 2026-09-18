@@ -40,9 +40,22 @@ Written to `runs/<run_id>/manifest.json` before the first stage executes:
 
 `dossier run <pipeline> --plan` resolves the pipeline, compares it against the
 most recent manifest for that pipeline, and prints per step: `cached`,
-`prompt changed`, `declaration changed`, `inputs changed`, `upstream changed`,
-or `new`. It executes nothing, and it is keyed exactly as a run is, so `cached`
-is a promise the run keeps (R4.12).
+`prompt changed`, `declaration changed`, `inputs changed`, `model changed`,
+`converters changed`, `documents changed`, `upstream changed`, or `new`. It
+executes nothing, and it is keyed exactly as a run is, so `cached` is a promise
+the run keeps (R4.12).
+
+A stage key covers the step's inputs, its prompt, its declaration, the pinned
+model identifier and the hash of every input it reads (spec 005). The last three
+are the ones a person does not think of as part of the pipeline at all — the
+model is one line of YAML, the converters are installed packages, and the
+documents are the corpus — and each of them moves a key:
+
+```
+! extract: documents changed
+      moved: [PLAY-1001.md changed, PLAY-1005.md new]
+  -> cache invalid for those documents, will re-ask for them
+```
 
 Inserting a step between two others re-points the relative references below it.
 That is a real change to the graph and appears in the diff:
@@ -270,9 +283,24 @@ prompt edit printed `cached` and then missed -- one answer arrived at two ways.
 
 The statuses are the ones spec 004's "Plan diffing" lists, plus `declaration
 changed` for the file R6.11 hashes into a key: `new`, `inputs changed`, `prompt
-changed`, `declaration changed`, `upstream changed`, `cached`, checked in that
-order, so a step whose prompt *and* inputs moved is reported for the change
-that re-points the graph.
+changed`, `declaration changed`, `model changed`, `converters changed`,
+`documents changed`, `upstream changed`, `cached`, checked in that order, so a
+step whose prompt *and* inputs moved is reported for the change that re-points
+the graph, and one whose model *and* documents moved is reported for the change
+that affects every document rather than some.
+
+Three of those statuses arrived after the rule did, and the reason is worth
+recording: `diff` compared what a person edits in `pipelines/` and nothing else,
+while a stage key also covers the pinned model identifier (R5.3), the converted
+text of each document it reads (R5.4, R5.7), and therefore the snapshots behind
+them. Changing `model:` printed `cached` and then asked the model for every
+document; a re-synced note printed `cached` and then re-asked for that note. Both
+are the failure this rule was written for, one level further out: the plan was
+keyed the way a *pipeline* changes rather than the way a *run* does.
+
+A departure is not a miss. A document that has left the source means strictly
+less work -- every key that remains is the key it was -- so a shrinking corpus is
+`cached`, and only an added or changed document re-asks.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.plan.diff`)
@@ -284,4 +312,9 @@ that re-points the graph.
 | 1 | `prompts/02_verify.md` edited since the last run | `verify: prompt changed`; `report`, which reads it, `upstream changed`; `extract` `cached` -- exactly the steps a run would re-ask (R5.2) |
 | 2 | `schemas/incident.yaml` edited | every step declaring it `declaration changed` (R6.11) |
 | 3 | a comment added to `pipeline.yaml`, nothing else | every step `cached`; the pipeline hash moved and no key did (R4.5) |
-| 4 | *counter-example* — the retry wrapper dossier sends a validation error back in, edited | every step `cached`; in no key (R0.5 row 5), so in no plan |
+| 4 | `model:` changed from `openai:gpt-5.4-mini` to another pinned identifier | every step `model changed`; the identifier is in every stage key (R5.3) |
+| 5 | `INC-4821` re-synced to new bytes, nothing else touched | `extract`, which reads `documents`, `documents changed` naming `INC-4821`; `report`, which reads only `extract`, `upstream changed` |
+| 6 | `pdf-markdown` raised from `1.3.0` to `1.4.0` | every step reading `documents` or `reference` `converters changed`; the converted text those steps read is addressed by the converter's version (R5.4) |
+| 7 | *counter-example* — the retry wrapper dossier sends a validation error back in, edited | every step `cached`; in no key (R0.5 row 5), so in no plan |
+| 8 | *counter-example* — `INC-4901` tombstoned since the last run, nothing else changed | every step `cached`; a departure is less work, and every remaining key is unmoved |
+| 9 | *counter-example* — `DOSSIER_OPENAI_URL` pointed at another host | every step `cached`; where a model is served is in no key (R9.2) |
