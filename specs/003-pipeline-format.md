@@ -1,7 +1,7 @@
 # 003 — Configuration format
 
-**Status:** Implemented
-**Rules:** R3.1 – R3.11
+**Status:** Partially implemented
+**Rules:** R3.1 – R3.12
 
 ## Purpose
 
@@ -344,3 +344,49 @@ names another step's output, which is not a conversion and has no kind to pick.
 | 3 | `verify` declaring `input: [documents@page_images, reference]` | the first is `page_images` from `sources`, the second `markdown` from `reference`; a kind is per input, not per step |
 | 4 | `report` declaring `input: describe@page_images` | load-time error naming the step; a step's output is not a conversion and has no kind to choose |
 | 5 | *counter-example* — `documents@markdown` written out in full | accepted and identical to `documents`; the default is a default, not a prohibition |
+
+### R3.12 — a `per_part` step calls the model once per part of its input, and a later step reads them joined in part order
+
+`per_file` is one call per document and `aggregate` is one call over all of them.
+A conversion that produces several parts (R8.11) fits neither: a forty-page
+container handed to one call is one enormous prompt whose failure loses forty
+pages, and handed to `aggregate` it is every page of every document at once.
+
+`per_part` is the third: one call per part, keyed per part, retried per part,
+and cached per part. A page that fails costs one page.
+
+What a *later* step reads is the parts joined in part order, one value per
+document, each wrapped in a tag naming the part it came from -- the same shape
+`aggregate` already uses for documents (spec 003, "Prompt files"), and for the
+same reason: a model asked to attribute a finding needs to know which page it
+read it on.
+
+```yaml
+steps:
+  - id: describe
+    prompt: prompts/00_describe.md
+    input: documents@page_images
+    mode: per_part
+  - id: extract
+    prompt: prompts/01_extract.md
+    input: [documents, describe]
+    mode: per_file
+    output: schemas/incident.yaml
+```
+
+A step whose input has no parts -- ordinary converted text -- may not declare
+`per_part`. There is nothing to fan out over, and the honest reading of the
+request is that its author expected an input this pipeline does not produce.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.pipeline`, `dossier.domain.resolution`)
+- **Proved by:** `tests/unit/test_R003_12__a_per_part_step_runs_once_per_part.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `describe` reading `documents@page_images`, `INC-4830` holding three pages | three model calls for that document, three keys, three artifacts |
+| 2 | one of those three calls failing after its retry | the other two are kept and named; a page that fails costs one page (R6.9's shape) |
+| 3 | `extract` declaring `input: [documents, describe]` | `{{describe}}` holds the three descriptions in part order, each wrapped in a tag naming its part |
+| 4 | a second run with nothing changed | zero model calls; every part is served from its own cache entry (R5.5) |
+| 5 | *counter-example* — a `per_part` step whose input is `documents` | load-time error naming the step; converted text has no parts to fan out over, and running it once would answer a question nobody asked |
