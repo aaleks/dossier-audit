@@ -345,6 +345,10 @@ The name is the document key with `.json` appended, so the folder key
 `extract/INC-4821.json`. Replacing the suffix would collide `PLAY-1001.md` with
 `PLAY-1001.pdf`, which R4.10 says are two documents. A step with no `output`
 declaration returns text rather than a field record, and its file carries `.md`.
+An `aggregate` step's one artifact is filed under the reserved key `*` (spec
+003), which is not a file name on every platform, and the step read every
+document, so its file is `aggregate.json` or `aggregate.md`: named for what it
+is rather than after any one document.
 
 The copy is written as each document completes, never read back, and never
 authority: `dossier` resolves every artifact from the cache by key, so a run
@@ -366,6 +370,7 @@ run noticing. Conversions are not copied; spec 008 leaves
 | 5 | a `report` step with no `output` declaration | `report/INC-4821.md`, the text the model returned |
 | 6 | *counter-example* — `extract/INC-4821.json` deleted from `runs/` by hand, the pipeline re-run | a cache hit, 0 model calls; `runs/` is never read back, so nothing missing there is missing to `dossier` |
 | 7 | *counter-example* — `dossier run --plan` | no `runs/<id>/` at all (R4.6) |
+| 8 | the `report` step in `aggregate` mode, with no `output` declaration | `report/aggregate.md`; the one artifact filed under `*` (spec 003), named for what it is |
 
 ### R0.12 — `--replay` writes the reproduced artifacts to a new directory under the run, and writes nothing if any one of them cannot be reproduced
 
