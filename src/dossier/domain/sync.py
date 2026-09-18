@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 
 from dossier.domain.hashing import content_hash, is_content_hash
 from dossier.domain.pipeline import SourceConfig
+from dossier.domain.store import held_address
 
 # Clock skew between dossier and the source, plus source-side indexing lag, are
 # both routinely minutes and occasionally hours. A day of overlap costs a handful
@@ -245,6 +247,39 @@ def classify(*, recorded_hash: str | None, computed_hash: str) -> Change:
             "A ledger row holds the full digest, never a display prefix (R0.7)."
         )
     return Change.UNCHANGED if recorded_hash == computed_hash else Change.CHANGED
+
+
+@dataclass(frozen=True)
+class Repointed:
+    """One row moved from one snapshot address to another, named for a person (R2.18).
+
+    `held` and `now` are snapshot addresses -- the raw payload's own hash, full
+    length -- because those are the files someone can open and diff. The
+    normalised `content_hash` that decided the change is deliberately not here:
+    for a source declaring `fields` it addresses a projection nothing stored
+    (R2.17).
+    """
+
+    key: str
+    held: str
+    now: str
+
+
+def repointed(
+    *, key: str, outcome: Change, previous: str | None, stored: str
+) -> Repointed | None:
+    """What a sync names about one item, given what `classify` decided.
+
+    Only a change has two addresses to show. A new item has no previous one,
+    and an unchanged item has nothing the count does not already say -- a first
+    sync of 4,000 items that named each would print 4,000 lines (R2.18 rows 4
+    and 5).
+    """
+    if outcome is not Change.CHANGED:
+        return None
+    if previous is None:
+        raise ValueError(f"{key!r} classified as changed with no recorded snapshot to compare")
+    return Repointed(key=key, held=held_address(previous), now=stored)
 
 
 class State(Enum):
