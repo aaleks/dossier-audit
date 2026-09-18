@@ -148,6 +148,7 @@ differ.
 | `markdown-text` | `(text/markdown, markdown)` | core |
 | `text-plain` | `(text/plain, markdown)` | core |
 | `pdf-markdown` | `(application/pdf, markdown)` | `dossier[pdf]` |
+| `pdf-images` | `(application/pdf, page_images)` | `dossier[pdf]` |
 
 ## Times
 

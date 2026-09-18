@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.11
 
 ## Purpose
@@ -297,8 +297,8 @@ separately, and no rule anywhere says what a document with nineteen old pages
 and twenty-one new ones is.
 
 So the parts travel together, in a container that is a pure function of its
-contents. No timestamps, no compression that varies by library version, entries
-in part order. R8.1 already requires the artifact to be byte-identical across
+contents. No timestamps, no permissions, no compression -- every one of those is a
+property of the machine rather than of the content. Entries in part order. R8.1 already requires the artifact to be byte-identical across
 machines; this is what makes that achievable for an artifact that is not one
 blob to begin with.
 
@@ -306,10 +306,18 @@ The container's format belongs to `domain` rather than to the converter that
 writes it, for the reason the page anchor does (R6.14): a step will read what a
 converter wrote, and a format written down twice is one that eventually differs.
 
+It is `domain`'s for the reason the page anchor is (R6.14) and it stays there
+even though a ZIP would have been the obvious choice: `zipfile` needs a
+file-like object, `io` is on the purity boundary's forbidden list, and
+`application` -- where a step unpacks it -- may import nothing but `domain`. The
+format gave way rather than the boundary. What that costs is unzipping an
+artifact with a standard tool; what it buys is a container with no field in it
+that a platform fills in.
+
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.conversion.pack_parts`, `unpack_parts`)
-- **Proved by:** `tests/unit/test_R008_11__a_multi_part_conversion_is_one_container.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R008_11__a_multi_part_conversion_is_one_container.py`, `tests/unit/test_R008_11__pdf_images_renders_every_page.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
