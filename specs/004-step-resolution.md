@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.12
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.13
 
 ## Purpose
 
@@ -326,3 +326,28 @@ own answer, as it is in a gold file (R7.3), and it is not "no".
 | 8 | *counter-example* — `INC-4901` tombstoned since the last run, nothing else changed | every step `cached`; a departure is less work, and every remaining key is unmoved |
 | 9 | *counter-example* — `DOSSIER_OPENAI_URL` pointed at another host | every step `cached`; where a model is served is in no key (R9.2) |
 | 10 | *counter-example* — a manifest that pinned no converters at all | every step `cached`; absence is not a different converter, and reading it as one would report a change against every older run |
+
+### R4.13 — a step naming a kind no source in its set produces stops the run at resolution
+
+R3.11 lets a step name a kind. This is what happens when it names one nothing
+will produce: the run stops before any model call, naming the step, the kind and
+the sources that were asked for it.
+
+Resolution's shape rather than conversion's (R8.5), because the two failures have
+different fixes and different blast radii. R8.5 is "nothing converts this pair",
+fixed by an installation. This is "your pipeline asked a source for something it
+was never told to make", fixed by a line in `sources.yaml` — and it is knowable
+from the configuration alone, before a single byte is fetched.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.resolution.check_kinds`)
+- **Proved by:** `tests/unit/test_R004_13__a_kind_no_source_produces_stops_the_run.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `describe` declaring `input: documents@page_images`, `incidents-manual` declaring no `convert:` | the run stops; the error names `describe`, `page_images` and `incidents-manual`, and says the source's `convert:` list is what grants it |
+| 2 | the same, checked afterwards | zero model calls and no `runs/<id>/` directory; a resolution failure is total (R4.1) |
+| 3 | `incidents-manual` declaring `convert: [markdown, page_images]` | resolves; both kinds are produced and the step reads one of them (R8.4) |
+| 4 | two sources in `sources`, one declaring `convert: [markdown, page_images]` and one declaring none | stops, naming the source that cannot supply it; a step reads its whole set, and a half-answered input is the silent-gap failure this rule exists to prevent |
+| 5 | *counter-example* — `extract` declaring `input: documents` against a source declaring `convert: [page_images]` | stops for the same reason, on the kind nobody wrote down: bare `documents` is `documents@markdown` (R3.11) and that source does not produce it |

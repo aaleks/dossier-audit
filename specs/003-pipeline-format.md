@@ -1,7 +1,7 @@
 # 003 — Configuration format
 
-**Status:** Implemented
-**Rules:** R3.1 – R3.10
+**Status:** Partially implemented
+**Rules:** R3.1 – R3.11
 
 ## Purpose
 
@@ -304,3 +304,43 @@ run has been paid for is the whole failure this rule exists to prevent.
 | 3 | `output: schemas/incident.yaml` containing malformed YAML | load-time error naming the file and the parse position |
 | 4 | a field declaring a `kind` that is not one of the five | load-time error naming the field and listing the kinds that exist |
 | 5 | *counter-example* — the `report` step, which declares no `output` | accepted; `aggregate` steps may produce prose, and no declaration means no scoring for that step |
+
+### R3.11 — a step's input may name the converted kind it reads, and bare `documents` means `markdown`
+
+R8.4's fourth counter-example says which kind a stage reads is a pipeline
+question rather than a conversion one, and leaves it there. Nothing in this spec
+picked it up, so `page_images` has been a fully keyed, counted and invalidatable
+artifact that **no step can name**: `ConvertReport.text` keeps the `markdown`
+kind and silently drops the rest.
+
+The kind is written after the source keyword, separated by `@`:
+
+```yaml
+steps:
+  - id: describe
+    input: documents@page_images
+  - id: extract
+    input: [documents, describe]        # documents means documents@markdown
+```
+
+`@` rather than `:` or `.`: `:` already separates a provider from a model
+(spec 009) and a bare `.` reads as an attribute of something. `@` is used
+elsewhere in this project to mean "qualified by" — `hf:Qwen/Qwen2.5-7B@1c0f8e6b`
+— and that is what it means here.
+
+Bare `documents` keeps meaning what it always meant, so every pipeline in
+existence is unaffected. Only `documents` and `reference` take a kind: a step id
+names another step's output, which is not a conversion and has no kind to pick.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.resolution.split_kind`)
+- **Proved by:** `tests/unit/test_R003_11__an_input_may_name_the_kind_it_reads.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `describe` declaring `input: documents@page_images` | reads the `page_images` artifacts of every source in `sources` |
+| 2 | `extract` declaring `input: documents` | reads the `markdown` artifacts, exactly as it did before this rule existed |
+| 3 | `verify` declaring `input: [documents@page_images, reference]` | the first is `page_images` from `sources`, the second `markdown` from `reference`; a kind is per input, not per step |
+| 4 | `report` declaring `input: describe@page_images` | load-time error naming the step; a step's output is not a conversion and has no kind to choose |
+| 5 | *counter-example* — `documents@markdown` written out in full | accepted and identical to `documents`; the default is a default, not a prohibition |
