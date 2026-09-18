@@ -43,6 +43,8 @@ def issue(key: str, *, body: str = "Batch failed") -> bytes:
 class IssueTracker:
     """Issues as JSON, attachments separate, each versioned on its own."""
 
+    lists_everything = False
+
     def __init__(self, items: dict[str, tuple[bytes, str]]) -> None:
         # key -> (payload, remote_version), for items and attachments alike.
         self.items = dict(items)

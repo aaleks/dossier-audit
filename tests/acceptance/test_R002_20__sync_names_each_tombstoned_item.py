@@ -35,6 +35,8 @@ def issue(key: str) -> bytes:
 class IssueTracker:
     """Two issues at version markers it vouches for; a test removes and restores them."""
 
+    lists_everything = False
+
     def __init__(self) -> None:
         self.issues: dict[str, tuple[bytes, str]] = {
             "INC-4821": (issue("INC-4821"), "v37"),

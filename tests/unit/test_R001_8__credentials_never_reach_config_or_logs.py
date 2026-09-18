@@ -63,6 +63,8 @@ class Unauthorised(Exception):
 class IssueTracker:
     """A tracker that needs a credential, and never puts it in what it raises or returns."""
 
+    lists_everything = False
+
     def __init__(self, credential, *, refuse: bool = False) -> None:
         self.credential = credential
         self.refuse = refuse

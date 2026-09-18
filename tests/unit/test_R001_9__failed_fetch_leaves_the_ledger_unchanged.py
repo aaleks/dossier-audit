@@ -31,6 +31,8 @@ LATER = FIRST + timedelta(days=1)
 class IssueTracker:
     """Issues at version markers it vouches for, any of which can be made to fail."""
 
+    lists_everything = False
+
     media_type = "application/json"
 
     def __init__(self, items: dict[str, str]) -> None:

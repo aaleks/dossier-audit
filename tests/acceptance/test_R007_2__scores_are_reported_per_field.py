@@ -164,6 +164,8 @@ ANSWERS = {
 class IssueTracker:
     """A source keyed by incident, as an issue tracker is. No network, no markers."""
 
+    lists_everything = False
+
     media_type = "text/markdown"
 
     def list(self, since: datetime | None = None) -> Iterator[ItemRef]:

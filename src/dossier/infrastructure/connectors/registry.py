@@ -101,8 +101,11 @@ def build_connector(
         if point.name == config.type:
             factory: ConnectorFactory = point.load()
             if _takes_credential(factory):
-                return factory(config, workspace=workspace, credential=credential)
-            return factory(config, workspace=workspace)
+                connector = factory(config, workspace=workspace, credential=credential)
+            else:
+                connector = factory(config, workspace=workspace)
+            _require_declaration(connector, config)
+            return connector
 
     known = available_types()
     raise UnknownSourceType(
@@ -110,3 +113,25 @@ def build_connector(
         f"provides. Available: {known or 'none'}. A source type is added by "
         f"installing a package that declares a {ENTRY_POINT_GROUP} entry point."
     )
+
+
+def _require_declaration(connector: object, config: SourceConfig) -> None:
+    """Refuse a connector that has not said whether its listings are complete (R1.11).
+
+    Sync subtracts held from listed only against a listing it knows to be
+    complete, and `lists_everything` is the one case it cannot work out for
+    itself. A missing declaration could be defaulted to "may be partial" and
+    nothing would break -- which is exactly how a folder-like connector written
+    outside this repository would keep every deleted file `active` for ever,
+    the bug the declaration exists to close. Refused here, before the first
+    `list`, as a converter declaring no version is refused where it is
+    registered (R8.2 row 4).
+    """
+    if not isinstance(getattr(connector, "lists_everything", None), bool):
+        raise ValueError(
+            f"source {config.id!r} has type {config.type!r}, whose connector does not "
+            "declare `lists_everything`. A connector says whether `list` returns "
+            "everything whatever `since` it is passed (True for a folder, False for "
+            "a source that narrows by change time); sync tombstones only against a "
+            "listing it knows to be complete (R1.11, R2.21)."
+        )

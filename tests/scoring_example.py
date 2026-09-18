@@ -185,6 +185,8 @@ class IssueTracker:
     document between two syncs.
     """
 
+    lists_everything = False
+
     media_type = "text/markdown"
 
     def __init__(self, issues: Mapping[str, str]) -> None:

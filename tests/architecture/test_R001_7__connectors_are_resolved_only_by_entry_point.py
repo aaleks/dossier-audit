@@ -107,8 +107,11 @@ class TestResolutionGoesThroughEntryPoints:
 
         import dossier.infrastructure.connectors.registry as registry
 
+        class Sharepoint:
+            lists_everything = False
+
         def fake_sharepoint(config, *, workspace):
-            return "a sharepoint connector"
+            return Sharepoint()
 
         point = EntryPoint(name="sharepoint", value="x:y", group=ENTRY_POINT_GROUP)
         monkeypatch.setattr(point.__class__, "load", lambda self: fake_sharepoint)
@@ -118,7 +121,7 @@ class TestResolutionGoesThroughEntryPoints:
             SourceConfig(id="procedures", type="sharepoint"), workspace=tmp_path
         )
 
-        assert built == "a sharepoint connector"
+        assert isinstance(built, Sharepoint)
 
     def test_an_unknown_type_says_what_is_available(self, tmp_path: Path):
         """The one where the error explains the mechanism.

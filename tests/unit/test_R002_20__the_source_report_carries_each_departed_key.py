@@ -30,6 +30,8 @@ ATTACHMENT = "INC-4821/report.pdf"
 class Tracker:
     """Two issues, one carrying an attachment; listed in reverse so order is earned."""
 
+    lists_everything = False
+
     def __init__(self) -> None:
         self.issues = {"INC-4821": b'{"key": "INC-4821"}', "INC-4822": b'{"key": "INC-4822"}'}
         self.attached = {ATTACHMENT: b"%PDF-1.4"}
