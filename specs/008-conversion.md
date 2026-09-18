@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.10
 
 ## Purpose
@@ -278,7 +278,7 @@ that results, and it names a pair a reader can act on either way.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.conversion.default_kind`)
 - **Proved by:** `tests/unit/test_R008_10__the_default_kind_is_read_from_a_declared_table.py`, `tests/acceptance/test_R008_10__an_image_source_asks_for_a_page_images_converter.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

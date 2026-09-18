@@ -223,6 +223,20 @@ class TestTheConnectorsAnswerDoesNotDependOnTheMachine:
         assert media_type_for("archive.zip") == "application/octet-stream"
         assert media_type_for("no-extension") == "application/octet-stream"
 
+    def test_a_screenshot_is_named_as_an_image_rather_than_as_bytes(self):
+        """The one where a folder of screenshots is a source like any other.
+
+        Until the table had these rows a `.png` answered `application/octet-stream`,
+        so the pair R8.5 reported was unclaimable in both halves and told the
+        reader nothing about what to install. `.jpg` and `.jpeg` are one format
+        under two spellings, which is the only reason two rows exist for it.
+        """
+        from dossier.domain.conversion import media_type_for
+
+        assert media_type_for("INC-5720-checkout-latency-postmortem.png") == "image/png"
+        assert media_type_for("dashboard.jpg") == "image/jpeg"
+        assert media_type_for("dashboard.jpeg") == "image/jpeg"
+
     def test_the_extension_is_matched_without_case(self):
         """The one where a filesystem preserved a case nobody chose."""
         from dossier.domain.conversion import media_type_for

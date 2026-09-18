@@ -232,6 +232,12 @@ MEDIA_TYPES = {
     ".markdown": "text/markdown",
     ".txt": "text/plain",
     ".pdf": "application/pdf",
+    # One format, two spellings, and both are in the wild. They answer the same
+    # media type so that a folder holding both produces one convert key per
+    # content rather than one per spelling (R5.6).
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
     ".html": "text/html",
     ".htm": "text/html",
     ".json": "application/json",
