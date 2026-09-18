@@ -16,6 +16,8 @@ has no fields to project onto.
 
 from __future__ import annotations
 
+import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -85,6 +87,36 @@ class SyncReport:
     @property
     def failed(self) -> tuple[str, ...]:
         return tuple(key for report in self.sources for key in report.failed)
+
+
+# The artifact a sync's MLflow run carries, naming what the terminal named (R11.6).
+CHANGES_NAME = "changes.json"
+
+
+def changes_artifact(reports: Sequence[SourceReport]) -> bytes:
+    """`changes.json`: every item the sync repointed or tombstoned, by source (R11.6).
+
+    Composed from the reports' own lists -- the ones the terminal printed -- and
+    never from a second reading of the ledger, so the record and the terminal
+    cannot disagree. Sources are ordered by id and keys are already sorted, so
+    the bytes do not depend on the order the sources happened to run in (R0.4).
+    An empty sync is two empty lists, not a missing file: an absent artifact is
+    indistinguishable from a sync that never ran (R11.4 row 3).
+    """
+    ordered = sorted(reports, key=lambda report: report.source_id)
+    record = {
+        "changed": [
+            {"source": report.source_id, "key": item.key, "from": item.held, "to": item.now}
+            for report in ordered
+            for item in report.repointed
+        ],
+        "tombstoned": [
+            {"source": report.source_id, "key": key}
+            for report in ordered
+            for key in report.departed
+        ],
+    }
+    return (json.dumps(record, indent=2, sort_keys=True) + "\n").encode()
 
 
 @dataclass(frozen=True)

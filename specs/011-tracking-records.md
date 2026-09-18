@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.6
 
 ## Purpose
@@ -149,8 +149,8 @@ ledger -- the principle this spec opens with.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.sync`)
-- **Proved by:** `tests/unit/test_R011_6__a_sync_attaches_the_changes_it_named.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R011_6__a_sync_attaches_the_changes_it_named.py`, `tests/acceptance/test_R011_6__sync_records_the_changes_it_named.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
