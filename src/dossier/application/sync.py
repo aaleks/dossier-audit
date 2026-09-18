@@ -157,8 +157,14 @@ def sync_source(
     store: SnapshotWriter,
     ledger: LedgerWriter,
     now: datetime,
+    full: bool = False,
 ) -> SourceReport:
-    """Bring one source up to date, and say what that cost."""
+    """Bring one source up to date, and say what that cost.
+
+    `full` asks the source for everything regardless of its watermark (R2.22):
+    the one way to tombstone what a source that narrows its listings has
+    dropped, short of editing `fields` to force a re-evaluation.
+    """
     started_at = now
 
     # A projection the recorded hashes were not computed under makes every one
@@ -176,6 +182,7 @@ def sync_source(
         reevaluating=reevaluating,
         last_sync_at=ledger.watermark(config.id),
         overlap=configured_overlap(config.watermark_overlap),
+        full=full,
     )
 
     # Tombstoning may only be computed against a complete listing (R1.3, R2.7):

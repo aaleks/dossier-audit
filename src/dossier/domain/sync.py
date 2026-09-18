@@ -149,15 +149,25 @@ def projection_changed(*, recorded: str | None, configured: str) -> bool:
 
 
 def sync_window(
-    *, reevaluating: bool, last_sync_at: datetime | None, overlap: timedelta
+    *,
+    reevaluating: bool,
+    last_sync_at: datetime | None,
+    overlap: timedelta,
+    full: bool = False,
 ) -> datetime | None:
     """Where this sync's listing starts: the watermark window, or everything (R2.3, R2.4).
 
     A re-evaluation asks for a full listing. An incremental one omits precisely
     the unchanged items whose hashes have to be recomputed, which would leave
     most of the source recorded under the old projection.
+
+    `full` is the same question asked on demand (R2.22). A source that narrows
+    its listings is subtracted from only when asked for everything, and before
+    the flag that meant editing `fields` to force it. It moves where the listing
+    starts and nothing else: version markers still skip the fetch (R2.1), and
+    the watermark advances afterwards as on any sync (R2.8).
     """
-    if reevaluating:
+    if reevaluating or full:
         return None
     return window_start(last_sync_at, overlap=overlap)
 
