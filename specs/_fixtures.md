@@ -60,6 +60,21 @@ be wrong, and so that abstention has real absences to be scored against (spec
 | `INC-5641` | `INC-5641-checkout-5xx-deploy-migration-lock.pdf` | complete. Two causes, stated as jointly necessary |
 | `INC-5699` | `INC-5699-kassenterminals-offline-firewall.pdf` | complete. Written in German |
 
+## Scans
+
+Two PDFs under `tests/fixtures/documents/scans/`, promoted from the playground
+corpus. They exist because the postmortem corpus above is generated from text
+and every document in it has a text layer, so nothing in it can stand for the
+case a PDF converter most needs to be honest about.
+
+| Key | File | State |
+|---|---|---|
+| `PLAY-2001` | `PLAY-2001-terminal-scan.pdf` | scanned-looking, but a real text layer: what a converter *can* read |
+| `PLAY-2002` | `PLAY-2002-photocopy-no-text-layer.pdf` | no text layer at all. `pdf-markdown` converts it to zero bytes, correctly -- the conversion succeeded and the emptiness is the finding |
+
+`PLAY-2002` is the PDF half of what `INC-5720` is for images: a document whose
+content is entirely visual. Both are what OCR and a vision step exist to answer.
+
 **Per-field gold answers are not recorded for the corpus as a whole.** Writing
 expected values nobody verified is inventing a threshold by another name. What is
 recorded is which document is defective and how, which is what the corpus was
@@ -121,6 +136,18 @@ example that reads the wrong field.
 
 `1.4.0` is `pdf-markdown` after an improvement — the raised version every R5.4
 example refers to.
+
+The versions above are the **spec's** vocabulary: `1.3.0` and `1.4.0` exist so
+that R5.4's examples have two versions to move between. The converters that
+actually ship start at `1.0.0` and move on their own schedule, and a reader
+comparing an example row against an installed package should expect them to
+differ.
+
+| Shipped converter | Claims | Extra |
+|---|---|---|
+| `markdown-text` | `(text/markdown, markdown)` | core |
+| `text-plain` | `(text/plain, markdown)` | core |
+| `pdf-markdown` | `(application/pdf, markdown)` | `dossier[pdf]` |
 
 ## Times
 
