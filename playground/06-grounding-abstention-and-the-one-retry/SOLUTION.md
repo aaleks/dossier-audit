@@ -204,34 +204,90 @@ for the two failed calls again. That is deliberate: caching a failure would make
 one bad afternoon permanent, and a transient model problem would look identical to
 a permanent one forever after.
 
-Scoring that run:
+What the run wrote down about it:
+
+```console
+$ cat runs/20260918T052314Z-f9b9/outcome.json
+{
+  "run_id": "20260918T052314Z-f9b9",
+  "failed": [
+    {
+      "step": "extract",
+      "document": "PLAY-1004.md",
+      "error": "PLAY-1004.md: no valid output after 2 attempts -- 2 validation errors for
+                StageOutput\nfindings\n  Extra inputs are not permitted…"
+    }
+  ]
+}
+```
+
+That file is R4.13, and its whole job is to make one distinction possible.
+
+Scoring the run:
 
 ```console
 $ dossier eval incident-audit --gold gold/incidents
-step 'extract' has no cached artifact for 'PLAY-1004.md' at a4eff980d6dd…; this run cannot
+1 document produced nothing in run 20260918T052314Z-f9b9 and is not scored:
+  PLAY-1004.md — extract failed: PLAY-1004.md: no valid output after 2 attempts […]
+3 documents · 4 fields · overall 100.0%
+  loss_amount        100.0%
+  …
+exit 0
+```
+
+Three documents scored, the fourth named above the report, exit 0 — the failure
+already had its own non-zero exit when the run happened (R7.20). The line is
+summarised to one sentence on purpose; the full validation error is in
+`outcome.json`, and a dozen lines of pydantic in the middle of a per-field report
+would bury the figures it sits above.
+
+Now the same absence with the record taken away:
+
+```console
+$ find .dossier/cache/stage -type f ! -name '*.meta.json' | head -1 | xargs rm
+$ dossier eval incident-audit --gold gold/incidents
+step 'extract' has no cached artifact for 'PLAY-1001.md' at df36fd6c5078…; this run cannot
 be reproduced from this workspace, and nothing has been substituted for it.
 exit 2
 ```
 
-**A run with one failed document cannot be scored at all.** The chain is
-consistent: `eval` reproduces a run from its manifest and cache exactly as
-`--replay` does (R7.10), the manifest plans four documents, one has no artifact,
-and a replay may fail but may never substitute other content (R4.7).
+**Same missing entry, opposite answer**, and the difference is the one thing that
+matters: whether the run *said* it produced nothing there.
 
-Whether that is the *right* outcome is a genuine design question, and it is
-deliberately left open here:
+- `PLAY-1004.md` has no artifact because there never was one. That is a fact the
+  run recorded, and scoring around it reports exactly what happened.
+- `PLAY-1001.md` has no artifact because you deleted it. The run produced an
+  answer; this workspace cannot give it back. Scoring around *that* would print a
+  percentage over a set nobody chose — and a three-document score looks exactly
+  like a four-document score if nothing says otherwise. Clear a whole cache and
+  the same logic would report a confident figure over two documents of four
+  hundred.
 
-- **Refuse the lot** — today's behaviour. A score is a claim about a run, and a
-  run that cannot be reproduced cannot be scored honestly.
-- **Score what reproduced, and say what did not** — arguably more useful: three
-  documents' worth of evidence is still evidence, provided the report never lets
-  you forget the fourth. That is R7.15's shape for withheld fields, applied to
-  documents.
+That is why the fix was not "score whatever reproduces". It was to record the
+fact that makes the two distinguishable, and the ordering matters: `runs/<id>/`
+gained `outcome.json` (R4.13) before `eval` was allowed to score around anything
+(R7.20).
 
-Notice which door this repository would go through: neither is implemented on a
-hunch. It is a rule in spec 007 with examples, a counter-example, and a test named
-after it — or it stays as it is. That is the whole working agreement in one
-decision.
+The replay tells the same story:
+
+```console
+$ dossier run --replay runs/20260918T052314Z-f9b9/
+replayed 20260918T052314Z-f9b9 · incident-audit
+  extract: 3 artifact(s) from cache
+    PLAY-1004.md produced nothing: PLAY-1004.md: no valid output after 2 attempts […]
+3 artifact(s) reproduced · no model calls
+```
+
+A faithful reproduction of a run that failed on one document is a replay that
+fails on one document — not one that hunts for an artifact nobody wrote, and not
+one that quietly reports three as though four had been audited.
+
+**This exercise is why those rules exist.** Until this playground was written,
+`eval` refused the whole command here, and spec 007 said nothing about which
+behaviour was intended. Both refusing and scoring-around were defensible, so
+neither was implemented on a hunch: the specs changed first — R4.13 and R7.20,
+with their examples and counter-examples — and the code followed in the next
+commit. `git log --oneline specs/007-scoring-and-gold.md` shows the pair.
 
 ---
 

@@ -106,18 +106,32 @@ would make one bad afternoon permanent (R6.1).
 Run it a second time. The other three are served from cache; the failure is paid
 for again, both calls. That is the honest price of not caching it.
 
-Now try to score that run:
+Now score that run:
 
 ```bash
 dossier eval incident-audit --gold gold/incidents
 ```
 
-**Checkpoint.** It refuses, and what it says is worth thinking about. Scoring
-reproduces a run from its manifest and cache (R7.10), and the manifest plans a
-document that has no artifact. Decide what you think *should* happen when a run
-that covered three of four documents is scored — and note that "score the three
-and say so" and "refuse the lot" are both defensible, which is exactly the kind of
-question that gets settled in a spec rather than in a patch.
+**Checkpoint.** Three documents scored, and the fourth named above the report
+(R7.20). Read `runs/<run id>/outcome.json`, which is what makes that possible:
+the run recorded what it produced nothing for, so scoring can tell "there was
+never an answer here" from "this workspace has lost one" (R4.13).
+
+Then take the difference away and watch the answer flip. Delete one stage
+artifact for a document that *succeeded* and score again:
+
+```bash
+find .dossier/cache/stage -type f ! -name '*.meta.json' | head -1 | xargs rm
+dossier eval incident-audit --gold gold/incidents
+```
+
+**Checkpoint.** Refused entirely, naming the key. Same missing entry, opposite
+answer — and the only thing that differs is whether the run wrote down that it
+produced nothing there. Work out why scoring the rest would have been the more
+dangerous behaviour before reading the solution.
+
+Last: `dossier run --replay` the failed run, and see the failure reproduced as a
+failure rather than hunted for as an artifact.
 
 ---
 
@@ -125,6 +139,7 @@ question that gets settled in a spec rather than in a patch.
 
 - four runs, four different failures, and you can name the rule behind each;
 - you can say why an ungrounded field is not rescued by a correct value;
-- you have an opinion, with reasons, about scoring a partially failed run.
+- you can explain why one missing cache entry is scored around and another
+  refuses the whole command.
 
 **Next:** [07 · Calibrating a judge](../07-calibrating-a-judge/).
