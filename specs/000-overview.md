@@ -1,7 +1,7 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Implemented
-**Rules:** R0.1 – R0.10
+**Status:** Partially implemented
+**Rules:** R0.1 – R0.12
 
 ## Purpose
 
@@ -250,7 +250,7 @@ people. The two are kept apart so that deleting the first is always safe.
 | # | Given | Then |
 |---|-------|------|
 | 1 | a completed `dossier sync` in a workspace | snapshots under `.dossier/snapshots/`, the ledger at `.dossier/ledger.db`, and nothing written outside `.dossier/` |
-| 2 | a completed `dossier run` | the manifest and artifacts under `runs/<run_id>/`, which is not hidden and sits outside `.dossier/`; whether a workspace commits its runs is that workspace's own choice |
+| 2 | a completed `dossier run` | the manifest and artifacts under `runs/<run_id>/` (R0.11), which is not hidden and sits outside `.dossier/`; whether a workspace commits its runs is that workspace's own choice |
 | 3 | `.dossier/` deleted, then the same pipeline re-run after a re-sync | byte-identical outputs; only the time taken differs (R5.9) |
 | 4 | *counter-example* — `sources.yaml`, `pipelines/`, `gold/` | configuration and verified answers, committed to git; they are inputs, and deleting them is not recoverable |
 
@@ -330,3 +330,65 @@ is on or off (R10.4).
 | 6 | `dossier run --plan` over a pipeline where every step would re-run | zero model calls and zero tracking calls (R4.6, R11.1) |
 | 7 | *counter-example* — `dossier/infrastructure/store.py` opens a file on local disk | allowed; local file IO is not network IO |
 | 8 | *counter-example* — a stage with no cache entry, during `dossier run` | reaches the model, once, and the answer is cached with its provenance record; R5.5 is the claim that it never happens twice for the same inputs |
+
+### R0.11 — a completed `dossier run` writes each artifact a step produced or served to `runs/<run_id>/<step>/<document>.json`, the same bytes the cache holds
+
+The cache under `.dossier/` is where an artifact is *kept*; the run directory
+is where a person *reads* it. Every other spec already names the second path --
+R0.3's `verify/INC-4821.json`, R5.5, R5.8, and spec 005's provenance table,
+where a path under a step id is "relative to that run's outputs" -- and this
+rule is the one that makes it exist. R0.8 says which side of the line each
+lives on; this rule says what the run side holds.
+
+The name is the document key with `.json` appended, so the folder key
+`PLAY-1001.md` becomes `extract/PLAY-1001.md.json` and `INC-4821` becomes
+`extract/INC-4821.json`. Replacing the suffix would collide `PLAY-1001.md` with
+`PLAY-1001.pdf`, which R4.10 says are two documents. A step with no `output`
+declaration returns text rather than a field record, and its file carries `.md`.
+
+The copy is written as each document completes, never read back, and never
+authority: `dossier` resolves every artifact from the cache by key, so a run
+directory can be deleted, committed, or edited by a reviewer without any later
+run noticing. Conversions are not copied; spec 008 leaves
+`runs/<run_id>/converted/` undecided, and nothing here decides it.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.store.output_path`), application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R000_11__a_run_writes_its_artifacts_where_a_person_reads_them.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `extract` over `INC-4821` in run `20260806T142203Z-4f1a` | `runs/20260806T142203Z-4f1a/extract/INC-4821.json`, byte-identical to the cache entry at `77c1b40a`, with `extract/INC-4821.meta.json` beside it (R0.3) |
+| 2 | the same pipeline re-run unchanged as `20260907T090000Z-bbbb`, 0 model calls | `runs/20260907T090000Z-bbbb/extract/INC-4821.json` written too, identical bytes; a cache hit is still an output (R5.5) |
+| 3 | the process killed while `verify` is running | `extract/` is complete under the run directory; each file is written as its document completes, not when the run ends (R4.1 row 4) |
+| 4 | `INC-4821` failing validation twice (R6.9) | no `extract/INC-4821.json` and no `.meta.json`; the failure is on stdout and in the exit code, and nothing stands in for the artifact |
+| 5 | a `report` step with no `output` declaration | `report/INC-4821.md`, the text the model returned |
+| 6 | *counter-example* — `extract/INC-4821.json` deleted from `runs/` by hand, the pipeline re-run | a cache hit, 0 model calls; `runs/` is never read back, so nothing missing there is missing to `dossier` |
+| 7 | *counter-example* — `dossier run --plan` | no `runs/<id>/` at all (R4.6) |
+
+### R0.12 — `--replay` writes the reproduced artifacts to a new directory under the run, and writes nothing if any one of them cannot be reproduced
+
+`runs/<run_id>/replays/<replay_id>/<step>/<document>.json`, named as R0.11
+names them, with the provenance records beside them. A replay id has the form
+of a run id. What the original run wrote is never touched: a replay is evidence
+that the run still reproduces, and evidence that overwrote what it was checking
+would be worth less.
+
+All or nothing, because a partial tree would be the substitution R4.7 row 4
+forbids: three of four documents rematerialised beside a manifest that pins
+four reads as a complete run to anyone who did not see the error. The directory
+is created only after every key has resolved.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run.replay`)
+- **Proved by:** `tests/acceptance/test_R000_12__a_replay_writes_what_it_reproduced.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `runs/20260806T142203Z-4f1a/` holding only `manifest.json`, every key resolving | `runs/20260806T142203Z-4f1a/replays/20260918T140000Z-1e2f/extract/INC-4821.json` and the rest, byte-identical to the cache; stdout ends `3 artifact(s) reproduced · written to runs/20260806T142203Z-4f1a/replays/20260918T140000Z-1e2f/` |
+| 2 | the same run replayed twice | two directories under `replays/`, byte-identical to each other (R4.7) |
+| 3 | `extract/INC-4821.json` under the run edited by hand, then the run replayed | the edited file is left as edited; the replay directory holds the cache bytes |
+| 4 | *counter-example* — the cache entry for `INC-4822` absent, the other two present | exit 2 with the R4.7 row 4 error, and no `replays/<id>/` directory is created |
+| 5 | *counter-example* — `dossier eval --run 20260806T142203Z-4f1a`, which reproduces through the same path | nothing written under `runs/`; eval reads a run, it does not add to one |
