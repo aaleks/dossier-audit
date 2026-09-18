@@ -56,10 +56,7 @@ def image_workspace(workspace: Path) -> Path:
     shutil.copy(FIXTURE, images / FIXTURE.name)
 
     (workspace / "sources.yaml").write_text(
-        "sources:\n"
-        "  - id: incidents-screenshots\n"
-        "    type: folder\n"
-        "    path: inbox/images/\n",
+        "sources:\n  - id: incidents-screenshots\n    type: folder\n    path: inbox/images/\n",
         encoding="utf-8",
     )
 
