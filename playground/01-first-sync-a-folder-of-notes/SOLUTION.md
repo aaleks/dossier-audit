@@ -173,9 +173,7 @@ address a row has ever held is in `revisions`, oldest first (R2.19):
 $ sqlite3 .dossier/ledger.db "select recorded_at, content_hash from revisions where key = 'PLAY-1003.md' order by rowid"
 ```
 
-Two rows: the first sync's, and this one's. A `1 tombstoned` would have been
-named the same way, as `      PLAY-1002.md  tombstoned` (R2.20) — though as the
-next step shows, that is not what happens here.
+Two rows: the first sync's, and this one's.
 
 Now the deletion:
 
@@ -183,38 +181,38 @@ Now the deletion:
 $ rm inbox/incidents/PLAY-1002.md
 $ dossier sync incident-audit
 incidents-manual  4 known · 0 changed · 0 new -> 3 fetched
-ledger updated · 0 new snapshots · 0 tombstoned
+      PLAY-1002.md  tombstoned
+ledger updated · 0 new snapshots · 1 tombstoned
 ```
 
-**Nothing was tombstoned, and the row for `PLAY-1002.md` is still `active`.**
+The row is still in the ledger, as `tombstoned` — never deleted — and its
+snapshot is still in the store, so a run from before the deletion still resolves
+(R2.7). The line under the source names what left (R2.20).
 
-That is not a bug, and the reasoning is worth following because it is the sharpest
-example in the codebase of a safe default costing something real:
+The investigation is *how sync knew it could*. Tombstoning is *held minus
+listed*, and that subtraction is only safe against a listing that omitted
+nothing: an incremental listing legitimately leaves out everything that did not
+change, and subtracting from one would tombstone the quiet majority of a source
+— "the most destructive thing sync could do, and it would look like it had
+worked" (`tombstones()` in `src/dossier/domain/sync.py`; R1.3, R2.7 row 4). After
+your first sync there is a watermark, so sync asked the folder for changes since
+yesterday, not for everything.
 
-1. Tombstoning is computed as *held minus listed* — the documents the ledger has
-   that the source no longer offers.
-2. That subtraction is only valid against a **full** listing. An incremental
-   listing legitimately omits everything that did not change, so computing
-   departures from one would tombstone the entire unchanged majority of the
-   source — "the most destructive thing sync could do, and it would look like it
-   had worked" (`tombstones()` in `src/dossier/domain/sync.py`; R1.3, R2.7 row 4).
-3. Sync asks for a full listing only when it has no watermark for the source, or
-   when the source's projection changed and every item must be re-evaluated
-   (R2.3). After your first sync there *is* a watermark, so every later listing
-   is treated as incremental.
-4. The folder connector actually ignores `since` and returns everything — but the
-   connector interface gives it no way to *say* so, and sync will not assume it.
+The folder returned everything anyway. It always does — it has no change time to
+narrow by — and it says so: `FolderConnector.lists_everything = True` (R1.11).
+`listing_is_complete()` believes a listing for either of two reasons, that sync
+asked for everything or that the connector never narrows, and this one qualifies
+on the second (R2.21). The Jira connector declares `False`, so a windowed Jira
+listing is never subtracted from; an issue deleted at the source is tombstoned by
+the next sync that asks for everything, which `dossier sync --full` does on
+demand (R2.22).
 
-So for a folder source, a deleted file's row stays `active` until something forces
-a full listing. It is worth knowing, because a stale row is still an input: in
-exercise 04 a file removed from the source keeps a run failing until its row is
-dealt with.
-
-If this looks to you like a gap between what R2.7 promises and what a folder
-source can deliver, the repository has a procedure for that, and it is not a
-patch: propose a spec amendment and let it be reviewed (`CLAUDE.md`). What a
-connector may say about the completeness of a listing is exactly the kind of
-thing a spec decides.
+Until recently the first reason was the only one, and a folder was believed only
+on its first sync — a deleted note stayed `active` for ever. The change went
+through the repository's own procedure: a spec amendment first (R1.11, R2.21,
+R2.22), then the tests, then the code. If you want to see what a rule looks like
+when it is written to close a gap someone found in a playground, read those
+three.
 
 ## Task 5 — three ways to get it wrong
 

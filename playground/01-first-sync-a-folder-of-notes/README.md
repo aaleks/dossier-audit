@@ -102,11 +102,15 @@ under `.dossier/snapshots/` — there are now five for four documents. The old
 bytes are still there, addressed by their own hash. That is R0.2, and it is what
 lets a run from before your edit still resolve.
 
-After the delete: something you may not expect. Read the counts carefully, look
-at the ledger row for `PLAY-1002.md`, and then work out *why* — the answer is in
-`tombstones()` in `src/dossier/domain/sync.py` and in R2.7's fourth row. This is
-the investigation of this exercise; take a minute on it before opening the
-solution.
+After the delete: `1 tombstoned`, and the deleted note named under the source
+line. Look at its ledger row — it is still there, `tombstoned` rather than gone,
+and its snapshot is still under `.dossier/snapshots/`. Then the investigation of
+this exercise: sync only subtracts *held minus listed* against a listing it
+knows to be complete, and after your first sync there is a watermark. So how
+did it know this one was? The answer is one attribute on the folder connector
+(`src/dossier/infrastructure/connectors/folder.py`), and the reasoning is in
+`listing_is_complete()` in `src/dossier/domain/sync.py` and R2.21. Take a minute
+on it before opening the solution.
 
 ## Task 5 — three ways to get it wrong
 
@@ -127,6 +131,7 @@ you what to write instead (R1.8).
 - two syncs, with the second writing zero snapshots;
 - you can say what the ledger holds and what the store holds, and why a snapshot
   path has no filename in it;
-- you can explain what happened to the deleted note, and why that is deliberate.
+- you can explain why the deleted note was tombstoned on a sync that had a
+  watermark, and for which kind of source it would not have been.
 
 **Next:** [02 · A pipeline end to end on markdown](../02-a-pipeline-end-to-end-on-markdown/).

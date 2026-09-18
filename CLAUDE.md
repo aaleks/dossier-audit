@@ -67,7 +67,17 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all twelve specs are
-implemented, and 133 of the 141 rules are MET with the other 8 superseded.
+implemented, and 136 of the 144 rules are MET with the other 8 superseded.
+
+A deletion is observable too. A connector declares whether every listing it
+returns is complete -- the folder does, Jira does not, and one that says nothing
+is refused where it is built (R1.11) -- and sync subtracts held from listed
+against any listing that is complete for either reason, not only one it asked
+for with no window (R2.21). `dossier sync --full` asks every source for an
+unwindowed listing on demand, so what a source that narrows has dropped can be
+tombstoned without a `fields` change to force it (R2.22). Before this a file
+deleted from a folder stayed `active` for ever, which playground exercise 01
+found.
 
 A hash change is observable. `dossier sync` names each item it repointed under
 its source line, with the snapshot address it held and the one it holds now,

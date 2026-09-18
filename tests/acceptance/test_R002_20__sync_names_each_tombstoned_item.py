@@ -3,12 +3,12 @@
 `1 tombstoned` has the same problem as `1 changed`: it says something left and
 not what.
 
-Tombstoning is computed only against a full listing (R2.7 row 4), and after a
-first sync there is a watermark, so every later listing is incremental unless
-the source's projection changed and everything must be re-evaluated (R2.3). The
-tests here force a full listing the one way a workspace can: by changing the
-source's `fields`. `incidents-jira` declares `fields: [key, summary]` and holds
-`INC-4821` and `INC-4822` with no attachments.
+Tombstoning is computed only against a complete listing (R2.7 row 4, R2.21).
+The tracker here narrows (`lists_everything = False`), and after a first sync
+there is a watermark, so a later listing is complete only when something asks
+for everything: a changed projection (R2.3) or `--full` (R2.22). The tests here
+use the first, by changing the source's `fields`. `incidents-jira` declares
+`fields: [key, summary]` and holds `INC-4821` and `INC-4822` with no attachments.
 """
 
 from __future__ import annotations

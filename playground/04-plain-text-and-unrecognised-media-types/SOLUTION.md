@@ -187,36 +187,40 @@ burying it — the honest outcome of this exercise may well be "this needs a
 decision from whoever owns the corpus", which is a perfectly good place for a
 proposal to stop.
 
-## Task 5 — the stale row
+## Task 5 — the row that leaves
 
 ```console
 $ mkdir -p inbox/attachments && mv inbox/notes/terminal-display.png inbox/attachments/
 $ dossier sync incident-audit
 shift-notes  2 known · 0 changed · 0 new -> 1 fetched
-ledger updated · 0 new snapshots · 0 tombstoned
+      terminal-display.png  tombstoned
+ledger updated · 0 new snapshots · 1 tombstoned
 
 $ dossier convert incident-audit
-1 document(s) have no converter:
-  terminal-display.png (application/octet-stream): …
-exit 2
 ```
 
-The file is gone and the run still fails on it. The ledger row is still `active`,
-because a folder source's departures are only computed against a full listing and
-this listing was incremental (exercise 01, task 4; R2.7 row 4).
+Green. The row is still in the ledger, `tombstoned`, and its snapshot is still in
+the store — a run that pinned it still resolves (R2.7) — but a tombstoned row is
+not an input to the next run, so convert has nothing to refuse.
 
-Two ways out:
+Sync could subtract here because the folder connector declares
+`lists_everything = True`: it has no change time to narrow by and returns the
+whole folder every time, and a listing is complete for that reason as much as for
+having been asked for with no window (R1.11, R2.21).
 
-1. **A fresh workspace** — delete `.dossier/` and sync again. On four documents
-   that is free. On four thousand it re-fetches and re-hashes the whole corpus,
-   and on a metered API it is a bill.
-2. **Force a full listing** — change the source's projection so sync
-   re-evaluates it (R2.3). Cheaper in ceremony, but it re-fetches everything too,
-   and changing `fields` on a folder source has its own consequences.
+Jira cannot say that. It narrows its query by `since`, so a windowed listing
+legitimately omits every unchanged issue, and subtracting from it would tombstone
+the quiet majority of the source (R2.7 row 4). After a windowed sync the deleted
+issue's row stays `active`, and the two old ways out are still bad: a fresh
+workspace re-fetches everything, and a `fields` change re-evaluates everything
+(R2.3). The way out now is `dossier sync --full incident-audit` — one unwindowed
+listing, and the deletion is tombstoned. Version markers still skip the fetch
+(R2.1), so on a quiet source of four thousand issues the flag costs one listing
+and zero fetches (R2.22).
 
-On a large corpus the real answer is neither: it is to know this property before
-you need it, and to keep the audited source narrow enough that a stray file never
-lands in it. That is why this exercise puts a photograph in a folder of notes.
+On a large corpus the standing advice is unchanged: keep the audited source
+narrow enough that a stray file never lands in it. That is why this exercise puts
+a photograph in a folder of notes.
 
 ---
 
