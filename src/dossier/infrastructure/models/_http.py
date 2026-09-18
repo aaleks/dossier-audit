@@ -8,6 +8,11 @@ refused or unreachable is written here once.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from dossier.domain.ports import ImagePart
+
 import httpx
 
 # A model can take minutes over a long document, and httpx's own default of five
@@ -71,3 +76,15 @@ def text_at(response: httpx.Response, *path: str | int) -> str:
             f"{response.status_code} with no {where}"
         )
     return value
+
+
+def encoded(part: ImagePart) -> str:
+    """One part's bytes as base64 ascii (R9.16).
+
+    Shared by all three providers because all three carry images as base64 and
+    differ only in where they put them. Encoding it three times would be three
+    chances to differ over padding.
+    """
+    import base64
+
+    return base64.b64encode(part.data).decode("ascii")

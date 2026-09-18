@@ -15,14 +15,16 @@ reaches this module. How a request is made and how a failure is reported is
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import httpx
 
 from dossier.domain.model_id import check_served
+from dossier.domain.ports import ImagePart
 from dossier.infrastructure.models._http import (
     TIMEOUT_SECONDS,
     ModelRequestFailed,
+    encoded,
     http_client,
     request,
     text_at,
@@ -75,7 +77,13 @@ class OpenAICompatibleClient:
         # does not change between two requests of one run (R9.6).
         self._unchecked = checks_served
 
-    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+    def complete(
+        self,
+        prompt: str,
+        *,
+        schema: dict | None = None,
+        parts: Sequence[ImagePart] = (),
+    ) -> str:
         """The model's answer to `prompt`, as the text it returned.
 
         Temperature 0, so the same prompt asks for the same answer. The reply is
@@ -88,7 +96,7 @@ class OpenAICompatibleClient:
 
         body: dict = {
             "model": self._name,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [{"role": "user", "content": _content(prompt, parts)}],
             "temperature": 0,
         }
         if schema is not None:
@@ -167,3 +175,28 @@ gemini = OpenAICompatible("https://generativelanguage.googleapis.com/v1beta/open
 # It also reports which repository it loaded, which is checked before the first
 # completion (R9.6). OpenAI and Gemini report no such thing for a pinned model.
 hf = OpenAICompatible(None, name=_repository, checks_served=True)
+
+
+def _content(prompt: str, parts: Sequence[ImagePart]) -> str | list[dict]:
+    """The message content: a plain string, or the prompt and its images (R9.16).
+
+    A string when there are no parts. Not a one-element content list -- every
+    cache entry in every workspace was written against the string form, and
+    changing it would move every stage key for a reason no diff explains (R5.6).
+
+    The prompt comes first here. OpenAI's own guidance puts the instruction
+    before the images it is about, which is the opposite of Anthropic's, and
+    each client follows its own provider rather than a shape dossier invented.
+    """
+    if not parts:
+        return prompt
+    return [
+        {"type": "text", "text": prompt},
+        *(
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:{part.media_type};base64,{encoded(part)}"},
+            }
+            for part in parts
+        ),
+    ]

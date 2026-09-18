@@ -7,7 +7,7 @@ implementation, which is what lets every use case run against a fake.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
@@ -82,6 +82,24 @@ class Connector(Protocol):
         ...
 
 
+class ImagePart(BaseModel):
+    """Bytes a stage hands a model, with what they are (R9.16).
+
+    Declared here beside the port rather than in the provider that sends it,
+    because `application` builds one and may import nothing but `domain`. What a
+    provider does with it -- a data URI, a base64 source block, an array beside
+    the message -- differs between all three and is the provider's business.
+
+    Frozen, because a part is an input to a cache key by content: something that
+    could be edited after the key was computed would make the key a lie.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    media_type: str
+    data: bytes
+
+
 @runtime_checkable
 class ModelClient(Protocol):
     """How a stage reaches a model.
@@ -97,8 +115,19 @@ class ModelClient(Protocol):
 
     model_id: str
 
-    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
-        """One completion, returned as text for the caller to validate."""
+    def complete(
+        self,
+        prompt: str,
+        *,
+        schema: dict | None = None,
+        parts: Sequence[ImagePart] = (),
+    ) -> str:
+        """One completion, returned as text for the caller to validate.
+
+        `parts` are images the prompt is about, in the order the caller means
+        them -- page order, for a document. A call with none sends exactly what
+        it sent before parts existed, so no cache key moves (R9.16 row 5).
+        """
         ...
 
 

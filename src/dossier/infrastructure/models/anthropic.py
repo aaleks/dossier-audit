@@ -12,9 +12,17 @@ HTTP stack, no second dependency, and the hash boundary unchanged.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import httpx
 
-from dossier.infrastructure.models._http import TIMEOUT_SECONDS, ModelRequestFailed, request
+from dossier.domain.ports import ImagePart
+from dossier.infrastructure.models._http import (
+    TIMEOUT_SECONDS,
+    ModelRequestFailed,
+    encoded,
+    request,
+)
 
 __all__ = ["AnthropicClient", "ModelRequestFailed", "anthropic"]
 
@@ -56,7 +64,13 @@ class AnthropicClient:
             headers["x-api-key"] = api_key
         self._http = httpx.Client(headers=headers, timeout=TIMEOUT_SECONDS, transport=transport)
 
-    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
+    def complete(
+        self,
+        prompt: str,
+        *,
+        schema: dict | None = None,
+        parts: Sequence[ImagePart] = (),
+    ) -> str:
         """The model's answer to `prompt`, as the text it returned.
 
         Nothing about sampling is sent. Anthropic's current generation refuses
@@ -68,7 +82,7 @@ class AnthropicClient:
         body: dict = {
             "model": self._name,
             "max_tokens": MAX_TOKENS,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [{"role": "user", "content": _content(prompt, parts)}],
         }
         if schema is not None:
             body["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
@@ -119,3 +133,31 @@ class Anthropic:
 
 
 anthropic = Anthropic("https://api.anthropic.com/v1")
+
+
+def _content(prompt: str, parts: Sequence[ImagePart]) -> str | list[dict]:
+    """The message content: a plain string, or the images and then the prompt (R9.16).
+
+    A string when there are no parts, for the reason the other clients keep one:
+    the string form is what every existing cache key was computed against (R5.6).
+
+    Images first. Anthropic documents better results when an image precedes the
+    text asking about it, and the order of content blocks is the only place that
+    preference can be expressed.
+    """
+    if not parts:
+        return prompt
+    return [
+        *(
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": part.media_type,
+                    "data": encoded(part),
+                },
+            }
+            for part in parts
+        ),
+        {"type": "text", "text": prompt},
+    ]
