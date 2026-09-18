@@ -1,7 +1,7 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Implemented
-**Rules:** R2.1 – R2.17
+**Status:** Partially implemented
+**Rules:** R2.1 – R2.20
 
 ## Purpose
 
@@ -23,6 +23,18 @@ One row per item per source.
 | `state` | `active` or `tombstoned` |
 
 Per source, a `last_sync_at` watermark is recorded separately.
+
+A `revisions` table keeps every address a row has ever held. One row is appended
+when an item is first seen and one each time its row is repointed; nothing in it
+is ever updated or deleted (R2.19). The `items` table answers "what is held
+now"; `revisions` answers "what was held before, and since when".
+
+| Column | Meaning |
+|---|---|
+| `source_id` / `key` | The row this revision belongs to |
+| `content_hash` | The normalised hash the row held |
+| `snapshot_path` | The address the row pointed at |
+| `recorded_at` | The start time of the sync that wrote it |
 
 ## Sync algorithm
 
@@ -403,3 +415,64 @@ declared `fields` -- that hash addresses a projection nothing ever stored.
 | 3 | `INC-4821` converted | conversion reads the payload at that address, byte for byte |
 | 4 | `INC-4821` synced again after only its rendered-HTML field changed | no new snapshot and the same `snapshot_path`; the projection cannot tell the two payloads apart, so the first stays the one held (R2.2) |
 | 5 | *counter-example* — `audit-note.md` from `incidents-manual`, which declares no `fields` | `snapshot_path` and `content_hash` name the same file; nothing changes where the two hashes coincide (R2.10) |
+
+### R2.18 — `dossier sync` names each changed item under its source line, with the address it held and the one it holds now
+
+`1 changed` over a corpus of four thousand is not something a person can check,
+which is the argument R4.12 already makes for `plan`. The two addresses are the
+row's old and new `snapshot_path`, as full 64-character hashes: the things a
+person can open and diff. A `content_hash` is not printed, because for a source
+declaring `fields` it addresses a projection nothing stored (R2.17). Named lines
+are in key order.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.sync`)
+- **Proved by:** `tests/acceptance/test_R002_18__sync_names_each_changed_item_with_both_addresses.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4822` re-fetched, ledger at `0e52dd18`, payload hashing to `77c1b40a` | under the `incidents-jira` line: `      INC-4822  0e52dd18… -> 77c1b40a…`, each the full 64 characters |
+| 2 | the same, from `incidents-jira`, which declares `fields` | the two addresses are its old and new `snapshot_path`, not its content hashes; for `incidents-manual`, which declares none, the two coincide (R2.10) |
+| 3 | `INC-4821` at `v37` unchanged, its attachment `report.pdf` replaced (R2.6) | `report.pdf` is named on its own line; `INC-4821` is not |
+| 4 | *counter-example* — `audit-note.pdf` re-read, same hash | not named; `0 changed`, and only `last_seen` moved (R2.2) |
+| 5 | *counter-example* — a first sync, `4 new` | nothing named; a first sync of 4,000 items would print 4,000 lines that say nothing the count does not |
+
+### R2.19 — every address a ledger row has ever held is retained in an append-only `revisions` table
+
+The store keeps every snapshot (R0.2) and the ledger forgot which item each one
+belonged to: after a repoint the previous address was recoverable only by
+elimination. A revision row is written in the same transaction as the `items`
+row it describes, so the two cannot disagree (R2.8).
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.ledger`)
+- **Proved by:** `tests/unit/test_R002_19__the_ledger_keeps_every_address_a_row_has_held.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4822` repointed from `0e52dd18` to `77c1b40a` | two revision rows for `INC-4822`, in that order, after the `items` row holds only `77c1b40a` |
+| 2 | `INC-4901` seen for the first time | one revision row, written with the `items` row; the first version is otherwise exactly the one nobody can recover |
+| 3 | `INC-4822` at `0e52dd18`, then `77c1b40a`, then `0e52dd18` again | three rows; the sequence is the record, not the set of hashes |
+| 4 | a ledger created before this table existed, opened | `revisions` is created and seeded with one row per `items` row, `recorded_at` set to that row's `last_seen`: the last sync that confirmed those bytes |
+| 5 | *counter-example* — `audit-note.pdf` re-read, same hash | no revision row; an unchanged source still produces identical ledger content (R2.9) |
+| 6 | *counter-example* — `INC-4821` tombstoned (R2.7) | no revision row; state is not content |
+| 7 | *counter-example* — the process killed between writing the snapshot and repointing the row (R2.8) | no revision row; the history never claims a repoint the `items` table does not show |
+
+### R2.20 — `dossier sync` names each item it tombstones under its source line
+
+`1 tombstoned` has the same problem as `1 changed`: it says something left and
+not what.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.sync`)
+- **Proved by:** `tests/acceptance/test_R002_20__sync_names_each_tombstoned_item.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821` active in the ledger, absent from a full listing | under the `incidents-jira` line: `      INC-4821  tombstoned` |
+| 2 | `INC-4821` and `INC-4822` both absent | two lines, in key order, and the summary still reads `2 tombstoned` (R2.13) |
+| 3 | *counter-example* — an incremental listing with `since` set, `INC-4821` legitimately absent | nothing tombstoned, nothing named (R2.7 row 4) |
+| 4 | *counter-example* — `INC-4821` returning to scope with the same bytes (R2.7 row 3) | not named: it is not tombstoned, and R2.18 does not name an unchanged hash |

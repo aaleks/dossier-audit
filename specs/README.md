@@ -10,7 +10,7 @@ spec assumes.
 |---|---|---|---|
 | `000-overview.md` | Vocabulary, the hash boundary, hashing, workspace layout, global invariants | R0.1 – R0.10 | Implemented |
 | `001-source-connectors.md` | The connector interface and its registration | R1.1 – R1.10 | Implemented |
-| `002-ledger-and-sync.md` | Change detection, incremental fetch, tombstoning, the store | R2.1 – R2.17 | Implemented |
+| `002-ledger-and-sync.md` | Change detection, incremental fetch, tombstoning, the store | R2.1 – R2.20 | Partially implemented |
 | `003-pipeline-format.md` | `sources.yaml` and `pipeline.yaml` schemas | R3.1 – R3.10 | Implemented |
 | `004-step-resolution.md` | Reference expansion, the run manifest, plan diffing | R4.1 – R4.12 | Implemented |
 | `005-caching-and-keys.md` | Cache key composition, cascade, provenance records | R5.1 – R5.9 | Implemented |
@@ -19,7 +19,7 @@ spec assumes.
 | `008-conversion.md` | The converter interface, its registration, versioning and selection | R8.1 – R8.8 | Implemented |
 | `009-model-providers.md` | Model providers, their pinned forms, and where each is reached | R9.1 – R9.15 | Implemented |
 | `010-mlflow-tracking.md` | MLflow tracking: the switch, experiment routing, and what tracking may not do | R10.1 – R10.8 | Implemented |
-| `011-tracking-records.md` | What each command records to MLflow: runs, traces, spans and metrics | R11.1 – R11.5 | Implemented |
+| `011-tracking-records.md` | What each command records to MLflow: runs, traces, spans and metrics | R11.1 – R11.6 | Partially implemented |
 
 Supporting files:
 
