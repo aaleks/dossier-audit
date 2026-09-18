@@ -143,7 +143,7 @@ or is that media type's default when the source declares none.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.conversion.select`)
-- **Proved by:** `tests/unit/test_R008_3__converter_is_selected_by_media_type_and_kind.py`
+- **Proved by:** `tests/unit/test_R008_3__converter_is_selected_by_media_type_and_kind.py`, `tests/unit/test_R008_3__a_plain_text_document_converts_as_text.py`
 - **Status:** MET
 
 | # | Given | Then |
