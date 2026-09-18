@@ -67,7 +67,7 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all twelve specs are
-implemented, and 140 of the 148 rules are MET with the other 8 superseded.
+implemented, and 141 of the 149 rules are MET with the other 8 superseded.
 
 A run leaves something to open. `dossier run` writes each artifact a step
 produced or served to `runs/<run_id>/<step>/<document>.json` -- the key with

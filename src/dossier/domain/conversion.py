@@ -13,7 +13,7 @@ three literals.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 from pydantic import BaseModel, ConfigDict
 
@@ -122,6 +122,33 @@ def select(
         chosen.append(converter)
 
     return chosen
+
+
+def used(
+    *,
+    requests: Iterable[tuple[str, Sequence[str] | None]],
+    available: Sequence[Converter],
+) -> list[Converter]:
+    """The converters a run used, and only those, in a stable order (R8.9).
+
+    Each request is one held document's `(media type, kinds)` -- its snapshot's
+    media type and its source's `convert:` list -- and a converter is used when
+    `select` would choose it for some request. What a machine merely has
+    installed is not an input the run read: pinning it made a manifest differ
+    between machines over the same corpus (R4.8), and made `--plan` promise to
+    re-ask after a plugin the corpus never needed came or went (R4.12).
+
+    Sorted by identity rather than kept in request order, because two machines
+    may hold the same documents in a different order and must write the same
+    manifest bytes.
+    """
+    chosen: dict[tuple[str, str, str, str], Converter] = {}
+    for media_type, kinds in requests:
+        for converter in select(media_type=media_type, kinds=kinds, available=available):
+            chosen[(converter.id, converter.version, converter.media_type, converter.kind)] = (
+                converter
+            )
+    return [chosen[identity] for identity in sorted(chosen)]
 
 
 def _claims(available: Sequence[Converter]) -> dict[tuple[str, str], Converter]:
