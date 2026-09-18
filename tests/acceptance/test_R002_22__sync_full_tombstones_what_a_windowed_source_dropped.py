@@ -23,8 +23,6 @@ from tests.pipelines import write_pipeline
 
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 INDENT = " " * 6
 SOURCE = "incidents-jira"
@@ -99,6 +97,10 @@ def _source_line(output: str) -> str:
     return next(line for line in output.splitlines() if line.startswith(f"{SOURCE}  "))
 
 
+def _summary(output: str) -> str:
+    return next(line for line in output.splitlines() if line.startswith("ledger updated"))
+
+
 @pytest.fixture
 def held(workspace: Path, monkeypatch) -> IssueTracker:
     """The tracker synced once, so a watermark exists and `INC-4821` is held."""
@@ -144,7 +146,7 @@ class TestSyncFullTombstonesWhatAWindowedSourceDropped:
         assert result.exit_code == 0, result.output
         assert held.fetched == []
         assert "0 fetched" in _source_line(result.output)
-        assert "0 new snapshots" in _source_line(result.output)
+        assert "0 new snapshots" in _summary(result.output)
 
     def test_the_watermark_advances_as_on_any_sync(
         self, workspace: Path, monkeypatch, held: IssueTracker

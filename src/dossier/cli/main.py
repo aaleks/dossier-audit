@@ -108,8 +108,20 @@ def main() -> None:
 
 
 @app.command()
-def sync(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/")) -> None:
-    """Fetch only what changed for the sources a pipeline declares (R2.12)."""
+def sync(
+    pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
+    full: bool = typer.Option(
+        False,
+        "--full",
+        help="Ask every source for a full listing, so what it dropped is tombstoned.",
+    ),
+) -> None:
+    """Fetch only what changed for the sources a pipeline declares (R2.12).
+
+    `--full` lists every source without a window (R2.22). A source that narrows
+    its listings is subtracted from only against a full one, which otherwise
+    happens on the first sync and on a `fields` change alone.
+    """
     workspace = Path.cwd()
     started_at = datetime.now(UTC)
 
@@ -157,6 +169,7 @@ def sync(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines
                 store=store,
                 ledger=ledger,
                 now=started_at,
+                full=full,
             )
             reports.append(report)
             typer.echo(_source_line(report))

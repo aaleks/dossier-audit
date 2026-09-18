@@ -1,6 +1,6 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R2.1 – R2.22
 
 ## Purpose
@@ -513,7 +513,7 @@ source the flag costs one listing and nothing else.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.sync`)
 - **Proved by:** `tests/unit/test_R002_22__a_full_sync_starts_from_nothing.py`, `tests/acceptance/test_R002_22__sync_full_tombstones_what_a_windowed_source_dropped.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
