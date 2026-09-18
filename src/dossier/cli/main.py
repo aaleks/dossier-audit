@@ -7,7 +7,7 @@ as arguments.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
@@ -62,6 +62,7 @@ from dossier.config.load import (
     load_sources,
 )
 from dossier.domain.conversion import NoConverter
+from dossier.domain.conversion import used as used_converters
 from dossier.domain.hashing import text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
@@ -406,10 +407,20 @@ def run(
         raise typer.Exit(code=2) from error
 
     documents: dict[str, str] = {}
+    # The same requests a run would make of the converters, so the plan pins the
+    # same set the run will (R8.9) -- otherwise a plugin the corpus never needed
+    # would print `converters changed` against a manifest that never named it.
+    requests: list[tuple[str, Sequence[str] | None]] = []
     with Ledger(workspace) as ledger:
         for name in config.synced_sources:
             if name in declared:
-                documents.update(pinned_documents(ledger.rows(name)))
+                rows = ledger.rows(name)
+                documents.update(pinned_documents(rows))
+                requests.extend(
+                    (row.media_type, declared[name].convert)
+                    for row in rows
+                    if row.state is not State.TOMBSTONED
+                )
 
     previous, previous_id = latest_manifest(workspace / "runs", pipeline)
 
@@ -441,7 +452,7 @@ def run(
                 PinnedConverter(
                     id=c.id, version=c.version, media_type=c.media_type, kind=c.kind
                 )
-                for c in installed_converters()
+                for c in used_converters(requests=requests, available=installed_converters())
             ],
         )
     except ValueError as error:
@@ -668,6 +679,9 @@ def _execute(workspace: Path, pipeline: str) -> None:
     documents: dict[str, str] = {}
     media_types: dict[str, str] = {}
     by_source: dict[str, list[str]] = {}
+    # What each held document asked of the converters, so the manifest can pin
+    # the ones the run used rather than the ones this machine carries (R8.9).
+    requests: list[tuple[str, Sequence[str] | None]] = []
     started_at = datetime.now(UTC)
     this_run = run_id(started_at, token_hex(2))
     convert_cache = ArtifactCache(workspace, namespace="convert")
@@ -697,6 +711,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
             except NoConverter as error:
                 typer.echo(str(error), err=True)
                 raise typer.Exit(code=2) from error
+            requests.extend((document.media_type, source.convert) for document in held.values())
             by_source[name] = sorted(converted.text)
             text.update(converted.text)
             documents.update({key: held[key].snapshot for key in converted.text})
@@ -760,7 +775,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
                 PinnedConverter(
                     id=c.id, version=c.version, media_type=c.media_type, kind=c.kind
                 )
-                for c in converters
+                for c in used_converters(requests=requests, available=converters)
             ],
         )
     except ValueError as error:

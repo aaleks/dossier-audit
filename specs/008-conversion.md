@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.9
 
 ## Purpose
@@ -253,7 +253,7 @@ agree byte for byte.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.conversion.used`)
 - **Proved by:** `tests/unit/test_R008_9__a_manifest_pins_only_the_converters_the_run_used.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
