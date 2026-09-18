@@ -338,7 +338,7 @@ refusal names the URL and the status (R1.8 row 2), and the fix is a key in
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.jira`)
 - **Proved by:** `tests/unit/test_R001_12__a_jira_source_authenticates_as_its_keys_say.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

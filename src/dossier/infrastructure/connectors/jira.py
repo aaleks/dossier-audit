@@ -17,12 +17,13 @@ never builds this connector should not pay for the import.
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Iterator, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from dossier.domain.conversion import reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
@@ -58,6 +59,8 @@ class JiraKeys(BaseModel):
 
     `token_env` names the variable holding the credential; the value itself is
     never written here, because `sources.yaml` is committed to git (R1.8).
+    `user_env` names the user it is paired with, and naming one is what turns
+    the header from Bearer into Basic (R1.12).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -65,6 +68,15 @@ class JiraKeys(BaseModel):
     url: str
     query: str
     token_env: str = ""
+    user_env: str = ""
+
+    @model_validator(mode="after")
+    def _a_user_needs_a_token(self) -> JiraKeys:
+        # Half a credential, refused at load time rather than sent as
+        # `Basic user:` to a server that will name the wrong cause (R1.12 row 5).
+        if self.user_env and not self.token_env:
+            raise ValueError("`user_env` names a user with no token: name `token_env` as well")
+        return self
 
 
 class JiraConnector:
@@ -81,11 +93,13 @@ class JiraConnector:
         base_url: str,
         query: str,
         token: str | None = None,
+        user: str | None = None,
         transport: Any | None = None,
     ) -> None:
         self._base = base_url.rstrip("/")
         self._query = query
         self._token = token
+        self._user = user
         self._transport = transport
 
     def list(self, since: datetime | None = None) -> Iterator[ItemRef]:
@@ -181,8 +195,9 @@ class JiraConnector:
         import httpx
 
         headers = {"Accept": "application/json"}
-        if self._token:
-            headers["Authorization"] = f"Bearer {self._token}"
+        authorization = _authorization(user=self._user, token=self._token)
+        if authorization:
+            headers["Authorization"] = authorization
 
         with httpx.Client(
             headers=headers, timeout=TIMEOUT_SECONDS, transport=self._transport
@@ -225,7 +240,25 @@ class JiraConnector:
             base_url=url,
             query=query,
             token=getattr(credential, "value", None),
+            user=getattr(credential, "user", None),
         )
+
+
+def _authorization(*, user: str | None, token: str | None) -> str | None:
+    """The `Authorization` header the keys ask for, or none (R1.12).
+
+    A token alone is Bearer, what Data Center takes a personal access token as.
+    A user beside it is Basic, the only form Cloud accepts an API token in and
+    what Data Center takes a username and password as. Decided once from the
+    configuration, never by trying one and then the other: a refusal is a 401
+    naming the URL, and the fix is a key in `sources.yaml`.
+    """
+    if not token:
+        return None
+    if user:
+        pair = base64.b64encode(f"{user}:{token}".encode()).decode("ascii")
+        return f"Basic {pair}"
+    return f"Bearer {token}"
 
 
 def _split(key: str) -> tuple[str, str | None]:

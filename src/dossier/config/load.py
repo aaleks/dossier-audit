@@ -41,6 +41,10 @@ from dossier.domain.scoring import FieldKind
 # The key a source names its credential's variable under, spelled once. Imported
 # by `dossier.config.credentials`, which reads what it points at (R1.8).
 TOKEN_ENV = "token_env"
+# The key naming the variable holding the user a token is paired with, when the
+# source is reached with HTTP Basic rather than a bearer token (R1.12). Generic
+# for the reason `token_env` is: a user is not a Jira idea.
+USER_ENV = "user_env"
 
 __all__ = [
     "JUDGE_FILE",
