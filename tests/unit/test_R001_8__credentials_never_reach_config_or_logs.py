@@ -186,3 +186,78 @@ class TestCredentialsNeverReachConfigOrLogs:
         with Ledger(tmp_path) as ledger:
             (row,) = ledger.rows("incidents-jira")
         assert TOKEN not in repr(row)
+
+
+DOTENV_VARIABLE = "DOSSIER_JIRA_TOKEN"
+
+
+def _sync_with_dotenv(workspace: Path, monkeypatch, *, variable: str, received: list):
+    """`dossier sync` over a source naming `variable`, with `.env` alone holding it.
+
+    Through the CLI rather than `credential_for` directly: rows 5 and 6 are
+    claims about what the composition root reads the credential through, and a
+    unit call with `environ=` handed in would prove only that the argument is
+    honoured. The stub records the credential it was built with.
+    """
+    from tests.fakes import register_connector
+    from tests.pipelines import write_pipeline
+    from typer.testing import CliRunner
+
+    from dossier.cli.main import app
+
+    (workspace / "sources.yaml").write_text(
+        f"sources:\n  - id: incidents-jira\n    type: issues\n    token_env: {variable}\n",
+        encoding="utf-8",
+    )
+    (workspace / ".env").write_text(f"{variable}={TOKEN}\n", encoding="utf-8")
+    write_pipeline(workspace, sources=["incidents-jira"])
+    monkeypatch.delenv(variable, raising=False)
+
+    def factory(config, *, workspace, credential=None):
+        received.append(credential)
+        return IssueTracker(credential)
+
+    register_connector(monkeypatch, "issues", factory, keys=JiraKeys)
+    monkeypatch.chdir(workspace)
+    return CliRunner().invoke(app, ["sync", "incident-audit"])
+
+
+class TestACredentialIsReadThroughDotenv:
+    """R1.8 rows 5 and 6 — `.env` is part of the environment a credential comes from."""
+
+    def test_a_prefixed_variable_in_dotenv_reaches_the_connector(
+        self, workspace: Path, monkeypatch
+    ):
+        """Example 5: the one where `.env` alone holds `DOSSIER_JIRA_TOKEN`.
+
+        The shell does not set it, and the connector is handed the value all the
+        same: a credential is read through the same environment an endpoint's
+        key is (R9.11), so one file holds every per-machine value.
+        """
+        received: list = []
+
+        result = _sync_with_dotenv(
+            workspace, monkeypatch, variable=DOTENV_VARIABLE, received=received
+        )
+
+        assert result.exit_code == 0, result.output
+        (credential,) = received
+        assert credential.variable == DOTENV_VARIABLE
+        assert credential.value == TOKEN
+        assert TOKEN not in result.output
+
+    def test_an_unprefixed_variable_in_dotenv_is_not_read(self, workspace: Path, monkeypatch):
+        """Counter-example (row 6): the one where `JIRA_TOKEN` is written only in `.env`.
+
+        Only `DOSSIER_` variables are read from `.env` (R9.11 row 4), so this
+        one is unset as far as dossier can see. Refused by name, before the
+        connector is built, and the value in the file never appears.
+        """
+        received: list = []
+
+        result = _sync_with_dotenv(workspace, monkeypatch, variable=VARIABLE, received=received)
+
+        assert result.exit_code == 2, result.output
+        assert VARIABLE in result.output
+        assert TOKEN not in result.output
+        assert received == []

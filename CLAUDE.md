@@ -67,7 +67,18 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all twelve specs are
-implemented, and 136 of the 144 rules are MET with the other 8 superseded.
+implemented, and 138 of the 146 rules are MET with the other 8 superseded.
+
+A Jira credential lives where every other per-machine value does. `token_env`
+is resolved through the environment `.env` fills, so `DOSSIER_JIRA_TOKEN=…` in
+`.env` reaches the connector, and a variable without the `DOSSIER_` prefix
+written only there is refused by name (R1.8 rows 5-6). The header follows the
+keys: a token alone is sent as Bearer, a `user_env` beside it turns the pair
+into HTTP Basic, and a 401 is reported once rather than retried in the other
+form (R1.12). `deployment: cloud` sends a listing to `/rest/api/2/search/jql`,
+paged by token; absent means Data Center, paged by offset (R1.13). Before this
+the composition root read `os.environ` alone while the miss message promised
+`.env`, and Jira Cloud could be neither authenticated to nor listed.
 
 A deletion is observable too. A connector declares whether every listing it
 returns is complete -- the folder does, Jira does not, and one that says nothing

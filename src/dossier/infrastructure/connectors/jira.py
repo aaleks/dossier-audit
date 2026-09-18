@@ -17,19 +17,27 @@ never builds this connector should not pay for the import.
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Iterator, Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from dossier.domain.conversion import reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.domain.sync import server_zone_floor
 
+# Where a listing is asked for depends on the deployment (R1.13). Data Center
+# pages `SEARCH` by offset against `total`; Cloud has retired that route and
+# pages `SEARCH_CLOUD` by the token each page hands back. Issues and attachments
+# are reached the same way on both.
 SEARCH = "/rest/api/2/search"
+SEARCH_CLOUD = "/rest/api/2/search/jql"
 ISSUES = "/rest/api/2/issue"
+
+Deployment = Literal["datacenter", "cloud"]
 
 # What one search asks for. Jira caps this server-side anyway; asking for a page
 # at a time and following `total` is what makes the listing complete (R1.3).
@@ -58,6 +66,10 @@ class JiraKeys(BaseModel):
 
     `token_env` names the variable holding the credential; the value itself is
     never written here, because `sources.yaml` is committed to git (R1.8).
+    `user_env` names the user it is paired with, and naming one is what turns
+    the header from Bearer into Basic (R1.12). `deployment` says which Jira is
+    behind `url`, and so which listing route to ask (R1.13); absent means Data
+    Center, the one this project reads.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -65,6 +77,16 @@ class JiraKeys(BaseModel):
     url: str
     query: str
     token_env: str = ""
+    user_env: str = ""
+    deployment: Deployment = "datacenter"
+
+    @model_validator(mode="after")
+    def _a_user_needs_a_token(self) -> JiraKeys:
+        # Half a credential, refused at load time rather than sent as
+        # `Basic user:` to a server that will name the wrong cause (R1.12 row 5).
+        if self.user_env and not self.token_env:
+            raise ValueError("`user_env` names a user with no token: name `token_env` as well")
+        return self
 
 
 class JiraConnector:
@@ -81,11 +103,15 @@ class JiraConnector:
         base_url: str,
         query: str,
         token: str | None = None,
+        user: str | None = None,
+        deployment: Deployment = "datacenter",
         transport: Any | None = None,
     ) -> None:
         self._base = base_url.rstrip("/")
         self._query = query
         self._token = token
+        self._user = user
+        self._deployment = deployment
         self._transport = transport
 
     def list(self, since: datetime | None = None) -> Iterator[ItemRef]:
@@ -98,8 +124,17 @@ class JiraConnector:
         nothing to see (R1.4).
         """
         jql = self._query if since is None else f"{self._query} AND {_updated_since(since)}"
-        start = 0
+        pages = self._cloud_pages(jql) if self._deployment == "cloud" else self._pages(jql)
+        for issue in pages:
+            yield ItemRef(
+                key=issue["key"],
+                remote_version=_version_of(issue),
+                updated_at=_parsed(issue.get("fields", {}).get("updated")),
+            )
 
+    def _pages(self, jql: str) -> Iterator[dict]:
+        """Data Center: `SEARCH`, paged by offset until `total` is reached (R1.13 row 1)."""
+        start = 0
         while True:
             page = self._get(
                 f"{self._base}{SEARCH}",
@@ -111,16 +146,32 @@ class JiraConnector:
                 },
             ).json()
             issues = page.get("issues") or []
-            for issue in issues:
-                yield ItemRef(
-                    key=issue["key"],
-                    remote_version=_version_of(issue),
-                    updated_at=_parsed(issue.get("fields", {}).get("updated")),
-                )
+            yield from issues
 
             start += len(issues)
             if not issues or start >= int(page.get("total", start)):
                 return
+
+    def _cloud_pages(self, jql: str) -> Iterator[dict]:
+        """Cloud: `SEARCH_CLOUD`, paged by the token each page hands back (R1.13 row 2).
+
+        A page without a token, or one saying `isLast`, is the last. Cloud
+        returns only `id` unless fields are asked for by name, which is why
+        `LISTED_FIELDS` is sent here as it is to Data Center.
+        """
+        params: dict[str, object] = {
+            "jql": jql,
+            "maxResults": PAGE_SIZE,
+            "fields": LISTED_FIELDS,
+        }
+        while True:
+            page = self._get(f"{self._base}{SEARCH_CLOUD}", params=params).json()
+            yield from page.get("issues") or []
+
+            token = page.get("nextPageToken")
+            if not token or page.get("isLast"):
+                return
+            params = {**params, "nextPageToken": token}
 
     def fetch(self, key: str) -> RawItem:
         """The payload at `key`: an issue, or a file one of them carries.
@@ -181,8 +232,9 @@ class JiraConnector:
         import httpx
 
         headers = {"Accept": "application/json"}
-        if self._token:
-            headers["Authorization"] = f"Bearer {self._token}"
+        authorization = _authorization(user=self._user, token=self._token)
+        if authorization:
+            headers["Authorization"] = authorization
 
         with httpx.Client(
             headers=headers, timeout=TIMEOUT_SECONDS, transport=self._transport
@@ -225,7 +277,26 @@ class JiraConnector:
             base_url=url,
             query=query,
             token=getattr(credential, "value", None),
+            user=getattr(credential, "user", None),
+            deployment=config.options.get("deployment", "datacenter"),
         )
+
+
+def _authorization(*, user: str | None, token: str | None) -> str | None:
+    """The `Authorization` header the keys ask for, or none (R1.12).
+
+    A token alone is Bearer, what Data Center takes a personal access token as.
+    A user beside it is Basic, the only form Cloud accepts an API token in and
+    what Data Center takes a username and password as. Decided once from the
+    configuration, never by trying one and then the other: a refusal is a 401
+    naming the URL, and the fix is a key in `sources.yaml`.
+    """
+    if not token:
+        return None
+    if user:
+        pair = base64.b64encode(f"{user}:{token}".encode()).decode("ascii")
+        return f"Basic {pair}"
+    return f"Bearer {token}"
 
 
 def _split(key: str) -> tuple[str, str | None]:

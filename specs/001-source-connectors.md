@@ -1,7 +1,7 @@
 # 001 — Source connectors
 
 **Status:** Implemented
-**Rules:** R1.1 – R1.11
+**Rules:** R1.1 – R1.13
 
 ## Purpose
 
@@ -98,6 +98,10 @@ core's. Everything else belongs to one type, and only its connector knows it.
 - **folder** — a local directory. `remote_version` is always `None`; change
   detection falls back to payload hashing (spec 002).
 - **jira** — scoped by a JQL query. Issue fields as JSON, attachments separate.
+  Its keys: `url` and `query`; `token_env` naming the credential's variable and
+  `user_env` naming the user's, which together decide the auth scheme (R1.12);
+  and `deployment`, `datacenter` or `cloud`, which decides the listing route
+  (R1.13).
 - **confluence** — scoped by space and optional label. Pages are exported as
   **PDF**, because the embedded images carry meaning that the storage format
   loses.
@@ -226,6 +230,12 @@ touching a file under `src/dossier/`, the interface has failed.
 `sources.yaml` is committed to git. Anything in it is public to everyone with
 repository access.
 
+"The environment" is the one `dossier.config` reads everything else through:
+the shell, with `.env` filling what the shell leaves unset (R9.11). A credential
+is per machine exactly as an endpoint's key is, and a second place to keep one
+would be a second place to lose one. `.env` yields only `DOSSIER_` variables, so
+a credential that lives there is named with the prefix.
+
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.credentials`)
 - **Proved by:** `tests/unit/test_R001_8__credentials_never_reach_config_or_logs.py`
@@ -237,6 +247,8 @@ repository access.
 | 2 | `JIRA_TOKEN` set and a sync failing with an HTTP 401 | the error message contains the URL and the status, and not the token |
 | 3 | a completed sync of `incidents-jira` | no ledger column and no manifest field holds the token |
 | 4 | *counter-example* — the name `JIRA_TOKEN` appearing in `sources.yaml` as `token_env: JIRA_TOKEN` | allowed; naming the variable is not disclosing its value |
+| 5 | `token_env: DOSSIER_JIRA_TOKEN`, `.env` in the workspace holding `DOSSIER_JIRA_TOKEN=…`, and the shell not setting it | `dossier sync` hands the connector that value; a credential is read through the same environment an endpoint is (R9.11) |
+| 6 | *counter-example* — `token_env: JIRA_TOKEN`, with `JIRA_TOKEN=…` written only in `.env` | refused when the connector is built, naming `JIRA_TOKEN`; only `DOSSIER_` variables are read from `.env` (R9.11 row 4) |
 
 ### R1.9 — a connector error leaves the ledger unchanged for that item
 
@@ -306,3 +318,57 @@ close for every folder-like connector written outside this repository.
 | 2 | the Jira connector | `lists_everything` is `False`; `since` narrows its JQL |
 | 3 | a connector declaring nothing, built for `incidents-manual` | refused with an error naming the source, its type and `lists_everything`; `list` is never called |
 | 4 | *counter-example* — the Jira connector asked with `since=None` | that one listing is complete, but the declaration stays `False`; it describes the type, and completeness of a call is sync's to decide (R2.21) |
+
+### R1.12 — a Jira source authenticates as its keys say: Bearer with a token alone, Basic with a user beside it
+
+Jira Data Center accepts a personal access token as `Authorization: Bearer`.
+Jira Cloud accepts an API token only as HTTP Basic, `email:token`, and Data
+Center accepts Basic too, with a username and password. Which scheme a request
+carries is decided by what the source names: `token_env` alone is Bearer;
+`user_env` named beside it is Basic. The user is resolved the way the token is
+-- named in `sources.yaml`, read from the environment when the connector is
+built, never written into config, logs, ledger or manifest (R1.8).
+
+There is no probing. A connector that sent the token as Bearer, was refused, and
+sent it again as Basic would put a credential on the wire twice in two forms to
+a server that has just declined it, and would make a 401 mean two things. A
+refusal names the URL and the status (R1.8 row 2), and the fix is a key in
+`sources.yaml`.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.jira`)
+- **Proved by:** `tests/unit/test_R001_12__a_jira_source_authenticates_as_its_keys_say.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `token_env: DOSSIER_JIRA_TOKEN` and no `user_env` | every request carries `Authorization: Bearer <token>` |
+| 2 | `user_env: DOSSIER_JIRA_USER` and `token_env: DOSSIER_JIRA_TOKEN` | every request carries `Authorization: Basic <base64 of user:token>` |
+| 3 | `user_env` named and its variable unset | refused when the connector is built, naming the variable, before any request -- as an unset `token_env` is (R1.8) |
+| 4 | *counter-example* — a Bearer request answered 401 | reported with the URL and the status, and not retried as Basic |
+| 5 | *counter-example* — `user_env` without `token_env` | load-time error naming the source and both keys (R1.10): a user with no token is half a credential |
+| 6 | *counter-example* — neither key named | no `Authorization` header; a Jira open to anonymous reads is reachable as such |
+
+### R1.13 — a Jira source declares its deployment, and the listing route follows it
+
+Jira Data Center lists issues at `GET /rest/api/2/search`, paginated by
+`startAt` against `total`. Jira Cloud has retired that route: it lists at
+`GET /rest/api/2/search/jql`, paginated by the `nextPageToken` each page hands
+back until a page says `isLast`. Fetching an issue and listing or fetching its
+attachments are the same on both. A source says which it reaches with
+`deployment: datacenter` or `deployment: cloud`; absent means `datacenter`, the
+deployment this project reads. Nothing is inferred from the hostname: an
+inference is a second thing to be wrong about when the route answers 410.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.jira`)
+- **Proved by:** `tests/unit/test_R001_13__a_jira_source_declares_its_deployment.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `deployment: datacenter`, or the key absent, and a query matching 420 issues | `GET …/rest/api/2/search` with `startAt` 0, 50, … 400; 420 `ItemRef`s (R1.3 row 2) |
+| 2 | `deployment: cloud` and a query answered in three pages | `GET …/rest/api/2/search/jql` three times; the second and third carry the `nextPageToken` the page before handed back; the listing ends at the page that says `isLast` |
+| 3 | `deployment: cloud` and `INC-4821` fetched | `GET …/rest/api/2/issue/INC-4821`, the route Data Center uses |
+| 4 | *counter-example* — `deployment: server` | load-time error naming the key and the two values it takes (R1.10) |
+| 5 | *counter-example* — `list(since=t)` on either deployment | the same widened `updated >=` clause (R1.4); the deployment changes the route, never the query |

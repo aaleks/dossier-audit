@@ -41,6 +41,10 @@ from dossier.domain.scoring import FieldKind
 # The key a source names its credential's variable under, spelled once. Imported
 # by `dossier.config.credentials`, which reads what it points at (R1.8).
 TOKEN_ENV = "token_env"
+# The key naming the variable holding the user a token is paired with, when the
+# source is reached with HTTP Basic rather than a bearer token (R1.12). Generic
+# for the reason `token_env` is: a user is not a Jira idea.
+USER_ENV = "user_env"
 
 __all__ = [
     "JUDGE_FILE",
@@ -206,9 +210,15 @@ def _source_error(
     elif problem["type"] == "missing":
         line = _line_of(text, "sources", index)
         detail = f"missing key {key!r}, which its type requires"
-    else:
+    elif key:
         line = _line_of(text, "sources", index, key)
         detail = f"{key!r} -- {problem['msg']}"
+    else:
+        # A problem between keys rather than with one -- a connector's own
+        # validator over the whole entry, as `user_env` without `token_env`
+        # (R1.12 row 5). No key to point at, so the source's line is named.
+        line = _line_of(text, "sources", index)
+        detail = problem["msg"].removeprefix("Value error, ")
     where = f", line {line}" if line is not None else ""
     identifier = entry.get("id")
     owner = f" in {identifier!r}," if identifier else ""

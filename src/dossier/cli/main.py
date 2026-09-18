@@ -155,9 +155,14 @@ def sync(
             try:
                 # Read here, by the one package that reads the environment, and
                 # handed to the connector. Infrastructure may not go looking for
-                # it itself, and the layer contract enforces that (R1.8).
+                # it itself, and the layer contract enforces that (R1.8). Read
+                # through the same environment an endpoint is -- the shell, with
+                # `.env` beneath it -- so one file holds every per-machine value
+                # (R1.8 row 5, R9.11).
                 connector = build_connector(
-                    source, workspace=workspace, credential=credential_for(source)
+                    source,
+                    workspace=workspace,
+                    credential=credential_for(source, environ=environment(workspace)),
                 )
             except (UnknownSourceType, ValueError, ConfigError) as error:
                 typer.echo(str(error), err=True)

@@ -19,9 +19,10 @@ sources:
 
   - id: incidents-jira
     type: jira
+    url: https://jira.example.internal
     query: project = INC AND type = Incident
+    token_env: DOSSIER_JIRA_TOKEN
     fields: [key, summary, status, created, resolution, description, comments]
-    attachments: true
     watermark_overlap: 24h
 
   - id: procedures-confluence

@@ -16,7 +16,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from dossier.config.load import TOKEN_ENV, ConfigError
+from dossier.config.load import TOKEN_ENV, USER_ENV, ConfigError
 
 
 class CredentialUnset(ConfigError):
@@ -35,6 +35,12 @@ class Credential:
 
     variable: str
     value: str = field(repr=False)
+    # The user the token is paired with under HTTP Basic, and where it came
+    # from (R1.12). `None` for the usual case, a bearer token on its own. Out
+    # of `repr` like the value: an email is not a secret, but a log line is
+    # not the place to find out whose account a run used.
+    user: str | None = field(default=None, repr=False)
+    user_variable: str | None = None
 
     def __str__(self) -> str:
         # `str` as well as `repr`: an f-string in a log line calls this one, and
@@ -56,13 +62,28 @@ def credential_for(source, *, environ: Mapping[str, str] | None = None) -> Crede
         return None
 
     environ = os.environ if environ is None else environ
+    user_variable = str(source.options.get(USER_ENV, "") or "") or None
+    return Credential(
+        variable=variable,
+        value=_read(source, variable, environ, what="credential"),
+        user=_read(source, user_variable, environ, what="user") if user_variable else None,
+        user_variable=user_variable,
+    )
+
+
+def _read(source, variable: str, environ: Mapping[str, str], *, what: str) -> str:
+    """The value at `variable`, or `CredentialUnset` naming it.
+
+    An empty variable counts as unset, as it does for an endpoint: a blank
+    credential is not one anybody meant, and sending it produces a 401 that
+    names the wrong cause. `.env` is named because the environment read here
+    is the one it fills (R1.8 row 5) -- with a `DOSSIER_` name, which is all
+    `.env` yields (R9.11 row 4).
+    """
     value = environ.get(variable)
     if not value:
-        # An empty variable counts as unset, as it does for an endpoint: a blank
-        # credential is not one anybody meant, and sending it produces a 401
-        # that names the wrong cause.
         raise CredentialUnset(
-            f"source {source.id!r} reads its credential from {variable}, which is not set. "
-            f"Set {variable} in the environment or in `.env`."
+            f"source {source.id!r} reads its {what} from {variable}, which is not set. "
+            f"Set {variable} in the environment, or in `.env` under a DOSSIER_ name."
         )
-    return Credential(variable=variable, value=value)
+    return value
