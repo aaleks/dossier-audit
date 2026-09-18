@@ -84,6 +84,82 @@ class UndeclaredConverter(ValueError):
 DECLARED = ("id", "version", "media_type", "kind")
 
 
+# How the parts of a multi-part conversion travel (R8.11).
+#
+# A header line per part -- its name and its byte count -- and then its bytes.
+# Nothing else: no timestamps, no permissions, no compression. Every one of those
+# is a property of the machine rather than of the content, and R8.1 promises an
+# artifact is byte-identical wherever it is built.
+#
+# A ZIP was the obvious choice and is not available here. `zipfile` needs a
+# file-like object, and `io` is on the purity boundary's forbidden list
+# (`tests/architecture/test_layer_contracts.py`) -- rightly, since a `domain`
+# module that can open a stream can open a file. The format has to live in
+# `domain` because `application` may import nothing else and is where a step
+# unpacks it, so the format gives way rather than the boundary.
+#
+# What that costs is being able to unzip an artifact with a standard tool. What
+# it buys is a container with no way to differ between two machines: a stored ZIP
+# still carries an external-attributes field and a version-made-by byte, and
+# both are set from the platform unless every entry is built by hand anyway.
+_CONTAINER_MAGIC = b"DOSSIER-PARTS 1\n"
+_PART_PREFIX = "page-"
+
+
+def part_name(position: int, suffix: str) -> str:
+    """The name of part `position` inside a container. 1-based (R8.11).
+
+    Zero-padded to three digits so page 2 sorts before page 10 in any listing
+    that orders by name, and 1-based because a reader turns to page 1.
+    """
+    return f"{_PART_PREFIX}{position:03d}{suffix}"
+
+
+def pack_parts(parts: Iterable[bytes], *, suffix: str) -> bytes:
+    """Several artifacts as one, byte-identical wherever it is built (R8.11)."""
+    packed = [_CONTAINER_MAGIC]
+    for position, part in enumerate(parts, 1):
+        packed.append(f"{part_name(position, suffix)} {len(part)}\n".encode("ascii"))
+        packed.append(part)
+    return b"".join(packed)
+
+
+def unpack_parts(container: bytes) -> list[bytes]:
+    """The parts a container holds, in part order (R8.11).
+
+    A `ValueError` for bytes that are not a container, rather than an empty
+    list: a step reading `documents@page_images` and quietly receiving no pages
+    would audit nothing and report that it had audited a document.
+    """
+    if not container.startswith(_CONTAINER_MAGIC):
+        raise ValueError(
+            "these bytes are not a parts container (R8.11): "
+            f"expected them to begin {_CONTAINER_MAGIC!r}"
+        )
+
+    parts: list[bytes] = []
+    at = len(_CONTAINER_MAGIC)
+    while at < len(container):
+        end = container.find(b"\n", at)
+        if end < 0:
+            raise ValueError("this parts container ends inside a header (R8.11)")
+        try:
+            _, _, count = container[at:end].decode("ascii").rpartition(" ")
+            size = int(count)
+        except (UnicodeDecodeError, ValueError) as error:
+            raise ValueError(
+                f"this parts container has a bad header (R8.11): {error}"
+            ) from error
+
+        at = end + 1
+        if at + size > len(container):
+            raise ValueError("this parts container is shorter than its header claims (R8.11)")
+        parts.append(container[at : at + size])
+        at += size
+
+    return parts
+
+
 def check_declared(converter: object, *, group: str) -> None:
     """Refuse a converter that leaves any of `DECLARED` unset (R8.2 row 4).
 

@@ -56,6 +56,7 @@ jira = "dossier.infrastructure.connectors.jira:JiraConnector.from_config"
 # registers through the same group a third party would use, with no special case.
 [project.entry-points."dossier.converters"]
 markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextConverter"
+pdf-images = "dossier.infrastructure.converters.pdf_images:PdfImagesConverter"
 pdf-markdown = "dossier.infrastructure.converters.pdf_markdown:PdfMarkdownConverter"
 text-plain = "dossier.infrastructure.converters.text_plain:TextPlainConverter"
 
