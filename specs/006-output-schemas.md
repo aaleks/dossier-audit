@@ -372,8 +372,8 @@ volunteering a number that is now discarded before anything reads it.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.grounding.page_of_span`)
-- **Proved by:** `tests/unit/test_R006_14__the_page_is_derived_from_the_located_span.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R006_14__a_run_cites_the_page_the_span_is_on.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
