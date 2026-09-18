@@ -354,8 +354,8 @@ run noticing. Conversions are not copied; spec 008 leaves
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.store.output_path`), application (`dossier.application.run`)
-- **Proved by:** `tests/unit/test_R000_11__a_run_writes_its_artifacts_where_a_person_reads_them.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R000_11__a_run_writes_its_artifacts_where_a_person_reads_them.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
