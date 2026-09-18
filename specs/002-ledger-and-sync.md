@@ -1,6 +1,6 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R2.1 – R2.20
 
 ## Purpose
@@ -448,7 +448,7 @@ row it describes, so the two cannot disagree (R2.8).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.ledger`)
 - **Proved by:** `tests/unit/test_R002_19__the_ledger_keeps_every_address_a_row_has_held.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
