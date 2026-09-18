@@ -16,6 +16,13 @@ from __future__ import annotations
 
 from dossier.domain.hashing import is_content_hash
 
+# How an aggregate step's single artifact is filed (spec 003). Reserved in
+# `domain` rather than `application`, because "which keys may a source hold" is
+# a decision and the three places that care -- sync, which refuses it in a
+# source; run, which files under it; and `output_path` below, which names the
+# file -- must not disagree.
+RESERVED_KEY = "*"
+
 # Relative to the workspace root (R0.8). Named once so that no call site spells
 # it out and no test asserts a literal it invented.
 SNAPSHOT_ROOT = ".dossier/snapshots"
@@ -82,8 +89,13 @@ def output_path(step: str, document: str, *, structured: bool) -> str:
     A step with no `output` declaration returns text rather than a field
     record, and its file carries `.md`: what a person opens is what the model
     wrote, not a JSON string holding it.
+
+    An aggregate step's one artifact is filed under the reserved key `*` (spec
+    003), which is not a file name on every platform -- and the step read every
+    document, so its file is named for what it is rather than after any one.
     """
-    return f"{step}/{document}.{'json' if structured else 'md'}"
+    name = "aggregate" if document == RESERVED_KEY else document
+    return f"{step}/{name}.{'json' if structured else 'md'}"
 
 
 def record_path(path: str) -> str:

@@ -60,8 +60,7 @@ from dossier.domain.resolution import (
     validate_input_arity,
 )
 from dossier.domain.schemas import StageOutput
-from dossier.domain.store import output_path, record_path
-from dossier.domain.sync import RESERVED_KEY
+from dossier.domain.store import RESERVED_KEY, output_path, record_path
 from dossier.domain.tracking import tags as tracking_tags
 
 # The `document` an aggregate result is reported under (spec 003). An aggregate
@@ -253,10 +252,7 @@ def execute(
                 # still leaves `extract/` complete for the person who opens it
                 # (R0.11 row 3). A failed document leaves nothing -- there is no
                 # artifact to copy, and nothing may stand in for one (row 4).
-                # An aggregate result is keyed `*`, which R0.11 has no name for
-                # yet and Windows has no file for; it stays in the cache alone
-                # until the spec says what it is called.
-                if not result.failed and key != AGGREGATE_KEY:
+                if not result.failed:
                     _publish(
                         run_dir=manifest.parent,
                         step=step.id,

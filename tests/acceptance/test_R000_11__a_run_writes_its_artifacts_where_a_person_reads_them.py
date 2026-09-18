@@ -251,3 +251,40 @@ class TestARunWritesItsArtifactsWhereAPersonReadsThem:
 
         assert result.exit_code == 0, result.output
         assert _run_dirs(synced) == before
+
+    def test_an_aggregate_step_writes_one_file_named_for_what_it_is(
+        self, synced: Path, monkeypatch, completed: Path
+    ):
+        """Example 8: the one where `report` reads every document at once.
+
+        Its one artifact is filed under `*` (spec 003), which is not a file
+        name on every platform; under `runs/` it is `report/aggregate.md`.
+        """
+        from tests.fakes import FakeModelClient
+
+        path = write_pipeline(
+            synced,
+            steps=["extract", "report"],
+            inputs={"report": "extract"},
+            outputs={"report": None},
+        )
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "input: extract\n    mode: per_file", "input: extract\n    mode: aggregate"
+            ),
+            encoding="utf-8",
+        )
+        # `extract` is a cache hit from `completed`; the one call is `report`.
+        prose = "Three incidents; two stated a loss.\n"
+        _use(monkeypatch, FakeModelClient(responses=[prose]))
+        before = _run_dirs(synced)
+
+        result = _cli(synced, monkeypatch, "run", PIPELINE)
+
+        assert result.exit_code == 0, result.output
+        run = _new_run(synced, before)
+        assert sorted(path.name for path in (run / "report").iterdir()) == [
+            "aggregate.md",
+            "aggregate.meta.json",
+        ]
+        assert (run / "report" / "aggregate.md").read_text(encoding="utf-8") == prose

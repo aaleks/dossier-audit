@@ -15,7 +15,7 @@ from enum import Enum
 
 from dossier.domain.hashing import content_hash, is_content_hash
 from dossier.domain.pipeline import SourceConfig
-from dossier.domain.store import held_address
+from dossier.domain.store import RESERVED_KEY, held_address
 
 # Clock skew between dossier and the source, plus source-side indexing lag, are
 # both routinely minutes and occasionally hours. A day of overlap costs a handful
@@ -358,12 +358,6 @@ def reactivated(*, listed: set[str], already_tombstoned: set[str]) -> tuple[str,
     Sorted for the same reason `tombstones` is.
     """
     return tuple(sorted(set(listed) & set(already_tombstoned)))
-
-
-# How an aggregate step's single artifact is filed (spec 003). Reserved here
-# rather than in `application`, because "which keys may a source hold" is a
-# decision and the two places that care about it must not disagree.
-RESERVED_KEY = "*"
 
 
 class DocumentCollision(ValueError):
