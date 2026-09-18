@@ -63,3 +63,20 @@ def held_address(path: str) -> str:
             "Expected 64 lowercase hex characters as the filename (R0.7, R2.11)."
         )
     return digest
+
+
+# Relative to the workspace root, like SNAPSHOT_ROOT. Where a run's manifest and
+# the copies of its artifacts a person opens are kept (R0.8, R0.11).
+RUNS_ROOT = "runs"
+
+
+def output_path(step: str, document: str, *, structured: bool) -> str:
+    """The run-relative path of a step's artifact for a document (R0.11).
+
+    `extract/INC-4821.json`, and for the folder key `PLAY-1001.md`,
+    `extract/PLAY-1001.md.json`: the key with the extension appended, never a
+    suffix replaced. Replacing it would collide `PLAY-1001.md` with
+    `PLAY-1001.pdf`, which R4.10 says are two documents and a run must keep
+    apart.
+    """
+    return f"{step}/{document}.json"
