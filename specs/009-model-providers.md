@@ -1,7 +1,7 @@
 # 009 — Model providers
 
-**Status:** Implemented
-**Rules:** R9.1 – R9.15
+**Status:** Partially implemented
+**Rules:** R9.1 – R9.16
 
 ## Purpose
 
@@ -350,3 +350,33 @@ R6.2 to retry.
 | 4 | the server answers 200 with `stop_reason` `refusal` and no `text` block | an error naming the model and the stop reason; never an empty string handed to the stage as an answer |
 | 5 | the server answers 401, or any other non-2xx status | an error naming the URL and the status, never the key (R9.8 row 1) |
 | 6 | *counter-example* — `gemini:gemini-3.5-flash-lite` | not this rule's; R9.12 reaches it |
+
+### R9.16 — a stage may hand a model image parts, and each provider sends them in its own native form
+
+`ModelClient.complete` took a `str` and nothing else, so there was no way for
+bytes to reach a model at all. That was the right shape while every artifact a
+stage could name was text (R8.4 counter-example 4), and it stopped being right
+the moment a step could name `page_images` (R3.11).
+
+A part is bytes and a media type. What each provider does with it is the
+provider's business and differs between all three, which is exactly why the
+conversion happens at the edge rather than in `application`: a stage hands over
+parts and never learns whether they became a data URI, a base64 source block or
+an array beside the message.
+
+A call with no parts sends what it sent before this rule. Not an empty array, not
+a single-element content list -- the same bytes, so that no existing cache key
+moves and no provider sees a request shape it did not see yesterday.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.models`)
+- **Proved by:** `tests/unit/test_R009_16__a_provider_sends_image_parts_in_its_own_form.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | an OpenAI-compatible provider, one `image/png` part | the message content is a list: the prompt as a `text` item, then an `image_url` item whose url is a `data:image/png;base64,` URI (R9.12) |
+| 2 | `anthropic:claude-sonnet-4-5-20250929`, the same part | one `image` content block with `source.type` `base64`, `source.media_type` `image/png`, then the prompt as a `text` block (R9.15) |
+| 3 | `ollama:qwen2.5:7b@sha256:7f3c29a1`, the same part | the message keeps its string `content` and gains an `images` array holding the part, base64, as Ollama's own API takes it (R9.13) |
+| 4 | three parts in page order | three items, in that order, for every provider; a page order the caller chose is not a set |
+| 5 | *counter-example* — a call with no parts | byte-identical to the request the same call made before this rule: no empty `images` key and no content list, so no cache key moves and no provider meets a shape it did not see yesterday |
