@@ -54,14 +54,19 @@ run`, and record what actually happened:
 | 6 | edit an answer in the stub's `replies.json` |
 
 **Checkpoint.** Three columns for each row: what `--plan` said, what the run did,
-and whether they agreed. Two of the six rows have a `--plan` answer that the run
-then contradicts. Find them, and write down what a person relying on `--plan`
-would have concluded.
+and whether they agreed. All six should agree — R4.12 says "`--plan` reports a
+step as re-running exactly when a run would miss its cache… `cached` means the
+next run will serve that step from the cache".
 
-This is the investigation of this exercise. R4.12 says: "`--plan` reports a step
-as re-running exactly when a run would miss its cache… `cached` means the next run
-will serve that step from the cache." Check that claim against what you observed
-before reading the solution.
+Two of them did not, until this playground was written. Before you read the
+solution, work out **which two** you would expect to be the hard ones: which of
+these changes is something a person edits in `pipelines/`, and which is something
+about the world the pipeline runs in? That distinction is where the bug lived, and
+the solution tells the story of the fix — a spec commit, then a code commit.
+
+While you are here, predict the status word for row 3 as well. The plan names the
+documents it would re-ask for, and there is a reason it names them rather than
+counting them.
 
 ## Task 3 — the cache is not the truth
 
@@ -118,8 +123,8 @@ why the answer is what it is.
 
 ## Done when
 
-- a table of six changes with predictions, observations, and the two rows where
-  `--plan` and the run disagree;
+- a table of six changes with predictions and observations, all six agreeing, and
+  an account of why two of them once did not;
 - a cache you deleted and rebuilt byte for byte;
 - identical keys in two workspaces at different paths;
 - a replay that failed honestly and one that ignored a configuration change.

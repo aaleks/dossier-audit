@@ -33,7 +33,6 @@ DOSSIER_MLFLOW_TRACKING_URI=http://127.0.0.1:5000
 ```
 
 ```bash
-export MLFLOW_TRACKING_URI=http://127.0.0.1:5000   # see task 6 — needed for traces
 cd playground/work/08
 D=../../../.venv/bin/dossier
 $D sync incident-audit && $D convert incident-audit && $D run incident-audit
@@ -244,45 +243,54 @@ Same digest. Tracking observes a run; it is not an input to one.
 
 ## Task 6 — when traces do not arrive
 
-On MLflow 3.15 the first tracked run produced this, five times:
+Traces arrive. R10.9 is the rule that makes sure of it, and it exists because of
+this exercise.
+
+The first time this playground was run against a real MLflow 3.15 server, every
+trace was lost:
 
 ```
 WARNING mlflow.tracing.export.mlflow_v3: Failed to send trace to MLflow backend:
 No Experiment with id=3 exists
 ```
 
-Runs, params, metrics and the manifest artifact all arrived. Only the traces were
-lost — and the run still succeeded, which is R10.6 working as designed: a record
-lost after the startup check never changes a command's outcome.
+Runs, params, metrics and the manifest artifact all arrived. Only the traces went
+missing — and the run still succeeded, which is R10.6 working as designed: a
+record lost after the startup check never changes a command's outcome. Everything
+in task 4 was simply empty.
 
-**The cause, in one sentence:** `dossier` passes its tracking URI to
-`MlflowClient`, but MLflow 3.x's asynchronous *trace* exporter resolves its
-destination from the global MLflow configuration rather than from that client, so
-with `MLFLOW_TRACKING_URI` unset it posts traces to the default local store —
-where the experiment ids `dossier` created on the server do not exist.
+**The cause, in one sentence:** MLflow has two paths out, and `dossier` was
+configuring only one. A run is written through the `MlflowClient` dossier builds
+with the URI; a trace is exported by MLflow's own asynchronous exporter, which
+reads the library's process-wide configuration rather than that client — so with
+nothing set it posted traces to MLflow's default local store, where the
+experiment ids dossier had just created on the server do not exist.
 
-**The workaround**, and it is what the setup block above does:
+**Why "read `MLFLOW_TRACKING_URI` too" is the wrong fix.** Not reading MLflow's
+own variables is deliberate, and it is R10.1: a variable left in a shell from
+another project must switch nothing on and must not redirect a record. The fix is
+for the tracker to configure the library it is using, from the value dossier was
+given:
 
-```bash
-export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+```python
+mlflow.set_tracking_uri(uri)  # R10.9, in MlflowTracker.__init__
+self._client = MlflowClient(tracking_uri=uri)
 ```
 
-Traces then land, and everything in task 4 is visible.
+If you want to see the old behaviour, comment that line out and run task 4 again.
 
-**Why this is not simply a bug in the configuration.** Not reading MLflow's own
-variables is deliberate and is R10.1 — "a variable left in a shell from another
-project switches nothing on" — so the fix cannot be "read `MLFLOW_TRACKING_URI`
-too". The honest options are for `MlflowTracker` to set MLflow's global tracking
-URI itself when it connects, or to export traces through a client-scoped path.
-Either is a behaviour change, so in this repository it starts as a spec
-conversation about R11.1: the rule claims a run records one trace per (step,
-document), and on a current MLflow that claim is only true if something sets the
-global URI. The test suite cannot see it, because the tracker's tests use a
-`FakeTracker` and never reach MLflow.
+**Why the suite could not see it.** The tracker's tests hand `application/` a
+`FakeTracker` — which is right: it is what keeps the default suite offline and
+lets tests count traces and spans exactly. But it means nothing in the suite ever
+exercised the boundary the rule is actually about. R10.9's own test replaces
+MLflow's two entry points and asserts both are pointed at the same URI; what
+proved the *fix* was running a real server and reading the traces back.
 
 That is the most transferable thing in this exercise. A rule with a green test can
 still be false in production when the test replaces the very boundary the rule is
-about. The way you find out is by running the real thing once and looking.
+about. The way you find out is by running the real thing once and looking — and
+then the fix goes in the way everything else does: a spec commit adding R10.9,
+then the code.
 
 ---
 
