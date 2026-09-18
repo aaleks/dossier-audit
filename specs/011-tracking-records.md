@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.5
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.6
 
 ## Purpose
 
@@ -20,7 +20,7 @@ that could disagree with the terminal would leave nobody sure which to believe.
 |---|---|---|---|
 | `dossier run` | one, named after the dossier run id | one per (step, document) | documents, cache hits, model calls, failed |
 | `dossier eval` | one | the judge's calls, if any | `accuracy/<field>`, `accuracy/overall` |
-| `dossier sync` | one | none | `<source>/known`, `/changed`, `/new`, `/fetched`, `/failed` |
+| `dossier sync` | one | none | `<source>/known`, `/changed`, `/new`, `/fetched`, `/failed`; `changes.json` attached (R11.6) |
 | `dossier convert` | one | none | `<source>/held`, `/converted`, `/cached`, `/failed` |
 | `dossier calibrate` | one, per gold set | one per sample case | `judge/<field>/agreement`, `judge/<field>/cases` |
 | `dossier run --plan`, `--replay` | none | none | none |
@@ -139,3 +139,21 @@ row 4), and nowhere else.
 | 3 | the pipeline's model changed to `ollama:qwen2.5:7b@sha256:7f3c29a1`, calibrated again | a second run beside the first in the same experiment, with its own model param and agreement; the file holds only the latest measurement (R7.14 row 2), the experiment holds both |
 | 4 | *counter-example* — a sample of 19 cases | refused (R7.14 row 3); 0 MLflow runs, 0 traces. Nothing was measured, so there is nothing to record |
 | 5 | *counter-example* — `gold/incidents/judge.yaml` declaring `root_cause: 0.95` | not on the run, as no param, metric or tag; a calibration never reads the bar (R7.14 row 5), and the run that records both the figure and whether it cleared the bar is the eval's (R11.3 row 4) |
+
+### R11.6 — a `dossier sync` attaches `changes.json`, naming what the terminal named
+
+The items R2.18 and R2.20 print, as one artifact: `changed` as a list of
+`{source, key, from, to}` and `tombstoned` as a list of `{source, key}`. It is
+the report's own list handed to the tracker, never a second reading of the
+ledger -- the principle this spec opens with.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.sync`)
+- **Proved by:** `tests/unit/test_R011_6__a_sync_attaches_the_changes_it_named.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4822` repointed `0e52dd18` to `77c1b40a`, `INC-4821` tombstoned | `changes.json` holds `changed: [{incidents-jira, INC-4822, 0e52dd18…, 77c1b40a…}]` and `tombstoned: [{incidents-jira, INC-4821}]`, full hashes |
+| 2 | a sync where nothing changed | `changes.json` attached with two empty lists; an absent artifact is indistinguishable from a sync that never ran (R11.4 row 3) |
+| 3 | *counter-example* — `dossier run --plan` after that sync | no MLflow run, so nothing attached (R11.1 row 5); the record belongs to the command that fetched |
