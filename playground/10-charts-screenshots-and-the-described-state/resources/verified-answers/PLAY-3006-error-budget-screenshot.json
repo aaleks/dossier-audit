@@ -1,0 +1,23 @@
+{
+  "document": "PLAY-3006-error-budget-screenshot.png",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-19",
+  "fields": {
+    "incident_date": {
+      "value": "2026-09-11"
+    },
+    "severity": {
+      "value": "major"
+    },
+    "affected_systems": {
+      "value": "checkout-service, edge-gateway"
+    },
+    "revenue_at_risk": {
+      "value": 53100.0,
+      "currency": "CHF"
+    },
+    "root_cause": {
+      "value": "The error budget for checkout-service was consumed in four days by retries that were never counted against it, because the budget is measured at the edge and the retries are issued behind it."
+    }
+  }
+}

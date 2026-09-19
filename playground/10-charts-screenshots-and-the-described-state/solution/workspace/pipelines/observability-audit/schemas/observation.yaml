@@ -1,0 +1,18 @@
+# Five fields, and the reason this document set exists is the fourth one.
+#
+# `incident_date`, `severity`, `affected_systems` and `root_cause` are written in
+# the text layer of every PDF here, so a field citing them grounds: a string
+# search finds the span (R6.4).
+#
+# `revenue_at_risk` is drawn on the panel and written in no sentence anywhere.
+# There is no text to search, so it is `described` -- neither a pass nor a
+# failure, and a judge shown the pages is what decides it (R6.15, R7.21).
+#
+# On the screenshot, which has no text layer at all, every one of the five is
+# described. That is not a defect in the document; it is what a picture is.
+fields:
+  incident_date:    {kind: date}
+  severity:         {kind: enum, values: [minor, major, critical]}
+  affected_systems: {kind: reference}
+  revenue_at_risk:  {kind: amount, currency: CHF}
+  root_cause:       {kind: free_text, judge: rubrics/root_cause.md}

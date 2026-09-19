@@ -1,0 +1,35 @@
+# One step, run once per page.
+#
+# `mode: per_part` fans the step out over the parts of its input: one call per
+# page, keyed and cached and retried per page, so a page that fails costs one
+# page (R3.12). The page is in the stage key by content hash, which is what makes
+# page two a different question from page one -- and what lets a run of this
+# pipeline be replayed at all (R4.14).
+#
+# The step reads `documents@page_images` and nothing else. A `per_part` step
+# reads one input and that input has parts (R3.12 counter-example 5), so the
+# prompt carries no text at all: everything the model knows about the document,
+# including its key, it reads off the picture.
+#
+# The text layer is still converted -- `sources.yaml` declares `markdown` too --
+# and it is still what a quoted span is searched in. That is the whole difference
+# between a field that is grounded and one that is described (R6.15).
+sources: [observability, screenshots]
+
+# Named here as well as on the `eval` and `calibrate` command lines, and it is
+# not a convenience: `--gold` still has to be passed. What naming it here buys
+# is *when* the judge's thresholds are checked. With a gold set declared, a
+# judged field missing a bar for a state this pipeline can reach is refused as
+# the pipeline loads -- so `dossier run` stops before a page is rendered or a
+# model is asked, rather than at scoring time after the run is paid for
+# (R7.20).
+gold: gold/observability
+
+model: openai:gpt-5.4-mini
+
+steps:
+  - id: extract
+    prompt: prompts/01_extract.md
+    input: documents@page_images
+    mode: per_part
+    output: schemas/observation.yaml

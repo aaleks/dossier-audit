@@ -1,0 +1,23 @@
+{
+  "document": "PLAY-3003-kibana-error-spike.pdf",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-19",
+  "fields": {
+    "incident_date": {
+      "value": "2026-09-04"
+    },
+    "severity": {
+      "value": "critical"
+    },
+    "affected_systems": {
+      "value": "edge-gateway, checkout-api"
+    },
+    "revenue_at_risk": {
+      "value": 41250.0,
+      "currency": "CHF"
+    },
+    "root_cause": {
+      "value": "The 25% canary on edge-gateway routed to a build whose upstream timeout was 30 seconds against a client timeout of 10, so every slow checkout call was counted twice and returned 502."
+    }
+  }
+}

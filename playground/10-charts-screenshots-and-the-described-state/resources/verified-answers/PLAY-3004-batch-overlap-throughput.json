@@ -1,0 +1,23 @@
+{
+  "document": "PLAY-3004-batch-overlap-throughput.pdf",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-19",
+  "fields": {
+    "incident_date": {
+      "value": "2026-09-05"
+    },
+    "severity": {
+      "value": "minor"
+    },
+    "affected_systems": {
+      "value": "ledger-batch"
+    },
+    "revenue_at_risk": {
+      "value": 6400.0,
+      "currency": "CHF"
+    },
+    "root_cause": {
+      "value": "The nightly reconciliation kept the clock it was given before the daylight-saving change, so it started an hour into the online window and competed with live traffic for the same database."
+    }
+  }
+}

@@ -236,7 +236,11 @@ replay would produce text the original run never saw.
 
 ## Where to go from here
 
-You have now touched every command and most of the rules. Three suggestions:
+You have now touched every command and most of the rules — over documents that
+are all text. [Exercise 10](../10-charts-screenshots-and-the-described-state/)
+is the one where they are not: a chart, a Grafana panel and a screenshot, one
+model call per page, and a grounding state that is neither a pass nor a
+failure. Do that one next. Then three suggestions:
 
 1. **Read a spec end to end** — `specs/005-caching-and-keys.md` is the one this
    exercise is about, and it reads differently once you have seen the keys on
