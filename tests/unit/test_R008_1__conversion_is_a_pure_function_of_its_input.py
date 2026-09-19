@@ -26,6 +26,7 @@ included. The claim is unchanged; only the sample is.
 from __future__ import annotations
 
 import ast
+import base64
 import subprocess
 import sys
 import textwrap
@@ -40,9 +41,20 @@ INSTALLED = installed_converters()
 
 # One payload per media type a converter might claim, so the conformance rows
 # below can hand each converter something it will actually accept.
+# A PNG has no literal form a reviewer can read, so the sample is a 1x1 white
+# pixel written by Pillow, base64 here. It is deliberately not the committed
+# chart: the subprocess probe below hands a payload to another interpreter on
+# its command line, and forty kilobytes does not fit on one.
+ONE_PIXEL_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+"
+    "Av4N70a4AAAAAElFTkSuQmCC"
+)
+
+
 PAYLOADS = {
     "text/markdown": b"# INC-4821\n\nTotal exposure CHF 48'200 on page 3.\n",
     "text/plain": b"INC-4821\n\nTotal exposure CHF 48'200 on page 3.\n",
+    "image/png": ONE_PIXEL_PNG,
 }
 
 
@@ -160,6 +172,13 @@ class TestEveryMediaTypeInTheSampleIsCoveredOrNamed:
             # payload here nor the subprocess probe above. Proved by
             # test_R008_1__a_pdf_converts_to_the_text_of_its_pages.py instead.
             "application/pdf",
+            # The repository holds no JPEG, and committing one for this row
+            # would be a binary fixture nobody could review supporting one
+            # assertion. `jpeg-pages` builds its own with Pillow and is proved
+            # by test_R008_12__an_image_converts_to_one_page_image.py, which
+            # checks the same two things these rows do: the same bytes twice,
+            # and nothing read from the world.
+            "image/jpeg",
         }
 
         uncovered = {

@@ -34,7 +34,13 @@ tracking = ["mlflow>=2.14"]
 # more than better table extraction. BSD-3/Apache-2.0 with prebuilt wheels and
 # no system binary; PyMuPDF was rejected on its AGPL licence, which would reach
 # everyone who installs dossier.
-pdf = ["pypdfium2>=4.30"]
+# Pillow is not optional despite the name of this extra: `pdf-images` renders
+# a page through `to_pil()` and `jpeg-pages` re-encodes through `Image.save`,
+# and pypdfium2 declares no dependencies at all -- so `pip install
+# dossier[pdf]` shipped a converter that raised ImportError on its first page.
+# It is here rather than in the base install because nothing outside the
+# picture converters touches it.
+pdf = ["pypdfium2>=4.30", "pillow>=10.0"]
 
 [dependency-groups]
 dev = [
@@ -55,6 +61,8 @@ jira = "dossier.infrastructure.connectors.jira:JiraConnector.from_config"
 # A converter is a package declaring one of these (R8.7). The one shipped here
 # registers through the same group a third party would use, with no special case.
 [project.entry-points."dossier.converters"]
+image-jpeg-pages = "dossier.infrastructure.converters.image_pages:JpegPagesConverter"
+image-png-pages = "dossier.infrastructure.converters.image_pages:PngPagesConverter"
 markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextConverter"
 pdf-images = "dossier.infrastructure.converters.pdf_images:PdfImagesConverter"
 pdf-markdown = "dossier.infrastructure.converters.pdf_markdown:PdfMarkdownConverter"
