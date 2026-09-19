@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.13
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.14
 
 ## Purpose
 
@@ -351,3 +351,36 @@ from the configuration alone, before a single byte is fetched.
 | 3 | `incidents-manual` declaring `convert: [markdown, page_images]` | resolves; both kinds are produced and the step reads one of them (R8.4) |
 | 4 | two sources in `sources`, one declaring `convert: [markdown, page_images]` and one declaring none | stops, naming the source that cannot supply it; a step reads its whole set, and a half-answered input is the silent-gap failure this rule exists to prevent |
 | 5 | *counter-example* — `extract` declaring `input: documents` against a source declaring `convert: [page_images]` | stops for the same reason, on the kind nobody wrote down: bare `documents` is `documents@markdown` (R3.11) and that source does not produce it |
+
+### R4.14 — a replay reproduces a `per_part` step part by part
+
+R3.12 gave a step a fan-out over the parts of its input and put each part in its
+own key, and the replay was never taught about it. `_replay_one` recomposes a
+stage key from the manifest with one input per declared target and no part in
+it, so the key it builds is one no `per_part` run ever wrote. Every such run is
+therefore irreproducible: `dossier run --replay` stops on the first document,
+and `dossier eval` — which scores a replay, not the workspace — cannot score one
+at all.
+
+The parts are re-derived, not recorded. The manifest already pins each snapshot
+and each converter it used, which is exactly what `replayed_inputs` recomposes
+the text from; the container is fetched the same way and unpacked, so a replay
+still reads nothing but entries the original run wrote (R4.7).
+
+A part whose entry is gone stops the replay by name, naming the part and not
+only the document — a document whose pages half resolved is not a document that
+resolved, and R0.12 writes nothing at all rather than a run directory missing
+two pages of six.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run.replay`)
+- **Proved by:** `tests/unit/test_R004_14__a_replay_reproduces_a_per_part_step.py`, `tests/acceptance/test_R004_14__a_per_part_run_replays.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a replay of a run whose `describe` step read `INC-4830` as three page images | three artifacts reproduced, byte-identical to what the run wrote, and zero model calls |
+| 2 | that replay written with `--replay` | `runs/<id>/replays/<rid>/describe/INC-4830.../page-001.md` through `page-003.md`, and nothing under the run's own directory touched (R0.12) |
+| 3 | a described field in a reproduced `per_part` artifact | still `described`, not `ungrounded`: the replay knows which documents that stage was shown as pictures, so `dossier eval` scores what the run actually produced (R6.15) |
+| 4 | one part's cache entry deleted | the replay stops naming the step, the document and the part, and writes no directory at all |
+| 5 | *counter-example* — a `per_file` step | one key per document with no part in it, unchanged; nothing about a step that was never fanned out moves |
