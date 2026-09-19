@@ -170,6 +170,30 @@ DESCRIBED = "described"
 JUDGED_STATES = (GROUNDED, DESCRIBED)
 
 
+def judged_states(*, per_part: bool) -> tuple[str, ...]:
+    """The states a pipeline can produce a judged verdict in (R7.20, R7.23).
+
+    A `per_part` step is the only thing that hands a stage a picture (R3.12), so
+    it is the only thing that can produce a `described` verdict. Asked in one
+    place because two callers must agree: the loader refuses a pipeline missing
+    a bar for a state it can reach, and the gate withholds a field missing a
+    calibration for one -- and a pipeline refused for a bar it then never needed
+    would be the worse of the two mistakes.
+    """
+    return JUDGED_STATES if per_part else (GROUNDED,)
+
+
+def judge_name(field: str, state: str) -> str:
+    """What a judge's sample and calibration are filed under (R7.22).
+
+    `root_cause` for the grounded judge and `root_cause.described` for the other,
+    rather than a directory per state. The grounded name is unchanged, so every
+    gold set written before there were two states is read by the same path --
+    the same bargain the scalar threshold makes in `judge.yaml` (R7.20 row 2).
+    """
+    return field if state == GROUNDED else f"{field}.{state}"
+
+
 class FieldVerdict(Enum):
     """What a checked field record turned out to be (spec 006).
 

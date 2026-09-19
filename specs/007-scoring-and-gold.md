@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.24
 
 ## Purpose
@@ -652,7 +652,7 @@ and neither serves the other (R7.18).
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.judge_scores`)
 - **Proved by:** `tests/unit/test_R007_21__a_described_field_is_judged_from_the_pages.py`, `tests/acceptance/test_R007_21__eval_judges_a_chart_from_its_pages.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -677,7 +677,7 @@ verdict and a sample for one would be twenty cases nobody can act on (R7.20).
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.calibrate_fields`)
 - **Proved by:** `tests/unit/test_R007_22__each_grounding_state_is_measured_on_its_own_sample.py`, `tests/acceptance/test_R007_22__calibrate_writes_one_calibration_per_state.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -700,7 +700,7 @@ verdicts are ungated" is a number every reader will quote without the clause.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.main._judge_gate`)
 - **Proved by:** `tests/unit/test_R007_23__a_field_is_reported_only_when_every_state_clears.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -734,7 +734,7 @@ loses — which is why the bar is below the text judge's, and why it is not 1.0.
 - **Layer:** infrastructure (`dossier.infrastructure.models`)
 - **Threshold:** 0.90 agreement over `tests/evals/golden/root_cause_visual.jsonl`, agreed by `a.aleks` on 2026-09-19
 - **Proved by:** `tests/evals/test_R007_24__vision_judge_agrees_with_human_scores.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -10,11 +10,16 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+
+# Aliased: `field` is what this module calls a column of a gold document, and
+# a loop over one shadowing the dataclasses helper is a confusing way to find out.
 from dataclasses import dataclass
+from dataclasses import field as _default
 from pathlib import Path
 
 from dossier.application.run import StepReport
 from dossier.domain.gold import CalibrationCase, GoldDocument, gold_set_hash
+from dossier.domain.grounding import DESCRIBED, GROUNDED, FieldVerdict, judge_name
 from dossier.domain.hashing import content_hash
 from dossier.domain.judges import (
     Calibration,
@@ -22,7 +27,7 @@ from dossier.domain.judges import (
     require_measurable,
 )
 from dossier.domain.keys import JudgeInputs, cache_key, provenance
-from dossier.domain.ports import ArtifactStore, Tracker
+from dossier.domain.ports import ArtifactStore, ImagePart, Tracker
 from dossier.domain.scoring import (
     DocumentScore,
     FieldKind,
@@ -221,6 +226,17 @@ JUDGE_PROMPT_TEMPLATE = (
 )
 
 
+# What a judge is shown in place of a transcript when the run read the document
+# as pictures (R7.21). Fixed text, and not a rubric: it is the sentence the
+# `described` bar was measured with, so editing it asks a different question of
+# the same threshold -- which is what R7.19 already calls staleness, and what
+# R7.11 refuses to let a prompt do to a figure.
+SHOWN_AS_PAGES = (
+    "The document is supplied as one image per page, in page order. "
+    "Read the pages; there is no text transcript."
+)
+
+
 def judge_prompt_hash() -> str:
     """The hash of the wrapper a judge's question is put in (R7.19)."""
     return content_hash(JUDGE_PROMPT_TEMPLATE.encode("utf-8"))
@@ -247,6 +263,7 @@ def judged(
     document: str,
     text: str,
     answer: str,
+    parts: Sequence[ImagePart] = (),
 ) -> tuple[bool, str]:
     """One judge verdict on one candidate, with the evidence it gave.
 
@@ -257,6 +274,7 @@ def judged(
     reply = model.complete(
         judge_prompt(rubric=rubric, document=document, text=text, answer=answer),
         schema=JUDGE_SCHEMA,
+        parts=parts,
     )
     try:
         verdict = json.loads(reply)
@@ -285,6 +303,7 @@ def judged_cached(
     document: str,
     text: str,
     answer: str,
+    parts: Sequence[ImagePart] = (),
     run_id: str,
     dossier_version: str,
     tracker: Tracker | None = None,
@@ -321,7 +340,7 @@ def judged_cached(
                 # asked again and the entry rewritten below.
                 pass
         supported, evidence = judged(
-            model, rubric=rubric, document=document, text=text, answer=answer
+            model, rubric=rubric, document=document, text=text, answer=answer, parts=parts
         )
         if tracker is not None:
             tracker.span(
@@ -359,6 +378,11 @@ class Judging:
     run_id: str
     dossier_version: str
     tracker: Tracker | None = None
+    # The pages of each document the run read as pictures, for the fields it
+    # answered from them (R7.21). A document that has none is a document the
+    # judge is shown as text, which is every document there has ever been until
+    # a `per_part` step read one.
+    parts: Mapping[str, Sequence[ImagePart]] = _default(default_factory=dict)
 
 
 def judge_scores(
@@ -369,12 +393,25 @@ def judge_scores(
     The judge decides only what the deterministic scorers left: a verdict is
     deferred only when gold has a value and the run's value is grounded (R7.3,
     R7.4 decide first), and asked only for a field in `judging.rubrics`. The
-    candidate is the run's answer as it produced it, and the document is the
-    text the run was shown.
+    candidate is the run's answer as it produced it, and the document is what
+    the run was shown -- its text, or its pages where the run read pictures
+    (R6.15, R7.21).
     """
     prompt_hash = judge_prompt_hash()
     records = {
         result.document: {record.field: record for record in result.records}
+        for result in report.results
+    }
+    # Which (document, field) the run answered from a picture. Read off the
+    # checks the run already produced rather than inferred from a document
+    # having no text: those are not the same thing, and one of them is R6.3's
+    # failure wearing the other's clothes (R6.15).
+    described = {
+        result.document: {
+            record.field
+            for record, check in zip(result.records, result.checks, strict=True)
+            if check.verdict is FieldVerdict.DESCRIBED
+        }
         for result in report.results
     }
     judged: list[DocumentScore] = []
@@ -385,7 +422,27 @@ def judge_scores(
                 continue
             rubric, rubric_hash = judging.rubrics[result.field]
             candidate = str(records[score.document][result.field].value)
-            text = judging.documents[score.document]
+
+            if result.field in described.get(score.document, ()):
+                parts = tuple(judging.parts.get(score.document, ()))
+                if not parts:
+                    # A field the run answered from a picture, in a workspace
+                    # that no longer holds the pages. Judging it against an
+                    # empty prompt would produce a verdict about nothing, and
+                    # guessing the text would judge different evidence -- so it
+                    # is left unscored, which is what a deferred verdict with no
+                    # answer already means (R7.21 row 5).
+                    continue
+                text = SHOWN_AS_PAGES
+                # The pages stand where the text hash stands, so a described
+                # verdict and a grounded one about the same candidate are two
+                # entries and neither serves the other (R7.18, R7.21).
+                evidence_hash = content_hash(b"".join(part.data for part in parts))
+            else:
+                parts = ()
+                text = judging.documents[score.document]
+                evidence_hash = content_hash(text.encode("utf-8"))
+
             verdicts[result.field] = judged_cached(
                 judging.model,
                 judging.cache,
@@ -393,13 +450,14 @@ def judge_scores(
                     judge_model=judging.judge_model,
                     rubric_hash=rubric_hash,
                     prompt_hash=prompt_hash,
-                    document_hash=content_hash(text.encode("utf-8")),
+                    document_hash=evidence_hash,
                     candidate_hash=content_hash(candidate.encode("utf-8")),
                 ),
                 rubric=rubric,
                 document=score.document,
                 text=text,
                 answer=candidate,
+                parts=parts,
                 run_id=judging.run_id,
                 dossier_version=judging.dossier_version,
                 tracker=judging.tracker,
@@ -426,9 +484,16 @@ def calibrate_field(
     rubric_hash: str,
     documents: Mapping[str, str],
     judge_model: str,
+    state: str = GROUNDED,
+    parts: Mapping[str, Sequence[ImagePart]] | None = None,
     tracker: Tracker | None = None,
 ) -> Calibration:
     """Measure a judge against a sample, and write what was measured (R7.14).
+
+    `state` names which judge is being measured, and decides what it is shown:
+    the document's text, or its pages with the fixed body R7.21 asks with
+    (R7.22). Measuring a state on a prompt it is not asked with would produce a
+    figure about nothing, and the bar would then be set from it.
 
     Every input is passed in. The judge client, the sample, the rubric and the
     documents' text are all this function's arguments rather than things it goes
@@ -460,12 +525,14 @@ def calibrate_field(
     for index, case in enumerate(cases):
         position = str(index)
         human[position] = case.supported
+        shown = tuple((parts or {}).get(case.document, ()))
         supported, _ = judged(
             model,
             rubric=rubric,
             document=case.document,
-            text=documents[case.document],
+            text=SHOWN_AS_PAGES if state == DESCRIBED else documents[case.document],
             answer=case.answer,
+            parts=shown if state == DESCRIBED else (),
         )
         verdicts[position] = supported
         if tracker is not None:
@@ -488,7 +555,7 @@ def calibrate_field(
         prompt_hash=judge_prompt_hash(),
     )
 
-    path = directory / CALIBRATIONS_DIR / f"{field}.json"
+    path = directory / CALIBRATIONS_DIR / f"{judge_name(field, state)}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     # Sorted and newline-terminated: the file is committed beside the gold set,
     # and a diff should show a figure that moved rather than a key that did.
@@ -505,6 +572,14 @@ class FieldSample:
     cases: Sequence[CalibrationCase]
     rubric: str
     rubric_hash: str
+    # The field this judge answers about. Distinct from the key it is filed
+    # under, which is the *judge's* name: one field has two of them once a
+    # pipeline can answer from a picture (R7.22).
+    field: str = ""
+    # Which judge these cases measure (R7.22). `grounded` unless the pipeline
+    # has a step that can answer from a picture, in which case there are two
+    # samples for the field and this says which is which.
+    state: str = GROUNDED
 
 
 def calibrate_fields(
@@ -514,6 +589,7 @@ def calibrate_fields(
     samples: Mapping[str, FieldSample],
     documents: Mapping[str, str],
     judge_model: str,
+    parts: Mapping[str, Sequence[ImagePart]] | None = None,
     tracker: Tracker | None = None,
     experiment: str = "",
     pipeline: str = "",
@@ -533,8 +609,8 @@ def calibrate_fields(
     back as a measurement that happened and recorded nothing -- a different,
     and worse, story than "refused" (R11.5 row 4).
     """
-    for field, sample in sorted(samples.items()):
-        require_measurable(field, len(sample.cases))
+    for name, sample in sorted(samples.items()):
+        require_measurable(name, len(sample.cases))
     if tracker is not None:
         tracker.start_run(
             experiment=experiment,
@@ -547,20 +623,22 @@ def calibrate_fields(
     measured: dict[str, Calibration] = {}
     params: dict[str, str] = {}
     metrics: dict[str, float] = {}
-    for field, sample in sorted(samples.items()):
-        measured[field] = calibrate_field(
+    for name, sample in sorted(samples.items()):
+        measured[name] = calibrate_field(
             model,
             directory=directory,
-            field=field,
+            field=sample.field or name,
             cases=sample.cases,
             rubric=sample.rubric,
             rubric_hash=sample.rubric_hash,
             documents=documents,
             judge_model=judge_model,
+            state=sample.state,
+            parts=parts,
             tracker=tracker,
         )
         recorded_params, recorded_metrics = calibration_record(
-            field=field, calibration=measured[field]
+            field=name, calibration=measured[name]
         )
         params.update(recorded_params)
         metrics.update(recorded_metrics)
