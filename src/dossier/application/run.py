@@ -39,6 +39,7 @@ from pydantic import ValidationError
 from dossier.application.convert import MARKDOWN, convert_inputs
 from dossier.application.extract import DocumentResult, run_stage
 from dossier.application.manifest import Manifest
+from dossier.domain.conversion import PART_SUFFIX, PART_TYPE, part_name, unpack_parts
 from dossier.domain.fields import OutputSchema
 from dossier.domain.grounding import FieldVerdict, check_field, with_derived_page
 from dossier.domain.hashing import content_hash
@@ -87,6 +88,18 @@ class StepReport:
 
     step: str
     results: tuple[DocumentResult, ...] = ()
+    # The per-part results behind `results`, for a `per_part` step (R3.12).
+    # Empty for every other step, where a result *is* an artifact. A document is
+    # what `results` reports, because that is what a later step reads and what
+    # gold verifies; the artifacts are here, because a three-page document
+    # produced three of them and a replay that said "1 reproduced" would be
+    # describing something that did not happen (R4.14).
+    parts: tuple[DocumentResult, ...] = ()
+
+    @property
+    def artifacts(self) -> int:
+        """How many artifacts this step produced or served."""
+        return len(self.parts) or len(self.results)
 
     @property
     def failed(self) -> tuple[DocumentResult, ...]:
@@ -100,9 +113,8 @@ class StepReport:
         that reached the model was asked at least once, so zero attempts can only
         mean the answer was already known.
         """
-        return tuple(
-            result for result in self.results if not result.failed and result.attempts == 0
-        )
+        over = self.parts or self.results
+        return tuple(result for result in over if not result.failed and result.attempts == 0)
 
     @property
     def described(self) -> int:
@@ -244,6 +256,7 @@ def execute(
             over = [AGGREGATE_KEY] if declared[step.id].mode == "aggregate" else keys
             output = schemas.get(step.id)
             results: list[DocumentResult] = []
+            every_part: list[DocumentResult] = []
             for key in over:
                 # A document an earlier step produced nothing for is skipped,
                 # not run with an empty input: that would ask a model about a
@@ -307,6 +320,8 @@ def execute(
                             part=None if part is None else part[0],
                         )
                     parts_done.append(result)
+                    if declared[step.id].mode == "per_part":
+                        every_part.append(result)
 
                 if not parts_done:
                     # A per_part step whose document has no parts. The document
@@ -328,7 +343,9 @@ def execute(
                         status="ERROR" if result.failed else "OK", error=result.error
                     )
                 results.append(result)
-            steps.append(StepReport(step=step.id, results=tuple(results)))
+            steps.append(
+                StepReport(step=step.id, results=tuple(results), parts=tuple(every_part))
+            )
             produced[step.id] = {
                 result.document: _as_text(result) for result in results if not result.failed
             }
@@ -889,9 +906,12 @@ def replayed_inputs(
     for document in manifest.plan.documents:
         converter = claimed.get((document.media_type, MARKDOWN))
         if converter is None:
-            missing.append(
-                f"  {document.key}: no converter recorded for {document.media_type!r}"
-            )
+            # Not an error. The manifest records the converters the run used,
+            # so no markdown converter for this media type means the run never
+            # made text of it -- a source declaring `convert: [page_images]`,
+            # whose evidence is its pages (R6.15). There is no text to
+            # reproduce, and demanding some would make a picture-only run
+            # irreproducible for want of an artifact it never had.
             continue
         key = cache_key(
             convert_inputs(
@@ -918,11 +938,55 @@ def replayed_inputs(
     return text
 
 
+def replayed_parts(
+    manifest: Manifest, *, store: SnapshotReader, cache: ArtifactStore
+) -> dict[str, dict[str, list[tuple[str, ImagePart]]]]:
+    """The parts a past run fanned a `per_part` step out over, by kind (R4.14).
+
+    Re-derived rather than recorded. The manifest already pins each snapshot and
+    each converter the run used, which is what `replayed_inputs` recomposes the
+    text from; a container is fetched through the same composition and unpacked,
+    so a replay still reads nothing but entries the original run wrote (R4.7).
+
+    Silent about what it cannot find, deliberately. Which kinds a run actually
+    needs is a question about its steps, and `_replay_one` is where that is
+    known -- a document whose parts are gone stops the replay there, naming the
+    part rather than the kind, which is what a person can act on.
+    """
+    by_kind: dict[str, dict[str, list[tuple[str, ImagePart]]]] = {}
+    for converter in manifest.plan.converters:
+        for document in manifest.plan.documents:
+            if document.media_type != converter.media_type:
+                continue
+            key = cache_key(
+                convert_inputs(
+                    snapshot=document.snapshot,
+                    converter_id=converter.id,
+                    converter_version=converter.version,
+                )
+            )
+            stored = cache.get(key, require_record=True)
+            if stored is None:
+                continue
+            try:
+                unpacked = unpack_parts(stored)
+            except ValueError:
+                # Not a container. A `markdown` artifact is bytes of text and
+                # reaches a step as a substitution, never as a part (R8.11).
+                continue
+            by_kind.setdefault(converter.kind, {})[document.key] = [
+                (part_name(position, PART_SUFFIX), ImagePart(media_type=PART_TYPE, data=part))
+                for position, part in enumerate(unpacked, 1)
+            ]
+    return by_kind
+
+
 def replay(
     *,
     manifest: Manifest,
     document_text: Mapping[str, str],
     cache: ArtifactStore,
+    document_parts: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]] | None = None,
     destination: Path | None = None,
 ) -> RunReport:
     """Reproduce a past run from its frozen manifest (R4.7).
@@ -948,38 +1012,57 @@ def replay(
     keys = [document.key for document in plan.documents]
     steps: list[StepReport] = []
     produced: dict[str, dict[str, str]] = {}
-    reproduced: list[tuple[str, str, bool, bytes, dict | None]] = []
+    reproduced: list[tuple[str, str, bool, bytes, dict | None, str | None]] = []
+
+    by_part = {} if document_parts is None else document_parts
 
     for step in plan.steps:
         over = [AGGREGATE_KEY] if step.mode == "aggregate" else keys
         results: list[DocumentResult] = []
+        every_part: list[DocumentResult] = []
         for document in over:
-            result, key = _replay_one(
-                step=step,
-                document=document,
-                documents=keys,
-                model=plan.model,
-                document_text=document_text,
-                produced=produced,
-                cache=cache,
-            )
-            results.append(result)
-            reproduced.append(
-                (
-                    step.id,
-                    document,
-                    step.schema_hash is not None,
-                    _as_text(result).encode(),
-                    cache.record(key),
+            # The same fan-out `execute` ran, so the keys recomposed here are
+            # the keys it wrote. A `per_part` step whose parts are gone raises
+            # inside `_replay_one`, naming the part (R4.14).
+            parts = _replayed_parts_for(step=step, document=document, by_part=by_part)
+            served: list[DocumentResult] = []
+            for part in parts:
+                result, key = _replay_one(
+                    step=step,
+                    document=document,
+                    documents=keys,
+                    model=plan.model,
+                    document_text=document_text,
+                    produced=produced,
+                    cache=cache,
+                    part=part,
                 )
-            )
-        steps.append(StepReport(step=step.id, results=tuple(results)))
+                served.append(result)
+                reproduced.append(
+                    (
+                        step.id,
+                        document,
+                        step.schema_hash is not None,
+                        _as_text(result).encode(),
+                        cache.record(key),
+                        None if part is None else part[0],
+                    )
+                )
+            if step.mode == "per_part":
+                # What a later step reads is the document, not its pages
+                # (R3.12) -- and what `dossier eval` scores is the document
+                # too, with every page's records and checks on it (R6.15).
+                every_part.extend(served)
+                results.append(_joined_parts(served, document=document))
+            else:
+                results.extend(served)
+        steps.append(StepReport(step=step.id, results=tuple(results), parts=tuple(every_part)))
         produced[step.id] = {
             result.document: _as_text(result) for result in results if not result.failed
         }
 
     if destination is not None:
-        for step_id, document, structured, payload, record in reproduced:
+        for step_id, document, structured, payload, record, part in reproduced:
             _publish(
                 run_dir=destination,
                 step=step_id,
@@ -987,6 +1070,7 @@ def replay(
                 structured=structured,
                 payload=payload,
                 record=record,
+                part=part,
             )
 
     # No manifest path: a replay reads one and writes none. Reporting a path it
@@ -1004,13 +1088,19 @@ def _replay_one(
     document_text: Mapping[str, str],
     produced: Mapping[str, Mapping[str, str]],
     cache: ArtifactStore,
+    part: tuple[str, ImagePart] | None = None,
 ) -> tuple[DocumentResult, str]:
-    """One (step, document), served from the entry the original run wrote.
+    """One (step, document, part), served from the entry the original run wrote.
 
     The key is recomposed from the manifest and from what the earlier steps of
     *this replay* produced -- never from anything read out of the workspace
     today. It is therefore the same key the original computation used, or the
     entry is not found and the replay says so rather than pretending.
+
+    The part is in the key exactly as `_run_one` put it there, and leaving it
+    out was what made every `per_part` run irreproducible: the key built here
+    was one no run had ever written, so the entry was always absent and the
+    replay always stopped (R4.14).
     """
     contents = [
         _replayed_input(
@@ -1039,14 +1129,28 @@ def _replay_one(
                     role=target, path=f"{target}/{document}", hash=content_hash(text.encode())
                 )
                 for target, text in zip(step.inputs, contents, strict=True)
-            ],
+            ]
+            # Exactly as `_run_one` appended it. Leaving it out was what made
+            # every per_part run irreproducible (R4.14).
+            + (
+                []
+                if part is None
+                else [
+                    ArtifactInput(
+                        role="part",
+                        path=f"part/{document}/{part[0]}",
+                        hash=content_hash(part[1].data),
+                    )
+                ]
+            ),
         )
     )
 
     stored = cache.get(key, require_record=True)
     if stored is None:
+        named = document if part is None else f"{document} {part[0]}"
         raise MissingFromReplay(
-            f"step {step.id!r} has no cached artifact for {document!r} "
+            f"step {step.id!r} has no cached artifact for {named!r} "
             f"at {key[:12]}...; this run cannot be reproduced from this "
             "workspace, and nothing has been substituted for it."
         )
@@ -1055,6 +1159,11 @@ def _replay_one(
         document=document,
         payload=stored,
         document_text=document_text,
+        # The replay knows which documents this stage was shown as pictures,
+        # exactly as the run did, so a described field is reproduced described
+        # rather than ungrounded -- and `dossier eval` scores what the run
+        # produced rather than a harsher reading of it (R6.15).
+        shown_as_pictures=() if part is None else (document,),
         structured=step.schema_hash is not None,
     )
     if served is None:
@@ -1067,6 +1176,38 @@ def _replay_one(
             "workspace, and nothing has been substituted for it."
         )
     return served, key
+
+
+def _replayed_parts_for(
+    *,
+    step: ResolvedStep,
+    document: str,
+    by_part: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]],
+) -> list[tuple[str, ImagePart] | None]:
+    """The parts one replayed call of this step runs over, or `[None]` for one.
+
+    `_parts_for`'s shape, reading the manifest's resolved inputs rather than the
+    declared ones -- and with one difference that matters: a `per_part` document
+    with no parts is an empty list there, meaning the run never ran it, and here
+    it is a *failure*. The run produced artifacts for those pages, so a replay
+    that quietly produced none would report a smaller run than happened (R4.14).
+    """
+    if step.mode != "per_part":
+        return [None]
+
+    for target in step.inputs:
+        _, kind = split_kind(target)
+        if kind is None:
+            continue
+        found = by_part.get(kind, {}).get(document)
+        if found:
+            return list(found)
+
+    raise MissingFromReplay(
+        f"step {step.id!r} is mode: per_part and no parts could be reproduced for "
+        f"{document!r}; this run cannot be reproduced from this workspace, and "
+        "nothing has been substituted for it."
+    )
 
 
 def _replayed_input(
@@ -1085,5 +1226,18 @@ def _replayed_input(
     declared names the prompt used -- which is fortunate, because a manifest
     records the former and the whole point is that it is enough.
     """
-    source = document_text if target in SOURCE_KEYWORDS else produced.get(target, {})
+    # The kind comes off before asking what this names, as it does in
+    # `_input_values`: `documents@page_images` is a source keyword with a kind
+    # (R3.11), and reading it as a step id would hash an empty string for a
+    # reason that happens to give the same answer, which is not the same as
+    # being right.
+    name, kind = split_kind(target)
+    if name not in SOURCE_KEYWORDS:
+        source = produced.get(target, {})
+    elif kind in (None, DEFAULT_INPUT_KIND):
+        source = document_text
+    else:
+        # A non-text kind reaches a step as parts, never as a substitution, so
+        # `execute` hashed an empty string for it here too (R8.11).
+        source = {}
     return _joined(source, documents) if aggregate else source.get(document, "")

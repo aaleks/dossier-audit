@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.14
 
 ## Purpose
@@ -375,7 +375,7 @@ two pages of six.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run.replay`)
 - **Proved by:** `tests/unit/test_R004_14__a_replay_reproduces_a_per_part_step.py`, `tests/acceptance/test_R004_14__a_per_part_run_replays.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

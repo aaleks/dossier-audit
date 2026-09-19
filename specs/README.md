@@ -12,7 +12,7 @@ spec assumes.
 | `001-source-connectors.md` | The connector interface and its registration | R1.1 – R1.13 | Implemented |
 | `002-ledger-and-sync.md` | Change detection, incremental fetch, tombstoning, the store | R2.1 – R2.22 | Implemented |
 | `003-pipeline-format.md` | `sources.yaml` and `pipeline.yaml` schemas | R3.1 – R3.12 | Implemented |
-| `004-step-resolution.md` | Reference expansion, the run manifest, plan diffing | R4.1 – R4.14 | Partially implemented |
+| `004-step-resolution.md` | Reference expansion, the run manifest, plan diffing | R4.1 – R4.14 | Implemented |
 | `005-caching-and-keys.md` | Cache key composition, cascade, provenance records | R5.1 – R5.9 | Implemented |
 | `006-output-schemas.md` | Structured output, grounding, abstention, validation | R6.1 – R6.15 | Implemented |
 | `007-scoring-and-gold.md` | Gold sets, scorers, judge calibration, the change gate | R7.1 – R7.20 | Implemented |
