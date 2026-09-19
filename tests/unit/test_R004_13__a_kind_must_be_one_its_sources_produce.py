@@ -51,6 +51,28 @@ class TestAKindMustBeOneItsSourcesProduce:
         assert MANUAL in message
         assert "convert" in message
 
+    def test_a_silent_source_is_refused_for_declaring_nothing_not_for_making_markdown(self):
+        """Example 1a: the one where the message told the reader something false.
+
+        What a source declaring no `convert:` produces is decided per document
+        by media type (R8.10), and this layer cannot see a document. Claiming
+        `['markdown']` was wrong for precisely the source most likely to reach
+        here -- a folder of screenshots -- and sent the reader off to install a
+        markdown converter for a PNG.
+        """
+        with pytest.raises(ValueError) as raised:
+            check_kinds(
+                steps=[step("describe", "documents@page_images")],
+                sources=[source(MANUAL)],
+                reference=[],
+            )
+
+        message = str(raised.value)
+        assert "declares no convert:" in message
+        assert "markdown" not in message, (
+            "an undeclared source was refused for producing a kind this layer cannot know"
+        )
+
     def test_a_source_that_declares_the_kind_is_accepted(self):
         """Example 3: the one where `convert:` grants it."""
         check_kinds(
