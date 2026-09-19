@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
 **Status:** Implemented
-**Rules:** R7.1 – R7.20
+**Rules:** R7.1 – R7.24
 
 ## Purpose
 
@@ -630,3 +630,115 @@ it (R6.11 row 3) and a bar is in no key.
 | 4 | `root_cause: {visual: 0.9}` | load-time error naming `visual` and the two states that exist; a bar under a name nothing reads gates nothing, and looks like it gates something |
 | 5 | `root_cause: {grounded: 95}` | load-time error; a proportion is a proportion in either shape (R7.13 row 3) |
 | 6 | *counter-example* — a judged field produced by a `per_file` step, `grounded` only | loads; no step in this pipeline can produce a described field, so a bar for one would gate nothing and asking for it would be ceremony |
+
+### R7.21 — a `described` field is put to the judge with the document's pages in place of its text
+
+R6.15 made `described` a verdict a run can produce. R7.17 then hands every
+deferred free-text field to the judge with `judging.documents[document]` — the
+converted text — and a document shown as pictures has none. Today that is a
+`KeyError` on a picture-only document, which is the whole of `dossier eval`
+falling over on the evidence the visual slice exists to read.
+
+The judge is shown what the stage was shown: one image per page, in page order,
+with a body saying so in place of a transcript. That sentence is fixed text and
+not a rubric, and it is the sentence the `described` bar was measured with — a
+prompt edited afterwards asks a different question of the same threshold, which
+R7.19 already treats as staleness.
+
+The pages enter the verdict's key where the document's text hash does, so a
+described verdict and a grounded one about the same candidate are two entries,
+and neither serves the other (R7.18).
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.judge_scores`)
+- **Proved by:** `tests/unit/test_R007_21__a_described_field_is_judged_from_the_pages.py`, `tests/acceptance/test_R007_21__eval_judges_a_chart_from_its_pages.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `root_cause` described on `INC-5720`, whose source declares `convert: [page_images]` | the judge is asked once with the page as an image part, and a body saying the pages are shown rather than the document's text |
+| 2 | the same field on a grounded record | asked with the converted text and no parts; nothing about the text judge moves (R7.17) |
+| 3 | the same described candidate judged twice | one call; the second is served from the `judge` namespace, keyed on the pages (R7.18) |
+| 4 | a grounded and a described verdict on the same candidate and the same document | two entries and two calls; the pages and the text are different evidence for one claim |
+| 5 | *counter-example* — a described field on a document the workspace holds no pages for | no verdict; the field is left unscored for that document rather than judged against an empty prompt |
+
+### R7.22 — `dossier calibrate` measures each grounding state against its own sample
+
+A judge shown pages and a judge shown text are two judges asked two questions,
+so they are measured separately and recorded separately: `samples/<field>.jsonl`
+and `calibrations/<field>.json` for `grounded`, `samples/<field>.described.jsonl`
+and `calibrations/<field>.described.json` for `described`. The `grounded` names
+are unchanged, so every gold set written before R7.20 is read by the same paths.
+
+Only for a state the pipeline can produce. A pipeline with no `per_part` step is
+asked for no described sample, because nothing in it can produce a described
+verdict and a sample for one would be twenty cases nobody can act on (R7.20).
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.calibrate_fields`)
+- **Proved by:** `tests/unit/test_R007_22__each_grounding_state_is_measured_on_its_own_sample.py`, `tests/acceptance/test_R007_22__calibrate_writes_one_calibration_per_state.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a pipeline with a `per_part` step, both samples present | two files: `calibrations/root_cause.json` and `calibrations/root_cause.described.json`, each carrying the judge model and the size of the sample it came from |
+| 2 | the described sample, measured | the judge is shown page images and the same fixed body R7.21 uses; a state measured on a prompt it is not asked with is a figure about nothing |
+| 3 | a described sample of 19 cases | refused before a single judge call, naming the field and the state (R7.14 row 3) |
+| 4 | a `per_part` pipeline with no `samples/<field>.described.jsonl` | the command names the missing sample and its path, and exits non-zero |
+| 5 | *counter-example* — a pipeline whose only step is `per_file` | one calibration, and no described sample is looked for at all |
+
+### R7.23 — a judged field is reported only when every state it can produce is calibrated and above its own bar
+
+R7.15 withholds a field whose calibration is missing, short or stale. With two
+states a field has two calibrations, and a field's percentage mixes verdicts
+from both — so a figure printed while one half was never measured is the number
+R7.5 exists to refuse, arrived at more elaborately.
+
+Withheld whole, not by state. A field reported as "0.82, of which the described
+verdicts are ungated" is a number every reader will quote without the clause.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.main._judge_gate`)
+- **Proved by:** `tests/unit/test_R007_23__a_field_is_reported_only_when_every_state_clears.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `grounded` measured 0.97 against 0.95 and `described` 0.95 against 0.90 | the field is reported, and its percentage covers verdicts of both kinds |
+| 2 | `described` never measured, `grounded` clear | the whole field is withheld, and the reason names `described` and says it was never measured |
+| 3 | `described` measured 0.86 against a bar of 0.90 | withheld, naming the state, the figure and the bar — three different fixes, as R7.15 says |
+| 4 | `grounded` below its bar and `described` above | withheld; either half failing makes the one number untrustworthy |
+| 5 | *counter-example* — a pipeline with no `per_part` step | only `grounded` is consulted, and a missing described calibration withholds nothing |
+
+### R7.24 — the vision judge agrees with human scores on the visual calibration sample
+
+R7.11 for the other judge. The question is the same one — is this candidate
+supported by this document — asked of a document supplied as pictures, and the
+figure is what the `described` bar in `judge.yaml` was set from.
+
+`openai:gpt-5.4-mini` agreed with `a.aleks` on 21 of the 22 cases in
+`root_cause_visual.jsonl`, twice, with no case flipping between runs. Twenty of
+those cases are carried from `root_cause.jsonl` — the same proposition about the
+same document, differing only in what the judge is shown — and two are on
+`INC-5720`, which has no text layer and so cannot be put to the text judge at
+all.
+
+The one disagreement is recorded rather than smoothed away: on `INC-5455` the
+judge called a hypothesis the document explicitly leaves unproven *supported*,
+reading a four-column table's `Verdict` column as an assertion in a document
+whose every page header says the root cause was never established. The text
+judge scores that case correctly. Prose it reads; a table's column semantics it
+loses — which is why the bar is below the text judge's, and why it is not 1.0.
+
+- **Kind:** evaluated
+- **Layer:** infrastructure (`dossier.infrastructure.models`)
+- **Threshold:** 0.90 agreement over `tests/evals/golden/root_cause_visual.jsonl`, agreed by `a.aleks` on 2026-09-19
+- **Proved by:** `tests/evals/test_R007_24__vision_judge_agrees_with_human_scores.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the 22 human-scored visual cases put to `openai:gpt-5.4-mini` as page images | agreement at or above 0.90 |
+| 2 | the same measurement recorded | the judge model and the size of the sample travel with the figure, as R7.11 row 2 requires |
+| 3 | a judge answering "supported" to every case | 13 of 22 = 0.591, the floor the bar must clear to measure anything |
+| 4 | *counter-example* — the same sample scored by a judge shown extracted text | not comparable, and not a substitute: `INC-5720` has no text layer, so two of the cases cannot be asked at all |

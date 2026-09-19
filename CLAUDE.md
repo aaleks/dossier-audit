@@ -67,7 +67,37 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all twelve specs are
-implemented, and 149 of the 157 rules are MET with the other 8 superseded.
+implemented, and 156 of the 165 rules are MET with the other 9 superseded.
+
+A picture is judged. A field whose span is in no text because the stage read
+pictures is `described` -- a third grounding state, neither a pass nor a failure:
+the evidence is on a page the model looked at, and a string search is the wrong
+instrument for it (R6.15). `dossier eval` puts such a field to the judge with the
+document's pages in place of a transcript, and the pages enter the verdict's key
+where the text hash does, so a described verdict and a grounded one about the
+same candidate are two entries (R7.21). `judge.yaml` declares a bar per state --
+`root_cause: {grounded: 0.95, described: 0.90}`, a scalar still meaning the
+grounded one (R7.20) -- `dossier calibrate` measures each state against its own
+sample and records it beside the other (R7.22), and a field is reported only when
+every state it can produce is calibrated and above its own bar (R7.23). The
+vision judge agreed with `a.aleks` on 21 of 22 visual cases, twice, with no case
+flipping; the bar is **0.90**, below the text judge's because reading a page and
+then judging it is the harder job -- the case it misses reads a hypothesis
+table's `Verdict` column as an assertion (R7.24). Before this, eval raised
+`KeyError` on a document with no text layer.
+
+An image converts. `png-pages` and `jpeg-pages` claim the pair R8.10 resolved an
+image to and nothing produced, so a screenshot could be synced, held and hashed
+and never converted (R8.12); every part of a `page_images` container is a PNG,
+because the composition root labels each one `image/png` as it unpacks. And
+`dossier[pdf]` declares Pillow, without which the shipped `pdf-images` raised
+ImportError on its first page -- invisible because mlflow's matplotlib supplies
+it to every development environment and to no other.
+
+A per_part run replays. Each part is in the recomposed stage key, as the run put
+it there; leaving it out built a key no such run had ever written, so every
+per_part run was irreproducible and `dossier eval` -- which scores a replay --
+could score none of them (R4.14).
 
 A picture is evidence now. `dossier[pdf]` ships `pdf-markdown`, which reads a
 PDF's text layer and introduces each page with its anchor, and `pdf-images`,

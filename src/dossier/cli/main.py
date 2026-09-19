@@ -70,7 +70,7 @@ from dossier.domain.conversion import (
     unpack_parts,
 )
 from dossier.domain.conversion import used as used_converters
-from dossier.domain.grounding import GROUNDED
+from dossier.domain.grounding import GROUNDED, judge_name, judged_states
 from dossier.domain.hashing import text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
@@ -897,8 +897,19 @@ def _execute(workspace: Path, pipeline: str) -> None:
         raise typer.Exit(code=1)
 
 
-def _held_text(workspace: Path, config) -> dict[str, str]:
-    """The converted text of every document the workspace holds, by key (R7.14).
+def _has_per_part(config) -> bool:
+    """Whether this pipeline has a step that can answer from a picture (R7.20).
+
+    A `per_part` step declaring an output is the only thing that can produce a
+    `described` verdict (R3.12, R6.15). Asked here and handed to the domain,
+    which decides what follows from it -- the loader asks the same question of
+    the same shape when it refuses a missing bar.
+    """
+    return any(step.mode == "per_part" and step.output is not None for step in config.steps)
+
+
+def _held_content(workspace: Path, config) -> tuple[dict[str, str], dict[str, list[ImagePart]]]:
+    """The converted text and the pages of every document the workspace holds (R7.14).
 
     The same path `dossier convert` walks -- ledger rows, then conversion -- and
     for a reason worth stating: a calibration is about a judge and a rubric, not
@@ -919,6 +930,7 @@ def _held_text(workspace: Path, config) -> dict[str, str]:
     cache = ArtifactCache(workspace, namespace="convert")
 
     text: dict[str, str] = {}
+    pages: dict[str, list[ImagePart]] = {}
     with Ledger(workspace) as ledger:
         for name in config.synced_sources:
             source = declared.get(name)
@@ -942,7 +954,20 @@ def _held_text(workspace: Path, config) -> dict[str, str]:
                 typer.echo(str(error), err=True)
                 raise typer.Exit(code=2) from error
             text.update(report.text)
-    return text
+            # The pages behind every container this source produced, for the
+            # judge a described field is measured against (R7.21, R7.22). Read
+            # from the same conversion the text came from, so the judge is
+            # shown what a run would show it.
+            for kind in {a.kind for d in report.documents for a in d.artifacts}:
+                for key, payload in report.content(kind).items():
+                    try:
+                        unpacked = unpack_parts(payload)
+                    except ValueError:
+                        continue
+                    pages[key] = [
+                        ImagePart(media_type=PART_TYPE, data=part) for part in unpacked
+                    ]
+    return text, pages
 
 
 @app.command()
@@ -995,8 +1020,12 @@ def calibrate(
     tracker, experiment = _tracking_for(workspace, pipeline, kind="calibrate", gold=gold)
 
     directory = workspace / gold
-    documents = _held_text(workspace, config)
+    documents, held_parts = _held_content(workspace, config)
     model = build_model_client(config.model)
+
+    # One judge per state the pipeline can answer a field in, each measured on
+    # its own sample and recorded beside the other (R7.22).
+    states = judged_states(per_part=_has_per_part(config))
 
     samples: dict[str, FieldSample] = {}
     for field, named in sorted(rubrics.items()):
@@ -1005,15 +1034,19 @@ def calibrate(
         # `rubrics/`, so resolving against the declaration would look for
         # `schemas/rubrics/...`.
         rubric = path.parent / named
-        try:
-            samples[field] = FieldSample(
-                cases=load_calibration_sample(directory, field),
-                rubric=rubric.read_text(encoding="utf-8"),
-                rubric_hash=text_hash(rubric),
-            )
-        except ConfigError as error:
-            typer.echo(f"{field}: {error}", err=True)
-            raise typer.Exit(code=2) from error
+        for state in states:
+            name = judge_name(field, state)
+            try:
+                samples[name] = FieldSample(
+                    cases=load_calibration_sample(directory, name),
+                    rubric=rubric.read_text(encoding="utf-8"),
+                    rubric_hash=text_hash(rubric),
+                    field=field,
+                    state=state,
+                )
+            except ConfigError as error:
+                typer.echo(f"{name}: {error}", err=True)
+                raise typer.Exit(code=2) from error
 
     try:
         measured = calibrate_fields(
@@ -1022,6 +1055,7 @@ def calibrate(
             samples=samples,
             documents=documents,
             judge_model=config.model,
+            parts=held_parts,
             tracker=tracker,
             experiment=experiment or "",
             pipeline=pipeline,
@@ -1046,13 +1080,19 @@ def calibrate(
 
 
 def _judge_gate(
-    directory: Path, declaration: Path, pipeline_dir: Path, model: str
+    directory: Path, declaration: Path, pipeline_dir: Path, model: str, *, states=(GROUNDED,)
 ) -> tuple[dict[str, Calibration], dict[str, str]]:
-    """Which judged fields may be reported, and why the rest may not (R7.15).
+    """Which judged fields may be reported, and why the rest may not (R7.15, R7.23).
 
     The reads are here -- the rubrics, the thresholds, each calibration file --
     and the decision is `withholding`'s, in the domain, so it is provable with
     a `Calibration` and four strings rather than a workspace.
+
+    `states` are the grounding states this pipeline can answer a field in. Each
+    is gated on its own calibration and its own bar, and a field is withheld
+    whole if any of them fails: a field's percentage mixes verdicts of both
+    kinds, so "0.82, of which the described half was never measured" is the
+    number R7.5 refuses, arrived at more elaborately (R7.23).
     """
     rubrics = load_judge_rubrics(declaration)
     if not rubrics:
@@ -1067,22 +1107,25 @@ def _judge_gate(
     withheld: dict[str, str] = {}
     prompt = judge_prompt_hash()
     for field, named in sorted(rubrics.items()):
-        measured = load_calibration(directory, field)
-        if measured is not None:
-            judges[field] = measured
-        reason = withholding(
-            measured,
-            judge_model=model,
-            rubric_hash=text_hash(pipeline_dir / named),
-            prompt_hash=prompt,
-            # The `grounded` bar. A `described` verdict is gated on its own
-            # figure, which is R7.21's work; until that lands there is no
-            # described verdict to gate, because nothing asks a vision judge.
-            threshold=thresholds.get(field, {}).get(GROUNDED),
-            threshold_file=JUDGE_FILE,
-        )
-        if reason is not None:
-            withheld[field] = reason
+        for state in states:
+            name = judge_name(field, state)
+            measured = load_calibration(directory, name)
+            if measured is not None:
+                judges[name] = measured
+            reason = withholding(
+                measured,
+                judge_model=model,
+                rubric_hash=text_hash(pipeline_dir / named),
+                prompt_hash=prompt,
+                threshold=thresholds.get(field, {}).get(state),
+                threshold_file=JUDGE_FILE,
+            )
+            if reason is not None and field not in withheld:
+                # The first failing state wins the message. Naming the state is
+                # what makes the reason actionable: "never measured" sends
+                # someone to `dossier calibrate`, and knowing it is the vision
+                # judge that was never measured says which sample to write.
+                withheld[field] = reason if state == GROUNDED else f"{state}: {reason}"
 
     return judges, withheld
 
@@ -1150,11 +1193,15 @@ def eval_(
         raise typer.Exit(code=2)
     manifest = Manifest.read(workspace / "runs" / run_dir / MANIFEST_NAME)
 
-    scored, text = _reproduced(workspace, manifest, step.id)
+    scored, text, pages = _reproduced(workspace, manifest, step.id)
     scores = score_run(report=scored, gold=load_gold(workspace / gold), kinds=kinds)
 
     judges, withheld = _judge_gate(
-        workspace / gold, path.parent / step.output, path.parent, config.model
+        workspace / gold,
+        path.parent / step.output,
+        path.parent,
+        config.model,
+        states=judged_states(per_part=_has_per_part(config)),
     )
     # The gold files are re-read as bytes instead of being serialised back from
     # what `load_gold` parsed: the hash has to move when any answer moves, and a
@@ -1187,6 +1234,7 @@ def eval_(
             pipeline_dir=path.parent,
             declaration=path.parent / step.output,
             documents=text,
+            pages=pages,
             withheld=withheld,
             run_id=run_dir,
             tracker=tracker,
@@ -1285,10 +1333,16 @@ def _compare_runs(
     # Gated exactly as an eval is (R7.17 row 7): the change gate is the place a
     # judge's number is most likely to be quoted, and a withheld field prints
     # its reason on both sides and no delta.
-    _, withheld = _judge_gate(workspace / gold, declaration, pipeline_dir, model)
+    _, withheld = _judge_gate(
+        workspace / gold,
+        declaration,
+        pipeline_dir,
+        model,
+        states=judged_states(per_part=_has_per_part(config)),
+    )
     totals: list[tuple] = []
     for run, manifest in zip(runs, manifests, strict=True):
-        scored, text = _reproduced(workspace, manifest, step)
+        scored, text, pages = _reproduced(workspace, manifest, step)
         scores = judge_scores(
             score_run(report=scored, gold=gold_documents, kinds=kinds),
             report=scored,
@@ -1298,6 +1352,7 @@ def _compare_runs(
                 pipeline_dir=pipeline_dir,
                 declaration=declaration,
                 documents=text,
+                pages=pages,
                 withheld=withheld,
                 run_id=run,
             ),
@@ -1339,6 +1394,7 @@ def _judging(
     pipeline_dir: Path,
     declaration: Path,
     documents: Mapping[str, str],
+    pages: Mapping[str, Sequence[ImagePart]] | None = None,
     withheld: Mapping[str, str],
     run_id: str,
     tracker: Tracker | None = None,
@@ -1361,6 +1417,10 @@ def _judging(
         model=_BuiltOnFirstCall(config.model),
         cache=ArtifactCache(workspace, namespace="judge"),
         documents=documents,
+        # What the run read as pictures, for the fields it answered from them
+        # (R7.21). Empty for every pipeline that reads text, which is what the
+        # default is for.
+        parts=dict(pages or {}),
         rubrics=rubrics,
         judge_model=config.model,
         run_id=run_id,
@@ -1373,27 +1433,36 @@ def _reproduced(workspace: Path, manifest: Manifest, step: str):
     """One step's results as a past run produced them, served from its cache (R4.7).
 
     A run that cannot be reproduced stops the command by name. Recomputing it
-    would score answers the run never gave. The converted text comes back too:
-    a judge is shown the document as the run was (R7.17), not as the workspace
-    holds it now.
+    would score answers the run never gave. The converted text comes back too,
+    and the pages beside it: a judge is shown the document as the run was
+    (R7.17, R7.21), not as the workspace holds it now.
     """
     try:
         store = SnapshotStore(workspace)
         converted = ArtifactCache(workspace, namespace="convert")
         text = replayed_inputs(manifest, store=store, cache=converted)
+        by_kind = replayed_parts(manifest, store=store, cache=converted)
         report = replay(
             manifest=manifest,
             document_text=text,
             # Without these a per_part run cannot be reproduced, and `eval`
             # scores a reproduction -- so it could score no such run at all
             # (R4.14).
-            document_parts=replayed_parts(manifest, store=store, cache=converted),
+            document_parts=by_kind,
             cache=ArtifactCache(workspace, namespace="stage"),
         )
     except MissingFromReplay as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
-    return next(result for result in report.steps if result.step == step), text
+    # Flattened by document, because a judge is shown a document's pages and
+    # does not care which kind produced them (R7.21). A document appearing under
+    # two container kinds is not a shape any converter here produces.
+    pages = {
+        document: [part for _, part in entries]
+        for entries in by_kind.values()
+        for document, entries in entries.items()
+    }
+    return next(result for result in report.steps if result.step == step), text, pages
 
 
 def _count(n: int, noun: str) -> str:
