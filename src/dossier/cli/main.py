@@ -45,6 +45,7 @@ from dossier.application.run import (
     key_hashes,
     replay,
     replayed_inputs,
+    replayed_parts,
 )
 from dossier.application.sync import CHANGES_NAME, SourceReport, changes_artifact, sync_source
 from dossier.config.credentials import credential_for
@@ -61,7 +62,13 @@ from dossier.config.load import (
     load_pipeline,
     load_sources,
 )
-from dossier.domain.conversion import NoConverter, part_name, unpack_parts
+from dossier.domain.conversion import (
+    PART_SUFFIX,
+    PART_TYPE,
+    NoConverter,
+    part_name,
+    unpack_parts,
+)
 from dossier.domain.conversion import used as used_converters
 from dossier.domain.grounding import GROUNDED
 from dossier.domain.hashing import text_hash
@@ -645,10 +652,14 @@ def _replay(workspace: Path, directory: Path) -> None:
         # the same shape as needing no model client. Raising a converter version
         # is how R5.4 invalidates conversions, so re-converting would produce
         # text the original run never saw (R4.7, R4.9).
-        text = replayed_inputs(manifest, store=SnapshotStore(workspace), cache=cache)
+        store = SnapshotStore(workspace)
+        text = replayed_inputs(manifest, store=store, cache=cache)
         report = replay(
             manifest=manifest,
             document_text=text,
+            # The containers this run fanned a per_part step out over, read back
+            # by their keys like the text beside them (R4.14).
+            document_parts=replayed_parts(manifest, store=store, cache=cache),
             cache=ArtifactCache(workspace, namespace="stage"),
             destination=workspace / destination,
         )
@@ -659,7 +670,7 @@ def _replay(workspace: Path, directory: Path) -> None:
 
     typer.echo(f"replayed {manifest.run_id} · {manifest.plan.pipeline}")
     for step in report.steps:
-        typer.echo(f"  {step.step}: {len(step.results)} artifact(s) from cache")
+        typer.echo(f"  {step.step}: {step.artifacts} artifact(s) from cache")
     reproduced = f"{report.cache_hits} artifact(s) reproduced"
     typer.echo(f"{reproduced} · no model calls · written to {destination}/")
 
@@ -762,7 +773,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
                     except ValueError:
                         continue
                     parts.setdefault(kind, {})[key] = [
-                        (part_name(n, ".png"), ImagePart(media_type="image/png", data=b))
+                        (part_name(n, PART_SUFFIX), ImagePart(media_type=PART_TYPE, data=b))
                         for n, b in enumerate(unpacked, 1)
                     ]
             # Every document that converted, not only those that converted to
@@ -1367,14 +1378,16 @@ def _reproduced(workspace: Path, manifest: Manifest, step: str):
     holds it now.
     """
     try:
-        text = replayed_inputs(
-            manifest,
-            store=SnapshotStore(workspace),
-            cache=ArtifactCache(workspace, namespace="convert"),
-        )
+        store = SnapshotStore(workspace)
+        converted = ArtifactCache(workspace, namespace="convert")
+        text = replayed_inputs(manifest, store=store, cache=converted)
         report = replay(
             manifest=manifest,
             document_text=text,
+            # Without these a per_part run cannot be reproduced, and `eval`
+            # scores a reproduction -- so it could score no such run at all
+            # (R4.14).
+            document_parts=replayed_parts(manifest, store=store, cache=converted),
             cache=ArtifactCache(workspace, namespace="stage"),
         )
     except MissingFromReplay as error:

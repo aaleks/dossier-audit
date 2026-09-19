@@ -105,6 +105,14 @@ DECLARED = ("id", "version", "media_type", "kind")
 _CONTAINER_MAGIC = b"DOSSIER-PARTS 1\n"
 _PART_PREFIX = "page-"
 
+# What a part of a `page_images` container is, spelled once. Both converters
+# that produce the kind promise it (R8.11, R8.12), and both places that unpack a
+# container -- the composition root and the replay -- have to label each part
+# the same way or a replay would hand a provider a different picture than the
+# run did. It was written out three times before that was true by luck.
+PART_SUFFIX = ".png"
+PART_TYPE = "image/png"
+
 
 def part_name(position: int, suffix: str) -> str:
     """The name of part `position` inside a container. 1-based (R8.11).
