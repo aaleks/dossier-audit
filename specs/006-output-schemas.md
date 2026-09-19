@@ -1,6 +1,6 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R6.1 – R6.15
 
 ## Purpose
@@ -408,7 +408,7 @@ and demoting it for the route it took would throw that away.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.grounding.check_field`)
 - **Proved by:** `tests/unit/test_R006_15__a_field_read_off_a_picture_is_described.py`, `tests/acceptance/test_R006_15__a_run_counts_described_fields_apart_from_grounded.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

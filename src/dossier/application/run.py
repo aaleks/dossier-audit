@@ -29,7 +29,7 @@ against `FakeModelClient` and lets the tests assert how many calls happened.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -40,7 +40,7 @@ from dossier.application.convert import MARKDOWN, convert_inputs
 from dossier.application.extract import DocumentResult, run_stage
 from dossier.application.manifest import Manifest
 from dossier.domain.fields import OutputSchema
-from dossier.domain.grounding import check_field, with_derived_page
+from dossier.domain.grounding import FieldVerdict, check_field, with_derived_page
 from dossier.domain.hashing import content_hash
 from dossier.domain.keys import ArtifactInput, StageInputs, cache_key, provenance
 from dossier.domain.pipeline import (
@@ -102,6 +102,22 @@ class StepReport:
         """
         return tuple(
             result for result in self.results if not result.failed and result.attempts == 0
+        )
+
+    @property
+    def described(self) -> int:
+        """How many fields this step read off a page rather than out of text (R6.15).
+
+        A count rather than the records themselves: it is reported beside
+        `failed`, and what a reader needs from it is that the two are different
+        numbers. A described field is in neither the grounded total nor the
+        failed one, and summing it into either would be the whole point lost.
+        """
+        return sum(
+            1
+            for result in self.results
+            for check in result.checks
+            if check.verdict is FieldVerdict.DESCRIBED
         )
 
 
@@ -425,12 +441,19 @@ def _run_one(
     )
     key = cache_key(key_inputs)
 
+    # A stage was shown pictures of this document exactly when it was handed
+    # one of its parts (R3.12). Local and certain, rather than inferred later
+    # from the document being absent from the text map -- which is also true of
+    # a document the stage never read at all (R6.15).
+    shown_as_pictures = () if part is None else (document,)
+
     hit = cache.get(key, require_record=True)
     if hit is not None:
         served = _from_cache(
             document=document,
             payload=hit,
             document_text=document_text,
+            shown_as_pictures=shown_as_pictures,
             structured=schema is not None,
         )
         # A damaged entry is a miss, not authority. The cache is an optimisation
@@ -449,6 +472,7 @@ def _run_one(
         model=model,
         input_documents=document_text,
         parts=() if part is None else (part[1],),
+        shown_as_pictures=shown_as_pictures,
         tracker=tracker,
         capture=capture,
         # What a span may say under `hashes` (R10.8 row 2): the template, the
@@ -526,6 +550,7 @@ def _from_cache(
     document: str,
     payload: bytes,
     document_text: Mapping[str, str],
+    shown_as_pictures: Collection[str] = (),
     structured: bool = True,
 ) -> DocumentResult | None:
     """Rebuild what a cached artifact stands for, with no model call.
@@ -553,7 +578,10 @@ def _from_cache(
     records = tuple(
         with_derived_page(record, input_documents=document_text) for record in output.fields
     )
-    checks = tuple(check_field(record, input_documents=document_text) for record in records)
+    checks = tuple(
+        check_field(record, input_documents=document_text, shown_as_pictures=shown_as_pictures)
+        for record in records
+    )
     return DocumentResult(
         document=document,
         records=records,
@@ -633,12 +661,20 @@ def _joined_parts(results: Sequence[DocumentResult], *, document: str) -> Docume
     A part that failed is left out rather than represented by an empty tag, and
     its failure is still carried: a document whose pages half worked is a
     partial answer and has to read as one.
+
+    The records and checks travel with it, concatenated in part order. They
+    were dropped here once, which made every grounding finding a `per_part`
+    step produced invisible to the report -- the step ran, the pages were
+    checked, and nothing reading the result could tell. A document's fields
+    are its pages' fields, whatever the fan-out did on the way (R6.15).
     """
     kept = [result for result in results if not result.failed]
     failed = [result for result in results if result.failed]
     body = "\n".join(f'<part name="{part.document}">{_as_text(part)}</part>' for part in kept)
     return DocumentResult(
         document=document,
+        records=tuple(record for part in kept for record in part.records),
+        checks=tuple(check for part in kept for check in part.checks),
         attempts=sum(result.attempts for result in results),
         text=body,
         error="; ".join(result.error or "" for result in failed) or None,

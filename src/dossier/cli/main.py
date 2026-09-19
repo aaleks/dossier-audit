@@ -738,7 +738,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
                 typer.echo(str(error), err=True)
                 raise typer.Exit(code=2) from error
             requests.extend((document.media_type, source.convert) for document in held.values())
-            by_source[name] = sorted(converted.text)
+            by_source[name] = list(converted.present)
             text.update(converted.text)
             for kind in {a.kind for d in converted.documents for a in d.artifacts}:
                 produced = converted.content(kind)
@@ -764,8 +764,11 @@ def _execute(workspace: Path, pipeline: str) -> None:
                         (part_name(n, ".png"), ImagePart(media_type="image/png", data=b))
                         for n, b in enumerate(unpacked, 1)
                     ]
-            documents.update({key: held[key].snapshot for key in converted.text})
-            media_types.update({key: held[key].media_type for key in converted.text})
+            # Every document that converted, not only those that converted to
+            # text. A source rendered to pictures alone would otherwise convert
+            # successfully and then be absent from the run entirely (R6.15).
+            documents.update({key: held[key].snapshot for key in converted.present})
+            media_types.update({key: held[key].media_type for key in converted.present})
             # A document that could not be read is not silently absent from the
             # run. It is excluded from what gets audited -- the rest of the work
             # survives it -- and it is named, with its reason, and the command
@@ -864,9 +867,13 @@ def _execute(workspace: Path, pipeline: str) -> None:
             )
     for step in report.steps:
         cached = len(step.served_from_cache)
+        # Only when there are any. A `· 0 described` on every line of every run
+        # of every text pipeline would be noise, and the number is interesting
+        # precisely because it is usually absent (R6.15).
+        described = f" · {step.described} described" if step.described else ""
         typer.echo(
             f"  {step.step}: {len(step.results)} document(s) · {cached} from cache · "
-            f"{len(step.failed)} failed"
+            f"{len(step.failed)} failed{described}"
         )
 
     for step, document in report.failed:

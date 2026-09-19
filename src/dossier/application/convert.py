@@ -137,6 +137,21 @@ class ConvertReport:
         }
 
     @property
+    def present(self) -> tuple[str, ...]:
+        """Every document this conversion produced something for, in key order.
+
+        Not `text`. A source declaring `convert: [page_images]` produces no
+        markdown at all, and building the run's document set from the text map
+        made such a document invisible: it converted, it was cached, and then no
+        step ran for it and the run reported zero documents with nothing failed
+        (R6.15). What makes a document part of a run is that it converted, not
+        which kind it converted to.
+        """
+        return tuple(
+            sorted(document.document for document in self.documents if not document.failed)
+        )
+
+    @property
     def text(self) -> dict[str, str]:
         """The converted text per document, for the stages reading bare `documents`.
 
