@@ -33,6 +33,9 @@ A reply file is a list of rules, first match wins:
     }
 
 `match` is a list of substrings that must all appear in the rendered prompt.
+A rule may also carry `"image": "<sha256 prefix>"`, which matches the bytes of a
+picture the request carried -- the only thing that differs between two calls of a
+`per_part` step, whose prompt is the same template on every page (R3.12).
 `reply` is either a string, returned verbatim as the model's answer, or an object,
 returned as compact JSON. A request matching no rule gets `default`, or a 422 if
 there is none -- silence would look like a model bug rather than a missing rule.
@@ -45,8 +48,11 @@ R7.18, R11.2).
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import json
 import sys
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -67,16 +73,70 @@ class Replies:
     def __init__(self, paths: list[Path]) -> None:
         self._paths = paths
 
-    def reply_to(self, prompt: str) -> str | None:
+    def reply_to(self, prompt: str, images: Sequence[str] = ()) -> str | None:
         default: object | None = None
         for path in self._paths:
             document = json.loads(path.read_text(encoding="utf-8"))
             for rule in document.get("rules", []):
-                if all(needle in prompt for needle in rule.get("match", [])):
+                if _matches(rule, prompt=prompt, images=images):
                     return _as_text(rule["reply"])
             if default is None:
                 default = document.get("default")
         return None if default is None else _as_text(default)
+
+
+def _matches(rule: dict, *, prompt: str, images: Sequence[str]) -> bool:
+    """Whether this rule answers this request.
+
+    `match` is the text half: every substring must appear in the rendered
+    prompt. `image` is the picture half, and it exists because a `per_part` step
+    gives a stub nothing else to go on -- the prompt is the same template for
+    page one and page four, and what differs between the two calls is the
+    picture. That is not a quirk of this server: it is exactly what the stage
+    key says, which holds the part's content hash and nothing else about it
+    (R3.12).
+
+    So a rule names a page by the sha256 of its bytes, as short a prefix as is
+    unambiguous. `make_observability_docs.py --digests` prints them, rendered by
+    the shipped converters, which is where the numbers in a reply file come from.
+    """
+    if not all(needle in prompt for needle in rule.get("match", [])):
+        return False
+    wanted = rule.get("image")
+    if wanted is None:
+        return True
+    return any(digest.startswith(wanted.lower()) for digest in images)
+
+
+def _asked(messages: Sequence[dict]) -> tuple[str, list[str]]:
+    """The text of a request, and the sha256 of every picture it carried.
+
+    A message's `content` is a plain string when a stage has only text, and a
+    list of parts when it has pictures beside it: `{"type": "text"}` first, then
+    one `{"type": "image_url"}` per page, each a `data:` URI (R9.16). Both forms
+    are read here, and the text is joined so a rule's `match` sees the same
+    prompt whichever shape it arrived in.
+
+    `str(content)` would "work" on the list form and is the trap: the prompt
+    would then be a Python repr with a megabyte of base64 inside it, every
+    `prompt_chars` in the log would be nonsense, and a `match` would silently
+    start matching against base64.
+    """
+    text: list[str] = []
+    images: list[str] = []
+    for message in messages:
+        content = message.get("content", "")
+        if isinstance(content, str):
+            text.append(content)
+            continue
+        for part in content:
+            if part.get("type") == "text":
+                text.append(part.get("text", ""))
+            elif part.get("type") == "image_url":
+                url = part.get("image_url", {}).get("url", "")
+                _, _, encoded = url.partition(",")
+                images.append(hashlib.sha256(base64.b64decode(encoded)).hexdigest())
+    return "\n".join(text), images
 
 
 def _as_text(reply: object) -> str:
@@ -118,11 +178,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": f"the request body is not JSON: {error}"})
             return
 
-        prompt = "\n".join(
-            str(message.get("content", "")) for message in body.get("messages", [])
-        )
-        reply = self.replies.reply_to(prompt)
-        self._record(body, prompt, reply)
+        prompt, images = _asked(body.get("messages", []))
+        reply = self.replies.reply_to(prompt, images)
+        self._record(body, prompt, reply, images)
 
         if reply is None:
             # Named, not answered. A stub that invented something here would send
@@ -136,7 +194,9 @@ class Handler(BaseHTTPRequestHandler):
 
         self._json(200, {"choices": [{"message": {"role": "assistant", "content": reply}}]})
 
-    def _record(self, body: dict, prompt: str, reply: str | None) -> None:
+    def _record(
+        self, body: dict, prompt: str, reply: str | None, images: Sequence[str]
+    ) -> None:
         """One JSON line per call: what was asked, and whether a rule answered it."""
         if self.log_path is None:
             return
@@ -145,6 +205,14 @@ class Handler(BaseHTTPRequestHandler):
             "model": body.get("model"),
             "schema": bool(body.get("response_format")),
             "prompt_chars": len(prompt),
+            # How many pictures this call carried, and which. Counted here
+            # because "the pages reached the model" is not something the text of
+            # a prompt can show: a per_part step's prompt is the same on every
+            # page, and the picture is the whole of the difference (R3.12,
+            # R9.16). A log with nothing but `prompt_chars` would read as four
+            # identical calls.
+            "images": len(images),
+            "image_sha256": [digest[:16] for digest in images],
             "matched": reply is not None,
             # The first line of the prompt is enough to tell a stage call from a
             # judge call by eye, and keeps a log readable in a terminal.

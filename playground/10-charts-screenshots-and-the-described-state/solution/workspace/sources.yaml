@@ -1,0 +1,21 @@
+# Two sources, because a PDF and a screenshot do not convert to the same things.
+#
+# The postmortems have a text layer *and* pages, so they declare both kinds: the
+# severity and the root cause are in the text, and the money figure is only on
+# the panel. The screenshot has no text layer at all, so `page_images` is the
+# only kind it can honestly supply -- which is what R8.10's table resolves an
+# image to, and what R8.12's converters produce.
+#
+# `convert:` is not optional here. A step reading `documents@page_images` from a
+# source that was never told to make it is refused from the configuration alone,
+# before a byte is fetched (R4.13).
+sources:
+  - id: observability
+    type: folder
+    path: inbox/observability/
+    convert: [markdown, page_images]
+
+  - id: screenshots
+    type: folder
+    path: inbox/screenshots/
+    convert: [page_images]

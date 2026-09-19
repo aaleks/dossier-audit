@@ -1,0 +1,39 @@
+# PROPOSED. Copy this into `gold/observability/judge.yaml` yourself, once you
+# agree with the reasoning below -- and change the name and the date to yours.
+#
+# The agreement each judged field's judge must reach against this gold set's
+# sample (R7.13). Written by a person, never by a run: `dossier calibrate`
+# records what it measured under `calibrations/` and may not touch this file
+# (R7.14).
+#
+# Two bars rather than one, because this pipeline can reach a judged verdict in
+# two states and they are two different questions asked of two different pieces
+# of evidence (R7.20). A scalar here would still mean `grounded:` alone, so
+# every gold set written before there were two states reads unchanged.
+#
+# Why 0.95 for grounded:
+#
+#   * the stub judge agrees with all twenty human verdicts, so it measures 1.00,
+#     and a bar at what one measurement happened to produce leaves no room for a
+#     single disagreement on the twenty-first case: 20 of 20 at N=20 supports a
+#     lower bound near 0.84, not 1.00;
+#   * a judge answering "supported" to everything scores 0.60 on this sample --
+#     twelve of the twenty cases are supported -- so any bar at or below 0.60
+#     passes a judge that decides nothing.
+#
+# Why 0.90 for described, and why it is lower:
+#
+#   * reading a page and then judging it is the harder job. This is not a
+#     concession to a weak model: dossier's own vision judge is measured at 21 of
+#     22 against a human, twice, and the case it misses is one where a table's
+#     `Verdict` column reads as an assertion (R7.24);
+#   * the floor is the same 0.60 here, so 0.90 still sits well above a judge
+#     that decides nothing;
+#   * if you would rather hold both states to the same bar, say so in review and
+#     write 0.95 -- but then the first genuine disagreement on a chart withholds
+#     the field, and that is the trade you are making.
+#
+# root_cause: agreed by <your name> on <today's date>.
+root_cause:
+  grounded: 0.95
+  described: 0.90

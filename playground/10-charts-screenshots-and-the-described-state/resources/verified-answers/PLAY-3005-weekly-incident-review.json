@@ -1,0 +1,23 @@
+{
+  "document": "PLAY-3005-weekly-incident-review.pdf",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-19",
+  "fields": {
+    "incident_date": {
+      "value": "2026-09-08"
+    },
+    "severity": {
+      "value": "critical"
+    },
+    "affected_systems": {
+      "value": "checkout-service, payments-api, edge-gateway"
+    },
+    "revenue_at_risk": {
+      "value": 118750.0,
+      "currency": "CHF"
+    },
+    "root_cause": {
+      "value": "A retry budget that is configured per service and enforced nowhere, so each component amplified the failure of the one beneath it."
+    }
+  }
+}

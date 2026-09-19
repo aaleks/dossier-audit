@@ -129,4 +129,5 @@ why the answer is what it is.
 - identical keys in two workspaces at different paths;
 - a replay that failed honestly and one that ignored a configuration change.
 
-**This is the last exercise.** What to do next is in the solution.
+**Next:** [10 · Charts, screenshots and the `described` state](../10-charts-screenshots-and-the-described-state/) — the one where the
+evidence is drawn rather than written, and a key holds a page.

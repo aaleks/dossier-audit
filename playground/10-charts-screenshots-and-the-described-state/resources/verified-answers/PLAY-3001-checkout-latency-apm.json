@@ -1,0 +1,23 @@
+{
+  "document": "PLAY-3001-checkout-latency-apm.pdf",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-19",
+  "fields": {
+    "incident_date": {
+      "value": "2026-09-02"
+    },
+    "severity": {
+      "value": "critical"
+    },
+    "affected_systems": {
+      "value": "checkout-service, payments-gateway"
+    },
+    "revenue_at_risk": {
+      "value": 84600.0,
+      "currency": "CHF"
+    },
+    "root_cause": {
+      "value": "The canary released at 08:04 halved the checkout-service connection pool while leaving the retry budget unchanged, so every timed-out request was retried three times against a pool that was already full."
+    }
+  }
+}

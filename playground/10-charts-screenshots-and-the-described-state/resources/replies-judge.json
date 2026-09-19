@@ -1,0 +1,481 @@
+{
+  "_comment": [
+    "What the stub judge answers. Layer it in front of the stage replies:",
+    "    --replies resources/replies-judge.json --replies resources/replies.json",
+    "",
+    "A judge is asked a different question, in dossier's own wrapper (R7.19):",
+    "the rubric, the document, the candidate inside <claim>...</claim>, and",
+    "'Answer with JSON only'. Each rule matches on that opening tag plus the",
+    "first words of one candidate -- anchored there, because a phrase from the",
+    "candidate alone would also match every other candidate about the same",
+    "document, the whole of which is in the prompt.",
+    "",
+    "The last six rules are the run's own root_cause answers rather than",
+    "sample cases: `dossier eval` puts each of them to the judge too (R7.17).",
+    "",
+    "This stub agrees with all forty human verdicts, so both states measure",
+    "100%. Flip one and watch the state it belongs to move on its own."
+  ],
+  "rules": [
+    {
+      "_comment": "rc-01 \u00b7 PLAY-3001-checkout-latency-apm.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>The canary released at 08:04 halved the checkout-service c"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause paragraph states exactly this."
+      }
+    },
+    {
+      "_comment": "rc-02 \u00b7 PLAY-3001-checkout-latency-apm.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>A pool halved by a canary, with an unchanged retry budget,"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The same cause in the reviewer's own words."
+      }
+    },
+    {
+      "_comment": "rc-03 \u00b7 PLAY-3001-checkout-latency-apm.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>Retry amplification against a pool that had been halved by"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "A shorter statement of the same cause; both halves are in the note."
+      }
+    },
+    {
+      "_comment": "rc-04 \u00b7 PLAY-3001-checkout-latency-apm.pdf \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>The payments-gateway vendor had a regional outage during t"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The note names the canary as the only change and says nothing about a vendor."
+      }
+    },
+    {
+      "_comment": "rc-05 \u00b7 PLAY-3002-jvm-heap-grafana.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>Retry-cache entries written during the ledger-batch failov"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Stated in the root cause paragraph."
+      }
+    },
+    {
+      "_comment": "rc-06 \u00b7 PLAY-3002-jvm-heap-grafana.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>A leak in the retry cache drove old-generation growth afte"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The same cause, compressed."
+      }
+    },
+    {
+      "_comment": "rc-07 \u00b7 PLAY-3002-jvm-heap-grafana.pdf \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>The service was started with a 2 GB maximum heap, which wa"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "Nothing in the note states a maximum heap, and the panel shows 4 GB."
+      }
+    },
+    {
+      "_comment": "rc-08 \u00b7 PLAY-3002-jvm-heap-grafana.pdf \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>A change of collector from G1 to ZGC introduced the pauses"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "No collector change is mentioned anywhere in the document."
+      }
+    },
+    {
+      "_comment": "rc-09 \u00b7 PLAY-3003-kibana-error-spike.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>The 25% canary on edge-gateway ran a build whose upstream "
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Stated in the root cause paragraph."
+      }
+    },
+    {
+      "_comment": "rc-10 \u00b7 PLAY-3003-kibana-error-spike.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>A timeout mismatch between edge-gateway and its caller, on"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The same cause without the numbers."
+      }
+    },
+    {
+      "_comment": "rc-11 \u00b7 PLAY-3003-kibana-error-spike.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>Slow calls were retried by the gateway because its upstrea"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The note gives both timeouts and says the call was counted twice."
+      }
+    },
+    {
+      "_comment": "rc-12 \u00b7 PLAY-3003-kibana-error-spike.pdf \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>TLS certificates on edge-gateway expired during the window"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The document says nothing about certificates."
+      }
+    },
+    {
+      "_comment": "rc-13 \u00b7 PLAY-3004-batch-overlap-throughput.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>The nightly reconciliation kept the clock it was given bef"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Stated in the root cause paragraph."
+      }
+    },
+    {
+      "_comment": "rc-14 \u00b7 PLAY-3004-batch-overlap-throughput.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>A daylight-saving change moved the batch into the online w"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The same cause, shortened."
+      }
+    },
+    {
+      "_comment": "rc-15 \u00b7 PLAY-3004-batch-overlap-throughput.pdf \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>A long-running schema migration held locks on the ledger t"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "No migration is mentioned; the note names the batch's start time."
+      }
+    },
+    {
+      "_comment": "rc-16 \u00b7 PLAY-3004-batch-overlap-throughput.pdf \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>A duplicated cron entry started the batch twice."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The note describes one batch starting late, not two batches."
+      }
+    },
+    {
+      "_comment": "rc-17 \u00b7 PLAY-3005-weekly-incident-review.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>A retry budget that is configured per service and enforced"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Stated in the review's root cause paragraph."
+      }
+    },
+    {
+      "_comment": "rc-18 \u00b7 PLAY-3005-weekly-incident-review.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>Retry amplification between services, because no budget is"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The same cause in fewer words."
+      }
+    },
+    {
+      "_comment": "rc-19 \u00b7 PLAY-3005-weekly-incident-review.pdf \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>All three incidents came from one bad deployment on 2026-0"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The review names a shared configuration weakness, not a shared deployment."
+      }
+    },
+    {
+      "_comment": "rc-20 \u00b7 PLAY-3005-weekly-incident-review.pdf \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>A shared Redis instance was the common dependency behind a"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "Redis appears nowhere in the review."
+      }
+    },
+    {
+      "_comment": "rd-01 \u00b7 PLAY-3006-error-budget-screenshot.png \u00b7 human verdict: supported",
+      "match": [
+        "<claim>The error budget for checkout-service was consumed in four"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Written on the screenshot, under Root cause."
+      }
+    },
+    {
+      "_comment": "rd-02 \u00b7 PLAY-3006-error-budget-screenshot.png \u00b7 human verdict: supported",
+      "match": [
+        "<claim>Retries issued behind the edge are invisible to a budget m"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The same cause in the reviewer's own words."
+      }
+    },
+    {
+      "_comment": "rd-03 \u00b7 PLAY-3006-error-budget-screenshot.png \u00b7 human verdict: supported",
+      "match": [
+        "<claim>Most of the errors in the window are retries, and they do "
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The lower pane states that 81% of all errors are retries."
+      }
+    },
+    {
+      "_comment": "rd-04 \u00b7 PLAY-3006-error-budget-screenshot.png \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>The budget was consumed by a single four-hour outage on 20"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "Nothing on the screenshot shows an outage; the burn is spread over the window."
+      }
+    },
+    {
+      "_comment": "rd-05 \u00b7 PLAY-3006-error-budget-screenshot.png \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>The availability target was changed mid-week from 99.9% to"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The panel shows one target, 99.9%, and no change to it."
+      }
+    },
+    {
+      "_comment": "rd-06 \u00b7 PLAY-3006-error-budget-screenshot.png \u00b7 human verdict: supported",
+      "match": [
+        "<claim>Checkout-service exhausted its error budget because retry "
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The same cause as the screenshot's own, stated as a mechanism."
+      }
+    },
+    {
+      "_comment": "rd-07 \u00b7 PLAY-3006-error-budget-screenshot.png \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>A certificate rotation on edge-gateway caused the errors."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "No certificate appears anywhere on the screenshot."
+      }
+    },
+    {
+      "_comment": "rd-08 \u00b7 PLAY-3006-error-budget-screenshot.png \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>Load testing against production consumed the budget."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "Nothing on the screenshot mentions load testing."
+      }
+    },
+    {
+      "_comment": "rd-09 \u00b7 PLAY-3001-checkout-latency-apm.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>The canary halved the pool while the retry budget stayed t"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Readable on the page, in the root cause paragraph."
+      }
+    },
+    {
+      "_comment": "rd-10 \u00b7 PLAY-3001-checkout-latency-apm.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>p99 latency reached roughly 4.2 s at the peak of the windo"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The chart's p99 line peaks just above the 3.4 s gridline and below 4.5 s."
+      }
+    },
+    {
+      "_comment": "rd-11 \u00b7 PLAY-3001-checkout-latency-apm.pdf \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>Latency recovered because the canary was rolled back at 09"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The page shows the recovery and says nothing about a rollback."
+      }
+    },
+    {
+      "_comment": "rd-12 \u00b7 PLAY-3002-jvm-heap-grafana.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>Heap used climbs towards the 4 GB maximum and never return"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Visible on the panel: each trough is higher than the last."
+      }
+    },
+    {
+      "_comment": "rd-13 \u00b7 PLAY-3002-jvm-heap-grafana.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>GC pauses grow through the window as the old generation fi"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The GC pause series rises monotonically across the panel."
+      }
+    },
+    {
+      "_comment": "rd-14 \u00b7 PLAY-3002-jvm-heap-grafana.pdf \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>The panel shows the process being restarted at 09:30."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "Heap used never drops to zero; nothing on the panel shows a restart."
+      }
+    },
+    {
+      "_comment": "rd-15 \u00b7 PLAY-3003-kibana-error-spike.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>Errors rise to roughly 1,200 in a bucket around 09:00 and "
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The histogram's tallest bars sit just under the 1,400 gridline at 09:00."
+      }
+    },
+    {
+      "_comment": "rd-16 \u00b7 PLAY-3003-kibana-error-spike.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>The log rows show checkout-api exhausting its connection p"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Two of the four rows are PoolExhaustedException, under a 502 row."
+      }
+    },
+    {
+      "_comment": "rd-17 \u00b7 PLAY-3003-kibana-error-spike.pdf \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>The screenshot shows a 5xx rate of 40% at the peak."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The screenshot shows counts, not a rate; no percentage appears on it."
+      }
+    },
+    {
+      "_comment": "rd-18 \u00b7 PLAY-3005-weekly-incident-review.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>The week's panels show one amplification chain: latency, t"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The three panels are in that order and the review says they are the evidence."
+      }
+    },
+    {
+      "_comment": "rd-19 \u00b7 PLAY-3005-weekly-incident-review.pdf \u00b7 human verdict: supported",
+      "match": [
+        "<claim>The review's stated cause is a retry budget enforced nowhe"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Readable on the first page of the review."
+      }
+    },
+    {
+      "_comment": "rd-20 \u00b7 PLAY-3005-weekly-incident-review.pdf \u00b7 human verdict: not supported",
+      "match": [
+        "<claim>The error panel shows fewer than 1,000 errors for the whol"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The panel reports 31,904 hits."
+      }
+    },
+    {
+      "_comment": "the run's own answer for PLAY-3001-checkout-latency-apm.pdf (R7.17)",
+      "match": [
+        "<claim>The canary released at 08:04 halved the checkout-service c"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause paragraph of the document states this."
+      }
+    },
+    {
+      "_comment": "the run's own answer for PLAY-3002-jvm-heap-grafana.pdf (R7.17)",
+      "match": [
+        "<claim>Entries written to the retry cache during the ledger-batch"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause paragraph of the document states this."
+      }
+    },
+    {
+      "_comment": "the run's own answer for PLAY-3003-kibana-error-spike.pdf (R7.17)",
+      "match": [
+        "<claim>The 25% canary on edge-gateway routed to a build whose ups"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause paragraph of the document states this."
+      }
+    },
+    {
+      "_comment": "the run's own answer for PLAY-3004-batch-overlap-throughput.pdf (R7.17)",
+      "match": [
+        "<claim>The nightly reconciliation kept the clock it was given bef"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause paragraph of the document states this."
+      }
+    },
+    {
+      "_comment": "the run's own answer for PLAY-3005-weekly-incident-review.pdf (R7.17)",
+      "match": [
+        "<claim>A retry budget that is configured per service and enforced"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause paragraph of the document states this."
+      }
+    },
+    {
+      "_comment": "the run's own answer for PLAY-3006-error-budget-screenshot.png (R7.17)",
+      "match": [
+        "<claim>The error budget for checkout-service was consumed in four"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause paragraph of the document states this."
+      }
+    }
+  ]
+}

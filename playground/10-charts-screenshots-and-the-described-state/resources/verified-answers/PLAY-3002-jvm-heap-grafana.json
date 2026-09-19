@@ -1,0 +1,23 @@
+{
+  "document": "PLAY-3002-jvm-heap-grafana.pdf",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-19",
+  "fields": {
+    "incident_date": {
+      "value": "2026-09-03"
+    },
+    "severity": {
+      "value": "major"
+    },
+    "affected_systems": {
+      "value": "payments-api"
+    },
+    "revenue_at_risk": {
+      "value": 27900.0,
+      "currency": "CHF"
+    },
+    "root_cause": {
+      "value": "Entries written to the retry cache during the ledger-batch failover were never evicted, so the old generation grew until every collection reclaimed less than the one before it."
+    }
+  }
+}

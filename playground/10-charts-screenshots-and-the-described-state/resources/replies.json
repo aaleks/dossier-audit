@@ -1,0 +1,346 @@
+{
+  "_comment": [
+    "What the stub model answers for the extract step of exercise 10.",
+    "",
+    "Every rule matches on `image`, not on text, and that is the whole lesson",
+    "of a per_part step: the prompt is the same template on page one and page",
+    "four, and what differs between the two calls is the picture. The stage",
+    "key says the same thing -- the part is in it by content hash and nothing",
+    "else about it is (R3.12).",
+    "",
+    "The digests are sha256 prefixes of the pages as the shipped converters",
+    "render them. Regenerate them with:",
+    "    python playground/toolkit/make_observability_docs.py --digests",
+    "",
+    "There is no `default` on purpose. A stub that invented an answer for a",
+    "page no rule names would turn a stale digest into a puzzle about",
+    "grounding; a 422 says which call had no rule."
+  ],
+  "rules": [
+    {
+      "_comment": "PLAY-3001-checkout-latency-apm.pdf \u00b7 page 1 of 1 \u00b7 four grounded fields and one described",
+      "image": "8b45f6bad003",
+      "reply": {
+        "document": "PLAY-3001-checkout-latency-apm.pdf",
+        "fields": [
+          {
+            "field": "incident_date",
+            "value": "2026-09-02",
+            "source": {
+              "document": "PLAY-3001-checkout-latency-apm.pdf",
+              "span": "Resolved: 2026-09-02"
+            }
+          },
+          {
+            "field": "severity",
+            "value": "critical",
+            "source": {
+              "document": "PLAY-3001-checkout-latency-apm.pdf",
+              "span": "Severity: critical"
+            }
+          },
+          {
+            "field": "affected_systems",
+            "value": "checkout-service, payments-gateway",
+            "source": {
+              "document": "PLAY-3001-checkout-latency-apm.pdf",
+              "span": "Affected systems: checkout-service, payments-gateway"
+            }
+          },
+          {
+            "field": "root_cause",
+            "value": "The canary released at 08:04 halved the checkout-service connection pool while leaving the retry budget unchanged, so every timed-out request was retried three times against a pool that was already full.",
+            "source": {
+              "document": "PLAY-3001-checkout-latency-apm.pdf",
+              "span": "Root cause: the canary released at 08:04 halved the checkout-service"
+            }
+          },
+          {
+            "field": "revenue_at_risk",
+            "value": 84600.0,
+            "currency": "CHF",
+            "source": {
+              "document": "PLAY-3001-checkout-latency-apm.pdf",
+              "span": "Revenue at risk over the window:  CHF 84'600"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "PLAY-3002-jvm-heap-grafana.pdf \u00b7 page 1 of 1 \u00b7 four grounded fields and one described",
+      "image": "58bd4966e673",
+      "reply": {
+        "document": "PLAY-3002-jvm-heap-grafana.pdf",
+        "fields": [
+          {
+            "field": "incident_date",
+            "value": "2026-09-03",
+            "source": {
+              "document": "PLAY-3002-jvm-heap-grafana.pdf",
+              "span": "Resolved: 2026-09-03"
+            }
+          },
+          {
+            "field": "severity",
+            "value": "major",
+            "source": {
+              "document": "PLAY-3002-jvm-heap-grafana.pdf",
+              "span": "Severity: major"
+            }
+          },
+          {
+            "field": "affected_systems",
+            "value": "payments-api",
+            "source": {
+              "document": "PLAY-3002-jvm-heap-grafana.pdf",
+              "span": "Affected systems: payments-api"
+            }
+          },
+          {
+            "field": "root_cause",
+            "value": "Entries written to the retry cache during the ledger-batch failover were never evicted, so the old generation grew until every collection reclaimed less than the one before it.",
+            "source": {
+              "document": "PLAY-3002-jvm-heap-grafana.pdf",
+              "span": "Root cause: entries written to the retry cache during the ledger-batch"
+            }
+          },
+          {
+            "field": "revenue_at_risk",
+            "value": 27900.0,
+            "currency": "CHF",
+            "source": {
+              "document": "PLAY-3002-jvm-heap-grafana.pdf",
+              "span": "Revenue at risk over the window:  CHF 27'900"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "PLAY-3003-kibana-error-spike.pdf \u00b7 page 1 of 1 \u00b7 four grounded fields and one described",
+      "image": "25a145355f1c",
+      "reply": {
+        "document": "PLAY-3003-kibana-error-spike.pdf",
+        "fields": [
+          {
+            "field": "incident_date",
+            "value": "2026-09-04",
+            "source": {
+              "document": "PLAY-3003-kibana-error-spike.pdf",
+              "span": "Resolved: 2026-09-04"
+            }
+          },
+          {
+            "field": "severity",
+            "value": "critical",
+            "source": {
+              "document": "PLAY-3003-kibana-error-spike.pdf",
+              "span": "Severity: critical"
+            }
+          },
+          {
+            "field": "affected_systems",
+            "value": "edge-gateway, checkout-api",
+            "source": {
+              "document": "PLAY-3003-kibana-error-spike.pdf",
+              "span": "Affected systems: edge-gateway, checkout-api"
+            }
+          },
+          {
+            "field": "root_cause",
+            "value": "The 25% canary on edge-gateway routed to a build whose upstream timeout was 30 seconds against a client timeout of 10, so every slow checkout call was counted twice and returned 502.",
+            "source": {
+              "document": "PLAY-3003-kibana-error-spike.pdf",
+              "span": "Root cause: the 25% canary on edge-gateway routed to a build whose upstream"
+            }
+          },
+          {
+            "field": "revenue_at_risk",
+            "value": 41250.0,
+            "currency": "CHF",
+            "source": {
+              "document": "PLAY-3003-kibana-error-spike.pdf",
+              "span": "Revenue at risk over the window:  CHF 41'250"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "PLAY-3004-batch-overlap-throughput.pdf \u00b7 page 1 of 1 \u00b7 four grounded fields and one described",
+      "image": "82df9d998b91",
+      "reply": {
+        "document": "PLAY-3004-batch-overlap-throughput.pdf",
+        "fields": [
+          {
+            "field": "incident_date",
+            "value": "2026-09-05",
+            "source": {
+              "document": "PLAY-3004-batch-overlap-throughput.pdf",
+              "span": "Resolved: 2026-09-05"
+            }
+          },
+          {
+            "field": "severity",
+            "value": "minor",
+            "source": {
+              "document": "PLAY-3004-batch-overlap-throughput.pdf",
+              "span": "Severity: minor"
+            }
+          },
+          {
+            "field": "affected_systems",
+            "value": "ledger-batch",
+            "source": {
+              "document": "PLAY-3004-batch-overlap-throughput.pdf",
+              "span": "Affected systems: ledger-batch"
+            }
+          },
+          {
+            "field": "root_cause",
+            "value": "The nightly reconciliation kept the clock it was given before the daylight-saving change, so it started an hour into the online window and competed with live traffic for the same database.",
+            "source": {
+              "document": "PLAY-3004-batch-overlap-throughput.pdf",
+              "span": "Root cause: the nightly reconciliation kept the clock it was given before"
+            }
+          },
+          {
+            "field": "revenue_at_risk",
+            "value": 6400.0,
+            "currency": "CHF",
+            "source": {
+              "document": "PLAY-3004-batch-overlap-throughput.pdf",
+              "span": "Revenue at risk over the window:  CHF 6'400"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "PLAY-3005-weekly-incident-review.pdf \u00b7 page 1 of 4 \u00b7 the summary. No panel, so no figure.",
+      "image": "8dca0848c2eb",
+      "reply": {
+        "document": "PLAY-3005-weekly-incident-review.pdf",
+        "fields": [
+          {
+            "field": "incident_date",
+            "value": "2026-09-08",
+            "source": {
+              "document": "PLAY-3005-weekly-incident-review.pdf",
+              "span": "Resolved: 2026-09-08"
+            }
+          },
+          {
+            "field": "severity",
+            "value": "critical",
+            "source": {
+              "document": "PLAY-3005-weekly-incident-review.pdf",
+              "span": "Severity: critical"
+            }
+          },
+          {
+            "field": "affected_systems",
+            "value": "checkout-service, payments-api, edge-gateway",
+            "source": {
+              "document": "PLAY-3005-weekly-incident-review.pdf",
+              "span": "Affected systems: checkout-service, payments-api, edge-gateway"
+            }
+          },
+          {
+            "field": "root_cause",
+            "value": "A retry budget that is configured per service and enforced nowhere, so each component amplified the failure of the one beneath it.",
+            "source": {
+              "document": "PLAY-3005-weekly-incident-review.pdf",
+              "span": "Root cause: the three incidents of the week share one cause -- a retry"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "PLAY-3005-weekly-incident-review.pdf \u00b7 page 2 of 4 \u00b7 the latency panel. Nothing this schema asks for is on it, and an empty answer is the honest one.",
+      "image": "a596274bb96a",
+      "reply": {
+        "document": "PLAY-3005-weekly-incident-review.pdf",
+        "fields": []
+      }
+    },
+    {
+      "_comment": "PLAY-3005-weekly-incident-review.pdf \u00b7 page 3 of 4 \u00b7 the memory panel. Nothing this schema asks for is on it, and an empty answer is the honest one.",
+      "image": "2b840f5b3228",
+      "reply": {
+        "document": "PLAY-3005-weekly-incident-review.pdf",
+        "fields": []
+      }
+    },
+    {
+      "_comment": "PLAY-3005-weekly-incident-review.pdf \u00b7 page 4 of 4 \u00b7 the error panel, which carries the figure",
+      "image": "2e2bbd3f3426",
+      "reply": {
+        "document": "PLAY-3005-weekly-incident-review.pdf",
+        "fields": [
+          {
+            "field": "revenue_at_risk",
+            "value": 118750.0,
+            "currency": "CHF",
+            "source": {
+              "document": "PLAY-3005-weekly-incident-review.pdf",
+              "span": "Revenue at risk over the window:  CHF 118'750"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "PLAY-3006-error-budget-screenshot.png \u00b7 page 1 of 1 \u00b7 a screenshot. No text layer at all, so every one of these five fields is described rather than grounded.",
+      "image": "419c9e35b05f",
+      "reply": {
+        "document": "PLAY-3006-error-budget-screenshot.png",
+        "fields": [
+          {
+            "field": "incident_date",
+            "value": "2026-09-11",
+            "source": {
+              "document": "PLAY-3006-error-budget-screenshot.png",
+              "span": "Resolved: 2026-09-11"
+            }
+          },
+          {
+            "field": "severity",
+            "value": "major",
+            "source": {
+              "document": "PLAY-3006-error-budget-screenshot.png",
+              "span": "Severity: major"
+            }
+          },
+          {
+            "field": "affected_systems",
+            "value": "checkout-service, edge-gateway",
+            "source": {
+              "document": "PLAY-3006-error-budget-screenshot.png",
+              "span": "Affected systems: checkout-service, edge-gateway"
+            }
+          },
+          {
+            "field": "root_cause",
+            "value": "The error budget for checkout-service was consumed in four days by retries that were never counted against it, because the budget is measured at the edge and the retries are issued behind it.",
+            "source": {
+              "document": "PLAY-3006-error-budget-screenshot.png",
+              "span": "Root cause: the error budget for checkout-service was consumed in four"
+            }
+          },
+          {
+            "field": "revenue_at_risk",
+            "value": 53100.0,
+            "currency": "CHF",
+            "source": {
+              "document": "PLAY-3006-error-budget-screenshot.png",
+              "span": "Revenue at risk over the window:  CHF 53'100"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
