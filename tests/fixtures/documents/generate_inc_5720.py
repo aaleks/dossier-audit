@@ -54,11 +54,24 @@ PROSE = [
     ("Abandoned checkouts during the window, charted below.", 6, INK),
 ]
 
-# The chart. Its y-axis is the only place the loss figure appears -- there is no
-# sentence anywhere in this document that states it, which is what makes the
-# document worth having.
-BARS = [("08:00", 2), ("08:30", 18), ("09:00", 61), ("09:30", 44), ("10:00", 7)]
+# The chart, and the total drawn beneath it. The total is the only place the
+# loss figure appears: no sentence in this document states it, and the prose
+# above says only "charted below".
+#
+# Drawn rather than left to be summed off five bars. A gold answer has to be
+# unambiguous -- a reader asked for `loss_amount` from bars alone could
+# defensibly answer the peak (61'300) or the total, and a gold value with two
+# defensible readings measures the reader rather than the system (R7.7).
+BARS = [
+    ("08:00", 2_400),
+    ("08:30", 18_100),
+    ("09:00", 61_300),
+    ("09:30", 44_200),
+    ("10:00", 6_400),
+]
 AXIS = ["CHF 0", "CHF 18k", "CHF 36k", "CHF 54k", "CHF 72k"]
+CEILING = 72_000
+TOTAL = "Total abandoned checkout value over the window:  CHF 132'400"
 
 
 def _chart(draw: ImageDraw.ImageDraw, top: int) -> None:
@@ -72,7 +85,7 @@ def _chart(draw: ImageDraw.ImageDraw, top: int) -> None:
 
     slot = width // len(BARS)
     for index, (label, value) in enumerate(BARS):
-        bar = round(value / 72 * height)
+        bar = round(value / CEILING * height)
         x = left + index * slot + slot // 4
         draw.rectangle([(x, base - bar), (x + slot // 2, base)], fill=ACCENT)
         draw.text((x, base + 10), label, fill=MUTED)
@@ -80,6 +93,10 @@ def _chart(draw: ImageDraw.ImageDraw, top: int) -> None:
     draw.line([(left, top), (left, base)], fill=INK)
     draw.line([(left, base), (left + width, base)], fill=INK)
     draw.text((left - 78, top - 26), "Abandoned checkout value", fill=INK)
+    # The figure a gold answer names, drawn into the picture. Nothing in the
+    # prose above repeats it, so a stage that reads only the text layer cannot
+    # reach it at all -- which is the whole reason this fixture exists.
+    draw.text((left - 78, base + 46), TOTAL, fill=INK)
 
 
 def main() -> None:

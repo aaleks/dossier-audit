@@ -24,7 +24,7 @@ Do not invent a new incident key for a new example. Add to this file instead.
 | `OPS-115` | `procedures-confluence` | page | Unchanged throughout. `remote_version` `v12`. The item R2.15 asserts is *not* read. |
 | `OPS-116` | `procedures-confluence` | page | Unchanged throughout. `remote_version` `v3`. |
 | `audit-note.pdf` | `incidents-manual` | file | Folder source. No `remote_version`. |
-| `INC-5720-checkout-latency-postmortem.png` | `incidents-screenshots` | file | A postmortem delivered as one PNG: prose and a latency chart in a single image, with no text layer at all. Referred to as `INC-5720` in prose. Its key carries the extension because a folder source names a document by its filename, as `audit-note.pdf` does. The standalone-image case, and the document whose `loss_amount` is stated *only* in the chart's axis. |
+| `INC-5720-checkout-latency-postmortem.png` | `incidents-screenshots` | file | A postmortem delivered as one PNG: prose, a timeline, a root cause and a latency chart in a single image, with no text layer at all. Referred to as `INC-5720` in prose. Its key carries the extension because a folder source names a document by its filename, as `audit-note.pdf` does. The standalone-image case: every field of it is visual, and its `loss_amount` is drawn on the chart and stated in no sentence. |
 
 ## The PDF postmortem corpus
 
@@ -228,6 +228,26 @@ test can name the same words.
 |---|---|---|
 | `rc-01` | `The renewed TLS certificate was issued into Vault but never deployed to the load balancers, because deployment needed a Terraform apply that nobody ran; the expiry alert went to an archived Slack channel.` | supported |
 | `rc-02` | `The quarter-end change freeze caused the checkout outage.` | unsupported -- the planted claim (R7.12) |
+
+## Fields on `INC-5720`
+
+The document with no text layer. Every field is visual, which is what makes it
+the case a `described` verdict and a vision judge are measured on -- a text-only
+stage reads nothing here at all.
+
+`loss_amount` is drawn under the chart as a total rather than left to be summed
+off five bars. A gold answer has to be unambiguous, and a reader asked for the
+figure from bars alone could defensibly answer the peak (`61300.00`) or the
+total; a gold value with two defensible readings measures the reader rather than
+the system.
+
+| Field | Gold value | Notes |
+|---|---|---|
+| `loss_amount` | `132400.00` CHF | drawn beneath the chart as `CHF 132'400`; no sentence in the document states it |
+| `resolution_date` | `2026-09-02` | the date in the summary line |
+| `severity` | `major` | enum; the document says `status: closed` and never names a severity, so this is a reviewer's reading rather than a quotation |
+| `affected_systems` | `payments-api, ledger-batch` | both named in the summary |
+| `root_cause` | `unbounded connections opened during the ledger-batch failover, amplified by a retry policy that turned every timeout into three more` | stated under "Root cause", in the image |
 
 ## Scoring example (R7.2)
 
