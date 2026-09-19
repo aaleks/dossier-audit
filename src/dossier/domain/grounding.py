@@ -160,6 +160,16 @@ def with_derived_page(
     return record.model_copy(update={"source": record.source.model_copy(update={"page": page})})
 
 
+# The two states a judged verdict can be reached in, as `judge.yaml` names them
+# (R7.20). `grounded` rather than `valid`: the file is written by a person and
+# read by one, and `valid` is this module's word for the same thing from the
+# inside. Defined here because the config layer may import the domain and not
+# the other way round, and because a state name in two places drifts.
+GROUNDED = "grounded"
+DESCRIBED = "described"
+JUDGED_STATES = (GROUNDED, DESCRIBED)
+
+
 class FieldVerdict(Enum):
     """What a checked field record turned out to be (spec 006).
 

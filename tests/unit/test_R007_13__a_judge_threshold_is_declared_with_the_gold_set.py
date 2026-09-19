@@ -7,9 +7,14 @@ there would re-run every extraction the pipeline has cached -- to change a numbe
 no extraction can affect. The gold set is what the judge is measured against, is
 a workspace asset several pipelines may share (R3.7), and is in no key.
 
-`gold/<name>/judge.yaml` holds one threshold per judged field. YAML rather than
-JSON so it cannot be read as one of the `<document>.json` files a gold set is
-made of, which `load_gold` would otherwise validate as a document.
+`gold/<name>/judge.yaml` holds the thresholds. YAML rather than JSON so it
+cannot be read as one of the `<document>.json` files a gold set is made of,
+which `load_gold` would otherwise validate as a document.
+
+**R7.13 is superseded by R7.20**, which keeps every claim this file tests and
+declares a bar per grounding state rather than one per field. A scalar is still
+valid and means the `grounded` bar, so the rows below are unchanged apart from
+the shape they read back -- which is the point of keeping the scalar.
 
 The gold files are the person-written set in `tests/fixtures/gold/incidents/`,
 copied into a temporary workspace and never written to in place.
@@ -45,7 +50,7 @@ def _workspace(root: Path, *, judge: str | None) -> Path:
     return path
 
 
-def _thresholds(root: Path) -> dict[str, float]:
+def _thresholds(root: Path) -> dict[str, dict[str, float]]:
     """The declared thresholds, read the way `dossier eval` will read them.
 
     Imported inside the helper rather than at module scope: until this lands,
@@ -73,7 +78,7 @@ class TestAJudgeThresholdIsDeclaredWithTheGoldSet:
         config = load_pipeline(path, providers=PROVIDERS)
 
         assert config.gold == "gold/incidents/"
-        assert _thresholds(tmp_path) == {JUDGED: 0.95}
+        assert _thresholds(tmp_path) == {JUDGED: {"grounded": 0.95}}
 
     def test_a_judged_field_with_no_threshold_is_refused_naming_it_and_the_file(
         self, tmp_path: Path
@@ -126,6 +131,6 @@ class TestAJudgeThresholdIsDeclaredWithTheGoldSet:
         load_pipeline(path, providers=PROVIDERS)
         after = load_output_schema(_declaration(tmp_path))
 
-        assert _thresholds(tmp_path) == {JUDGED: 0.96}
+        assert _thresholds(tmp_path) == {JUDGED: {"grounded": 0.96}}
         assert after.declaration_hash == before.declaration_hash
         assert after.generated_schema_hash == before.generated_schema_hash

@@ -63,6 +63,7 @@ from dossier.config.load import (
 )
 from dossier.domain.conversion import NoConverter, part_name, unpack_parts
 from dossier.domain.conversion import used as used_converters
+from dossier.domain.grounding import GROUNDED
 from dossier.domain.hashing import text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
@@ -1063,7 +1064,10 @@ def _judge_gate(
             judge_model=model,
             rubric_hash=text_hash(pipeline_dir / named),
             prompt_hash=prompt,
-            threshold=thresholds.get(field),
+            # The `grounded` bar. A `described` verdict is gated on its own
+            # figure, which is R7.21's work; until that lands there is no
+            # described verdict to gate, because nothing asks a vision judge.
+            threshold=thresholds.get(field, {}).get(GROUNDED),
             threshold_file=JUDGE_FILE,
         )
         if reason is not None:

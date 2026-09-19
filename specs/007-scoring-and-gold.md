@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
 **Status:** Implemented
-**Rules:** R7.1 – R7.19
+**Rules:** R7.1 – R7.20
 
 ## Purpose
 
@@ -385,7 +385,7 @@ is made of (R3.7 row 1).
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/unit/test_R007_13__a_judge_threshold_is_declared_with_the_gold_set.py`, `tests/acceptance/test_R007_15__eval_withholds_an_ungated_judged_field.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R7.20
 
 | # | Given | Then |
 |---|-------|------|
@@ -591,3 +591,42 @@ recorded, which is not the same as measured under this one.
 | 1 | the judge prompt edited; rubric and judge model unchanged | stale; `dossier eval` withholds the field saying the judge prompt has changed |
 | 2 | a `calibrations/root_cause.json` with no `prompt_hash` | stale, naming the missing field; measured under a prompt nobody recorded |
 | 3 | *counter-example* — rubric, judge model and prompt all unchanged | proceeds (R7.6 row 3) |
+
+### R7.20 — a judged field's agreement threshold is declared per grounding state
+
+R7.13 gave `gold/<name>/judge.yaml` one threshold per judged field, which was
+right while there was one way to answer a field. R6.15 added a second:
+`root_cause` can be answered from text a search can confirm, or read off a page
+by a model looking at it. Those are two different judges asked two different
+questions, and they do not measure the same.
+
+They also do not score the same. Over the twenty-two case visual sample,
+`openai:gpt-5.4-mini` agreed with `a.aleks` on 21 — twice, with no case flipping
+— against 20 of 20 on the text sample. One bar for both would gate a `described`
+verdict on a figure measured against text, which is R7.15's failure with the
+paperwork in order.
+
+A scalar stays valid and means the `grounded` bar, so a gold set written before
+this rule loads unchanged — R3.11's bargain, for the same reason. A `described`
+bar is required only where a `described` verdict can arise: a `per_part` step is
+the only thing that hands a stage a picture (R3.12), so it is the only thing
+that can produce one.
+
+Everything R7.13 says about *where* the threshold lives is unchanged and is
+restated here rather than referred to: the gold set, never the field
+declaration, because the declaration is hashed into every stage key that reads
+it (R6.11 row 3) and a bar is in no key.
+
+- **Kind:** deterministic
+- **Layer:** config (`dossier.config.load.load_judge_thresholds`)
+- **Proved by:** `tests/unit/test_R007_20__a_threshold_is_declared_per_grounding_state.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `root_cause: {grounded: 0.95, described: 0.90}` | both figures are read; `dossier eval` gates each verdict on the bar for the state it was decided in |
+| 2 | `root_cause: 0.95`, a scalar | `{grounded: 0.95}`; every gold set written before this rule loads unchanged, and declares nothing about a state it could not produce |
+| 3 | a judged field produced by a `per_part` step, with only `grounded` declared | load-time error naming the field and `described`; that step can hand a stage a picture, so it can produce a verdict this file has no bar for |
+| 4 | `root_cause: {visual: 0.9}` | load-time error naming `visual` and the two states that exist; a bar under a name nothing reads gates nothing, and looks like it gates something |
+| 5 | `root_cause: {grounded: 95}` | load-time error; a proportion is a proportion in either shape (R7.13 row 3) |
+| 6 | *counter-example* — a judged field produced by a `per_file` step, `grounded` only | loads; no step in this pipeline can produce a described field, so a bar for one would gate nothing and asking for it would be ceremony |
