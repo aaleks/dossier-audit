@@ -21,7 +21,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from dossier.domain.pipeline import (
-    DEFAULT_INPUT_KIND,
+    KIND_SEPARATOR,
     PipelineConfig,
     SourceConfig,
     StepConfig,
@@ -293,16 +293,38 @@ def check_kinds(
                 continue
 
             for source in sets[name]:
-                # A source declaring no `convert:` produces its media type's
-                # default (R8.10), and for every text source that is `markdown`.
-                # Refusing a silent source here would break every pipeline
-                # written before R3.11 existed.
-                produced = source.convert or [DEFAULT_INPUT_KIND]
-                if kind not in produced:
+                if not source.convert and KIND_SEPARATOR not in declared:
+                    # Bare `documents`, which means `markdown` (R3.11), against
+                    # a source that declared nothing. Every pipeline written
+                    # before a kind could be named looks like this, and a text
+                    # source converts to markdown by default -- so this is the
+                    # case R4.13 must not refuse. An *image* source here
+                    # produces `page_images` instead and the step finds no
+                    # input, which is R8.10's row 4 and R8.5's message.
+                    continue
+                if not source.convert:
+                    # A source declaring no `convert:` produces one kind per
+                    # document, decided by that document's media type (R8.10) --
+                    # `markdown` for text and `page_images` for an image. Which
+                    # documents it holds is not knowable here, before a byte is
+                    # fetched, so the honest answer is that nothing was declared
+                    # rather than a produced set this cannot see. Saying "it
+                    # produces ['markdown']" was false for exactly the source
+                    # most likely to hit this, and sent the reader to look for a
+                    # markdown converter for a PNG.
+                    raise ValueError(
+                        f"step {step.id!r} reads {declared!r}, but source "
+                        f"{source.id!r} declares no convert:, so each of its "
+                        f"documents converts to the default kind for its media "
+                        f"type (R8.10). A step that names a kind needs that kind "
+                        f"declared: add convert: [{kind}] to that source in "
+                        f"sources.yaml (R4.13)."
+                    )
+                if kind not in source.convert:
                     raise ValueError(
                         f"step {step.id!r} reads {declared!r}, but source "
                         f"{source.id!r} was never told to make {kind!r}. It "
-                        f"produces {sorted(produced)}. Add {kind!r} to that "
+                        f"produces {sorted(source.convert)}. Add {kind!r} to that "
                         f"source's convert: list in sources.yaml (R4.13)."
                     )
 

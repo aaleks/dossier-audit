@@ -339,6 +339,14 @@ fixed by an installation. This is "your pipeline asked a source for something it
 was never told to make", fixed by a line in `sources.yaml` — and it is knowable
 from the configuration alone, before a single byte is fetched.
 
+What a source declaring no `convert:` produces is *not* knowable here. R8.10
+decides it per document from that document's media type, and which documents a
+source holds is a fact about the source rather than about the configuration. So
+an undeclared source is refused for naming nothing, never for producing
+`markdown` — and a step reading bare `documents` against one is not refused at
+all, because that is every pipeline written before a kind could be named
+(R3.11).
+
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.resolution.check_kinds`)
 - **Proved by:** `tests/unit/test_R004_13__a_kind_must_be_one_its_sources_produce.py`, `tests/acceptance/test_R004_13__a_kind_no_source_produces_stops_the_run.py`
@@ -347,6 +355,7 @@ from the configuration alone, before a single byte is fetched.
 | # | Given | Then |
 |---|-------|------|
 | 1 | `describe` declaring `input: documents@page_images`, `incidents-manual` declaring no `convert:` | the run stops; the error names `describe`, `page_images` and `incidents-manual`, and says the source's `convert:` list is what grants it |
+| 1a | that same error's wording | it says the source *declared nothing*, never that it "produces `['markdown']`" — which is false of an image source (R8.10 row 2), and sent the reader to look for a markdown converter for a PNG |
 | 2 | the same, checked afterwards | zero model calls and no `runs/<id>/` directory; a resolution failure is total (R4.1) |
 | 3 | `incidents-manual` declaring `convert: [markdown, page_images]` | resolves; both kinds are produced and the step reads one of them (R8.4) |
 | 4 | two sources in `sources`, one declaring `convert: [markdown, page_images]` and one declaring none | stops, naming the source that cannot supply it; a step reads its whole set, and a half-answered input is the silent-gap failure this rule exists to prevent |
