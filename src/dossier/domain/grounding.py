@@ -12,7 +12,7 @@ matches gold (R7.4).
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from enum import Enum
 
@@ -163,7 +163,7 @@ def with_derived_page(
 class FieldVerdict(Enum):
     """What a checked field record turned out to be (spec 006).
 
-    Four outcomes rather than a boolean, because the spec draws three different
+    Five outcomes rather than a boolean, because the spec draws three different
     lines and collapsing them would lose the one that matters most: an
     `ungrounded` field has a plausible value and no evidence, which is a
     completely different problem from a malformed record, and is scored
@@ -172,12 +172,21 @@ class FieldVerdict(Enum):
 
     VALID = "valid"
     ABSTAINED = "abstained"
+    DESCRIBED = "described"
     UNGROUNDED = "ungrounded"
     INVALID = "invalid"
 
     @property
     def is_failure(self) -> bool:
-        """Abstention is never a failure (R6.5)."""
+        """Abstention is never a failure (R6.5), and neither is a description.
+
+        `described` sits where `ungrounded` would, and is the opposite claim:
+        the evidence is on a page the model looked at, and a string search is
+        simply the wrong instrument for it (R6.15). Counting it as a failure
+        would score honest visual evidence as fabrication; counting it as a
+        pass would let an unverifiable claim through as a checked one. It is
+        neither, and R7.21's judge is what decides it.
+        """
         return self in (FieldVerdict.UNGROUNDED, FieldVerdict.INVALID)
 
 
@@ -197,6 +206,7 @@ def check_field(
     record: FieldRecord,
     *,
     input_documents: Mapping[str, str],
+    shown_as_pictures: Collection[str] = (),
 ) -> FieldCheck:
     """Check one extracted field against the documents its stage actually read.
 
@@ -204,6 +214,12 @@ def check_field(
     rather than a lookup is what keeps this a pure function -- and what makes
     R6.3 checkable at all, because "is an input to that stage" is a fact about
     the caller, not about the field.
+
+    `shown_as_pictures` names the documents this stage read as page images
+    (R6.15). It is passed rather than inferred from a document being absent
+    from `input_documents`: those two are not the same thing at all, and
+    guessing would turn every citation of a document the stage never saw into
+    a description of one it did (R6.3).
     """
     if record.value is None:
         if not record.reason:
@@ -223,7 +239,8 @@ def check_field(
             "is the thing this system exists not to produce (R6.6).",
         )
 
-    if record.source.document not in input_documents:
+    shown = record.source.document in shown_as_pictures
+    if record.source.document not in input_documents and not shown:
         # Worse than no citation, because it looks checkable. A reviewer opening
         # the named document would find it was never part of this stage.
         return FieldCheck(
@@ -233,8 +250,20 @@ def check_field(
         )
 
     if not locate_span(
-        record.source.span, document_text=input_documents[record.source.document]
+        record.source.span, document_text=input_documents.get(record.source.document, "")
     ):
+        # A picture is why the search failed, not an excuse for what it found.
+        # An empty span is excluded here rather than by `locate_span` returning
+        # something richer: it is a substring of every document and of no page,
+        # so letting it through as `described` would make citing nothing the
+        # cheapest way to avoid a failure (R6.6, R6.15).
+        if shown and normalise_whitespace(record.source.span):
+            return FieldCheck(
+                FieldVerdict.DESCRIBED,
+                f"{record.field}: read off {record.source.document}, which this stage "
+                "was shown as page images. No text to search, so the span is not "
+                "locatable and a judge decides it (R6.15).",
+            )
         return FieldCheck(
             FieldVerdict.UNGROUNDED,
             f"{record.field}: span not found in {record.source.document} (R6.4).",

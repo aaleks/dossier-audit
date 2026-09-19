@@ -12,7 +12,7 @@ calls happened rather than only what came back.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
 from pydantic import ValidationError
@@ -83,6 +83,7 @@ def run_stage(
     model: ModelClient,
     input_documents: Mapping[str, str],
     parts: Sequence[ImagePart] = (),
+    shown_as_pictures: Collection[str] = (),
     tracker: Tracker | None = None,
     capture: str = "full",
     hashes: Mapping[str, object] | None = None,
@@ -169,7 +170,12 @@ def run_stage(
             for record in output.fields
         )
         checks = tuple(
-            check_field(record, input_documents=input_documents) for record in records
+            check_field(
+                record,
+                input_documents=input_documents,
+                shown_as_pictures=shown_as_pictures,
+            )
+            for record in records
         )
         return DocumentResult(
             document=document,

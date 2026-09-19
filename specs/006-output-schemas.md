@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
 **Status:** Implemented
-**Rules:** R6.1 – R6.14
+**Rules:** R6.1 – R6.15
 
 ## Purpose
 
@@ -382,3 +382,39 @@ volunteering a number that is now discarded before anything reads it.
 | 3 | a span located in a converted markdown note, which carries no anchors | `page: null`; a document with no pages has no page to cite, and a fabricated `1` would be the same lie in a smaller font |
 | 4 | a span that cannot be located at all | `ungrounded` (R6.4) and no page; a page for evidence nobody found would be provenance for a claim that has none |
 | 5 | *counter-example* — a field with `value: null` and no span | no page and no grounding check; there is no claim to locate (R6.5) |
+
+### R6.15 — a field citing a document the stage was shown as pictures is `described`, not `ungrounded`
+
+R6.4 locates a span by searching the converted text. A stage that read
+`documents@page_images` has no converted text to search: the evidence is on a
+page the model looked at, and the string it quotes was never a string. Every
+field such a stage produces therefore fails the search, and the existing answer
+to a failed search is `ungrounded` — "the value may be right, and nothing in the
+document shows it" — which is exactly backwards. The document does show it. What
+is missing is a text layer, and punishing a field for that scores honest visual
+evidence as fabrication (R7.4).
+
+`described` is the third grounding state, beside `grounded` and `ungrounded`. It
+is not a failure and it is not a pass: it says the claim was read off a picture
+and a string search cannot confirm it, so something else must — which is R7.21's
+judge, and why the two states are counted and gated separately rather than
+summed.
+
+Better evidence still wins. A stage shown pictures whose span *does* locate in
+text the run also holds is `grounded`, not `described`: a model quoting a
+document verbatim from its rendering has produced a citation anyone can check,
+and demoting it for the route it took would throw that away.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.grounding.check_field`)
+- **Proved by:** `tests/unit/test_R006_15__a_field_read_off_a_picture_is_described.py`, `tests/acceptance/test_R006_15__a_run_counts_described_fields_apart_from_grounded.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a `root_cause` on `INC-5720`, shown to the step as `page_images`, whose span is in no converted text | `described`; not a failure, and not counted as grounded |
+| 2 | the same field on a step shown only `markdown` | `ungrounded` (R6.4); nothing changes for a stage that had text to search |
+| 3 | a span that *does* locate in text the run holds, on a step shown pictures | `grounded`; a verbatim citation is checkable however the model came by it |
+| 4 | a run whose `extract` step produced one described field | the step's summary line reads `... · 0 failed · 1 described`; a described field is added to neither the grounded count nor the failed one |
+| 5 | *counter-example* — a field with `value: null` and a reason, on a step shown pictures | `abstained` (R6.5); there is no claim to describe, and a picture does not make one |
+| 6 | *counter-example* — a field citing a document this stage was shown in no kind at all | `invalid` (R6.3); being shown pictures of *one* document does not excuse citing another |
