@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.11
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.12
 
 ## Purpose
 
@@ -332,3 +332,36 @@ that a platform fills in.
 | # | Question | Resolution |
 |---|----------|------------|
 | 1 | What is the default `kind` for each media type, beyond `application/pdf → markdown`? | RESOLVED by R8.10 — the table is declared, `image/*` defaults to `page_images`, and anything absent falls back to `markdown` |
+
+### R8.12 — an image converts to `page_images` as a container of one part, and every part is a PNG
+
+R8.10 resolved `image/png` to `page_images` and nothing produced that pair, so
+row 4 fired for every image: the default decided which pair had to be claimed
+and no converter claimed it. An image source could be synced, held and hashed,
+and never converted — the same shape as `page_images` being a kind no step could
+name, one layer down.
+
+An image is one page. There is nothing to render and no text to extract: the
+conversion is the container (R8.11), so that a step reading `page_images` sees
+one interface whatever produced it, and a picture and a forty-page PDF fan out
+through the same `per_part` code.
+
+**Every part is a PNG**, whatever the source was. The kind's parts carry no
+media type of their own — the composition root labels each one `image/png` when
+it unpacks a container — so a JPEG passed through verbatim would be handed to a
+provider under the wrong type. A PNG source is therefore copied byte for byte
+and a JPEG is re-encoded, which is lossless of the decoded pixels and is the
+only work this converter does.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.converters.image_pages`)
+- **Proved by:** `tests/unit/test_R008_12__an_image_converts_to_one_page_image.py`, `tests/acceptance/test_R008_12__an_image_source_runs_end_to_end.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-5720-checkout-latency-postmortem.png`, its source declaring no `convert:` | one `page_images` artifact holding one part, `page-001.png`, byte-identical to the source |
+| 2 | a `image/jpeg` source | one part named `page-001.png`, re-encoded; `page_images` parts are PNG so that the type the provider is told is the type it is sent |
+| 3 | the same PNG converted twice on two machines | the same artifact bytes; a copy is deterministic, and so is Pillow's PNG encoder on its documented defaults (R8.1 row 2) |
+| 4 | *counter-example* — a PNG from a source declaring `convert: [markdown]` | R8.5 stops the run naming `(image/png, markdown)`; this converter claims one pair and a declared kind is not it (R8.3) |
+| 5 | *counter-example* — a truncated JPEG | that document fails with a reason and the others convert (R8.6); a bad input is not a misconfigured pipeline |
