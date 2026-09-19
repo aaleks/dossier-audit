@@ -1,12 +1,26 @@
 # The agreement each judged field's judge must reach against this gold set's
-# sample (R7.13). One threshold per judged field, as a proportion in [0, 1].
+# sample, per grounding state (R7.20). A proportion in [0, 1]; a scalar is the
+# `grounded` bar, which is what every file written before R7.20 holds.
 #
 # Written by a person, never by a run: `dossier calibrate` measures a judge
 # and records what it measured under calibrations/, and may not touch this
-# file (R7.14). `dossier eval` gates the field on this figure (R7.5, R7.15).
+# file (R7.14). `dossier eval` gates the field on these figures (R7.5, R7.15).
 #
-# root_cause: agreed by a.aleks on 2026-09-16. Set below the 20 of 20 that
-# openai:gpt-5.4-mini measured, because 20 of 20 at N=20 supports a lower
-# bound near 0.84 rather than 1.0, and above the 0.60 a judge calling every
-# candidate supported would score on the same sample (R7.11).
-root_cause: 0.95
+# root_cause, both states agreed by a.aleks, each below what was measured and
+# far above the rate a judge calling every candidate supported would score:
+#
+#   grounded  0.95, agreed 2026-09-16. openai:gpt-5.4-mini agreed 20 of 20 on
+#             root_cause.jsonl, twice. 20 of 20 at N=20 supports a lower bound
+#             near 0.84 rather than 1.0; the always-supported floor is 0.60.
+#   described 0.90, agreed 2026-09-19. The same judge, shown page images
+#             instead of text, agreed 21 of 22 on root_cause_visual.jsonl --
+#             twice, with no case flipping between runs. The floor there is
+#             0.591, and 0.90 leaves room for exactly one miss more than was
+#             measured. Lower than the grounded bar on purpose: reading the
+#             page and then judging it is the harder job, and the one case it
+#             missed says so. It read INC-5455's hypothesis table as an
+#             assertion, in a document whose every page header says ROOT CAUSE
+#             NOT ESTABLISHED -- prose it reads, column semantics it loses.
+root_cause:
+  grounded: 0.95
+  described: 0.90

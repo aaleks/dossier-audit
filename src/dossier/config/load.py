@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from dossier.domain.fields import OutputSchema, declare_fields, json_schema
 from dossier.domain.gold import CalibrationCase, GoldDocument
+from dossier.domain.grounding import DESCRIBED, GROUNDED, JUDGED_STATES
 from dossier.domain.hashing import text_hash
 from dossier.domain.model_id import check_pinned, provider_of
 from dossier.domain.pipeline import (
@@ -436,40 +437,73 @@ def load_calibration_sample(directory: Path, field: str) -> tuple[CalibrationCas
 JUDGE_FILE = "judge.yaml"
 
 
-def load_judge_thresholds(directory: Path) -> dict[str, float]:
-    """The agreement each judged field's judge must reach, from the gold set (R7.13).
+def load_judge_thresholds(directory: Path) -> dict[str, dict[str, float]]:
+    """The agreement each judged field's judge must reach, per state (R7.20).
 
     With the gold set rather than the field declaration, because a threshold is
     a property of scoring: the declaration is hashed as text into every stage key
     that reads it (R6.11), so a bar raised from 0.95 to 0.96 there would re-run
     every extraction the pipeline has cached, to change a number no extraction
     can affect.
+
+    Keyed by grounding state, because a field answered from text and the same
+    field read off a page are two judges asked two questions, and they do not
+    measure the same (R6.15, R7.20). A scalar is the `grounded` bar, so a gold
+    set written before that was true loads unchanged.
     """
     document = _read_yaml(directory / JUDGE_FILE)
 
-    thresholds: dict[str, float] = {}
-    for field, value in document.items():
+    thresholds: dict[str, dict[str, float]] = {}
+    for field, declared in document.items():
         name = str(field)
-        # `bool` first: it is an `int` in Python, and `root_cause: true` is a
-        # mistake worth naming rather than silently reading as 1.0.
-        if isinstance(value, bool) or not isinstance(value, int | float):
-            raise ConfigError(
-                f"{JUDGE_FILE}: {name!r} is {value!r}, and an agreement threshold "
-                "is a number between 0 and 1"
+        if isinstance(declared, dict):
+            unknown = sorted(
+                str(state) for state in declared if str(state) not in JUDGED_STATES
             )
-        if not 0.0 <= value <= 1.0:
-            raise ConfigError(
-                f"{JUDGE_FILE}: {name!r} is {value!r}; an agreement threshold is a "
-                "proportion between 0 and 1. A threshold of 95 rather than 0.95 makes "
-                "every judge ineligible forever, and reads like strict configuration "
-                "rather than a typo."
-            )
-        thresholds[name] = float(value)
+            if unknown:
+                # Named rather than ignored. A bar under a state nothing reads
+                # gates nothing and reads exactly like one somebody agreed to.
+                raise ConfigError(
+                    f"{JUDGE_FILE}: {name!r} declares a threshold for {unknown[0]!r}, "
+                    f"which is not a grounding state. The states are "
+                    f"{', '.join(JUDGED_STATES)} (R7.20)."
+                )
+            states = {str(state): value for state, value in declared.items()}
+        else:
+            states = {GROUNDED: declared}
+
+        thresholds[name] = {
+            state: _threshold(value, field=name, state=state) for state, value in states.items()
+        }
     return thresholds
 
 
+def _threshold(value: object, *, field: str, state: str) -> float:
+    """One declared figure, checked as R7.13 row 3 checked it.
+
+    The shape moved a level deeper and the checks moved with it. A shape change
+    that quietly stopped checking the numbers would be a worse regression than
+    the shape was an improvement.
+    """
+    # `bool` first: it is an `int` in Python, and `root_cause: true` is a
+    # mistake worth naming rather than silently reading as 1.0.
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise ConfigError(
+            f"{JUDGE_FILE}: {field!r} {state} is {value!r}, and an agreement "
+            "threshold is a number between 0 and 1"
+        )
+    if not 0.0 <= value <= 1.0:
+        raise ConfigError(
+            f"{JUDGE_FILE}: {field!r} {state} is {value!r}; an agreement threshold is a "
+            "proportion between 0 and 1. A threshold of 95 rather than 0.95 makes "
+            "every judge ineligible forever, and reads like strict configuration "
+            "rather than a typo."
+        )
+    return float(value)
+
+
 def _validate_judge_thresholds(pipeline: PipelineConfig, path: Path) -> None:
-    """R7.13 — every judged field has a threshold declared with the gold set.
+    """R7.20 — every judged field has a bar for every state it can be decided in.
 
     Only when a gold set is declared: a pipeline with no `gold` is never scored,
     so it has no judge to gate (R3.7 row 4). A judged field with no bar would be
@@ -497,7 +531,23 @@ def _validate_judge_thresholds(pipeline: PipelineConfig, path: Path) -> None:
         raise ConfigError(
             f"{_name(path)}: field {missing[0]!r} is judged against a rubric and has "
             f"no agreement threshold in {directory / JUDGE_FILE}. A judged field with "
-            "no bar is reported as though it had cleared one (R7.5, R7.13)."
+            "no bar is reported as though it had cleared one (R7.5, R7.20)."
+        )
+
+    # A `per_part` step is the only thing that hands a stage a picture (R3.12),
+    # so it is the only thing that can produce a `described` verdict (R6.15).
+    # Asked for nowhere else, because a bar every author copies without meaning
+    # it is how a threshold stops being agreed.
+    if not any(step.mode == "per_part" and step.output is not None for step in pipeline.steps):
+        return
+
+    undescribed = [name for name in judged if DESCRIBED not in thresholds[name]]
+    if undescribed:
+        raise ConfigError(
+            f"{_name(path)}: field {undescribed[0]!r} is produced by a per_part step, "
+            f"which can answer it from a page image, and {directory / JUDGE_FILE} "
+            f"declares no {DESCRIBED!r} threshold for it. A described verdict gated on "
+            "a figure measured against text is not gated (R6.15, R7.20)."
         )
 
 

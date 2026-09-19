@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.20
 
 ## Purpose
@@ -620,7 +620,7 @@ it (R6.11 row 3) and a bar is in no key.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load.load_judge_thresholds`)
 - **Proved by:** `tests/unit/test_R007_20__a_threshold_is_declared_per_grounding_state.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
