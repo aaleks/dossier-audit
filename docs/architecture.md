@@ -43,11 +43,20 @@ tracking SDK. A function in `domain/` takes what it needs as an argument, which
 is why its tests need no fixtures and run in milliseconds — and why mutation
 testing is affordable there and nowhere else.
 
+Not `io` either, and that one has a visible consequence. `page_images` is packed
+by a format defined in `domain/conversion.py` rather than by `zipfile`, for two
+reasons: a module that can open a stream can open a file, and a stored ZIP
+carries an external-attributes field and a version-made-by byte that are set
+from the platform — while a container of pages has to be byte-identical wherever
+it is built (R8.11, R5.6). The format lives in `domain` because `application`
+unpacks it and may import nothing else. What it costs is unzipping an artifact
+with a standard tool.
+
 ## The layers
 
 | Package | Holds | Rule |
 |---|---|---|
-| `dossier.domain` | Decisions: key composition, reference resolution, the normalisation projection, span checking, scoring, model-id validation. Protocols and value objects in `domain/ports.py`. | Imports stdlib and pydantic only. Deterministic: no clock, no randomness, no IO. |
+| `dossier.domain` | Decisions: key composition, reference resolution, the normalisation projection, span checking and its three grounding states, scoring, model-id validation, and the container format a multi-page conversion is packed into. Protocols and value objects in `domain/ports.py`. | Imports stdlib and pydantic only. Deterministic: no clock, no randomness, no IO. |
 | `dossier.application` | Use cases: `sync`, `convert`, `run`, `plan`, `eval`. Orchestrates domain decisions over ports. | Takes the connector, the store and the model client as arguments. Never constructs one. |
 | `dossier.infrastructure` | Connectors, converters, the snapshot store, the ledger, model clients, MLflow tracking. | Wiring, not judgement. A heavy SDK (`mlflow`) is imported inside the function that uses it; `httpx` is imported at module scope by the packages left of the boundary, which is where it belongs. |
 | `dossier.config` | Loading and validating `sources.yaml` and `pipeline.yaml`; reading credentials. | The only package that reads `os.environ`. |
