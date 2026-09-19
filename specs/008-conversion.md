@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.12
 
 ## Purpose
@@ -356,7 +356,7 @@ only work this converter does.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.image_pages`)
 - **Proved by:** `tests/unit/test_R008_12__an_image_converts_to_one_page_image.py`, `tests/acceptance/test_R008_12__an_image_source_runs_end_to_end.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

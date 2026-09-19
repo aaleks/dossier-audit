@@ -11,6 +11,12 @@ reader off to install a converter that would turn an image into text -- which is
 the one thing an image with no text layer cannot honestly supply. The run
 stopping is correct either way; the pair it names is what tells the reader what
 to install.
+
+Row 4's premise -- "with no converter installed for its pair" -- is constructed
+here rather than borrowed from the environment. It used to be true of every
+installation, and `png-pages` made it false (R8.12); a row that was only ever
+observable by accident was never really being tested. Withholding the one
+converter is what row 4 describes, and it now says so.
 """
 
 from __future__ import annotations
@@ -38,6 +44,25 @@ def _run(workspace: Path, monkeypatch, *args: str):
 
     monkeypatch.chdir(workspace)
     return CliRunner().invoke(app, list(args))
+
+
+@pytest.fixture
+def without_an_image_converter(monkeypatch):
+    """An installation where nothing claims `(image/png, page_images)`.
+
+    Patched at the composition root rather than at the registry, because that is
+    where the list a command reasons about is fetched -- and patching the
+    registry would also hide the converter from `used_converters`, which is a
+    different claim (R8.7).
+    """
+    import dossier.cli.main as cli
+
+    keep = [
+        converter
+        for converter in cli.installed_converters()
+        if converter.media_type != "image/png"
+    ]
+    monkeypatch.setattr(cli, "installed_converters", lambda: keep)
 
 
 @pytest.fixture
@@ -82,7 +107,7 @@ class TestAnImageSourceAsksForTheConverterItCanUse:
     """R8.10 row 4 — the default decides which pair must be claimed."""
 
     def test_an_unconverted_screenshot_names_the_page_images_pair(
-        self, image_workspace: Path, monkeypatch
+        self, image_workspace: Path, monkeypatch, without_an_image_converter
     ):
         """The one where an image asks for an image converter.
 
