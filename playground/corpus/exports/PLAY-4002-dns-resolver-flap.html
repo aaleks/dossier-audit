@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PLAY-4002 — Internal DNS resolver flapping under cache expiry</title>
+</head>
+<body>
+  <div class="breadcrumb">Spaces / Site Reliability / Postmortems / 2026 / PLAY-4002</div>
+  <h1>PLAY-4002 — Internal DNS resolver flapping under cache expiry</h1>
+
+  <p><strong>Severity:</strong> minor<br>
+     <strong>Resolved:</strong> 2026-05-09<br>
+     <strong>Systems affected:</strong> internal-dns, orders-api, search-indexer</p>
+
+  <h2>Timeline</h2>
+  <ul>
+    <li>2026-05-08 06:12 UTC — services begin logging intermittent
+        <code>NXDOMAIN</code> for internal names that plainly exist.</li>
+    <li>2026-05-08 06:55 UTC — the failures are found to arrive in bursts exactly
+        five minutes apart.</li>
+    <li>2026-05-08 08:30 UTC — one of the two resolver replicas is drained and the
+        bursts stop.</li>
+    <li>2026-05-09 — the replica is rebuilt from the current image and returned to
+        service.</li>
+  </ul>
+
+  <h2>Root cause</h2>
+  <p>One resolver replica had been running an image eight months old, which
+     expired negative cache entries on a five-minute timer and refused to refresh
+     them from the upstream zone. Half of all queries reached that replica, so
+     half of the lookups for a recently created name failed until the entry aged
+     out of the other replica too.</p>
+
+  <h2>Impact</h2>
+  <p>No orders were lost. The search index fell four hours behind and was rebuilt
+     the same evening; no financial loss was recorded.</p>
+
+  <h2>Follow-up</h2>
+  <ul>
+    <li>Fail the deployment when two replicas of one service report different image digests.</li>
+    <li>Alert on negative-cache hit rate rather than on query latency alone.</li>
+  </ul>
+</body>
+</html>

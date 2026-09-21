@@ -134,7 +134,7 @@ ask for — and `--plan` is the command you reach for when you are not sure yet.
 
 ```console
 $ dossier run incident-audit
-run 20260917T184228Z-385d · /…/playground/work/02/runs/20260917T184228Z-385d/manifest.json
+run 20260921T133524Z-ac6c · /…/playground/work/02/runs/20260921T133524Z-ac6c/manifest.json
   extract: 4 document(s) · 0 from cache · 0 failed
 ```
 
@@ -142,8 +142,8 @@ The manifest, trimmed:
 
 ```json
 {
-  "run_id": "20260917T184228Z-385d",
-  "started_at": "2026-09-17T18:42:28.…Z",
+  "run_id": "20260921T133524Z-ac6c",
+  "started_at": "2026-09-21T13:35:24.…Z",
   "dossier_version": "0.1.0",
   "plan": {
     "pipeline": "incident-audit",
@@ -199,7 +199,7 @@ $ cat .dossier/cache/stage/a4/ef/a4eff980….meta.json
   "model": "openai:gpt-5.4-mini",
   "options": {},
   "prompt": {"hash": "b3c909cfe88ac27e…", "path": "prompts/01_extract.md", "role": "prompt"},
-  "run_id": "20260917T184228Z-385d",
+  "run_id": "20260921T133524Z-ac6c",
   "schema": {"hash": "387e8655133090ff…", "path": "schemas/incident.yaml", "role": "schema"},
   "step": "extract"
 }
@@ -208,13 +208,32 @@ $ cat .dossier/cache/stage/a4/ef/a4eff980….meta.json
 `attempts: 1` is the one field here that is about what happened rather than about
 what was asked. Exercise 06 makes it 2.
 
+And the same artifact, under the run, named rather than keyed:
+
+```console
+$ ls runs/20260921T133524Z-ac6c/extract/
+PLAY-1001.md.json   PLAY-1002.md.json   PLAY-1003.md.json   PLAY-1004.md.json
+PLAY-1001.md.meta.json  PLAY-1002.md.meta.json  PLAY-1003.md.meta.json  PLAY-1004.md.meta.json
+
+$ cmp runs/20260921T133524Z-ac6c/extract/PLAY-1004.md.json       .dossier/cache/stage/a4/ef/a4eff980… && echo identical
+identical
+```
+
+Two copies, and they are not redundant either. The cache is addressed by the key
+of the computation, which is what makes a second run free and a replay possible;
+it is also unreadable by a person, and it is deliberately never read back as a
+record of a run. `runs/<run id>/<step>/<document>.json` is the readable copy,
+written as each document completes, byte-identical, with its provenance record
+beside it (R0.11). A document that failed leaves nothing there — an empty file
+would be a result.
+
 ## Task 5 — the second run, and the replay
 
 ```console
 $ wc -l < /tmp/dossier-calls.jsonl
 4
 $ dossier run incident-audit
-run 20260917T184235Z-0c13 · …
+run 20260921T133530Z-352e · …
   extract: 4 document(s) · 4 from cache · 0 failed
 $ wc -l < /tmp/dossier-calls.jsonl
 4
@@ -225,11 +244,21 @@ Four model calls for the first run, none for the second. That is the claim
 the same question, keyed the same way, is not asked twice (R5.5).
 
 ```console
-$ dossier run --replay runs/20260917T184235Z-0c13/
-replayed 20260917T184235Z-0c13 · incident-audit
+$ dossier run --replay runs/20260921T133530Z-352e/
+replayed 20260921T133530Z-352e · incident-audit
   extract: 4 artifact(s) from cache
-4 artifact(s) reproduced · no model calls
+4 artifact(s) reproduced · no model calls · written to
+runs/20260921T133530Z-352e/replays/20260921T133536Z-bd49/
+
+$ ls runs/20260921T133530Z-352e/replays/20260921T133536Z-bd49/extract/
+PLAY-1001.md.json   PLAY-1002.md.json   PLAY-1003.md.json   PLAY-1004.md.json
+…
 ```
+
+What it reproduced is written *under* the run, never over it (R0.12) — so a
+replay can be compared against the run byte for byte and can never be mistaken
+for one. It is all or nothing: if any single artifact could not be reproduced the
+command fails and writes nothing at all, which is exercise 09's task 5.
 
 The manifest is the only input. `pipeline.yaml` is not read — not to check that
 it agrees, not to warn that it has changed — because a replay that consulted it

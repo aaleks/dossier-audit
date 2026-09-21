@@ -65,7 +65,7 @@ dossier convert incident-audit
 command converts nothing and caches four. Find the converted artifacts under
 `.dossier/cache/convert/` and read one. For a markdown source the conversion is
 nearly a no-op — which makes this the right moment to understand why the step
-exists at all, before exercise 03 points it at a PDF.
+exists at all, before exercise 03 points it at a format nothing claims.
 
 `convert` is optional: `run` converts what it needs anyway. It exists so the text
 a stage will actually see can be inspected before a single model call is made.
@@ -105,9 +105,12 @@ directory under `runs/`. Open `runs/<run id>/manifest.json` and find:
 - the pipeline hash, the model, and the prompt and schema hashes;
 - the four documents, each pinned to a **snapshot hash**, not a path.
 
-Then find the stage artifacts under `.dossier/cache/stage/` and open one, plus
-its `.meta.json` neighbour. Every artifact has a provenance record beside it;
-one without a record is not a cache entry at all (R0.3).
+Beside it, `runs/<run id>/extract/` holds one file per document — the run's
+artifacts, written as each document completed, with a `.meta.json` beside each
+one (R0.11). Then find the same artifacts under `.dossier/cache/stage/`, keyed
+rather than named, and compare the bytes. Every artifact has a provenance record
+beside it; one without a record is not a cache entry at all (R0.3). Work out
+which of the two copies a *replay* reads, and why the other one exists.
 
 ## Task 5 — the second run, and the replay
 
@@ -128,9 +131,11 @@ Now reproduce the first run from its manifest:
 dossier run --replay runs/<run id>/
 ```
 
-**Checkpoint.** `4 artifact(s) reproduced · no model calls`. Note what it did
-*not* do: it never read `pipeline.yaml`. A replay that consulted today's
-configuration would be reproducing today's configuration, not the run (R4.7).
+**Checkpoint.** `4 artifact(s) reproduced · no model calls · written to
+runs/<run id>/replays/<replay id>/`. Note where that is: under the run it
+reproduced, never over it (R0.12). Then note what it did *not* do — it never read
+`pipeline.yaml`. A replay that consulted today's configuration would be
+reproducing today's configuration, not the run (R4.7).
 
 ## Task 6 — make the model answer differently
 
@@ -151,4 +156,4 @@ URL in `.env`. Try one, and keep the other four for exercise 09.
 - you can name the four things a stage key covers and one thing it does not;
 - you can point at the file that decides what the model is asked to return.
 
-**Next:** [03 · PDF documents and a converter you write](../03-pdf-documents-and-a-custom-converter/).
+**Next:** [03 · Wiki exports, and a converter you write](../03-html-exports-and-a-converter-you-write/).

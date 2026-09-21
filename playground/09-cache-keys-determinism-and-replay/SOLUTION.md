@@ -202,10 +202,14 @@ person will otherwise remove it as noise.
 
 ```console
 $ # one stage artifact deleted
-$ dossier run --replay runs/20260917T211133Z-1c63/
+$ dossier run --replay runs/20260921T133715Z-8cac/
 step 'extract' has no cached artifact for 'PLAY-1004.md' at a4eff980d6dd…; this run cannot
 be reproduced from this workspace, and nothing has been substituted for it.
 exit 2
+
+$ find runs/20260921T133715Z-8cac -type d
+runs/20260921T133715Z-8cac
+runs/20260921T133715Z-8cac/extract
 ```
 
 It fails, by name, and substitutes nothing. "A replay may fail; it may never
@@ -213,12 +217,17 @@ substitute other content" (R4.7). Re-asking the model here would be the most
 seductive possible bug: the command would succeed, the output would look like the
 original run, and it would be a different run wearing its id.
 
+No `replays/` directory was created either. A replay writes what it reproduced
+only if it reproduced *all* of it (R0.12) — a directory holding three of four
+artifacts is a reproduction of nothing, and it would sit there looking like one.
+
 ```console
 $ # pipeline.yaml edited: model: openai:gpt-4o-2024-08-06
-$ dossier run --replay runs/20260917T212614Z-8cd8/
-replayed 20260917T212614Z-8cd8 · incident-audit
+$ dossier run --replay runs/20260921T133715Z-810a/
+replayed 20260921T133715Z-810a · incident-audit
   extract: 4 artifact(s) from cache
-4 artifact(s) reproduced · no model calls
+4 artifact(s) reproduced · no model calls · written to
+runs/20260921T133715Z-810a/replays/20260921T133724Z-adc2/
 exit 0
 ```
 

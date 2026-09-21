@@ -110,13 +110,15 @@ Replay your most recent run, then:
 1. Replay it again after deleting one stage artifact from the cache.
 2. Replay it after editing `pipeline.yaml` — change the model, add a step.
 
-**Checkpoint.** The first fails by name and substitutes nothing. The second
-succeeds, unchanged, and never reads `pipeline.yaml` at all. Both are R4.7: a
+**Checkpoint.** The first fails by name and substitutes nothing — and writes no
+`replays/` directory at all, because a reproduction of three artifacts out of
+four is a reproduction of nothing (R0.12). The second succeeds, unchanged, never
+reads `pipeline.yaml`, and says where it put what it reproduced. Both are R4.7: a
 replay may fail, and it may never reproduce something other than the run it names.
 
 Then: what would it take to replay a run on a machine that has no converter
-installed and no model endpoint configured? Try it — uninstall the PDF converter
-from exercise 03 if you still have it, or unset the endpoint — and reason about
+installed and no model endpoint configured? Try it — uninstall exercise 03's
+converter package if you still have it, or unset the endpoint — and reason about
 why the answer is what it is.
 
 ---
