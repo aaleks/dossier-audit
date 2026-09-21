@@ -1,7 +1,7 @@
 # 005 — Cache keys, cascade and provenance
 
-**Status:** Implemented
-**Rules:** R5.1 – R5.9
+**Status:** Partially implemented
+**Rules:** R5.1 – R5.10
 
 ## Purpose
 
@@ -228,7 +228,7 @@ has broken a cache in some project before.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R005_7__new_document_reruns_only_itself.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R5.10
 
 | # | Given | Then |
 |---|-------|------|
@@ -270,3 +270,44 @@ an answer, something is being remembered that should have been derived.
 | 2 | the same | more model calls and more time; that is the only difference |
 | 3 | a run with the cache deleted between two stages | completes; the later stage recomputes what it needs |
 | 4 | *counter-example* — deleting the snapshot store rather than the cache | not covered; snapshots are inputs, not cache, and their loss is unrecoverable without a re-sync (R0.2) |
+
+### R5.10 — adding a document re-runs stages for that document only, and no two documents share a stage key
+
+Supersedes R5.7, whose first three rows are restated here unchanged and whose
+fourth is no longer true. R5.7 row 4 said that a document added with bytes
+identical to one already held hashed the same and was served from the same cache
+entry. R3.13 puts the document's key inside the value handed to the prompt, so
+identical bytes under two keys are now two values, two hashes and two keys, and
+the model is asked once per document.
+
+That reads like a saving lost, and it is the opposite. A stage is asked about a
+*named* document and answers with that name in `source.document` (R6.3). Two
+documents sharing one entry therefore shared one answer, and the answer named
+whichever of them was computed first: `runs/<id>/extract/INC-9999.json` held
+`"document": "INC-4821"`, with every span cited against `INC-4821` too. Nothing
+caught it, because both documents are inputs to the same stage and the citation
+resolved -- it was simply attributed to the wrong one. `_from_cache` said so in a
+comment and accepted it, because under R5.7 there was nothing else it could do:
+re-serialising the artifact under this document's name would have handed the next
+step bytes the cache never held, and changed its key.
+
+The saving was never real either. Where the duplicate is an artefact of a source
+listing the same document twice, sync gives it one key and there is nothing to
+re-run. Where it is genuinely two documents that happen to read alike -- two
+incidents filed from one template -- they are two documents, and a report that
+said so once and attributed it to one of them was wrong.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R005_10__a_new_document_reruns_only_itself_and_keys_are_per_document.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4901` added to a source with 420 documents already cached | `extract` and `verify` run once each; 420 documents are served from cache |
+| 2 | the same | the `report` step re-runs, because an `aggregate` step reads every input |
+| 3 | the same, counted at the model client | exactly two `per_file` calls plus one `aggregate` call |
+| 4 | `INC-4901` added with bytes identical to an existing document | a different key, and one model call; the value hashed holds `<document key="INC-4901">` and no other document's value does (R3.13) |
+| 5 | the artifact that call produced | `extract/INC-4901.json` says `"document": "INC-4901"`; under R5.7 it said `"document": "INC-4821"` and was filed under `INC-4901` regardless |
+| 6 | *counter-example* — the same document listed twice by one source | one key from sync, so one document and nothing to re-run; this rule is about two keys, not two listings (R2.1) |
+| 7 | *counter-example* — the same document, unchanged, on a second run | served from cache, no model call; a key is per document and still not per run (R5.5) |
