@@ -41,7 +41,7 @@ from dossier.application.extract import DocumentResult, run_stage
 from dossier.application.manifest import Manifest
 from dossier.domain.conversion import PART_SUFFIX, PART_TYPE, part_name, unpack_parts
 from dossier.domain.fields import OutputSchema
-from dossier.domain.grounding import FieldVerdict, check_field, with_derived_page
+from dossier.domain.grounding import FieldCheck, FieldVerdict, check_field, with_derived_page
 from dossier.domain.hashing import content_hash
 from dossier.domain.keys import ArtifactInput, StageInputs, cache_key, provenance
 from dossier.domain.pipeline import (
@@ -130,6 +130,26 @@ class StepReport:
             for result in self.results
             for check in result.checks
             if check.verdict is FieldVerdict.DESCRIBED
+        )
+
+    @property
+    def findings(self) -> tuple[tuple[str, FieldCheck], ...]:
+        """Every ungrounded or invalid field this step produced, with its document.
+
+        The checks themselves rather than a count, because the reason is the
+        point: `check_field` composed a `detail` for a person to read and it
+        reached nobody, so a run over sixteen invalid fields printed `0 failed`
+        (R6.16). A count alone would repeat that mistake more quietly.
+
+        In `results` order, which is document order, so two runs over one
+        workspace report identically (R0.4). A `described` field is not here and
+        neither is an abstention: one is counted on its own (R6.15) and the
+        other is valid output (R6.5).
+        """
+        return tuple(
+            (result.document, check)
+            for result in self.results
+            for check in result.field_failures
         )
 
 

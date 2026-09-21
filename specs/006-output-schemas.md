@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
 **Status:** Implemented
-**Rules:** R6.1 – R6.15
+**Rules:** R6.1 – R6.16
 
 ## Purpose
 
@@ -418,3 +418,42 @@ and demoting it for the route it took would throw that away.
 | 4 | a run whose `extract` step produced one described field | the step's summary line reads `... · 0 failed · 1 described`; a described field is added to neither the grounded count nor the failed one |
 | 5 | *counter-example* — a field with `value: null` and a reason, on a step shown pictures | `abstained` (R6.5); there is no claim to describe, and a picture does not make one |
 | 6 | *counter-example* — a field citing a document this stage was shown in no kind at all | `invalid` (R6.3); being shown pictures of *one* document does not excuse citing another |
+
+### R6.16 — `dossier run` names every field finding it produced, with the reason the check gave
+
+A document with an ungrounded or invalid field has not failed -- it has findings,
+and R6.9 is careful that they do not abort the run. What nothing said is that
+they must be *reported*, and so they were not: `DocumentResult.field_failures`
+existed, was correct, and had no caller anywhere in `src/`. A run printed
+`4 document(s) · 0 from cache · 0 failed` over sixteen fields of which fifteen
+were invalid.
+
+The reason is already written. `check_field` returns a `detail` composed for a
+person -- `loss_amount: cites 'PLAY-1001', which was not an input to this stage.
+Inputs were ['PLAY-1001.md'] (R6.3)` -- and it is the same string R7.4 row 2
+requires a score to carry. Printing it costs nothing and is the difference
+between a number and a diagnosis.
+
+A finding is not a failure and does not become one here. The exit code is R6.9's
+and R0.11's business and is untouched: a run whose every field is ungrounded
+still wrote every artifact, and a person who wants a non-zero exit for findings
+is asking for a gate this rule does not build.
+
+Counted on the step line beside `described`, which is the same shape for the same
+reason -- and, like it, absent when there are none, because `· 0 findings` on
+every line of every clean run is noise (R6.15).
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.main`)
+- **Proved by:** `tests/acceptance/test_R006_16__a_run_names_its_field_findings.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `extract` over four notes, every field citing a key with no extension | `extract: 4 document(s) · 0 from cache · 0 failed · 16 findings`, and a line per finding naming its document, its field and the reason |
+| 2 | one finding, on `PLAY-1001.md` | `    PLAY-1001.md  loss_amount: cites 'PLAY-1001', which was not an input to this stage. Inputs were ['PLAY-1001.md'] (R6.3)` |
+| 3 | the same run's exit code | `0`; a finding is not a failure, and every artifact was written (R6.9, R0.11) |
+| 4 | a run with findings on a step served entirely from cache | the same findings, named the same way; grounding is re-derived from the artifact on a hit (R5.5), so a cached run is as diagnosable as a fresh one |
+| 5 | *counter-example* — a run whose every field is grounded | no finding lines and no count on the step line; the clean case reads exactly as it did |
+| 6 | *counter-example* — a field that abstained with a reason | not a finding; abstention is valid output and is never counted as a failure (R6.5) |
+| 7 | *counter-example* — a `described` field | not a finding; it is already counted as `described` on the step line, and it is neither a pass nor a failure (R6.15) |

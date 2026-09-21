@@ -883,10 +883,21 @@ def _execute(workspace: Path, pipeline: str) -> None:
         # of every text pipeline would be noise, and the number is interesting
         # precisely because it is usually absent (R6.15).
         described = f" · {step.described} described" if step.described else ""
+        # Counted the same way and absent for the same reason (R6.16). A finding
+        # is not a failure -- the document produced usable output and every
+        # artifact was written -- so it is its own number beside `failed` rather
+        # than folded into it, and the exit code below does not see it.
+        findings = step.findings
+        found = f" · {len(findings)} finding(s)" if findings else ""
         typer.echo(
             f"  {step.step}: {len(step.results)} document(s) · {cached} from cache · "
-            f"{len(step.failed)} failed{described}"
+            f"{len(step.failed)} failed{described}{found}"
         )
+        for document, check in findings:
+            # The detail `check_field` composed, verbatim. It already names the
+            # field and says which rule was not met; repeating either here would
+            # be this message deciding it knows better than the check did.
+            typer.echo(f"    {document}  {check.detail}")
 
     for step, document in report.failed:
         typer.echo(f"    {step} failed on {document}", err=True)
@@ -1279,6 +1290,18 @@ def eval_(
         # the silent subset R7.17 replaced.
         judged = f"   ({total.judged} judged)" if kinds[field].needs_a_judge else ""
         typer.echo(f"  {field:<18} {total.percentage:5.1f}%{judged}{marker}")
+        # What the percentage above does not say (R7.25). A field at 0.0% is a
+        # prompt citing nothing locatable, or a model reading the wrong figure,
+        # or a gold set that moved -- three different problems told apart by the
+        # detail and not by reading the figure again (R7.4 row 2).
+        #
+        # In `scores` order, which is the run's document order, so two evals of
+        # one run read identically (R0.4). Only the misses: a correct verdict
+        # has no detail worth a line.
+        for score in scores:
+            for result in score.scored:
+                if result.field == field and not result.correct:
+                    typer.echo(f"    {score.document:<14} {result.detail or 'incorrect'}")
 
     if tracker is not None:
         # The figures the lines above printed, recorded once rather than computed
