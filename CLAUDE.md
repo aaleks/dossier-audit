@@ -67,7 +67,17 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all thirteen specs are
-implemented, and 167 of the 177 rules are MET with the other 10 superseded.
+implemented, and 170 of the 180 rules are MET with the other 10 superseded.
+
+A comparison is a record. `dossier eval --compare a b` printed per-field deltas
+and recorded nothing, on the reasoning that it reads two runs each already
+recorded when they ran -- true of the two scores, and not of the **delta**, which
+is a figure neither run holds and the only one the change gate exists to produce.
+It is now one MLflow run of `a/<field>`, `b/<field>` and `delta/<field>` in an
+experiment of its own kind, because a delta is not an accuracy (R11.8); the fields
+that got worse are named on it, present and empty when none did (R11.9); and it
+links the gold set's dataset as an eval does (R11.10). R11.7's row 5 moved with it:
+the boundary that still holds is a replay, which opens no run at all.
 
 A gold set is a thing in MLflow. `dossier dataset publish <pipeline> --gold
 gold/incidents` sends it as the evaluation dataset named after it -- one record per
