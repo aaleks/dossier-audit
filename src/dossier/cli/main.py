@@ -1554,10 +1554,20 @@ def dataset_publish(
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
 
+    directory = workspace / gold
+    if not directory.is_dir():
+        # A path that is not there and a directory holding no answers want
+        # different fixes -- a corrected path, or a reviewer -- so they do not
+        # share a message. A mistyped `--gold` is the likelier of the two, and
+        # publishing an empty dataset under the mistyped name would be worse than
+        # refusing and harder to notice.
+        typer.echo(f"{pipeline}: no gold set at {gold}", err=True)
+        raise typer.Exit(code=2)
+
     try:
         published = publish_gold(
             registry,
-            gold=workspace / gold,
+            gold=directory,
             experiment=experiment,
             snapshots=_held_snapshots(workspace),
         )
@@ -1571,7 +1581,11 @@ def dataset_publish(
     typer.echo(
         f"{published.name} · {_count(published.records, 'record')} · digest {published.digest}"
     )
-    typer.echo(f"published to MLflow: {experiment}")
+    # The id MLflow assigned, because it is what addresses the dataset in the
+    # UI and in the API. Printed and never written: a file holding it would
+    # make a manifest or a cache entry depend on what a server said
+    # (R12.4 row 3).
+    typer.echo(f"published to MLflow: {experiment} ({published.dataset_id})")
 
 
 def _held_snapshots(workspace: Path) -> dict[str, str]:

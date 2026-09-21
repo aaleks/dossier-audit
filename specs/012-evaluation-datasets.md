@@ -1,6 +1,6 @@
 # 012 — The gold set as an MLflow evaluation dataset
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R12.1 – R12.6
 
 ## Purpose
@@ -25,8 +25,11 @@ input than a metric does.
 ```
 $ dossier dataset publish incident-audit --gold gold/incidents
 incidents · 4 records · digest 61da2705
-published to MLflow: dossier-audit/incident-audit/eval/incidents
+published to MLflow: dossier-audit/incident-audit/eval/incidents (d-18afc31376cb427a)
 ```
+
+The id is there because it is what addresses the dataset in MLflow's UI and
+its API. It is printed and never written down (R12.4 row 3).
 
 Its own command rather than a flag on `dossier eval`, because publishing a gold
 set and scoring a run fail for different reasons and are run at different times:
@@ -174,7 +177,7 @@ The one-way promise this spec opens with. A dataset is read by a person, never b
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
 - **Proved by:** `tests/unit/test_R012_4__a_dataset_is_never_read_back_into_a_score.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -191,7 +194,7 @@ unreachable server: at startup, naming the thing to fix.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.main`)
 - **Proved by:** `tests/acceptance/test_R012_5__publishing_is_refused_by_name.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
