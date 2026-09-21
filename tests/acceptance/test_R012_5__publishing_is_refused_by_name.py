@@ -84,21 +84,28 @@ class TestPublishingIsRefusedByName:
         assert "DOSSIER_MLFLOW_ENABLED" in result.output
         assert registry.publishes == [], "nothing sent"
 
+    @pytest.mark.parametrize("status", [500, 404, 403])
     def test_a_server_that_cannot_hold_a_dataset_names_the_sql_backend(
-        self, enabled: Path, monkeypatch
+        self, enabled: Path, monkeypatch, status: int
     ):
-        """Example 2: the one where the server is a FileStore.
+        """Example 2: the one where the server cannot hold a dataset.
 
         The health check passes — it is a real, working MLflow server — and the
-        dataset endpoint is simply not there. Naming the SQL backend is the whole
+        dataset endpoint does not answer. Naming the SQL backend is the whole
         value of this check: the fix is a flag on the server, not anything in the
         workspace.
+
+        `500` first because that is what a real file-backed MLflow 3.15 server
+        answers: it reaches the handler and fails inside it rather than having no
+        route. A check that looked for `404` alone let the publish through, and
+        MLflow's client then retried the 500 with backoff until the command
+        appeared to hang — which is how this parametrisation came to exist.
         """
         from dossier.infrastructure.tracking import mlflow as tracking
 
         def file_store(request: httpx.Request) -> httpx.Response:
             if request.url.path == DATASETS:
-                return httpx.Response(404, text="Not Found")
+                return httpx.Response(status, text="no")
             return httpx.Response(200, json={"status": "OK"})
 
         monkeypatch.setattr(tracking, "HEALTH_TRANSPORT", _answering(file_store))
@@ -108,6 +115,7 @@ class TestPublishingIsRefusedByName:
         assert result.exit_code == 2, result.output
         assert "--backend-store-uri" in result.output
         assert "sqlite" in result.output
+        assert str(status) in result.output, "the answer it got, so the fix is findable"
 
     def test_an_unreachable_server_names_the_uri(self, enabled: Path, monkeypatch):
         """Example 3: the one where nothing is listening.
