@@ -383,11 +383,24 @@ def _as_text(result: DocumentResult) -> str:
     answered with different whitespace (R5.5).
 
     A step with no schema has no records to serialise, and its prose is the
-    artifact as written -- there is nothing to normalise it against.
+    artifact as written -- there is nothing to normalise it against, and nothing
+    here to indent (R0.14 row 5).
+
+    Indented, one key per line, ending in a newline (R0.14). This is the file a
+    reviewer opens when a score disagrees with an answer, and it was the one file
+    in the workspace written on a single line. Keys keep the order `StageOutput`
+    declares them in rather than being sorted: `document` before `fields` is how
+    the record reads, and sorting would be a second decision taken for the sake
+    of a first.
     """
     if result.text is not None:
         return result.text
-    return StageOutput(document=result.document, fields=list(result.records)).model_dump_json()
+    return (
+        StageOutput(document=result.document, fields=list(result.records)).model_dump_json(
+            indent=2
+        )
+        + "\n"
+    )
 
 
 def _run_one(
