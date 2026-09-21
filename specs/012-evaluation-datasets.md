@@ -128,8 +128,10 @@ on disk (R12.4 row 3). A `FakeDatasetRegistry` in the default suite counts
 publishes and records as `FakeTracker` counts runs and `FakeModelClient` counts
 calls.
 
-Evaluation datasets need a tracking server with a SQL backend; a FileStore has
-no `/api/3.0/mlflow/datasets` to call. That is a machine's configuration, so it
+Evaluation datasets need a tracking server with a SQL backend. A file-backed one
+answers their endpoint with a 500 rather than a 404 -- it reaches the handler and
+fails inside it -- so what is checked is that the answer is a *success*, not that
+it is any particular failure. That is a machine's configuration, so it
 is refused by name at startup like an unreachable server (R12.5, R10.5).
 
 ## Must hold
@@ -222,7 +224,7 @@ unreachable server: at startup, naming the thing to fix.
 | # | Given | Then |
 |---|-------|------|
 | 1 | `DOSSIER_MLFLOW_ENABLED=false`, `dossier dataset publish incident-audit --gold gold/incidents` | exit 2 naming `DOSSIER_MLFLOW_ENABLED`; 0 requests sent. Unlike a run, this command has nothing to do with tracking off — its whole output is the record |
-| 2 | tracking enabled against a FileStore server, whose `/api/3.0/mlflow/datasets` is absent | exit 2 naming the SQL backend a dataset needs; 0 records sent |
+| 2 | tracking enabled against a file-backed server, which answers `/api/3.0/mlflow/datasets/search` with `500` | exit 2 naming the status and the SQL backend a dataset needs; 0 records sent. Any answer that is not a success, not only a 404: a file store reaches the handler and fails inside it, and a check that looked for 404 alone let the publish through to hang on MLflow's retry of the 500 |
 | 3 | tracking enabled, nothing answering at `http://localhost:5000` | exit 2 naming the URI, as R10.5 row 1 refuses a run |
 | 4 | tracking enabled, the `tracking` extra not installed | exit 2 naming `dossier[tracking]` (R10.5 row 3) |
 | 5 | *counter-example* — `dossier eval incident-audit --gold gold/incidents` against that same FileStore server | scores and exits 0, with no dataset link. An eval needs no dataset; only publishing does |

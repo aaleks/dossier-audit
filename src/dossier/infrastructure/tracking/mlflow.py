@@ -221,12 +221,17 @@ def connect_datasets(uri: str) -> DatasetRegistry:
                 f"tracking is enabled and no MLflow server answers at {uri} ({error}). "
                 "Start it, or set DOSSIER_MLFLOW_ENABLED=false."
             ) from None
-        if answered.status_code == 404:
+        if not answered.is_success:
+            # Any answer that is not a success, not only a 404. A file-backed
+            # server does not 404 here -- it reaches the handler and fails
+            # inside it, answering 500 -- and a check that looked only for 404
+            # let the publish through to hang on MLflow's own retry of the 500.
             raise TrackingUnavailable(
                 f"the MLflow server at {uri} cannot hold an evaluation dataset: "
-                f"{DATASETS_ENDPOINT} is not there. Datasets need a SQL backend -- "
-                "start the server with --backend-store-uri (postgresql, mysql, "
-                "sqlite or mssql), not a file store."
+                f"{DATASETS_ENDPOINT} answered {answered.status_code} "
+                f"{answered.reason_phrase}. Datasets need a SQL backend -- start the "
+                "server with --backend-store-uri (postgresql, mysql, sqlite or "
+                "mssql), not a file store."
             )
     return MlflowDatasetRegistry(uri)
 
