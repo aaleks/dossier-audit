@@ -1,0 +1,24 @@
+[project]
+name = "dossier-jira-playground"
+version = "0.1.0"
+description = "A playground converter: a Jira issue payload read as markdown."
+requires-python = ">=3.12"
+
+# Nothing outside the standard library. A Jira issue is JSON, and `json` reads
+# JSON -- the whole converter is one function deciding which fields of a large
+# payload are the document and in what order they are written.
+dependencies = []
+
+# The same group exercise 03's package declares, and the same group `dossier`'s
+# own converters declare (R8.7). There is no list inside `dossier` that this is
+# added to, which is the point: `application/json` went from unclaimed to
+# claimed by an installation, not by an edit.
+[project.entry-points."dossier.converters"]
+jira-issue-markdown = "dossier_jira_playground.issue_markdown:JiraIssueMarkdownConverter"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dossier_jira_playground"]

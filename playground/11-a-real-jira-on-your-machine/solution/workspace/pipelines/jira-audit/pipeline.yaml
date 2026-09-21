@@ -1,0 +1,16 @@
+# One Jira source, one model, one step.
+#
+# Compare this with exercise 02's pipeline.yaml: it is the same file with a
+# different source id. That is the claim worth checking in this exercise -- a
+# pipeline says what to audit, never where the documents came from. Swapping a
+# folder for a live Jira changed `sources.yaml` and nothing here.
+sources: [incidents-jira]
+
+model: openai:gpt-5.4-mini
+
+steps:
+  - id: extract
+    prompt: prompts/01_extract.md
+    input: documents
+    mode: per_file
+    output: schemas/incident.yaml

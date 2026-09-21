@@ -1,0 +1,205 @@
+{
+  "_comment": [
+    "What the stub model answers, one rule per document. First match wins.",
+    "",
+    "Five documents, because a Jira source produces two kinds: four issues, and",
+    "the one file PLAY-1 carries. `document` is the ledger key, and the key of a",
+    "file is `<issue>/<filename>` (R1.6) -- a stage is shown the key it must",
+    "carry back (R3.13), so these strings are not decoration.",
+    "",
+    "`match` is a list of substrings that must all appear in the rendered prompt.",
+    "`# PLAY-1 ` with the trailing space is what tells PLAY-1 from PLAY-1001: the",
+    "issue's heading is written by the playground converter from `key` and",
+    "`summary`, and the attachment's is the corpus note's own first line.",
+    "",
+    "Every `span` appears verbatim in the document it names -- that is what makes",
+    "the field grounded (R6.4). The issue and its attachment repeat some spans",
+    "because Jira holds the same sentence twice, and each is grounded in its own",
+    "document.",
+    "",
+    "The keys assume a project seeded into an empty Jira, where PLAY numbers from",
+    "1. If your instance had already issued PLAY keys, renumber the `match` and",
+    "`document` values to what `dossier sync` actually reported."
+  ],
+  "rules": [
+    {
+      "match": ["# PLAY-1001"],
+      "reply": {
+        "document": "PLAY-1/postmortem.md",
+        "fields": [
+          {
+            "field": "loss_amount",
+            "value": 18400.0,
+            "currency": "CHF",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1/postmortem.md",
+              "span": "a recorded loss of CHF 18'400"
+            }
+          },
+          {
+            "field": "resolution_date",
+            "value": "2026-03-04",
+            "confidence": "high",
+            "source": {"document": "PLAY-1/postmortem.md", "span": "**Resolved:** 2026-03-04"}
+          },
+          {
+            "field": "severity",
+            "value": "major",
+            "confidence": "high",
+            "source": {"document": "PLAY-1/postmortem.md", "span": "**Severity:** major"}
+          },
+          {
+            "field": "affected_systems",
+            "value": "checkout-api, payments-gateway",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1/postmortem.md",
+              "span": "**Systems affected:** checkout-api, payments-gateway"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": ["# PLAY-1 "],
+      "reply": {
+        "document": "PLAY-1",
+        "fields": [
+          {
+            "field": "loss_amount",
+            "value": 18400.0,
+            "currency": "CHF",
+            "confidence": "high",
+            "source": {"document": "PLAY-1", "span": "a recorded loss of CHF 18'400"}
+          },
+          {
+            "field": "resolution_date",
+            "value": "2026-03-04",
+            "confidence": "high",
+            "source": {"document": "PLAY-1", "span": "**Resolved:** 2026-03-04"}
+          },
+          {
+            "field": "severity",
+            "value": "major",
+            "confidence": "high",
+            "source": {"document": "PLAY-1", "span": "**Severity:** major"}
+          },
+          {
+            "field": "affected_systems",
+            "value": "checkout-api, payments-gateway",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1",
+              "span": "**Systems affected:** checkout-api, payments-gateway"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": ["# PLAY-2 "],
+      "reply": {
+        "document": "PLAY-2",
+        "fields": [
+          {
+            "field": "loss_amount",
+            "value": null,
+            "reason": "The issue states that no financial loss was recorded for this incident.",
+            "confidence": "high"
+          },
+          {
+            "field": "resolution_date",
+            "value": "2026-03-19",
+            "confidence": "high",
+            "source": {"document": "PLAY-2", "span": "**Resolved:** 2026-03-19"}
+          },
+          {
+            "field": "severity",
+            "value": "minor",
+            "confidence": "high",
+            "source": {"document": "PLAY-2", "span": "**Severity:** minor"}
+          },
+          {
+            "field": "affected_systems",
+            "value": "reporting-export",
+            "confidence": "high",
+            "source": {"document": "PLAY-2", "span": "**Systems affected:** reporting-export"}
+          }
+        ]
+      }
+    },
+    {
+      "match": ["# PLAY-3 "],
+      "reply": {
+        "document": "PLAY-3",
+        "fields": [
+          {
+            "field": "loss_amount",
+            "value": 61250.0,
+            "currency": "CHF",
+            "confidence": "high",
+            "source": {"document": "PLAY-3", "span": "credited at a recorded loss of CHF 61'250"}
+          },
+          {
+            "field": "resolution_date",
+            "value": "2026-04-07",
+            "confidence": "high",
+            "source": {"document": "PLAY-3", "span": "**Resolved:** 2026-04-07"}
+          },
+          {
+            "field": "severity",
+            "value": "critical",
+            "confidence": "high",
+            "source": {"document": "PLAY-3", "span": "**Severity:** critical"}
+          },
+          {
+            "field": "affected_systems",
+            "value": "terminal-gateway, inventory-sync",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3",
+              "span": "**Systems affected:** terminal-gateway, inventory-sync"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": ["# PLAY-4 "],
+      "reply": {
+        "document": "PLAY-4",
+        "fields": [
+          {
+            "field": "loss_amount",
+            "value": 9900.0,
+            "currency": "CHF",
+            "confidence": "high",
+            "source": {"document": "PLAY-4", "span": "recorded a loss of CHF 9'900 in attributed revenue"}
+          },
+          {
+            "field": "resolution_date",
+            "value": "2026-05-12",
+            "confidence": "high",
+            "source": {"document": "PLAY-4", "span": "**Resolved:** 2026-05-12"}
+          },
+          {
+            "field": "severity",
+            "value": "major",
+            "confidence": "high",
+            "source": {"document": "PLAY-4", "span": "**Severity:** major"}
+          },
+          {
+            "field": "affected_systems",
+            "value": "search-api, catalogue-index",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-4",
+              "span": "**Systems affected:** search-api, catalogue-index"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

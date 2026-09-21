@@ -1,14 +1,24 @@
 # The dossier playground
 
-Ten hands-on exercises for learning `dossier` by running it: syncing a source,
+Eleven hands-on exercises for learning `dossier` by running it: syncing a source,
 converting documents, defining a pipeline, grounding an answer, scoring against a gold
 set, calibrating a judge, reading the whole thing back in MLflow, and auditing
-documents whose evidence is a chart rather than a sentence.
+documents whose evidence is a chart rather than a sentence, and finally auditing
+a real Jira running on your own machine.
 
-Everything here runs **offline, in seconds, at zero cost**. No API key, no model
-bill, no network. A stub model server in `toolkit/` answers the same
+**Exercises 01 to 10 run offline, in seconds, at zero cost.** No API key, no
+model bill, no network. A stub model server in `toolkit/` answers the same
 OpenAI-compatible route a real endpoint would, from a file of rules you can read
 and edit — so the code path is the real one and the answers are yours to control.
+
+**Exercise 11 is the exception, deliberately.** It brings up a Jira Data Center
+in Docker, which costs an evaluation licence, about 4 GB of RAM and an
+interactive setup wizard. Its model is still the stub; only the source is real.
+It is last because everything it teaches — a named credential, someone else's
+version marker, a listing that cannot report a deletion, a payload nothing
+converts — only exists once a source is remote. Its `SOLUTION.md` marks each
+block as run, derived or shape, because a live Jira cannot produce the
+reproducible transcript the other ten promise.
 
 > This folder is practice material. It is **not** part of `dossier` and nothing
 > under `src/`, `tests/` or `specs/` refers to it. It adds no rule, changes no
@@ -45,6 +55,7 @@ when you want the reasoning behind what you just saw.
 | 08 | [MLflow tracing end to end](08-mlflow-tracing-end-to-end/) | switching tracking on, experiments, tags, one trace per (step, document), LLM spans, capture modes | R10.1, R10.2, R10.5, R10.8, R11.1, R11.4 |
 | 09 | [Cache keys, determinism and replay](09-cache-keys-determinism-and-replay/) | what changes a key and what does not, replay, byte-identical keys across machines | R5.2, R5.3, R5.6, R4.6, R4.7, R5.9 |
 | 10 | [Charts, screenshots and the `described` state](10-charts-screenshots-and-the-described-state/) | `page_images`, a `per_part` step, one call per page, the third grounding state, a judge shown the pages, a threshold per state | R8.10, R8.11, R8.12, R3.12, R6.15, R7.20, R7.22, R7.23, R4.14 |
+| 11 | [A real Jira on your machine](11-a-real-jira-on-your-machine/) | a remote authenticated source, a credential named and never written, issues and attachments as separate addresses, a listing that cannot report a deletion, and a payload nothing converts | R1.1, R1.6, R1.8, R1.12, R1.13, R2.6, R2.17, R2.18, R2.22, R8.5 |
 
 ## How an exercise folder is laid out
 
@@ -63,7 +74,9 @@ output it produced.
 
 If you want to skip the typing entirely — to see a working end state before
 building your own — each `SOLUTION.md` starts with a **Run the prepared answer**
-block that copies `solution/` into a workspace and runs it.
+block that copies `solution/` into a workspace and runs it. Exercise 11 has no
+such block: its workspace cannot run until a Jira exists to point it at, so its
+`SOLUTION.md` opens by saying which of its blocks were run and which were not.
 
 ## Shared material
 
@@ -74,6 +87,13 @@ corpus/scans/          two small PDFs and a PNG, from toolkit/make_sample_pdfs.p
 corpus/observability/  five PDFs and a screenshot, from toolkit/make_observability_docs.py
 toolkit/               the stub model server, and the two document generators
 ```
+
+`corpus/incidents/` is used twice over, which is the point of using it twice.
+Exercise 01 syncs those four notes from a folder; exercise 11's `seed_jira.py`
+posts the same four into a live Jira and syncs them back out over HTTP. The
+pipeline, the prompt and the field declaration are identical in both — so what
+is left different between the two exercises is exactly what a remote source
+costs, and nothing else.
 
 `corpus/exports/` is exercise 03's, and is the only material here that `dossier`
 cannot read out of the box: `text/html` and `text/csv` are in `MEDIA_TYPES` and
@@ -172,17 +192,23 @@ folder:
 ```bash
 rm -rf playground/work                    # every workspace you built
 uv pip uninstall dossier-html-playground  # exercise 03
+uv pip uninstall dossier-jira-playground  # exercise 11
+
+# exercise 11's Jira, and both its volumes
+docker compose -f playground/11-a-real-jira-on-your-machine/docker-compose.yml down -v
 ```
 
-**The uninstall is not optional if you share the environment with the test
-suite.** Exercise 03 installs a converter package, and a converter is resolved
-from the installed environment — so
+**The uninstalls are not optional if you share the environment with the test
+suite.** Exercises 03 and 11 each install a converter package, and a converter is
+resolved from the installed environment — so
 `tests/unit/test_R008_1__conversion_is_a_pure_function_of_its_input.py` fails on
 
 ```
 AssertionError: ['text/csv', 'text/html'] has no sample payload, so every
 converter claiming it is silently skipped by the rows above
 ```
+
+and on `['application/json']` for exercise 11's.
 
 The suite runs its R8.1 purity rows over every installed converter, skips any
 whose media type it has no sample payload for, and then asserts that every skip

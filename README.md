@@ -26,7 +26,7 @@ specs: 165 rules across 12 specs | 156 MET, 0 IN PROGRESS, 0 NOT MET, 9 SUPERSED
 | `docs/dossier-design-deck.pdf` | Background: the proposal this came from |
 | `src/dossier/` | The package: `domain/`, `application/`, `infrastructure/`, `config/`, `cli/` |
 | `tests/` | `architecture/`, `unit/`, `acceptance/`, `integration/`, `evals/` |
-| `playground/` | Ten hands-on exercises. Offline, seconds, zero cost. Not part of `dossier`. |
+| `playground/` | Eleven hands-on exercises. Ten offline, seconds, zero cost; the eleventh runs a real Jira in Docker. Not part of `dossier`. |
 | `KICKOFF.md` | Prompt for the first implementation session |
 | `.claude/` | The spec-driven toolchain: skills, agents, rules, hooks |
 
@@ -137,8 +137,12 @@ and it checks that every spec rule and every test file still refer to each other
 
 ## Learning it by running it
 
-`playground/` has ten exercises that build a workspace, sync a folder, define a
-pipeline, ground an answer, calibrate a judge, read the run back in MLflow, and
-audit a chart. They run offline against a stub model server in
-`playground/toolkit/`, so the code path is the real one and the answers are yours
-to control. Start at `playground/README.md`.
+`playground/` has eleven exercises that build a workspace, sync a folder, define
+a pipeline, ground an answer, calibrate a judge, read the run back in MLflow,
+audit a chart, and sync a real Jira. The first ten run offline against a stub
+model server in `playground/toolkit/`, so the code path is the real one and the
+answers are yours to control. The eleventh brings up a Jira Data Center in
+Docker -- still on the stub model, with only the source real -- because a named
+credential, someone else's version marker and a listing that cannot report a
+deletion have nowhere to show themselves until a source is remote. Start at
+`playground/README.md`.
