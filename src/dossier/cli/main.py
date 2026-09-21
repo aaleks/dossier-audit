@@ -30,6 +30,7 @@ from dossier.application.eval import (
     judge_scores,
     load_calibration,
     load_gold,
+    record_comparison,
     score_run,
     start_eval,
 )
@@ -1197,10 +1198,11 @@ def eval_(
         )
         return
 
-    # After the compare branch, which records nothing: a comparison reads two
-    # runs that were each recorded when they ran (R7.8) and is not itself an
-    # eval. Before any scoring work, so a server nobody can reach is refused now
-    # rather than after a reproduction nobody can then inspect (R10.5).
+    # After the compare branch, which records under its own kind: a comparison's
+    # figures are deltas rather than accuracies, and an experiment should hold
+    # runs comparable with one another (R10.2, R11.8). Before any scoring work,
+    # so a server nobody can reach is refused now rather than after a
+    # reproduction nobody can then inspect (R10.5).
     tracker, experiment = _tracking_for(workspace, pipeline, kind="eval", gold=gold)
 
     _, run_dir = latest_manifest(workspace / "runs", pipeline)
@@ -1359,6 +1361,11 @@ def _compare_runs(
     The documents are checked before anything is scored: a delta over different
     documents would report the documents' difference as the change's effect.
     """
+    # Before the manifests are even read: with tracking on, a server nobody can
+    # reach refuses the command now rather than after reproducing two runs
+    # nobody can then inspect (R10.5).
+    tracker, experiment = _tracking_for(workspace, pipeline, kind="compare", gold=gold)
+
     model = config.model
     manifests: list[Manifest] = []
     for run in runs:
@@ -1425,7 +1432,38 @@ def _compare_runs(
             f"overall {earlier.percentage:.1f}% -> {later.percentage:.1f}% "
             f"({later.percentage - earlier.percentage:+.1f})"
         )
-    rows = {row.field: row for row in compare_totals(before, after)}
+    deltas = compare_totals(before, after)
+    if tracker is not None:
+        # Recorded after the refusals above, so a comparison that was refused
+        # records nothing: there is no delta, so there is no figure (R11.8 row 4).
+        gold_files = {
+            path.name: path.read_bytes() for path in sorted((workspace / gold).glob("*.json"))
+        }
+        published = _published_dataset(workspace, gold=gold)
+        was = published.tags.get("dossier.gold_hash") if published is not None else None
+        scored_hash = gold_set_hash(gold_files)
+        record_comparison(
+            tracker,
+            experiment=experiment or "",
+            pipeline=pipeline,
+            runs=runs,
+            models=(manifests[0].plan.model, manifests[1].plan.model),
+            gold=gold,
+            gold_files=gold_files,
+            rows=deltas,
+            overalls=(earlier, later),
+            dataset_stale=was is not None and was != scored_hash,
+        )
+        if published is not None:
+            # The same link an eval makes, on the other command that scores
+            # against a gold set (R11.10).
+            tracker.log_dataset(
+                name=published.name,
+                dataset_id=published.dataset_id,
+                digest=published.digest,
+            )
+
+    rows = {row.field: row for row in deltas}
     for field in kinds:
         if field in withheld:
             typer.echo(f"  {field:<18}     -- {withheld[field]}")
@@ -1438,6 +1476,9 @@ def _compare_runs(
         moved = f"{row.delta:+.1f}" if row.delta is not None else "--"
         marker = "   <- regression" if row.regressed else ""
         typer.echo(f"  {row.field:<18} {was:>6} {now:>6} {moved:>6}{marker}")
+
+    if tracker is not None and experiment is not None:
+        typer.echo(f"recorded to MLflow: {experiment}")
 
 
 def _judging(

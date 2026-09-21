@@ -382,6 +382,20 @@ class FieldDelta:
         return self.after.correct * self.before.scored < self.before.correct * self.after.scored
 
 
+def regressed_fields(rows: Sequence[FieldDelta]) -> tuple[str, ...]:
+    """The fields that got worse, in the order the report lists them (R11.9).
+
+    The one thing a person opens a comparison to find, named so it can be
+    filtered on rather than read out of a table. In report order because the tag
+    it becomes should read as the report reads; sorting it would put a second
+    ordering on the same list for no reason.
+
+    An empty result is a real answer -- nothing regressed -- and the caller
+    records it as such rather than omitting the tag (R11.9 row 3).
+    """
+    return tuple(row.field for row in rows if row.regressed)
+
+
 def compare_totals(
     before: Sequence[FieldTotal], after: Sequence[FieldTotal]
 ) -> tuple[FieldDelta, ...]:

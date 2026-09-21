@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.10
 
 ## Purpose
@@ -203,7 +203,7 @@ two runs it reads have their own traces, recorded when they ran.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.record_comparison`)
 - **Proved by:** `tests/unit/test_R011_8__a_comparison_records_one_run_of_deltas.py`, `tests/acceptance/test_R011_8__compare_records_its_deltas_to_mlflow.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -222,7 +222,7 @@ being an archaeology exercise.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring.regressed`)
 - **Proved by:** `tests/unit/test_R011_9__a_comparison_names_the_fields_that_regressed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -240,7 +240,7 @@ the same reason: the figures came from the files (R12.4).
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.record_comparison`)
 - **Proved by:** `tests/acceptance/test_R011_10__compare_links_its_dataset_in_mlflow.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

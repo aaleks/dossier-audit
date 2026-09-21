@@ -208,25 +208,23 @@ class TestAnEvalLinksTheDatasetItScoredAgainst:
         assert run.metrics["accuracy/overall"] == 80.0
         assert "dataset" in result.output.lower()
 
-    def test_a_comparison_links_nothing_because_it_records_nothing(
+    def test_a_replay_opens_no_run_and_so_links_nothing(
         self, audited: Path, monkeypatch, recording
     ):
-        """Counter-example (row 5): the one where there is no run to link to.
+        """Counter-example (row 5): the one where no run was opened at all.
 
-        A comparison reads two runs that were each recorded when they ran (R7.8),
-        so it opens no MLflow run — and a link needs one.
+        A replay reproduces a record rather than making one (R11.1 row 6), and a
+        dataset link is a record. This row used to be a comparison, on the
+        reasoning that a comparison records nothing; a comparison now opens its
+        own run and links the dataset itself (R11.8, R11.10), so the case that
+        still proves the boundary is the replay.
         """
         tracker, _ = recording
         _publish(audited, monkeypatch)
-        ran = _cli(audited, monkeypatch, "run", PIPELINE)
-        assert ran.exit_code == 0, ran.output
-        runs = sorted(path.name for path in (audited / "runs").iterdir() if path.is_dir())
-        assert len(runs) >= 2, runs
         before = len(tracker.runs)
+        run_dir = sorted(path for path in (audited / "runs").iterdir() if path.is_dir())[-1]
 
-        result = _cli(
-            audited, monkeypatch, "eval", PIPELINE, "--gold", GOLD, "--compare", *runs[:2]
-        )
+        result = _cli(audited, monkeypatch, "run", "--replay", str(run_dir))
 
         assert result.exit_code == 0, result.output
-        assert len(tracker.runs) == before, "a comparison records no run"
+        assert len(tracker.runs) == before, "a replay records no run"
