@@ -20,7 +20,10 @@ free and starts being another thing to calibrate. A field cites a document and a
 span; the span is normalised for whitespace on both sides and then looked for in
 the converted text of that document. Not found means `ungrounded`, whatever the
 value says — and an ungrounded field is scored incorrect even when its value
-matches gold (R6.4, R7.4).
+matches gold (R6.4, R7.4). There is a third state, `described`, for a field whose
+evidence is on a page the model *looked at* rather than in any text; it cannot
+arise on this corpus, because every document here is text, and it is exercise
+10's subject (R6.15).
 
 ---
 

@@ -1,7 +1,7 @@
 # The dossier playground
 
 Ten hands-on exercises for learning `dossier` by running it: syncing a source,
-converting PDFs, defining a pipeline, grounding an answer, scoring against a gold
+converting documents, defining a pipeline, grounding an answer, scoring against a gold
 set, calibrating a judge, reading the whole thing back in MLflow, and auditing
 documents whose evidence is a chart rather than a sentence.
 
@@ -37,8 +37,8 @@ when you want the reasoning behind what you just saw.
 |---|---|---|---|
 | 01 | [First sync of a folder of notes](01-first-sync-a-folder-of-notes/) | workspace layout, `sources.yaml`, the ledger, the snapshot store, incremental sync | R2.14, R2.15, R2.11, R1.8, R3.1 |
 | 02 | [A pipeline end to end on markdown](02-a-pipeline-end-to-end-on-markdown/) | `pipeline.yaml`, prompts, field declarations, `convert` / `run --plan` / `run` / `--replay` | R3.6, R6.10, R4.7, R5.5 |
-| 03 | [PDF documents and a converter you write](03-pdf-documents-and-a-custom-converter/) | media types, the `(media type, kind)` pair, writing and registering a converter, version bumps | R8.5, R8.7, R8.2, R5.4 |
-| 04 | [Plain text, images and unrecognised media types](04-plain-text-and-unrecognised-media-types/) | `text/plain`, an image that arrives as `application/octet-stream`, and what the honest fix is | R8.3, R2.16, R8.5 |
+| 03 | [Wiki exports, and a converter you write](03-html-exports-and-a-converter-you-write/) | the `(media type, kind)` pair, writing and registering a converter, two claims in one package, version bumps | R8.5, R8.7, R8.2, R5.4 |
+| 04 | [Media types, default kinds, and the file dossier will not read](04-media-types-and-the-file-dossier-will-not-read/) | where a media type comes from, why an image's default kind is not `markdown`, and what the honest fix is for a file nothing recognises | R2.16, R8.10, R8.5, R2.21 |
 | 05 | [A gold set and `dossier eval`](05-a-gold-set-and-dossier-eval/) | writing verified answers, per-field scoring, normalisation, `--compare` between two runs | R7.2, R7.1, R7.3, R7.8 |
 | 06 | [Grounding, abstention and the one retry](06-grounding-abstention-and-the-one-retry/) | ungrounded spans, bare nulls, the single retry, a document that fails | R6.4, R6.5, R6.2, R6.9, R7.4 |
 | 07 | [Calibrating a judge](07-calibrating-a-judge/) | free-text fields, the calibration sample, thresholds, `dossier calibrate`, withheld fields | R7.13, R7.14, R7.15, R7.17, R7.18 |
@@ -68,11 +68,18 @@ block that copies `solution/` into a workspace and runs it.
 ## Shared material
 
 ```
-corpus/incidents/      five markdown incident notes (PLAY-1001 … PLAY-1005)
+corpus/incidents/      four markdown incident notes (PLAY-1001 … PLAY-1004)
+corpus/exports/        three HTML wiki exports and a CSV register (PLAY-4001 … PLAY-4004)
 corpus/scans/          two small PDFs and a PNG, from toolkit/make_sample_pdfs.py
 corpus/observability/  five PDFs and a screenshot, from toolkit/make_observability_docs.py
 toolkit/               the stub model server, and the two document generators
 ```
+
+`corpus/exports/` is exercise 03's, and is the only material here that `dossier`
+cannot read out of the box: `text/html` and `text/csv` are in `MEDIA_TYPES` and
+no installed converter claims either pair, which is the gap that exercise fills
+by installing a package. `PLAY-4003` is a dashboard shared as a page whose body
+is one `<img>` — it converts to nothing at all, on purpose.
 
 `corpus/observability/` is exercise 10's, and is the only material here whose
 evidence is drawn rather than written: an APM latency chart, a Grafana JVM
@@ -87,9 +94,11 @@ snapshot look edited (R0.4). `make_observability_docs.py --digests` prints each
 page's sha256 as the shipped converters render it, which is where the page
 numbers in exercise 10's reply file come from.
 
-The repository's own PDF fixtures, under
+`corpus/scans/` holds the two PDFs exercise 03 points at beside the exports — one
+carrying an embedded image, one with no text layer at all — and the PNG exercise
+04 uses. The repository's own PDF fixtures, under
 `tests/fixtures/documents/postmortems/pdf/`, are real material too — fifteen
-generated postmortems — and exercise 03 uses them.
+generated postmortems — and any exercise here can be pointed at them instead.
 
 ### The stub model
 
@@ -142,9 +151,10 @@ folder:
 
 1. **The playground never changes `dossier`.** No file under `src/`, `specs/` or
    `tests/` is touched by any exercise. Where an exercise runs into something
-   that would need a change — an image type dossier does not recognise, for
+   that would need a change — a file extension dossier does not recognise, for
    instance — the exercise ends in a written proposal, because behaviour that is
-   not in a spec does not get implemented (`CLAUDE.md`).
+   not in a spec does not get implemented (`CLAUDE.md`). Exercise 04 shows one
+   such proposal that was written, reviewed and landed as R8.10.
 
 2. **Verified answers are written by you, not by an assistant.** `gold/` holds
    the definition of correct, and `.claude/hooks/guard-edits.sh` blocks any agent
@@ -161,24 +171,24 @@ folder:
 
 ```bash
 rm -rf playground/work                    # every workspace you built
-uv pip uninstall dossier-pdf-playground dossier-text-playground   # exercises 03 and 04
+uv pip uninstall dossier-html-playground  # exercise 03
 ```
 
 **The uninstall is not optional if you share the environment with the test
-suite.** Exercises 03 and 04 install converter packages, and a converter is
-resolved from the installed environment — so `installed_converters()` then
-returns three converters instead of one, and
-`tests/acceptance/test_R004_7__replay_reproduces_a_past_run.py` fails on
+suite.** Exercise 03 installs a converter package, and a converter is resolved
+from the installed environment — so
+`tests/unit/test_R008_1__conversion_is_a_pure_function_of_its_input.py` fails on
 
 ```
-assert {c["id"] for c in converters} == {"markdown-text"}
+AssertionError: ['text/csv', 'text/html'] has no sample payload, so every
+converter claiming it is silently skipped by the rows above
 ```
 
-because the manifest now records the converters that were really installed. The
-test is right and so is the manifest: what a run recorded depends on the
-environment it ran in, which is exactly what that assertion is about. Uninstall
-the packages, or install them into a throwaway virtualenv, and `pytest` is green
-again.
+The suite runs its R8.1 purity rows over every installed converter, skips any
+whose media type it has no sample payload for, and then asserts that every skip
+is a *named* exemption — because a converter quietly exempted from the purity
+check is the one outcome nobody would notice. Uninstall the package, or install
+it into a throwaway virtualenv, and `pytest` is green again.
 
 `.dossier/`, `runs/`, `mlruns/` and `.env` are already ignored by the
 repository's `.gitignore`, wherever they appear.

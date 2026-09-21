@@ -1,0 +1,17 @@
+# A folder of shift notes. No `convert:` list, so every document gets the default
+# kind for *its own* media type (R8.10) -- which is not the same answer for every
+# document in the folder.
+#
+# `markdown` is the fallback, because a stage reads text and grounding searches
+# converted text (R6.4). An image has a row of its own and resolves to
+# `page_images`: it has no text layer, so asking for `markdown` would name a pair
+# nobody can honestly claim, and the refusal would then send the reader off to
+# install a converter that turns a picture into text.
+#
+# The table is `DEFAULT_KINDS` in `src/dossier/domain/conversion.py`, and it is
+# four lines long. Only a media type whose answer is *not* the fallback needs a
+# row.
+sources:
+  - id: shift-notes
+    type: folder
+    path: inbox/notes/

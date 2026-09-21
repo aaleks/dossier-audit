@@ -1,0 +1,9 @@
+2026-06-14T02:11:07.412Z INFO  [gc] pause Young (G1 Evacuation Pause) 41.6ms
+2026-06-14T02:11:39.880Z INFO  [gc] pause Young (G1 Evacuation Pause) 38.2ms
+2026-06-14T02:12:04.155Z WARN  [gc] pause Full (Allocation Failure) 2''418ms
+2026-06-14T02:12:06.573Z ERROR [orders-api] request timed out after 2000ms path=/orders/search
+2026-06-14T02:12:06.574Z ERROR [orders-api] request timed out after 2000ms path=/orders/search
+2026-06-14T02:12:31.009Z WARN  [gc] pause Full (Allocation Failure) 2''902ms
+2026-06-14T02:12:33.911Z INFO  [orders-api] heap after full gc 3''914MB of 4''096MB
+2026-06-14T02:13:02.664Z WARN  [gc] pause Full (Allocation Failure) 3''106ms
+2026-06-14T02:13:05.770Z INFO  [ops] node drained by operator, traffic shifted to eu-west-1b
