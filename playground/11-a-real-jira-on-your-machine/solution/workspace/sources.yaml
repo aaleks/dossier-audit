@@ -1,0 +1,57 @@
+# The one source this exercise audits: a Jira on your own machine.
+#
+# Nothing secret is written here, and nothing is interpolated -- no `${...}`,
+# no `$env:`. `token_env` and `user_env` are already references: they name the
+# variables, and `dossier.config` is the only package that reads them (R1.8,
+# R9.8). Writing `token:` here is refused by name at load time, because this
+# file is the one that gets committed.
+sources:
+  - id: incidents-jira
+    type: jira
+
+    # The base of the instance, with no `/rest` on the end. `docker-compose.yml`
+    # publishes 8080, and sets Jira's own base URL to match -- which matters
+    # more than it looks: every attachment's `content` URL is built by Jira from
+    # that setting, and a fetch follows it verbatim.
+    url: http://localhost:8080
+
+    # JQL, and deliberately without an ORDER BY. The connector narrows an
+    # incremental listing by appending `AND updated >= "..."` (R1.4), and
+    # `project = PLAY ORDER BY created ASC AND updated >= "..."` is not JQL.
+    # Order is not yours to choose here anyway: the ledger is keyed, not
+    # ordered.
+    query: project = PLAY
+
+    # A username beside a token is what makes the header Basic rather than
+    # Bearer (R1.12). A Data Center personal access token would name only
+    # `token_env`; this exercise uses the administrator account the setup
+    # wizard created, which is a username and a password, so both are named.
+    user_env: DOSSIER_JIRA_USER
+    token_env: DOSSIER_JIRA_TOKEN
+
+    # Absent would mean `datacenter`, which is what this is. Written out
+    # because the one-word difference is the whole of R1.13: `datacenter` pages
+    # /rest/api/2/search by offset, `cloud` pages /rest/api/2/search/jql by
+    # token. Change it to `cloud` and watch the sync fail against this server --
+    # that is task 7's optional half.
+    deployment: datacenter
+
+    # The projection the content hash is taken over (R2.10). The raw payload is
+    # still what gets stored (R2.17); this only decides what counts as a change.
+    #
+    # Read this list against a real issue payload before believing it does what
+    # you want. `normalise` projects onto **top-level** keys, and a Jira issue
+    # has only four that matter: `expand`, `id`, `self` and `fields`. So this
+    # buys exactly one thing -- `self` and `expand` stop being content, which
+    # means moving this Jira to another hostname, or upgrading it, does not
+    # re-snapshot every issue for a reason nobody would find later.
+    #
+    # It buys nothing finer. `updated` lives under `fields`, so it is inside the
+    # projection and every no-op edit still moves the hash. There is no
+    # `fields: [fields.summary]`. Task 5 is where you see that, and
+    # `resources/proposal.md` is where it is written down.
+    fields: [key, fields]
+
+    # Attachments are never projected -- a projection needs a JSON object, and
+    # a PDF is not one. Sync hashes a file's bytes as received, which is why
+    # nothing has to be said here about `postmortem.md`.

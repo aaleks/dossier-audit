@@ -6,5 +6,5 @@
 # exercise never shows up in `git status`.
 work/
 
-# Editable installs of the converter packages built in exercises 03 and 04.
+# Editable installs of the converter packages built in exercises 03 and 11.
 *.egg-info/

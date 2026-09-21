@@ -1,0 +1,84 @@
+# A Jira Data Center on your machine, for exercise 11.
+#
+# Two services and two named volumes. Nothing here is part of `dossier`: this is
+# a source to point it at, the way exercise 01 pointed it at a folder.
+#
+# What this costs, said plainly before you run it:
+#
+#   * a licence. Jira Server is end of life; Jira Data Center needs a key, and
+#     the free 30-day evaluation one is issued by my.atlassian.com against an
+#     Atlassian account. There is no perpetual free on-prem Jira.
+#   * about 4 GB of RAM while it is up, and three to five minutes to boot the
+#     first time.
+#   * the setup wizard, which is interactive and cannot be scripted away.
+#
+# The image is pinned. A floating `:latest` would make "the Jira I wrote this
+# against" unknowable, which is the same reason `pipeline.yaml` pins a model.
+#
+#   docker compose -f playground/11-a-real-jira-on-your-machine/docker-compose.yml up -d
+#   docker compose -f playground/11-a-real-jira-on-your-machine/docker-compose.yml logs -f jira
+#   docker compose -f playground/11-a-real-jira-on-your-machine/docker-compose.yml down -v   # and the data is gone
+
+name: dossier-playground-jira
+
+services:
+  jira:
+    image: atlassian/jira-software:10.3.23
+    container_name: dossier-playground-jira
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      # Jira reads its database settings from these on first boot, which takes
+      # one page out of the wizard. Everything else the wizard still asks.
+      ATL_JDBC_URL: jdbc:postgresql://postgres:5432/jira
+      ATL_JDBC_USER: jira
+      ATL_JDBC_PASSWORD: jira
+      ATL_DB_DRIVER: org.postgresql.Driver
+      ATL_DB_TYPE: postgres72
+      # Modest heap. Jira will run in less than it asks for; it will not run in
+      # much less than this.
+      JVM_MINIMUM_MEMORY: 1024m
+      JVM_MAXIMUM_MEMORY: 2048m
+      # The base URL Jira builds its own links from, including the `content` URL
+      # on every attachment -- which is the URL dossier follows to fetch a file
+      # (R1.6). Wrong here means attachments that 404 from outside the container.
+      ATL_PROXY_NAME: localhost
+      ATL_PROXY_PORT: "8080"
+      ATL_TOMCAT_SCHEME: http
+      ATL_TOMCAT_SECURE: "false"
+    volumes:
+      - jira-home:/var/atlassian/application-data/jira
+    healthcheck:
+      # `/status` answers RUNNING once Jira is up, FIRST_RUN while the wizard is
+      # still waiting for you. Either way the port is answering, which is all
+      # the seed script waits for.
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/status"]
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 120s
+
+  postgres:
+    image: postgres:16.6-alpine
+    container_name: dossier-playground-jira-db
+    environment:
+      POSTGRES_DB: jira
+      POSTGRES_USER: jira
+      POSTGRES_PASSWORD: jira
+      # Jira refuses a database whose collation it does not recognise, and the
+      # message it gives is not the one you would guess from.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - jira-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jira -d jira"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  jira-home:
+  jira-db:
