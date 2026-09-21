@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.24
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.25
 
 ## Purpose
 
@@ -110,7 +110,11 @@ can affect.
 ## The review loop
 
 **Not built.** What follows is the design, kept because three rules are shaped
-by it; no rule claims the file or the command, and `dossier` writes neither.
+by it; no rule claims the file or the command, and `dossier` writes neither. The
+part of it that needs no file *is* built: `dossier run` names every field finding
+it produced (R6.16) and `dossier eval` names the document behind every verdict it
+scored incorrect (R7.25), both with the detail described below. What is missing
+is the file, and the reviewer's answers coming back.
 
 A run would emit `review.jsonl`: one record per field that is empty,
 ungrounded, low confidence, or disagrees with the gold set. A reviewer would
@@ -118,12 +122,15 @@ mark each `correct`, `incorrect`, or supply the right value, and accepted
 corrections would be merged into the gold set -- reviewing being how the gold
 set grows, with no separate labelling exercise.
 
-What exists today is the material the file would hold: every `FieldScore`
-carries a `detail` saying *why* it came out as it did -- abstained, ungrounded,
-a value mismatch, a judge's evidence (R6.5 row 2, R7.4 row 2, R7.17 row 2) --
-and `apply_correction` in `dossier.domain.gold` is the decision a correction
-would pass through (R7.7). The command that writes the file and reads the
-reviewer's answers back is a feature to scope with `/discover`, not a fix.
+What exists today is the material the file would hold, and two commands that
+print it: every `FieldScore` carries a `detail` saying *why* it came out as it
+did -- abstained, ungrounded, a value mismatch, a judge's evidence (R6.5 row 2,
+R7.4 row 2, R7.17 row 2) -- and `apply_correction` in `dossier.domain.gold` is
+the decision a correction would pass through (R7.7). Those details reached
+nobody until R6.16 and R7.25: `field_failures` was correct, had no caller
+anywhere in `src/`, and a run over sixteen invalid fields printed `0 failed`.
+The command that writes the file and reads the reviewer's answers back is a
+feature to scope with `/discover`, not a fix.
 
 ## The change gate
 
@@ -742,3 +749,43 @@ loses — which is why the bar is below the text judge's, and why it is not 1.0.
 | 2 | the same measurement recorded | the judge model and the size of the sample travel with the figure, as R7.11 row 2 requires |
 | 3 | a judge answering "supported" to every case | 13 of 22 = 0.591, the floor the bar must clear to measure anything |
 | 4 | *counter-example* — the same sample scored by a judge shown extracted text | not comparable, and not a substitute: `INC-5720` has no text layer, so two of the cases cannot be asked at all |
+
+### R7.25 — `dossier eval` names the document behind every verdict it scored incorrect, with the detail that says why
+
+R7.2 gives each field a percentage, which says where the work is. It does not say
+what the work *is*, and the material to say it has been carried since scoring was
+written: every `FieldScore` holds a `detail` distinguishing an ungrounded field
+from a value that disagreed from a malformed one (R7.4 row 2), and "The review
+loop" above describes the file those details would one day fill. The file is
+still not built. This rule is the part of it that needs no file: the details are
+printed, under the field whose percentage they explain, as each eval runs.
+
+The distinction R7.4 row 2 exists for is the whole point. A field at 0.0% is three
+different problems -- a prompt that cites nothing locatable, a model that reads
+the wrong figure, a gold set that moved -- and they are told apart by reading the
+detail, not by reading the percentage a second time.
+
+Every miss is named, not a sample of them. A cap would be a number nobody
+measured, and "and 14 more" is the shape of a report that knows something it is
+not saying; a large corpus is what a pipe is for. Only the misses: a correct
+verdict has no detail worth a line, and printing one per field per document would
+bury the fifteen that matter under four hundred that do not.
+
+A withheld field prints its reason and no details (R7.15). Nothing was scored for
+it, so there is nothing to explain -- and a list of misses under a field whose
+percentage was refused would be the number arriving by the back door.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.main`)
+- **Proved by:** `tests/acceptance/test_R007_25__eval_names_the_documents_behind_a_score.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `loss_amount` at 25.0% over four documents | the `loss_amount` line, then one indented line per incorrect verdict, each naming its document and its detail |
+| 2 | `PLAY-1001.md`'s `loss_amount` scored incorrect for citing a key that is not an input | `    PLAY-1001.md  loss_amount: cites 'PLAY-1001', which was not an input to this stage. Inputs were ['PLAY-1001.md'] (R6.3)` |
+| 3 | `PLAY-1001.md`'s `loss_amount` ungrounded, its value matching gold | the detail says it was ungrounded, not that its value mismatched (R7.4 row 2) |
+| 4 | a field at 100.0% | its line alone; a correct verdict has no detail worth a line |
+| 5 | documents in the order the run visited them | the same order under every field, so two evals of one run read identically (R0.4) |
+| 6 | *counter-example* — a withheld `root_cause` | its reason line, and no details; nothing was scored, so there is nothing to explain (R7.15) |
+| 7 | *counter-example* — a field absent from gold for one document | no line for that document; absent is not `null` and is not a miss (R7.3 row 4) |
