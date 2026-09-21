@@ -1,7 +1,7 @@
 # 003 — Configuration format
 
 **Status:** Implemented
-**Rules:** R3.1 – R3.12
+**Rules:** R3.1 – R3.13
 
 ## Purpose
 
@@ -105,9 +105,9 @@ Multiple inputs are injected under distinct labelled tags, never concatenated:
 <procedure>{{reference}}</procedure>
 ```
 
-In a `per_file` step each placeholder holds one document's text. In an
-`aggregate` step the same placeholder holds every document, and each is wrapped
-in a tag naming the key it came from:
+Every placeholder holds documents wrapped in a tag naming the key each came
+from (R3.13). A `per_file` step's placeholder holds the one document that call
+is about; an `aggregate` step's holds every document:
 
 ```markdown
 <extraction>
@@ -119,6 +119,9 @@ in a tag naming the key it came from:
 Wrapped rather than concatenated, for the same reason the inputs above are: a
 model asked to attribute a finding needs to know which document it read it in,
 and `source.document` must name one of them for the field to be grounded (R6.4).
+A `per_file` step is wrapped for that reason too, and used not to be: a stage
+asked to carry a key it was never shown has to guess one, and a guessed key is
+`invalid` under R6.3 however right the value beside it is (R3.13).
 Documents appear in key order, so the same set of inputs produces the same prompt
 on every machine (R0.4).
 
@@ -390,3 +393,60 @@ request is that its author expected an input this pipeline does not produce.
 | 3 | `extract` declaring `input: [documents, describe]` | `{{describe}}` holds the three descriptions in part order, each wrapped in a tag naming its part |
 | 4 | a second run with nothing changed | zero model calls; every part is served from its own cache entry (R5.5) |
 | 5 | *counter-example* — a `per_part` step whose input is `documents` | load-time error naming the step; converted text has no parts to fan out over, and running it once would answer a question nobody asked |
+
+### R3.13 — every input value names the document it came from, in `per_file` and `per_part` as well as `aggregate`
+
+An `aggregate` step's inputs have been wrapped in `<document key="…">` since this
+spec was written, for a reason stated a few lines above the wrapping: *a model
+asked to attribute a finding needs to know which document it read it in, and
+`source.document` must name one of them for the field to be grounded (R6.4).* A
+`per_file` step was handed the bare text. The reason applies identically, and the
+asymmetry was never argued for -- it was what one branch of `_input_values`
+happened to do.
+
+The consequence is exact, and playground exercise 05 ran into it the first time a
+real model was pointed at it. R6.3 requires `source.document` to name an input to
+the stage. The document key was in no part of the prompt. So the model read the
+key off the note's own heading, answered `PLAY-1001` for a document whose key is
+`PLAY-1001.md`, and every one of its sixteen values -- all sixteen correct
+against gold -- was scored `invalid`. The run was asked for a fact it was never
+given and marked wrong for not guessing it.
+
+The form is the one `aggregate` already uses, so there is one wrapper in the
+system and not two:
+
+```markdown
+<source_document><document key="PLAY-1001.md">…</document></source_document>
+```
+
+Every input is wrapped, not only `documents`. A step reading an earlier step's
+output cites evidence too, and a citation needs a key whatever produced the text
+it is citing. A `per_part` step's text inputs are wrapped for the same reason;
+its *parts* are pictures and carry no text to wrap, and R3.12's part tags are
+unchanged.
+
+**This invalidates every stage key a `per_file` or `per_part` step ever wrote.**
+The value handed to a prompt is hashed into that stage's key (spec 005), so
+changing the value changes the key -- which is R0.5 working, not a defect in it:
+the question changed, so the key changed. A replay recomposes its keys from the
+inputs rather than reading them from the manifest (R4.14), so a run written
+before this rule cannot be reproduced after it, and `dossier eval`, which scores
+a reproduction, cannot score one. Those runs are re-run, not recovered. The
+alternative -- rendering one way and keying the other -- would let a workspace
+serve an answer produced from a question nobody asked again, which is the exact
+thing R0.5 exists to prevent.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R003_13__every_input_value_names_its_document.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `extract` in `per_file` mode over `PLAY-1001.md`, input `documents` | `{{documents}}` holds `<document key="PLAY-1001.md">…</document>`, the note's text inside it |
+| 2 | the model answering `source.document: "PLAY-1001.md"` for that call | grounded, and scorable (R6.3); the key it was asked to carry is a key it was shown |
+| 3 | `verify` in `per_file` mode declaring `input: [documents, extract]` | both values wrapped, each naming `PLAY-1001.md`; an earlier step's output is cited like any other evidence |
+| 4 | the same pipeline run against a workspace holding entries written before this rule | every document a cache miss; the value hashed into the key is not the value that was hashed before (spec 005) |
+| 5 | a run written before this rule, replayed after it | `cannot be reproduced`, naming the entry; a replay recomposes its keys and these are keys no run wrote (R4.14, R4.7) |
+| 6 | *counter-example* — an `aggregate` step | unchanged; it already wrapped each document, and this rule is that branch's shape reaching the other two |
+| 7 | *counter-example* — the image parts of a `per_part` step | unchanged; a picture carries no text to wrap, and its key already holds the part's bytes (R3.12, R4.14) |

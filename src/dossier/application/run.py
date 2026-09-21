@@ -744,11 +744,51 @@ def _input_values(
             source = by_kind.get(kind or DEFAULT_INPUT_KIND, {})
         else:
             source = produced.get(target, {})
-        if aggregate:
-            values[name] = _joined(source, documents)
-        else:
-            values[name] = source.get(document, "")
+        values[name] = _one_value(
+            source, document=document, documents=documents, aggregate=aggregate
+        )
     return values
+
+
+def _one_value(
+    source: Mapping[str, str],
+    *,
+    document: str,
+    documents: Sequence[str],
+    aggregate: bool,
+) -> str:
+    """What one input holds for one call (R3.13).
+
+    The single place the mode decides what a placeholder gets. `execute` and
+    `replay` both come here, which is the point: a replay recomposes its keys
+    from these values (R4.14), so a rendering the two disagreed about would
+    build a key no run had ever written and make every run irreproducible. That
+    decision used to be written out twice, in this function's caller and in
+    `_replayed_input`, and the two agreeing was a thing someone had to remember.
+    """
+    if aggregate:
+        return _joined(source, documents)
+    # Wrapped exactly as the aggregate branch wraps, because the reason is the
+    # same one: a stage asked to carry a document key in `source.document` has
+    # to be shown that key. A stage that has to guess reads it off the note's
+    # own heading, answers `PLAY-1001` for a document keyed `PLAY-1001.md`, and
+    # is `invalid` under R6.3 with every value beside it right (R3.13).
+    #
+    # Absent stays absent rather than becoming an empty wrapper: a document the
+    # step produced nothing for is not a document that was read and said
+    # nothing, and `_joined` draws the same line.
+    content = source.get(document)
+    return "" if content is None else _wrapped(document, content)
+
+
+def _wrapped(key: str, content: str) -> str:
+    """One document's content under a tag naming the key it came from (R3.13).
+
+    The one wrapper in the system. Every branch of `_one_value` calls it, so a
+    `per_file` step and an `aggregate` step cannot describe the same document
+    two different ways -- which is what the asymmetry this replaced amounted to.
+    """
+    return f'<document key="{key}">{content}</document>'
 
 
 def _joined(source: Mapping[str, str], documents: Sequence[str]) -> str:
@@ -768,11 +808,7 @@ def _joined(source: Mapping[str, str], documents: Sequence[str]) -> str:
     A document the step produced nothing for is absent rather than empty: a blank
     `<document>` invites an answer about a document nobody read.
     """
-    return "\n".join(
-        f'<document key="{key}">{source[key]}</document>'
-        for key in sorted(documents)
-        if key in source
-    )
+    return "\n".join(_wrapped(key, source[key]) for key in sorted(documents) if key in source)
 
 
 def _targets(declared: StepConfig, resolved: ResolvedStep) -> list[str]:
@@ -1253,4 +1289,4 @@ def _replayed_input(
         # A non-text kind reaches a step as parts, never as a substitution, so
         # `execute` hashed an empty string for it here too (R8.11).
         source = {}
-    return _joined(source, documents) if aggregate else source.get(document, "")
+    return _one_value(source, document=document, documents=documents, aggregate=aggregate)

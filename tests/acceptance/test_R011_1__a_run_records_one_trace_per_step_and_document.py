@@ -59,12 +59,14 @@ def _run(workspace: Path, monkeypatch, model) -> tuple[object, str]:
 class ReportingModel(RoutedModel):
     """The scoring example's answers for each document, and prose for an aggregate step.
 
-    An aggregate step reads every document at once, wrapped in tags naming each
-    key (spec 003), so its prompt names no single incident to route by.
+    An aggregate step reads every document at once, so its prompt names no
+    single incident to route by. Detected by counting the wrappers rather than
+    by their presence: since R3.13 a `per_file` prompt carries one too, and a
+    fake that read presence alone answered prose to every step.
     """
 
     def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
-        if '<document key="' in prompt:
+        if prompt.count('<document key="') > 1:
             self.calls.append("*")
             return "Four incidents; three stated a loss."
         return super().complete(prompt, schema=schema)

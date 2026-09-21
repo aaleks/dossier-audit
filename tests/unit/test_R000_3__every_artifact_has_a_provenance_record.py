@@ -20,7 +20,7 @@ from tests.fakes import FakeModelClient, NoModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
-from dossier.application.run import execute
+from dossier.application.run import _wrapped, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.hashing import content_hash
 from dossier.domain.pipeline import PipelineConfig, StepConfig
@@ -132,9 +132,16 @@ class TestEveryArtifactHasAProvenanceRecord:
 
         assert artifact.is_file()
         assert artifact.name == record["cache_key"]
+        # The hash of the value the stage was *given*, which since R3.13 names
+        # the document it came from. Built with `_wrapped` rather than with a
+        # second copy of the format string, so this states the claim -- the
+        # record holds the hashes of the inputs -- instead of restating the
+        # wrapper.
         assert {entry["role"]: entry["hash"] for entry in record["inputs"]} == {
-            "documents": content_hash(STAGE_INPUTS["INC-4821"].encode()),
-            "extract": content_hash(extracted.read_bytes()),
+            "documents": content_hash(_wrapped("INC-4821", STAGE_INPUTS["INC-4821"]).encode()),
+            "extract": content_hash(
+                _wrapped("INC-4821", extracted.read_text(encoding="utf-8")).encode()
+            ),
         }
         assert record["prompt"]["hash"] == content_hash(
             prompt_for(["documents", "extract"]).encode()
