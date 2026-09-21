@@ -19,7 +19,7 @@ spec assumes.
 | `008-conversion.md` | The converter interface, its registration, versioning and selection | R8.1 – R8.12 | Implemented |
 | `009-model-providers.md` | Model providers, their pinned forms, and where each is reached | R9.1 – R9.16 | Implemented |
 | `010-mlflow-tracking.md` | MLflow tracking: the switch, experiment routing, and what tracking may not do | R10.1 – R10.8 | Implemented |
-| `011-tracking-records.md` | What each command records to MLflow: runs, traces, spans and metrics | R11.1 – R11.7 | Implemented |
+| `011-tracking-records.md` | What each command records to MLflow: runs, traces, spans and metrics | R11.1 – R11.10 | Partially implemented |
 | `012-evaluation-datasets.md` | Publishing a gold set as an MLflow evaluation dataset, and the eval run that links to it | R12.1 – R12.6 | Implemented |
 
 Supporting files:

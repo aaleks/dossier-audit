@@ -29,7 +29,7 @@ records its runs is not a property of the pipeline.
 | `DOSSIER_MLFLOW_ENABLED` | `true` / `false` | `false` |
 | `DOSSIER_MLFLOW_TRACKING_URI` | a URL | none; `.env.example` says `http://localhost:5000` |
 | `DOSSIER_MLFLOW_EXPERIMENT` | a template | `dossier-audit/{pipeline}/{kind}` |
-| `DOSSIER_MLFLOW_EXPERIMENT_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE` | a template | falls back to `DOSSIER_MLFLOW_EXPERIMENT` |
+| `DOSSIER_MLFLOW_EXPERIMENT_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE`, `_COMPARE` | a template | falls back to `DOSSIER_MLFLOW_EXPERIMENT` |
 | `DOSSIER_MLFLOW_CAPTURE` | `full` / `hashes` | `full` |
 
 The tracking URI has no default in code, for the reason the project's default
@@ -50,8 +50,8 @@ from a template per command kind:
 | Placeholder | Holds | Available to |
 |---|---|---|
 | `{pipeline}` | the pipeline name, `incident-audit` | every command |
-| `{kind}` | `sync`, `convert`, `run`, `eval` or `calibrate` | every command |
-| `{gold}` | the gold directory's name: `gold/incidents` gives `incidents` | `eval` and `calibrate`, the two commands that read one |
+| `{kind}` | `sync`, `convert`, `run`, `eval`, `calibrate` or `compare` | every command |
+| `{gold}` | the gold directory's name: `gold/incidents` gives `incidents` | `eval`, `calibrate` and `compare`, the commands that read one |
 
 The default lays one pipeline out as:
 
@@ -61,6 +61,7 @@ dossier-audit/incident-audit/convert   per-source counts
 dossier-audit/incident-audit/run       one MLflow run per dossier run; traces live here
 dossier-audit/incident-audit/eval      per-field metrics, gold set by name and hash
 dossier-audit/incident-audit/calibrate one MLflow run per measurement; a trace per sample case (R11.5)
+dossier-audit/incident-audit/compare   per-field deltas between two runs (R11.8)
 ```
 
 A template with no placeholder -- `dossier-audit` -- puts everything in one
