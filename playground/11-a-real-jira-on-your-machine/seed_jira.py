@@ -135,7 +135,10 @@ def wait(args: argparse.Namespace) -> int:
             last = state
         time.sleep(5)
 
-    print(f"Jira did not reach RUNNING within {args.timeout}s (last state: {last or 'no answer'}).")
+    print(
+        f"Jira did not reach RUNNING within {args.timeout}s "
+        f"(last state: {last or 'no answer'})."
+    )
     if last == "FIRST_RUN":
         print("Open the URL above and finish the setup wizard: it needs an evaluation licence.")
     return 1
@@ -389,8 +392,12 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("command", choices=sorted(COMMANDS))
-    parser.add_argument("key", nargs="?", help="the issue to act on, for the commands that take one")
-    parser.add_argument("--url", default=os.environ.get("DOSSIER_JIRA_URL", "http://localhost:8080"))
+    parser.add_argument(
+        "key", nargs="?", help="the issue to act on, for the commands that take one"
+    )
+    parser.add_argument(
+        "--url", default=os.environ.get("DOSSIER_JIRA_URL", "http://localhost:8080")
+    )
     parser.add_argument("--timeout", type=float, default=600.0, help="seconds `wait` will wait")
     args = parser.parse_args(argv)
 

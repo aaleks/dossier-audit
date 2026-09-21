@@ -112,13 +112,24 @@ src = ["src", "tests"]
 # the top (E402) would silently break regeneration -- the determinism R0.4 and
 # R5.6 are about. The modules ship no code and are never imported by dossier.
 #
-# `specs/` for a different reason: ruff formats Python inside fenced markdown
-# blocks, and the examples there align their trailing comments into columns on
-# purpose. A spec is a document before it is code -- the blocks are read as
-# tables and transcribed into tests by hand -- so flattening them costs
-# readability and buys nothing. Excluded here rather than left to be rediscovered
-# by whoever next runs `ruff format .` over the whole tree.
-extend-exclude = ["tests/fixtures/documents/postmortems", "specs"]
+# `*.md` for a different reason: ruff formats Python inside fenced markdown
+# blocks, and a fenced block in this repository is documentation. The examples in
+# `specs/` align their trailing comments into columns on purpose and are
+# transcribed into tests by hand; the playground's blocks are *fragments* --
+# a few lines lifted out of a function to be talked about.
+#
+# Formatting them does not merely cost readability, it can change what they say.
+# `ruff format .` rewrote a snippet in playground 11 from a keyword argument
+# into a one-tuple assignment:
+#
+#     media_type=reported_media_type(a, b),   ->   media_type = (
+#                                                      reported_media_type(a, b),
+#                                                  )
+#
+# which is valid Python meaning something else entirely, in a document teaching
+# someone what the line does. `specs` stays listed because it is excluded from
+# linting as well, not only formatting.
+extend-exclude = ["tests/fixtures/documents/postmortems", "specs", "*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
