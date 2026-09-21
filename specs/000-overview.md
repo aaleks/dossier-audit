@@ -1,7 +1,7 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Implemented
-**Rules:** R0.1 – R0.13
+**Status:** Partially implemented
+**Rules:** R0.1 – R0.14
 
 ## Purpose
 
@@ -420,3 +420,48 @@ is created only after every key has resolved.
 | 3 | `extract/INC-4821.json` under the run edited by hand, then the run replayed | the edited file is left as edited; the replay directory holds the cache bytes |
 | 4 | *counter-example* — the cache entry for `INC-4822` absent, the other two present | exit 2 with the R4.7 row 4 error, and no `replays/<id>/` directory is created |
 | 5 | *counter-example* — `dossier eval incident-audit --gold gold/incidents`, which reproduces the latest run through the same path | nothing written under `runs/`; eval reads a run, it does not add to one |
+
+### R0.14 — a field-record artifact is written as indented JSON, one key per line, ending in a newline
+
+R0.11 says where an artifact is written and that the run copy is the cache's
+bytes. It says nothing about what those bytes look like, and what they looked
+like was `model_dump_json()` with no arguments: one line, no spaces, every field
+of every record run together. `manifest.json` is written with `indent=2`, every
+provenance record is written with `indent=2`, and the artifact -- the file this
+whole system exists to produce, and the only one a reviewer actually reads -- was
+the one file in the workspace nobody could read.
+
+Two properties, and they are the reason this is a rule rather than a preference.
+The formatting is part of the artifact's bytes, so it is the same on both sides
+of R0.11 by construction: one serialiser, used for the cache entry and the run
+copy, and a replay that compared them would be comparing a file with itself.
+And it is a *format*, not a re-ordering: keys stay in the order `StageOutput`
+declares them, because `document` before `fields` is how the record reads and
+sorting it would be a second, invisible decision taken for the sake of a first.
+
+R0.11 is not superseded, and neither is R5.5. R0.11 still says where the file
+goes and that the two copies agree; this says what is in them. A step with no
+`output` declaration returns prose rather than field records, and prose is the
+artifact as the model wrote it -- there is nothing to indent and nothing to
+normalise it against, so this rule does not reach it.
+
+Changing a serialiser changes every artifact written after it. No cache key
+moves -- an artifact's bytes enter no key (R0.5 is about *inputs*) -- so a
+workspace holding entries in the old form keeps hitting them, and only what is
+written from here on is indented. That is a genuine seam in a workspace's
+history, and it is the honest one: the alternative is rewriting stored bytes
+that R0.2's reasoning says should never be rewritten in place.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R000_14__a_field_record_artifact_is_indented_json.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `extract` over `PLAY-1001.md` returning four field records | `extract/PLAY-1001.md.json` is indented two spaces, one key per line, and ends in a single `\n` |
+| 2 | the same artifact and the cache entry it was written from | byte-identical, as R0.11 row 1 requires; one serialiser produces both, so the property cannot be broken on one side only |
+| 3 | the same document served from the cache on a second run | the same bytes again, indented; a cache hit carries stored bytes forward and does not re-serialise them (R5.5) |
+| 4 | a record whose `document` is `PLAY-1001.md` and whose `fields` list is empty | `{"document": "PLAY-1001.md", "fields": []}` indented; an empty list is still a record, and `document` still precedes `fields` |
+| 5 | *counter-example* — a `report` step with no `output` declaration | `report/PLAY-1001.md.md` holds the model's prose exactly as returned, with no newline appended and no formatting applied; there is no JSON here to indent |
+| 6 | *counter-example* — a cache entry written before this rule, still hit | served and copied as stored, on one line; nothing rewrites an entry in place, and the key it is held under did not move |
