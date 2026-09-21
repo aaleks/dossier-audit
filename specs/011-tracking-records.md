@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.6
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.7
 
 ## Purpose
 
@@ -19,11 +19,12 @@ that could disagree with the terminal would leave nobody sure which to believe.
 | Command | MLflow run | Traces | Metrics |
 |---|---|---|---|
 | `dossier run` | one, named after the dossier run id | one per (step, document) | documents, cache hits, model calls, failed |
-| `dossier eval` | one | the judge's calls, if any | `accuracy/<field>`, `accuracy/overall` |
+| `dossier eval` | one, linked to the gold set's dataset (R11.7) | the judge's calls, if any | `accuracy/<field>`, `accuracy/overall` |
 | `dossier sync` | one | none | `<source>/known`, `/changed`, `/new`, `/fetched`, `/failed`; `changes.json` attached (R11.6) |
 | `dossier convert` | one | none | `<source>/held`, `/converted`, `/cached`, `/failed` |
 | `dossier calibrate` | one, per gold set | one per sample case | `judge/<field>/agreement`, `judge/<field>/cases` |
 | `dossier run --plan`, `--replay` | none | none | none |
+| `dossier dataset publish` | none | none | none; it publishes a dataset rather than recording a run (spec 012) |
 
 Metric names use `/` so MLflow's UI groups them: every field's accuracy under
 `accuracy/`, every count of one source under its id. Accuracy is recorded as the
@@ -157,3 +158,24 @@ ledger -- the principle this spec opens with.
 | 1 | `INC-4822` repointed `0e52dd18` to `77c1b40a`, `INC-4821` tombstoned | `changes.json` holds `changed: [{incidents-jira, INC-4822, 0e52dd18…, 77c1b40a…}]` and `tombstoned: [{incidents-jira, INC-4821}]`, full hashes |
 | 2 | a sync where nothing changed | `changes.json` attached with two empty lists; an absent artifact is indistinguishable from a sync that never ran (R11.4 row 3) |
 | 3 | *counter-example* — `dossier run --plan` after that sync | no MLflow run, so nothing attached (R11.1 row 5); the record belongs to the command that fetched |
+
+### R11.7 — a `dossier eval` links its MLflow run to the dataset of the gold set it scored, and names a stale one
+
+The dataset spec 012 publishes, logged as the run's input, so the run and the
+answers it was measured against are one click apart rather than one hash lookup.
+The link is a record and never an input: the gold set on disk is what was scored
+(R12.4), so a dataset that does not match it is *named*, not obeyed, and a
+dataset that cannot be read at all costs the eval nothing (R10.6).
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.start_eval`)
+- **Proved by:** `tests/unit/test_R011_7__an_eval_links_the_dataset_it_scored_against.py`, `tests/acceptance/test_R011_7__eval_links_its_dataset_in_mlflow.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `gold/incidents` published, then `dossier eval incident-audit --gold gold/incidents` | the dataset `incidents` logged as an input of the eval run, beside the gold hash tag and per-field metrics R11.3 already records |
+| 2 | the gold set edited since publishing — published `3b7e1d90`, scored `9c4f21a8` | linked anyway, tagged `dossier.dataset_stale=true` with both hashes; the terminal says which is which and names `dossier dataset publish`. The figures are the edited set's, because that is what was scored |
+| 3 | no dataset published for `gold/incidents` | the eval records exactly what R11.3 says and no input; a missing dataset is not an error, and nothing about the score changed |
+| 4 | the dataset unreadable — the server answers the run's calls and 500s on the dataset | recorded without the link, one line saying so; a lost record never changes a command's outcome (R10.6) |
+| 5 | *counter-example* — `dossier eval incident-audit --gold gold/incidents --compare A B` | no MLflow run and so no link; a comparison reads two runs each recorded when they ran (R7.8) |
