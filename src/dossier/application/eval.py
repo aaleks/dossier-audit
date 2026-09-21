@@ -312,7 +312,7 @@ def record_comparison(
     if earlier is not None and later is not None:
         metrics["delta/overall"] = later.percentage - earlier.percentage
     tracker.log_metrics(metrics)
-    tracker.end_run(status="OK")
+    tracker.end_run(status="FINISHED")
 
 
 def judge_prompt_hash() -> str:

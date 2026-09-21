@@ -124,7 +124,7 @@ class TestAComparisonRecordsOneRunOfDeltas:
 
         assert tracker.traces == []
         assert tracker.spans == []
-        assert tracker.runs[0].status == "OK", "opened and closed here"
+        assert tracker.runs[0].status == "FINISHED", "opened and closed here"
 
     def test_a_field_only_one_run_scored_records_its_side_and_no_delta(self):
         """*counter-example* — the one where there is nothing to subtract.

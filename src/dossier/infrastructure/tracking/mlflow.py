@@ -137,9 +137,28 @@ class MlflowTracker:
         of the link: the answers a figure was measured against are a click away
         rather than a hash lookup.
         """
+        from mlflow.entities import DatasetInput, InputTag
         from mlflow.genai.datasets import get_dataset
 
-        self._client.log_inputs(self._run_id, datasets=[get_dataset(dataset_id=dataset_id)])
+        # Converted the way MLflow's own `log_input` converts it -- see
+        # `_create_dataset_input` in `mlflow/tracking/fluent.py`, which is
+        # `DatasetInput(dataset=dataset._to_mlflow_entity(), tags=...)`. The
+        # fluent function itself logs to whatever run is *active*, and this
+        # tracker holds its run by id rather than activating one, so it cannot be
+        # used. Handing `log_inputs` the dataset itself raises TypeError: it
+        # wants a `DatasetInput`, and an `EvaluationDataset` is a `Dataset`.
+        held = get_dataset(dataset_id=dataset_id)
+        self._client.log_inputs(
+            self._run_id,
+            datasets=[
+                DatasetInput(
+                    dataset=held._to_mlflow_entity(),
+                    # How the dataset was used, which is what MLflow's UI groups
+                    # a run's inputs by.
+                    tags=[InputTag(key="mlflow.data.context", value="eval")],
+                )
+            ],
+        )
 
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
         root = self._client.start_trace(
