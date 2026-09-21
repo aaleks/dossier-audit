@@ -113,6 +113,9 @@ class FakeRun:
     params: dict[str, str] = field(default_factory=dict)
     metrics: dict[str, float] = field(default_factory=dict)
     artifacts: dict[str, bytes] = field(default_factory=dict)
+    # The evaluation datasets this run was measured against (R11.7). A list, not
+    # a flag: R11.7 rows 3 and 4 are both claims that there is exactly none.
+    inputs: list[dict[str, str]] = field(default_factory=list)
     traces: list[FakeTrace] = field(default_factory=list)
     status: str | None = None
 
@@ -149,6 +152,9 @@ class FakeTracker:
 
     def log_artifact(self, name: str, content: bytes) -> None:
         self._run.artifacts[name] = content
+
+    def log_dataset(self, *, name: str, dataset_id: str, digest: str) -> None:
+        self._run.inputs.append({"name": name, "dataset_id": dataset_id, "digest": digest})
 
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
         self._run.traces.append(FakeTrace(name=name, tags=dict(tags)))

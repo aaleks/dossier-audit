@@ -71,6 +71,8 @@ from dossier.domain.conversion import (
     unpack_parts,
 )
 from dossier.domain.conversion import used as used_converters
+from dossier.domain.datasets import PublishedDataset
+from dossier.domain.gold import gold_set_hash
 from dossier.domain.grounding import GROUNDED, judge_name, judged_states
 from dossier.domain.hashing import text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
@@ -1225,6 +1227,13 @@ def eval_(
     # file was written (R11.3 row 2).
     gold_files = {p.name: p.read_bytes() for p in sorted((workspace / gold).glob("*.json"))}
     if tracker is not None:
+        # Asked for before the run opens, because whether the dataset is stale is
+        # a tag, and a tag is set when a run starts (R11.7 row 2).
+        # Not `scored`: that name holds the reproduced step result a few lines up.
+        scored_hash = gold_set_hash(gold_files)
+        published = _published_dataset(workspace, gold=gold)
+        was = published.tags.get("dossier.gold_hash") if published is not None else None
+        stale = was is not None and was != scored_hash
         # Opened before the judge is asked, so its traces sit inside the run
         # (R7.18 row 5); closed below with the figures the report printed.
         start_eval(
@@ -1237,7 +1246,23 @@ def eval_(
             gold_files=gold_files,
             judges=judges,
             withheld=withheld,
+            dataset_stale=stale,
         )
+        if published is not None:
+            tracker.log_dataset(
+                name=published.name,
+                dataset_id=published.dataset_id,
+                digest=published.digest,
+            )
+        if stale:
+            # Named, not fixed. Republishing here would have an eval quietly
+            # mutate shared tracking state, and refusing would let a stale
+            # dataset block a score computed entirely from local files (R12.4).
+            typer.echo(
+                f"dataset {published.name} is stale: "
+                f"published {was[:8]}, scored {scored_hash[:8]}"
+            )
+            typer.echo("  run `dossier dataset publish` to refresh it")
     # The judge decides only what the deterministic scorers left, and only for
     # a field it may be quoted on: a withheld field is not judged at all, since
     # nothing is measured for a number nobody may print (R7.17).
@@ -1495,6 +1520,27 @@ def _reproduced(workspace: Path, manifest: Manifest, step: str):
 
 def _count(n: int, noun: str) -> str:
     return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
+def _published_dataset(workspace: Path, *, gold: str) -> PublishedDataset | None:
+    """The dataset published for this gold set, or `None` if there is not one.
+
+    Best effort, and deliberately. A gold set nobody has published is not an error
+    -- there is simply nothing to link -- and a dataset call that fails costs the
+    eval nothing, because a lost record never changes a command's outcome (R10.6).
+    What is never best effort is the score: that came from the files, and nothing
+    read here can reach it (R12.4).
+    """
+    try:
+        tracking = tracking_settings(environment(workspace))
+        if tracking is None:
+            return None
+        return build_dataset_registry(tracking).find(Path(gold).name)
+    except Exception:
+        # `TrackingUnavailable` included: an eval needs no dataset, so a server
+        # that cannot hold one is no reason to refuse the command (R12.5 row 5).
+        typer.echo("dataset not linked: MLflow could not be asked for it")
+        return None
 
 
 dataset_app = typer.Typer(

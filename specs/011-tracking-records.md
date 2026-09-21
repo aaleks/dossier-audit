@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.7
 
 ## Purpose
@@ -170,7 +170,7 @@ dataset that cannot be read at all costs the eval nothing (R10.6).
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.start_eval`)
 - **Proved by:** `tests/unit/test_R011_7__an_eval_links_the_dataset_it_scored_against.py`, `tests/acceptance/test_R011_7__eval_links_its_dataset_in_mlflow.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

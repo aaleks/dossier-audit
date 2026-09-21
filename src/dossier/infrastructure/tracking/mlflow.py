@@ -129,6 +129,18 @@ class MlflowTracker:
     def log_artifact(self, name: str, content: bytes) -> None:
         self._client.log_text(self._run_id, content.decode("utf-8"), name)
 
+    def log_dataset(self, *, name: str, dataset_id: str, digest: str) -> None:
+        """Log the dataset as an input of this run (R11.7).
+
+        `EvaluationDataset` subclasses `mlflow.data.dataset.Dataset`, so the run
+        carries it where the UI shows a run's inputs -- which is the whole point
+        of the link: the answers a figure was measured against are a click away
+        rather than a hash lookup.
+        """
+        from mlflow.genai.datasets import get_dataset
+
+        self._client.log_inputs(self._run_id, datasets=[get_dataset(dataset_id=dataset_id)])
+
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
         root = self._client.start_trace(
             name=name,

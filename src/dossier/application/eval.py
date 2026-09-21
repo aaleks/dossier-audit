@@ -158,8 +158,15 @@ def start_eval(
     gold_files: Mapping[str, bytes],
     judges: Mapping[str, Calibration] | None = None,
     withheld: Mapping[str, str] | None = None,
+    dataset_stale: bool = False,
 ) -> None:
-    """Open the eval's MLflow run with what is known before scoring (R11.3 rows 2-4)."""
+    """Open the eval's MLflow run with what is known before scoring (R11.3 rows 2-4).
+
+    `dataset_stale` says the dataset published for this gold set addresses answers
+    other than the ones just scored (R11.7 row 2). A tag rather than a param,
+    because it is a property of the run as a whole and because a tag is what a
+    person filters a list of runs by -- which is how a stale dataset gets noticed.
+    """
     tracker.start_run(
         experiment=experiment,
         name=f"eval of {run_id}",
@@ -167,6 +174,7 @@ def start_eval(
             **tracking_tags(kind="eval", pipeline=pipeline),
             "dossier.run_id": run_id,
             "dossier.gold_hash": gold_set_hash(gold_files),
+            **({"dossier.dataset_stale": "true"} if dataset_stale else {}),
             **{f"dossier.judge.{field}": why for field, why in (withheld or {}).items()},
         },
     )

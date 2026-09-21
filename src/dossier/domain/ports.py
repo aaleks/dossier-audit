@@ -202,6 +202,16 @@ class Tracker(Protocol):
 
     def log_artifact(self, name: str, content: bytes) -> None: ...
 
+    def log_dataset(self, *, name: str, dataset_id: str, digest: str) -> None:
+        """Record that this run was measured against that evaluation dataset (R11.7).
+
+        Sends and returns nothing, like every other method here. The dataset was
+        found through `DatasetRegistry`, which is the port allowed to read; this
+        one only says which one it was, so the run and the answers behind it are
+        one click apart in the UI.
+        """
+        ...
+
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None: ...
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None: ...
