@@ -123,7 +123,7 @@ person opens and the tag on the eval run beside it read as the same thing.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.datasets.publish_gold`)
 - **Proved by:** `tests/acceptance/test_R012_1__a_gold_set_publishes_as_one_dataset.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
