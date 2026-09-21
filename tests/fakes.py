@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import inspect
 import json
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
+from hashlib import sha256
 from pathlib import Path
 
+from dossier.domain.datasets import PublishedDataset
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 
 
@@ -111,6 +113,9 @@ class FakeRun:
     params: dict[str, str] = field(default_factory=dict)
     metrics: dict[str, float] = field(default_factory=dict)
     artifacts: dict[str, bytes] = field(default_factory=dict)
+    # The evaluation datasets this run was measured against (R11.7). A list, not
+    # a flag: R11.7 rows 3 and 4 are both claims that there is exactly none.
+    inputs: list[dict[str, str]] = field(default_factory=list)
     traces: list[FakeTrace] = field(default_factory=list)
     status: str | None = None
 
@@ -148,6 +153,9 @@ class FakeTracker:
     def log_artifact(self, name: str, content: bytes) -> None:
         self._run.artifacts[name] = content
 
+    def log_dataset(self, *, name: str, dataset_id: str, digest: str) -> None:
+        self._run.inputs.append({"name": name, "dataset_id": dataset_id, "digest": digest})
+
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
         self._run.traces.append(FakeTrace(name=name, tags=dict(tags)))
 
@@ -172,6 +180,134 @@ class FakeTracker:
         if not self._run.traces:
             raise FakeTrackerError("recorded to a trace that was never started")
         return self._run.traces[-1]
+
+
+@dataclass
+class FakeDataset:
+    """One MLflow evaluation dataset, as a registry was told to publish it (spec 012).
+
+    Both identities here are modelled on what a real server actually does, because
+    the first version of this fake invented friendlier ones and R12.3 passed
+    against a property MLflow does not have.
+    """
+
+    name: str
+    experiments: list[str] = field(default_factory=list)
+    tags: dict[str, str] = field(default_factory=dict)
+    # Keyed the way MLflow keys a record: the SHA-256 of its `inputs`, which
+    # `upsert_dataset_records` computes over `json.dumps(inputs, sort_keys=True)`.
+    # Keying this fake any other way would let R12.3 pass here and fail against a
+    # real server, which is the one thing a fake of a merge must not do.
+    records: dict[str, dict] = field(default_factory=dict)
+    # How many times this dataset has been *written to*. MLflow's digest is
+    # `sha256("<name>:<last_update_time>")` -- see `_compute_dataset_digest` in
+    # `sqlalchemy_store.py` -- so it is a marker for a write and says nothing
+    # about content: two identical merges give two different digests. A clock
+    # stands in for the clock here; what matters is that a write moves it and
+    # nothing else does.
+    writes: int = 0
+
+    @property
+    def digest(self) -> str:
+        """MLflow's digest, which moves on a write and not on a change (R12.3).
+
+        Deliberately *not* a hash of the records. A fake that made this a content
+        hash would report an unchanged digest for a publish that sent the same
+        records again, which is exactly the bug a live publish found.
+        """
+        return sha256(f"{self.name}:{self.writes}".encode()).hexdigest()[:8]
+
+
+class FakeDatasetRegistry:
+    """A dataset registry that holds what it is told and sends it nowhere.
+
+    Unlike `FakeTracker`, whose every method returns `None`, this one **returns**
+    a dataset id, a digest and a record count -- which is the whole reason spec
+    012 gives it a port of its own rather than a method on `Tracker` (R0.10).
+    What a command may do with what comes back is R12.4: a tag, a printed line,
+    and nothing on disk.
+
+    It counts publishes as `FakeTracker` counts runs: R12.3 and R12.6 are claims
+    about how many datasets were created, not about what came back from creating
+    them.
+    """
+
+    def __init__(self) -> None:
+        self.datasets: dict[str, FakeDataset] = {}
+        self.created: list[str] = []
+        self.publishes: list[dict] = []
+
+    def publish(
+        self,
+        *,
+        name: str,
+        experiment: str,
+        records: Sequence[Mapping[str, object]],
+        tags: Mapping[str, str],
+    ) -> PublishedDataset:
+        self.publishes.append(
+            {"name": name, "experiment": experiment, "records": list(records)}
+        )
+        dataset = self.datasets.get(name)
+        created = dataset is None
+        if dataset is None:
+            dataset = FakeDataset(name=name)
+            self.datasets[name] = dataset
+            self.created.append(name)
+            dataset.writes += 1
+        if experiment not in dataset.experiments:
+            dataset.experiments.append(experiment)
+            dataset.writes += 1
+        if any(dataset.tags.get(key) != value for key, value in tags.items()):
+            dataset.tags.update(tags)
+            dataset.writes += 1
+        if records:
+            # A merge is a write whether or not it changes anything, which is why
+            # `publish_gold` does not call one for a gold set that has not moved.
+            dataset.writes += 1
+        added = 0
+        for record in records:
+            key = sha256(
+                json.dumps(record.get("inputs", {}), sort_keys=True).encode("utf-8")
+            ).hexdigest()
+            if key not in dataset.records:
+                added += 1
+            # Merged, not replaced, as `upsert_dataset_records` merges: a record
+            # already there keeps what this publish does not carry.
+            held = dataset.records.setdefault(key, {})
+            for name_of, value in record.items():
+                if name_of == "tags" and isinstance(value, Mapping):
+                    held.setdefault("tags", {}).update(value)
+                else:
+                    held[name_of] = value
+        return PublishedDataset(
+            dataset_id=self._id(name),
+            name=name,
+            digest=dataset.digest,
+            records=len(dataset.records),
+            added=added,
+            created=created,
+            tags=dict(dataset.tags),
+        )
+
+    def find(self, name: str) -> PublishedDataset | None:
+        dataset = self.datasets.get(name)
+        if dataset is None:
+            return None
+        return PublishedDataset(
+            dataset_id=self._id(name),
+            name=name,
+            digest=dataset.digest,
+            records=len(dataset.records),
+            added=0,
+            created=False,
+            tags=dict(dataset.tags),
+        )
+
+    @staticmethod
+    def _id(name: str) -> str:
+        """A stable id, shaped like MLflow's `d-<32 hex>`."""
+        return f"d-{sha256(name.encode('utf-8')).hexdigest()[:32]}"
 
 
 class VersionedFolderConnector:

@@ -51,7 +51,9 @@ class _Reader(HTMLParser):
             return
         if tag in BLOCKS:
             self._flush()
-            self._prefix = f"{HEADINGS[tag]} " if tag in HEADINGS else ("- " if tag == "li" else "")
+            self._prefix = (
+                f"{HEADINGS[tag]} " if tag in HEADINGS else ("- " if tag == "li" else "")
+            )
 
     def handle_endtag(self, tag: str) -> None:
         if tag in DROPPED:
@@ -110,7 +112,9 @@ class HtmlMarkdownConverter:
             # successfully into text nobody wrote.
             text = payload.decode("utf-8")
         except UnicodeDecodeError as error:
-            raise ValueError(f"{self.id} could not decode this export as UTF-8: {error}") from error
+            raise ValueError(
+                f"{self.id} could not decode this export as UTF-8: {error}"
+            ) from error
 
         reader = _Reader()
         try:

@@ -20,6 +20,7 @@ from dossier.application.convert import (
     HeldDocument,
     convert_source,
 )
+from dossier.application.datasets import EmptyGoldSet, publish_gold
 from dossier.application.eval import (
     FieldSample,
     Judging,
@@ -70,11 +71,13 @@ from dossier.domain.conversion import (
     unpack_parts,
 )
 from dossier.domain.conversion import used as used_converters
+from dossier.domain.datasets import PublishedDataset
+from dossier.domain.gold import gold_set_hash
 from dossier.domain.grounding import GROUNDED, judge_name, judged_states
 from dossier.domain.hashing import text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
-from dossier.domain.ports import ImagePart, ModelClient, Tracker
+from dossier.domain.ports import DatasetRegistry, ImagePart, ModelClient, Tracker
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
 from dossier.domain.scoring import (
     check_same_documents,
@@ -102,7 +105,11 @@ from dossier.infrastructure.models.registry import UnknownProvider, available_pr
 from dossier.infrastructure.models.registry import provider as model_provider
 from dossier.infrastructure.store import SnapshotStore
 from dossier.infrastructure.tracking.best_effort import BestEffortTracker
-from dossier.infrastructure.tracking.mlflow import TrackingUnavailable, connect
+from dossier.infrastructure.tracking.mlflow import (
+    TrackingUnavailable,
+    connect,
+    connect_datasets,
+)
 
 app = typer.Typer(add_completion=False)
 
@@ -1220,6 +1227,13 @@ def eval_(
     # file was written (R11.3 row 2).
     gold_files = {p.name: p.read_bytes() for p in sorted((workspace / gold).glob("*.json"))}
     if tracker is not None:
+        # Asked for before the run opens, because whether the dataset is stale is
+        # a tag, and a tag is set when a run starts (R11.7 row 2).
+        # Not `scored`: that name holds the reproduced step result a few lines up.
+        scored_hash = gold_set_hash(gold_files)
+        published = _published_dataset(workspace, gold=gold)
+        was = published.tags.get("dossier.gold_hash") if published is not None else None
+        stale = was is not None and was != scored_hash
         # Opened before the judge is asked, so its traces sit inside the run
         # (R7.18 row 5); closed below with the figures the report printed.
         start_eval(
@@ -1232,7 +1246,23 @@ def eval_(
             gold_files=gold_files,
             judges=judges,
             withheld=withheld,
+            dataset_stale=stale,
         )
+        if published is not None:
+            tracker.log_dataset(
+                name=published.name,
+                dataset_id=published.dataset_id,
+                digest=published.digest,
+            )
+        if stale:
+            # Named, not fixed. Republishing here would have an eval quietly
+            # mutate shared tracking state, and refusing would let a stale
+            # dataset block a score computed entirely from local files (R12.4).
+            typer.echo(
+                f"dataset {published.name} is stale: "
+                f"published {was[:8]}, scored {scored_hash[:8]}"
+            )
+            typer.echo("  run `dossier dataset publish` to refresh it")
     # The judge decides only what the deterministic scorers left, and only for
     # a field it may be quoted on: a withheld field is not judged at all, since
     # nothing is measured for a number nobody may print (R7.17).
@@ -1490,3 +1520,131 @@ def _reproduced(workspace: Path, manifest: Manifest, step: str):
 
 def _count(n: int, noun: str) -> str:
     return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
+def _published_dataset(workspace: Path, *, gold: str) -> PublishedDataset | None:
+    """The dataset published for this gold set, or `None` if there is not one.
+
+    Best effort, and deliberately. A gold set nobody has published is not an error
+    -- there is simply nothing to link -- and a dataset call that fails costs the
+    eval nothing, because a lost record never changes a command's outcome (R10.6).
+    What is never best effort is the score: that came from the files, and nothing
+    read here can reach it (R12.4).
+    """
+    try:
+        tracking = tracking_settings(environment(workspace))
+        if tracking is None:
+            return None
+        return build_dataset_registry(tracking).find(Path(gold).name)
+    except Exception:
+        # `TrackingUnavailable` included: an eval needs no dataset, so a server
+        # that cannot hold one is no reason to refuse the command (R12.5 row 5).
+        typer.echo("dataset not linked: MLflow could not be asked for it")
+        return None
+
+
+dataset_app = typer.Typer(
+    add_completion=False,
+    help="Publish a gold set to MLflow as an evaluation dataset (spec 012).",
+)
+app.add_typer(dataset_app, name="dataset")
+
+
+def build_dataset_registry(settings: TrackingSettings) -> DatasetRegistry:
+    """The registry a gold set is published through, checked before anything is sent.
+
+    A named function for the reason `build_tracker` is one: it is the seam the
+    composition root hands to a use case, and a test replaces it with a
+    `FakeDatasetRegistry`. Separate from `build_tracker` because the two are
+    different ports -- this one returns what it published, which a `Tracker` may
+    never do (R0.10, spec 012).
+    """
+    return connect_datasets(settings.uri)
+
+
+@dataset_app.command("publish")
+def dataset_publish(
+    pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
+    gold: str = typer.Option(..., "--gold", help="Gold set directory", metavar="DIR"),
+) -> None:
+    """Publish a gold set as the MLflow evaluation dataset named after it (R12.1).
+
+    Reads `gold/` and sends; asks no model, reproduces no run, and writes nothing
+    to disk. The dataset lands in the experiment an eval over this gold set
+    records to (R10.2), so it sits beside the runs measured against it.
+    """
+    workspace = Path.cwd()
+    environ = environment(workspace)
+
+    try:
+        _pipeline_path(workspace, pipeline)
+    except ConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    # The switch, the template and the server, in the order a person would fix
+    # them and all before anything is sent (R12.5). Unlike every other command,
+    # this one has nothing to do with tracking off: its whole output is the
+    # record, so off is a refusal rather than a quiet no-op (R12.5 row 1).
+    try:
+        tracking = tracking_settings(environ)
+        if tracking is None:
+            raise ValueError(
+                "publishing a dataset needs tracking on: set DOSSIER_MLFLOW_ENABLED=true "
+                "and DOSSIER_MLFLOW_TRACKING_URI. A dataset is published to MLflow and "
+                "nowhere else"
+            )
+        experiment = experiment_name(kind="eval", pipeline=pipeline, gold=gold, environ=environ)
+        registry = build_dataset_registry(tracking)
+    except (ValueError, TrackingUnavailable) as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+
+    directory = workspace / gold
+    if not directory.is_dir():
+        # A path that is not there and a directory holding no answers want
+        # different fixes -- a corrected path, or a reviewer -- so they do not
+        # share a message. A mistyped `--gold` is the likelier of the two, and
+        # publishing an empty dataset under the mistyped name would be worse than
+        # refusing and harder to notice.
+        typer.echo(f"{pipeline}: no gold set at {gold}", err=True)
+        raise typer.Exit(code=2)
+
+    try:
+        published = publish_gold(
+            registry,
+            gold=directory,
+            experiment=experiment,
+            snapshots=_held_snapshots(workspace),
+        )
+    except EmptyGoldSet as error:
+        # Named as the person typed it. `EmptyGoldSet` carries the resolved path,
+        # and an absolute one with this machine's separators in it is noise around
+        # the one word they need to see (R12.1 row 3).
+        typer.echo(f"{pipeline}: {gold}: no verified answers to publish", err=True)
+        raise typer.Exit(code=2) from error
+
+    typer.echo(
+        f"{published.name} · {_count(published.records, 'record')} · digest {published.digest}"
+    )
+    # The id MLflow assigned, because it is what addresses the dataset in the
+    # UI and in the API. Printed and never written: a file holding it would
+    # make a manifest or a cache entry depend on what a server said
+    # (R12.4 row 3).
+    typer.echo(f"published to MLflow: {experiment} ({published.dataset_id})")
+
+
+def _held_snapshots(workspace: Path) -> dict[str, str]:
+    """Every held document's snapshot address, by document key (R12.2 row 1).
+
+    Provenance for the answers rather than a precondition for them: a gold set
+    published before the first sync finds nothing here, and publishes anyway
+    (R12.2 row 3).
+    """
+    with Ledger(workspace) as ledger:
+        return {
+            row.key: row.snapshot
+            for source in ledger.sources()
+            for row in ledger.rows(source)
+            if row.state is not State.TOMBSTONED
+        }

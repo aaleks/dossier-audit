@@ -93,6 +93,7 @@ own directory, so one set can serve several pipelines (R3.7).
 | `gold/incidents/judge.yaml` | the agreement each judged field's judge must reach — `root_cause: 0.95`, agreed by `a.aleks` (R7.13) |
 | `gold/incidents/calibrations/root_cause.json` | what `dossier calibrate` measured for that judge: its model, the rubric hash, the judge prompt hash, the agreement and the sample size (R7.14, R7.19) |
 | `.dossier/cache/judge/` | the judge's verdicts, one artifact per (judge, rubric, prompt, document, candidate), with a provenance record each (R7.18) |
+| `gold/empty/` | a gold directory holding no `<document>.json`: nothing has been verified yet. What R12.1 refuses to publish as a dataset of nothing |
 
 Three artifacts, and only the last is written by a machine. The sample and the
 bar are both a person's: what a judge is *shown* and what it is *required* to
@@ -118,6 +119,8 @@ consistently here so a reader can follow one artifact across specs.
 | `5d3ba0f7` | `INC-4821` converted to markdown — a *different* artifact from the snapshot it came from, and therefore a different hash |
 | `7f3c29a1` | the Ollama digest `qwen2.5:7b` is pinned to (R9.3). A real identifier carries all 64 characters |
 | `e04b6d52` | the digest the same Ollama tag reports after a re-pull — the one R9.4 stops a run on |
+| `3b7e1d90` | the `gold/incidents` set hash: SHA-256 over its files, the value R11.3 row 2 tags an eval with and R12.1 tags a dataset with |
+| `9c4f21a8` | the same set after a reviewer corrects one answer (R7.7) — the hash R11.7 row 2 reports as scored against a dataset published at `3b7e1d90` |
 | `1c0f8e6b` | the Hugging Face revision `Qwen/Qwen2.5-7B-Instruct` is pinned to (R9.5). A real one is a 40-character commit |
 | `f7a2d9c4` | `rubrics/root_cause.md` — the rubric `root_cause` names as its `judge`, and the hash a calibration is measured against (R7.14, R11.5) |
 
@@ -189,6 +192,7 @@ differ.
 | `DOSSIER_JIRA_TOKEN` | the variable `incidents-jira` names in `token_env`; prefixed so `.env` may hold it (R1.8 row 5) |
 | `DOSSIER_JIRA_USER` | the variable named in `user_env` when the pair is sent as Basic (R1.12) |
 | `incident-audit` | the pipeline name |
+| `postmortem-review` | a second pipeline measured against the same gold set, so one gold set serving several pipelines (R3.7) has a name in an example (R12.6) |
 | `extract` → `verify` → `report` | the three steps |
 
 ## Tracking (specs 010, 011)
@@ -202,6 +206,15 @@ differ.
 | `dossier-audit/incident-audit/calibrate` | where `dossier calibrate incident-audit --gold gold/incidents` records under the default template (R11.5) |
 | `dossier-audit` | a template with no placeholder: every record in one experiment (R10.2 row 3) |
 | `incidents` | the gold set name `{gold}` renders for `--gold gold/incidents` |
+
+## Evaluation datasets (spec 012)
+
+| Value | Meaning |
+|---|---|
+| `incidents` | the dataset `gold/incidents` publishes as: the gold set's own name, one dataset per gold set rather than per pipeline (R12.1, R12.6) |
+| `d-18afc31376cb427a` | the dataset id MLflow returns, which may reach a tag and the terminal and nothing on disk (R12.4 row 3) |
+| `61da2705` | the digest of a dataset published from a gold set of four documents; it moves when any answer moves (R12.3) |
+
 
 ## Fields on `INC-4821`
 

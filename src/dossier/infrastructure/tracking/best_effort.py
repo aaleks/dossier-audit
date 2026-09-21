@@ -51,6 +51,9 @@ class BestEffortTracker:
     def log_artifact(self, name: str, content: bytes) -> None:
         self._sent(self._inner.log_artifact, name, content)
 
+    def log_dataset(self, *, name: str, dataset_id: str, digest: str) -> None:
+        self._sent(self._inner.log_dataset, name=name, dataset_id=dataset_id, digest=digest)
+
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
         self._this_trace_lost = not self._sent(self._inner.start_trace, name=name, tags=tags)
 
