@@ -46,6 +46,10 @@ class TestRepublishingAnUnchangedGoldSetChangesNothing:
         assert second.added == 0, "the second adds nothing"
         assert second.digest == first.digest
         assert registry.created == ["incidents"], "one dataset, created once"
+        # The digest holds still because the second publish *sent* nothing. MLflow
+        # moves it on any write, so a merge of the same four records would have
+        # changed it -- which is what a live publish did before this rule was real.
+        assert registry.publishes[1]["records"] == [], "nothing sent the second time"
 
     def test_a_corrected_answer_moves_the_digest_without_adding_a_record(self, workspace: Path):
         """Example 2: the one where a reviewer changed an answer.

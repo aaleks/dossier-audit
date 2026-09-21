@@ -17,10 +17,16 @@ from pathlib import Path
 
 from dossier.domain.datasets import PublishedDataset, record_for
 from dossier.domain.gold import GoldDocument, gold_set_hash
+from dossier.domain.hashing import content_hash
 from dossier.domain.ports import DatasetRegistry
 
 GOLD_HASH_TAG = "dossier.gold_hash"
 VERIFIED_BY_TAG = "dossier.verified_by"
+# Over the document keys and the snapshot addresses they are held at. Beside the
+# gold hash because a sync repointing a document (R2.18) changes what a record's
+# snapshot tag should say while leaving every gold file untouched, and a publish
+# that compared only the answers would skip it (R12.3 row 4).
+SNAPSHOTS_TAG = "dossier.snapshots_hash"
 
 
 class EmptyGoldSet(ValueError):
@@ -53,23 +59,58 @@ def publish_gold(
 
     held = snapshots or {}
     documents = _documents(files)
-    records = [
-        record_for(document, snapshot=held.get(key))
-        for key, document in sorted(documents.items())
-    ]
-    return registry.publish(
-        name=gold.name,
-        experiment=experiment,
-        records=records,
-        tags={
-            # The same hash an eval tags its own run with (R11.3 row 2), so the
-            # dataset and the runs measured against it can be shown to be about
-            # the same answers -- which is the whole point of publishing it.
-            GOLD_HASH_TAG: gold_set_hash(files),
-            VERIFIED_BY_TAG: ", ".join(
-                sorted({document.verified_by for document in documents.values()})
-            ),
-        },
+    # The same hash an eval tags its own run with (R11.3 row 2), so the dataset and
+    # the runs measured against it can be shown to be about the same answers --
+    # which is the whole point of publishing it.
+    gold_hash = gold_set_hash(files)
+    addresses = content_hash(
+        "".join(f"{key}\0{held.get(key, '')}\n" for key in sorted(documents)).encode("utf-8")
+    )
+    tags = {
+        GOLD_HASH_TAG: gold_hash,
+        SNAPSHOTS_TAG: addresses,
+        VERIFIED_BY_TAG: ", ".join(
+            sorted({document.verified_by for document in documents.values()})
+        ),
+    }
+    records = (
+        []
+        if _already_published(registry, name=gold.name, tags=tags)
+        else [
+            record_for(document, snapshot=held.get(key))
+            for key, document in sorted(documents.items())
+        ]
+    )
+    return registry.publish(name=gold.name, experiment=experiment, records=records, tags=tags)
+
+
+def _already_published(
+    registry: DatasetRegistry, *, name: str, tags: Mapping[str, str]
+) -> bool:
+    """Whether the dataset already holds exactly what this publish would write (R12.3).
+
+    Asked so that an unchanged gold set can be published without sending anything.
+    MLflow's digest is over the dataset's name and the time it was last written, not
+    over its records, so merging the same records again moves it and offers a person
+    two identical versions to compare.
+
+    Both hashes are compared, not just the answers: a repoint (R2.18) changes a
+    record's snapshot tag while leaving every gold file alone (R12.3 row 4).
+
+    A registry that cannot answer is treated as not having it. Sending records that
+    turn out to be redundant costs a digest; skipping records that were needed would
+    leave the dataset quietly wrong, and those are not the same mistake.
+    """
+    try:
+        published = registry.find(name)
+    except Exception:
+        return False
+    if published is None:
+        return False
+    return all(
+        published.tags.get(key) == value
+        for key, value in tags.items()
+        if key in (GOLD_HASH_TAG, SNAPSHOTS_TAG)
     )
 
 

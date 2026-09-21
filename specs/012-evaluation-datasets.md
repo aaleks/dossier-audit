@@ -91,9 +91,19 @@ which is dossier's own and is over the bytes of the files (R0.7).
 
 That is why an unchanged gold set is not merged again (R12.3): a second publish
 that sent the same four records would move the digest and leave a person comparing
-two dataset versions that are identical. The publish compares the gold hash it
-would tag with the one already there, and when they agree it writes nothing at
-all.
+two dataset versions that are identical. So a publish compares what it *would*
+write with what is there, and writes nothing when they agree. Two tags carry that
+comparison, both dossier's own:
+
+| Tag | Over | Moves when |
+|---|---|---|
+| `dossier.gold_hash` | the bytes of the gold files (R0.7) | any answer, or any file name, changes |
+| `dossier.snapshots_hash` | the document keys and the snapshot addresses they are held at | a sync repoints a document (R2.18) |
+
+The second exists because a repoint changes what a record's `dossier.snapshot` tag
+should say while leaving every gold file untouched (R12.3 row 4). Comparing the
+gold hash alone would skip that publish and leave a record addressing content the
+store no longer serves.
 
 A reviewer's `verified_by` and `verified_at` are dataset **tags**, not
 expectations. They are attribution for the set, not answers in it.
@@ -165,9 +175,9 @@ correction updates a record rather than adding one.
 Nothing being *sent* is the other half, and it is what keeps the digest still.
 MLflow's digest is over the dataset's name and the time it was last written, not
 over its records, so a publish that merged the same four records again would move
-it and offer a person two identical versions to compare. An unchanged gold set is
-recognised by its hash and not sent: publishing twice is a no-op a person can run
-without thinking about it.
+it and offer a person two identical versions to compare. A publish that would write
+nothing different -- the same answers, held at the same snapshots -- sends nothing:
+publishing twice is a no-op a person can run without thinking about it.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.datasets.publish_gold`)
@@ -179,7 +189,7 @@ without thinking about it.
 | 1 | `gold/incidents` published, then published again with no file changed | 1 dataset, 4 records, the same digest `61da2705`; 0 datasets created, 0 records sent and 0 tags written the second time -- the gold hash already there is the one this publish would have tagged |
 | 2 | `INC-4822`'s `resolution_date` corrected by a reviewer (R7.7), then published | still 4 records — the document is the merge key, not the answer — and a new digest |
 | 3 | a fifth document `INC-4830` verified and published | 5 records, a new digest; the four already there unchanged |
-| 4 | `INC-4822` repointed from `0e52dd18` to `77c1b40a` by a sync (R2.18), then published | still 4 records, `INC-4822`'s `dossier.snapshot` tag updated in place. A record keyed on its snapshot as well would leave one document holding two records, one of them addressing content the store no longer serves |
+| 4 | `INC-4822` repointed from `0e52dd18` to `77c1b40a` by a sync (R2.18), then published | sent, although no gold file changed: still 4 records, `INC-4822`'s `dossier.snapshot` tag updated in place. A record keyed on its snapshot as well would leave one document holding two records, one addressing content the store no longer serves -- and a publish that compared only the gold hash would not have sent this one at all |
 | 5 | *counter-example* — a gold file rewritten with the same answers formatted differently | sent, and a new gold hash tag, because that hash is over bytes (R0.7) and the set it addresses has moved. Skipping it would leave the dataset claiming a set nobody can reproduce |
 
 ### R12.4 — a dataset is a projection of `gold/`, and no score, key or file is ever computed from it

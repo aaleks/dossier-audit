@@ -263,10 +263,16 @@ class MlflowDatasetRegistry:
                 add_dataset_to_experiments(
                     dataset_id=dataset.dataset_id, experiment_ids=[experiment_id]
                 )
-            set_dataset_tags(dataset_id=dataset.dataset_id, tags=dict(tags))
+            held = dict(dataset.tags or {})
+            if any(held.get(key) != value for key, value in tags.items()):
+                set_dataset_tags(dataset_id=dataset.dataset_id, tags=dict(tags))
 
         before = _record_count(dataset)
-        dataset.merge_records(list(records))
+        if records:
+            # Skipped for a gold set that has not moved, because a merge is a
+            # write and MLflow's digest moves on a write whether or not anything
+            # changed (R12.3). `publish_gold` decides; this only obeys.
+            dataset.merge_records(list(records))
         refreshed = get_dataset(dataset_id=dataset.dataset_id)
         after = _record_count(refreshed)
 
@@ -277,7 +283,7 @@ class MlflowDatasetRegistry:
             records=after,
             added=max(after - before, 0),
             created=created,
-            tags=dict(tags),
+            tags=dict(refreshed.tags or tags),
         )
 
     def find(self, name: str) -> PublishedDataset | None:

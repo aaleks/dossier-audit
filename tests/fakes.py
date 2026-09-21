@@ -184,7 +184,12 @@ class FakeTracker:
 
 @dataclass
 class FakeDataset:
-    """One MLflow evaluation dataset, as a registry was told to publish it (spec 012)."""
+    """One MLflow evaluation dataset, as a registry was told to publish it (spec 012).
+
+    Both identities here are modelled on what a real server actually does, because
+    the first version of this fake invented friendlier ones and R12.3 passed
+    against a property MLflow does not have.
+    """
 
     name: str
     experiments: list[str] = field(default_factory=list)
@@ -194,19 +199,23 @@ class FakeDataset:
     # Keying this fake any other way would let R12.3 pass here and fail against a
     # real server, which is the one thing a fake of a merge must not do.
     records: dict[str, dict] = field(default_factory=dict)
+    # How many times this dataset has been *written to*. MLflow's digest is
+    # `sha256("<name>:<last_update_time>")` -- see `_compute_dataset_digest` in
+    # `sqlalchemy_store.py` -- so it is a marker for a write and says nothing
+    # about content: two identical merges give two different digests. A clock
+    # stands in for the clock here; what matters is that a write moves it and
+    # nothing else does.
+    writes: int = 0
 
     @property
     def digest(self) -> str:
-        """A digest over the records, moving when any answer moves (R12.3).
+        """MLflow's digest, which moves on a write and not on a change (R12.3).
 
-        MLflow computes its own; what matters to a rule is that it is a function
-        of the records and nothing else -- not of the order they arrived in, nor
-        of how many publishes it took to get there.
+        Deliberately *not* a hash of the records. A fake that made this a content
+        hash would report an unchanged digest for a publish that sent the same
+        records again, which is exactly the bug a live publish found.
         """
-        canonical = json.dumps(
-            [self.records[key] for key in sorted(self.records)], sort_keys=True
-        )
-        return sha256(canonical.encode("utf-8")).hexdigest()[:8]
+        return sha256(f"{self.name}:{self.writes}".encode()).hexdigest()[:8]
 
 
 class FakeDatasetRegistry:
@@ -245,9 +254,17 @@ class FakeDatasetRegistry:
             dataset = FakeDataset(name=name)
             self.datasets[name] = dataset
             self.created.append(name)
+            dataset.writes += 1
         if experiment not in dataset.experiments:
             dataset.experiments.append(experiment)
-        dataset.tags.update(tags)
+            dataset.writes += 1
+        if any(dataset.tags.get(key) != value for key, value in tags.items()):
+            dataset.tags.update(tags)
+            dataset.writes += 1
+        if records:
+            # A merge is a write whether or not it changes anything, which is why
+            # `publish_gold` does not call one for a gold set that has not moved.
+            dataset.writes += 1
         added = 0
         for record in records:
             key = sha256(
