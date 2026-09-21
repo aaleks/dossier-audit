@@ -66,8 +66,29 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**, and nothing is outstanding: all twelve specs are
-implemented, and 156 of the 165 rules are MET with the other 9 superseded.
+Currently open: **none**, and nothing is outstanding: all thirteen specs are
+implemented, and 167 of the 177 rules are MET with the other 10 superseded.
+
+A gold set is a thing in MLflow. `dossier dataset publish <pipeline> --gold
+gold/incidents` sends it as the evaluation dataset named after it -- one record per
+verified document, `inputs` the document key alone because MLflow merges a record
+onto the hash of its `inputs`, `expectations` the verified answers with an
+abstention carried as `null`, and the snapshot address a record tag (R12.1, R12.2).
+One gold set is one dataset however many pipelines measure themselves against it
+(R12.6), and `dossier eval` logs it as an input of its own run, naming a dataset
+that has fallen behind the answers it just scored rather than obeying or refusing
+it (R11.7). Publishing a gold set that has not moved sends nothing at all, because
+MLflow's digest is `sha256("<name>:<last_update_time>")` and a redundant merge
+would offer a person two identical versions to compare (R12.3) -- which a live
+publish found while the suite was green, the fake having computed that digest from
+the records. The dataset is a projection, one way only: no score, key or file is
+ever computed from one, and the id a server hands back may reach a tag and the
+terminal line and nothing on disk (R12.4). Publishing is the one command that
+refuses when tracking is off, since its whole output is the record, and a
+file-backed MLflow server is refused by naming `--backend-store-uri` rather than by
+an MLflow traceback (R12.5). It needed a second port: publishing **returns** a
+dataset id, which `Tracker`'s contract forbids and R0.10 leans on, so
+`DatasetRegistry` sits beside it.
 
 A picture is judged. A field whose span is in no text because the stage read
 pictures is `described` -- a third grounding state, neither a pass nor a failure:
