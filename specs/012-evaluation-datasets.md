@@ -47,20 +47,30 @@ key, a trace and a score everywhere else in `dossier`:
 ```json
 {
   "inputs": {
-    "document": "INC-4821",
-    "snapshot": "a3f9c1e2…"
+    "document": "INC-4821"
   },
   "expectations": {
     "loss_amount": 48200.0,
     "resolution_date": "2026-07-28",
     "severity": "major",
     "root_cause": null
+  },
+  "tags": {
+    "dossier.snapshot": "a3f9c1e2…"
   }
 }
 ```
 
-`inputs` identifies the document; `expectations` are the verified answers, and
-nothing else. No run's output goes in: a dataset holding what one run produced
+`inputs` holds the document key and **nothing else**, because MLflow merges a
+record onto the SHA-256 of its `inputs`: whatever goes in there is the identity of
+the record. The snapshot address the answers were verified against is a record
+*tag* for that reason. Were it an input, a document repointed to new content
+(R2.18) would merge onto nothing and appear as a fifth record beside its own
+older self, and R12.3's claim that the document is the merge key would be false.
+It also means a gold set is publishable before anything has been synced: a
+document with no ledger row is published without the tag rather than refused.
+
+`expectations` are the verified answers, and nothing else. No run's output goes in: a dataset holding what one run produced
 changes every time a different run is scored, and a yardstick that moves is not
 one. The run's answers are already in MLflow, as the metrics and traces of the
 eval that produced them (R11.3).
@@ -121,7 +131,7 @@ person opens and the tag on the eval run beside it read as the same thing.
 | 2 | the same | the terminal names the dataset, its record count and its digest; exit 0 |
 | 3 | *counter-example* — `gold/empty/`, a directory holding no `<document>.json` | exit 2 naming the directory; 0 datasets created, 0 records sent. A dataset of nothing would read as a gold set nobody has filled in yet, which is what the empty directory already says |
 
-### R12.2 — a record's inputs are the document's identity and its expectations are the verified answers, an abstention included
+### R12.2 — a record's only input is the document key, its expectations are the verified answers, and its snapshot is a tag
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.datasets.record_for`)
@@ -130,16 +140,18 @@ person opens and the tag on the eval run beside it read as the same thing.
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `INC-4821`, verified `loss_amount` 48200.00 CHF, `resolution_date` 2026-07-28, `severity` `major` | `inputs` `{document: INC-4821, snapshot: a3f9c1e2…}`; `expectations` those three fields, by their declared names |
+| 1 | `INC-4821`, verified `loss_amount` 48200.00 CHF, `resolution_date` 2026-07-28, `severity` `major`, held at snapshot `a3f9c1e2` | `inputs` `{document: INC-4821}`; `expectations` those three fields by their declared names; `tags` `{dossier.snapshot: a3f9c1e2…}` |
 | 2 | `INC-5455`, whose `root_cause` is `null` with reason "only competing hypotheses" (R7.3) | `expectations.root_cause` is `null`, present. A field nobody verified is absent, and the two must stay distinguishable (R7.3 row 4) |
-| 3 | *counter-example* — the same document's `verified_by` `a.aleks` and `verified_at` `2026-08-14` | in neither `inputs` nor `expectations`; attribution for the set, carried as a dataset tag (R12.1 row 1) |
-| 4 | *counter-example* — the answers the scored run produced for `INC-4821` | not in the record. A dataset that moves with the run being measured is not a yardstick; the run's answers are its own eval's metrics (R11.3) |
+| 3 | a gold document whose key the ledger holds no row for — answers verified for something never synced | `inputs` `{document: …}` and no `dossier.snapshot` tag; published, not refused. The snapshot is provenance for the answers, not a precondition for having them |
+| 4 | *counter-example* — the same document's `verified_by` `a.aleks` and `verified_at` `2026-08-14` | in neither `inputs` nor `expectations`; attribution for the set, carried as a dataset tag (R12.1 row 1) |
+| 5 | *counter-example* — the answers the scored run produced for `INC-4821` | not in the record. A dataset that moves with the run being measured is not a yardstick; the run's answers are its own eval's metrics (R11.3) |
 
 ### R12.3 — republishing an unchanged gold set adds no record and leaves the digest unchanged
 
-Records are merged on the document their `inputs` name, so publishing is
-idempotent and publishing twice is a no-op a person can run without thinking
-about it.
+Records are merged on the document their `inputs` name -- MLflow's key is the
+SHA-256 of `inputs`, and the document key is all that is in there (R12.2) -- so
+publishing is idempotent, and publishing twice is a no-op a person can run
+without thinking about it.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.datasets.publish_gold`)
@@ -151,7 +163,8 @@ about it.
 | 1 | `gold/incidents` published, then published again with no file changed | 1 dataset, 4 records, the same digest `61da2705`; 0 datasets created the second time |
 | 2 | `INC-4822`'s `resolution_date` corrected by a reviewer (R7.7), then published | still 4 records — the document is the merge key, not the answer — and a new digest |
 | 3 | a fifth document `INC-4830` verified and published | 5 records, a new digest; the four already there unchanged |
-| 4 | *counter-example* — a gold file rewritten with the same answers formatted differently | a new digest, because the gold set hash is over bytes (R0.7) and the set it addresses has moved. A digest that ignored the rewrite would claim a set nobody can reproduce |
+| 4 | `INC-4822` repointed from `0e52dd18` to `77c1b40a` by a sync (R2.18), then published | still 4 records, `INC-4822`'s `dossier.snapshot` tag updated in place. A record keyed on its snapshot as well would leave one document holding two records, one of them addressing content the store no longer serves |
+| 5 | *counter-example* — a gold file rewritten with the same answers formatted differently | a new digest, because the gold set hash is over bytes (R0.7) and the set it addresses has moved. A digest that ignored the rewrite would claim a set nobody can reproduce |
 
 ### R12.4 — a dataset is a projection of `gold/`, and no score, key or file is ever computed from it
 
