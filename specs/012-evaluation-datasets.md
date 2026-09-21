@@ -1,6 +1,6 @@
 # 012 — The gold set as an MLflow evaluation dataset
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R12.1 – R12.6
 
 ## Purpose
@@ -123,7 +123,7 @@ person opens and the tag on the eval run beside it read as the same thing.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.datasets.publish_gold`)
 - **Proved by:** `tests/acceptance/test_R012_1__a_gold_set_publishes_as_one_dataset.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -136,7 +136,7 @@ person opens and the tag on the eval run beside it read as the same thing.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.datasets.record_for`)
 - **Proved by:** `tests/unit/test_R012_2__a_record_holds_the_document_and_its_verified_answers.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -156,7 +156,7 @@ without thinking about it.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.datasets.publish_gold`)
 - **Proved by:** `tests/unit/test_R012_3__republishing_an_unchanged_gold_set_changes_nothing.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -210,7 +210,7 @@ pipeline follows R10.2 into the list of experiments the one dataset belongs to.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.datasets.publish_gold`)
 - **Proved by:** `tests/unit/test_R012_6__one_gold_set_is_one_dataset_across_pipelines.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

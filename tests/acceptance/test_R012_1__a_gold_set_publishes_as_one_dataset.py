@@ -28,8 +28,6 @@ import pytest
 from tests.fakes import FakeDatasetRegistry
 from tests.pipelines import write_pipeline
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 GOLD = "gold/incidents"
 URI = "http://localhost:5000"
@@ -54,16 +52,14 @@ def registry(workspace: Path, monkeypatch) -> FakeDatasetRegistry:
     holder = FakeDatasetRegistry()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
     monkeypatch.setenv("DOSSIER_MLFLOW_TRACKING_URI", URI)
-    monkeypatch.setenv(
-        "DOSSIER_MLFLOW_EXPERIMENT_EVAL", "dossier-audit/{pipeline}/eval/{gold}"
-    )
+    monkeypatch.setenv("DOSSIER_MLFLOW_EXPERIMENT_EVAL", "dossier-audit/{pipeline}/eval/{gold}")
     monkeypatch.setattr(cli, "build_dataset_registry", lambda settings: holder, raising=False)
     write_pipeline(workspace, sources=["incidents-jira"])
     return holder
 
 
 class TestAGoldSetPublishesAsOneDataset:
-    """R12.1 — a gold set publishes as one dataset named after it, with one record per gold document."""
+    """R12.1 — a gold set publishes as one dataset named after it, one record per document."""
 
     def test_four_verified_documents_publish_as_one_dataset_of_four_records(
         self, workspace: Path, monkeypatch, registry: FakeDatasetRegistry
@@ -132,7 +128,9 @@ class TestAGoldSetPublishesAsOneDataset:
         """
         (workspace / "gold" / "empty").mkdir(parents=True, exist_ok=True)
 
-        result = _cli(workspace, monkeypatch, "dataset", "publish", PIPELINE, "--gold", "gold/empty")
+        result = _cli(
+            workspace, monkeypatch, "dataset", "publish", PIPELINE, "--gold", "gold/empty"
+        )
 
         assert result.exit_code == 2, result.output
         assert "gold/empty" in result.output

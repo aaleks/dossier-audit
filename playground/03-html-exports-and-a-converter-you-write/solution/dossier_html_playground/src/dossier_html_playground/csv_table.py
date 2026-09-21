@@ -36,7 +36,9 @@ class CsvMarkdownConverter:
         try:
             text = payload.decode("utf-8")
         except UnicodeDecodeError as error:
-            raise ValueError(f"{self.id} could not decode this CSV as UTF-8: {error}") from error
+            raise ValueError(
+                f"{self.id} could not decode this CSV as UTF-8: {error}"
+            ) from error
 
         rows = list(csv.reader(io.StringIO(text, newline="")))
         if not rows:

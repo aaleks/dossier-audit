@@ -13,11 +13,12 @@ sends and returns nothing (R0.10); the ids MLflow assigns stay inside it.
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 import httpx
 
-from dossier.domain.ports import Tracker
+from dossier.domain.datasets import PublishedDataset
+from dossier.domain.ports import DatasetRegistry, Tracker
 
 # How the startup check reaches the server. `None` is a real connection; a test
 # answers with an `httpx.MockTransport`, so no socket is opened (R0.10).
@@ -157,3 +158,145 @@ class MlflowTracker:
 
     def end_run(self, *, status: str) -> None:
         self._client.set_terminated(self._run_id, status=status)
+
+
+# What a FileStore-backed server has no endpoint for. Evaluation datasets live in
+# tables, so a server started without `--backend-store-uri` on a SQL database
+# cannot hold one, and says so with a 404 rather than an error a person can read.
+DATASETS_ENDPOINT = "/api/3.0/mlflow/datasets/search"
+
+
+def connect_datasets(uri: str) -> DatasetRegistry:
+    """A dataset registry recording to `uri`, or `TrackingUnavailable` saying why not.
+
+    Three checks, in the order a person would fix them: the `tracking` extra, a
+    server that answers, and a server whose store can hold a dataset at all
+    (R12.5). The third is this function's reason for existing beside `connect`:
+    every other record `dossier` sends works against a FileStore, and a dataset
+    does not, so a person publishing to one is told which server setting to
+    change rather than handed an MLflow traceback.
+    """
+    connect(uri)  # the extra and the server, refused with their own messages
+
+    if uri.startswith(("http://", "https://")):
+        search = uri.rstrip("/") + DATASETS_ENDPOINT
+        try:
+            with httpx.Client(
+                transport=HEALTH_TRANSPORT, timeout=HEALTH_TIMEOUT_SECONDS
+            ) as http:
+                answered = http.post(search, json={"max_results": 1})
+        except httpx.HTTPError as error:
+            raise TrackingUnavailable(
+                f"tracking is enabled and no MLflow server answers at {uri} ({error}). "
+                "Start it, or set DOSSIER_MLFLOW_ENABLED=false."
+            ) from None
+        if answered.status_code == 404:
+            raise TrackingUnavailable(
+                f"the MLflow server at {uri} cannot hold an evaluation dataset: "
+                f"{DATASETS_ENDPOINT} is not there. Datasets need a SQL backend -- "
+                "start the server with --backend-store-uri (postgresql, mysql, "
+                "sqlite or mssql), not a file store."
+            )
+    return MlflowDatasetRegistry(uri)
+
+
+class MlflowDatasetRegistry:
+    """The `DatasetRegistry` port, over `mlflow.genai.datasets`.
+
+    The one thing in `dossier` that reads an id back from a tracking server. It
+    may reach a tag and a terminal line and nothing else, which is the caller's
+    obligation and stated at the port (R12.4).
+    """
+
+    def __init__(self, uri: str) -> None:
+        import mlflow
+
+        mlflow.set_tracking_uri(uri)
+        self._uri = uri
+
+    def publish(
+        self,
+        *,
+        name: str,
+        experiment: str,
+        records: Sequence[Mapping[str, object]],
+        tags: Mapping[str, str],
+    ) -> PublishedDataset:
+        import mlflow
+        from mlflow.exceptions import MlflowException
+        from mlflow.genai.datasets import (
+            add_dataset_to_experiments,
+            create_dataset,
+            get_dataset,
+            set_dataset_tags,
+        )
+
+        experiment_id = mlflow.set_experiment(experiment).experiment_id
+
+        created = False
+        try:
+            dataset = get_dataset(name=name)
+        except MlflowException:
+            # Not there yet. Created rather than looked up again, and the id of
+            # the experiment it belongs to is the one just resolved -- so the
+            # dataset lands beside the runs measured against it (R12.1).
+            dataset = create_dataset(name=name, experiment_id=[experiment_id], tags=dict(tags))
+            created = True
+
+        if not created:
+            # One gold set is one dataset, whatever number of pipelines measure
+            # themselves against it: the experiment joins the ones it already
+            # belongs to instead of a second dataset appearing (R12.6).
+            if experiment_id not in (dataset.experiment_ids or []):
+                add_dataset_to_experiments(
+                    dataset_id=dataset.dataset_id, experiment_ids=[experiment_id]
+                )
+            set_dataset_tags(dataset_id=dataset.dataset_id, tags=dict(tags))
+
+        before = _record_count(dataset)
+        dataset.merge_records(list(records))
+        refreshed = get_dataset(dataset_id=dataset.dataset_id)
+        after = _record_count(refreshed)
+
+        return PublishedDataset(
+            dataset_id=refreshed.dataset_id,
+            name=name,
+            digest=refreshed.digest,
+            records=after,
+            added=max(after - before, 0),
+            created=created,
+            tags=dict(tags),
+        )
+
+    def find(self, name: str) -> PublishedDataset | None:
+        from mlflow.exceptions import MlflowException
+        from mlflow.genai.datasets import get_dataset
+
+        try:
+            dataset = get_dataset(name=name)
+        except MlflowException:
+            return None
+        return PublishedDataset(
+            dataset_id=dataset.dataset_id,
+            name=name,
+            digest=dataset.digest,
+            records=_record_count(dataset),
+            added=0,
+            created=False,
+            tags=dict(dataset.tags or {}),
+        )
+
+
+def _record_count(dataset) -> int:
+    """How many records a dataset holds, from the profile MLflow keeps beside it.
+
+    Read from the profile rather than by loading every record: a gold set is
+    small, but a count is all that is wanted and `to_df()` would fetch the
+    answers back to arrive at it.
+    """
+    import json
+
+    profile = dataset.profile
+    if isinstance(profile, str):
+        profile = json.loads(profile or "{}")
+    return int((profile or {}).get("num_records", 0))

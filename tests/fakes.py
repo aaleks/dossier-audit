@@ -19,6 +19,7 @@ from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
 
+from dossier.domain.datasets import PublishedDataset
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 
 
@@ -228,13 +229,10 @@ class FakeDatasetRegistry:
         experiment: str,
         records: Sequence[Mapping[str, object]],
         tags: Mapping[str, str],
-    ) -> "PublishedDataset":
-        # Imported here rather than at module scope: `domain/datasets.py` is the
-        # first inner cycle of this slice, and a top-level import of it would
-        # fail collection of the entire default suite while the outer loop is red.
-        from dossier.domain.datasets import PublishedDataset
-
-        self.publishes.append({"name": name, "experiment": experiment, "records": list(records)})
+    ) -> PublishedDataset:
+        self.publishes.append(
+            {"name": name, "experiment": experiment, "records": list(records)}
+        )
         dataset = self.datasets.get(name)
         created = dataset is None
         if dataset is None:
@@ -269,9 +267,7 @@ class FakeDatasetRegistry:
             tags=dict(dataset.tags),
         )
 
-    def find(self, name: str) -> "PublishedDataset | None":
-        from dossier.domain.datasets import PublishedDataset
-
+    def find(self, name: str) -> PublishedDataset | None:
         dataset = self.datasets.get(name)
         if dataset is None:
             return None

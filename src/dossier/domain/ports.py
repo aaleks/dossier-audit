@@ -13,6 +13,8 @@ from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict
 
+from dossier.domain.datasets import PublishedDataset
+
 
 class ItemRef(BaseModel):
     """One item as it appears in a listing."""
@@ -127,6 +129,49 @@ class ModelClient(Protocol):
         `parts` are images the prompt is about, in the order the caller means
         them -- page order, for a document. A call with none sends exactly what
         it sent before parts existed, so no cache key moves (R9.16 row 5).
+        """
+        ...
+
+
+@runtime_checkable
+class DatasetRegistry(Protocol):
+    """Where a gold set is published as an MLflow evaluation dataset (spec 012).
+
+    A second port beside `Tracker`, and the reason is the one thing it does that
+    `Tracker` may not: it **returns**. A dataset id, a digest and a record count
+    come back from a server, which is exactly what `Tracker`'s contract forbids,
+    and that contract is how R0.10 justifies letting tracking near the network at
+    all. Splitting them keeps the stronger promise intact where it matters.
+
+    What comes back may reach an MLflow tag and a line in the terminal, and
+    nothing else: no cache key, no manifest, no score, no file under `runs/` or
+    `.dossier/` (R12.4 row 3). A dataset is a projection of `gold/`, read by a
+    person and never by `dossier`.
+    """
+
+    def publish(
+        self,
+        *,
+        name: str,
+        experiment: str,
+        records: Sequence[Mapping[str, object]],
+        tags: Mapping[str, str],
+    ) -> PublishedDataset:
+        """Create the dataset if it is not there, merge `records` into it, tag it.
+
+        Merged, never replaced: a record already there is updated in place on the
+        document its `inputs` name, so publishing the same gold set twice is a
+        no-op (R12.3). The dataset belongs to `experiment` in addition to any it
+        already belongs to, because one gold set can serve several pipelines
+        (R12.6).
+        """
+        ...
+
+    def find(self, name: str) -> PublishedDataset | None:
+        """The dataset published under `name`, or `None` if there is none.
+
+        Read by `dossier eval` to say whether what it scored is what was
+        published (R11.7), and by nothing that computes a figure.
         """
         ...
 

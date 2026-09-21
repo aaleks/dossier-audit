@@ -20,6 +20,7 @@ from dossier.application.convert import (
     HeldDocument,
     convert_source,
 )
+from dossier.application.datasets import EmptyGoldSet, publish_gold
 from dossier.application.eval import (
     FieldSample,
     Judging,
@@ -74,7 +75,7 @@ from dossier.domain.grounding import GROUNDED, judge_name, judged_states
 from dossier.domain.hashing import text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
-from dossier.domain.ports import ImagePart, ModelClient, Tracker
+from dossier.domain.ports import DatasetRegistry, ImagePart, ModelClient, Tracker
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
 from dossier.domain.scoring import (
     check_same_documents,
@@ -102,7 +103,11 @@ from dossier.infrastructure.models.registry import UnknownProvider, available_pr
 from dossier.infrastructure.models.registry import provider as model_provider
 from dossier.infrastructure.store import SnapshotStore
 from dossier.infrastructure.tracking.best_effort import BestEffortTracker
-from dossier.infrastructure.tracking.mlflow import TrackingUnavailable, connect
+from dossier.infrastructure.tracking.mlflow import (
+    TrackingUnavailable,
+    connect,
+    connect_datasets,
+)
 
 app = typer.Typer(add_completion=False)
 
@@ -1490,3 +1495,96 @@ def _reproduced(workspace: Path, manifest: Manifest, step: str):
 
 def _count(n: int, noun: str) -> str:
     return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
+dataset_app = typer.Typer(
+    add_completion=False,
+    help="Publish a gold set to MLflow as an evaluation dataset (spec 012).",
+)
+app.add_typer(dataset_app, name="dataset")
+
+
+def build_dataset_registry(settings: TrackingSettings) -> DatasetRegistry:
+    """The registry a gold set is published through, checked before anything is sent.
+
+    A named function for the reason `build_tracker` is one: it is the seam the
+    composition root hands to a use case, and a test replaces it with a
+    `FakeDatasetRegistry`. Separate from `build_tracker` because the two are
+    different ports -- this one returns what it published, which a `Tracker` may
+    never do (R0.10, spec 012).
+    """
+    return connect_datasets(settings.uri)
+
+
+@dataset_app.command("publish")
+def dataset_publish(
+    pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
+    gold: str = typer.Option(..., "--gold", help="Gold set directory", metavar="DIR"),
+) -> None:
+    """Publish a gold set as the MLflow evaluation dataset named after it (R12.1).
+
+    Reads `gold/` and sends; asks no model, reproduces no run, and writes nothing
+    to disk. The dataset lands in the experiment an eval over this gold set
+    records to (R10.2), so it sits beside the runs measured against it.
+    """
+    workspace = Path.cwd()
+    environ = environment(workspace)
+
+    try:
+        _pipeline_path(workspace, pipeline)
+    except ConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    # The switch, the template and the server, in the order a person would fix
+    # them and all before anything is sent (R12.5). Unlike every other command,
+    # this one has nothing to do with tracking off: its whole output is the
+    # record, so off is a refusal rather than a quiet no-op (R12.5 row 1).
+    try:
+        tracking = tracking_settings(environ)
+        if tracking is None:
+            raise ValueError(
+                "publishing a dataset needs tracking on: set DOSSIER_MLFLOW_ENABLED=true "
+                "and DOSSIER_MLFLOW_TRACKING_URI. A dataset is published to MLflow and "
+                "nowhere else"
+            )
+        experiment = experiment_name(kind="eval", pipeline=pipeline, gold=gold, environ=environ)
+        registry = build_dataset_registry(tracking)
+    except (ValueError, TrackingUnavailable) as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+
+    try:
+        published = publish_gold(
+            registry,
+            gold=workspace / gold,
+            experiment=experiment,
+            snapshots=_held_snapshots(workspace),
+        )
+    except EmptyGoldSet as error:
+        # Named as the person typed it. `EmptyGoldSet` carries the resolved path,
+        # and an absolute one with this machine's separators in it is noise around
+        # the one word they need to see (R12.1 row 3).
+        typer.echo(f"{pipeline}: {gold}: no verified answers to publish", err=True)
+        raise typer.Exit(code=2) from error
+
+    typer.echo(
+        f"{published.name} · {_count(published.records, 'record')} · digest {published.digest}"
+    )
+    typer.echo(f"published to MLflow: {experiment}")
+
+
+def _held_snapshots(workspace: Path) -> dict[str, str]:
+    """Every held document's snapshot address, by document key (R12.2 row 1).
+
+    Provenance for the answers rather than a precondition for them: a gold set
+    published before the first sync finds nothing here, and publishes anyway
+    (R12.2 row 3).
+    """
+    with Ledger(workspace) as ledger:
+        return {
+            row.key: row.snapshot
+            for source in ledger.sources()
+            for row in ledger.rows(source)
+            if row.state is not State.TOMBSTONED
+        }
