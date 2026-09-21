@@ -1,6 +1,6 @@
 # 003 — Configuration format
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R3.1 – R3.13
 
 ## Purpose
@@ -439,7 +439,7 @@ thing R0.5 exists to prevent.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R003_13__every_input_value_names_its_document.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

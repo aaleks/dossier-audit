@@ -101,13 +101,15 @@ class TestTheKindPicksTheArtifactAStepIsHanded:
         """Example 1: the one the whole rule exists for."""
         values = self._values("documents@captions", self.BY_KIND)
 
-        assert values["documents@captions"] == "a description of the chart"
+        assert values["documents@captions"] == (
+            '<document key="INC-4821">a description of the chart</document>'
+        )
 
     def test_a_bare_input_is_handed_the_markdown_kind(self):
         """Example 2: the one where nothing about an old pipeline changes."""
         values = self._values("documents", self.BY_KIND)
 
-        assert values["documents"] == "the converted text"
+        assert values["documents"] == '<document key="INC-4821">the converted text</document>'
 
     def test_a_step_may_read_two_kinds_of_the_same_source(self):
         """Example 3: the one where a kind is per input rather than per step.
@@ -118,5 +120,7 @@ class TestTheKindPicksTheArtifactAStepIsHanded:
         """
         values = self._values(["documents", "documents@captions"], self.BY_KIND)
 
-        assert values["documents"] == "the converted text"
-        assert values["documents@captions"] == "a description of the chart"
+        assert values["documents"] == '<document key="INC-4821">the converted text</document>'
+        assert values["documents@captions"] == (
+            '<document key="INC-4821">a description of the chart</document>'
+        )

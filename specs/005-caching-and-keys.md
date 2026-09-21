@@ -1,6 +1,6 @@
 # 005 — Cache keys, cascade and provenance
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R5.1 – R5.10
 
 ## Purpose
@@ -300,7 +300,7 @@ said so once and attributed it to one of them was wrong.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R005_10__a_new_document_reruns_only_itself_and_keys_are_per_document.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

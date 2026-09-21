@@ -1,4 +1,5 @@
-"""R5.7 — adding a document re-runs stages for that document only.
+"""R5.10 — adding a document re-runs stages for that document only, and no two
+documents share a stage key.
 
 This is the rule that makes an audit affordable to keep current. A corpus grows
 by one document a week; a pipeline that re-ran everything each time would cost
@@ -10,6 +11,10 @@ A step that reads *every* input has a key over every input, so one new document
 moves it — correctly. That is not a failure of incrementality; it is what
 "aggregate" means, and a run that served a cached report over 420 documents when
 421 exist would be reporting on a corpus that no longer exists.
+
+Supersedes R5.7, whose rows 1-3 are restated unchanged and whose row 4 said
+the opposite of row 4 here: identical bytes under two keys used to mean one
+entry and one call.
 
 The rows below are the rule's example table, transcribed. 420 documents are
 represented by six: the claim is about which documents are re-run, and six is
@@ -27,7 +32,7 @@ from tests.fakes import FakeModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
-from dossier.application.run import AGGREGATE_KEY, execute
+from dossier.application.run import AGGREGATE_KEY, _as_text, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -115,7 +120,7 @@ def scripted(keys: list[str], *, aggregate: bool = False) -> list[str]:
 
 
 class TestOnlyTheNewDocumentReruns:
-    """R5.7 — the 421st document costs one document, not 421."""
+    """R5.10 — the 421st document costs one document, not 421."""
 
     def test_the_per_file_stages_run_once_each_for_the_new_document(self, tmp_path: Path):
         """Example 1: the one where six documents are already paid for."""
@@ -181,13 +186,16 @@ class TestOnlyTheNewDocumentReruns:
 
         assert model.call_count == 3
 
-    def test_a_duplicate_document_is_served_from_cache(self, tmp_path: Path):
-        """Counter-example (row 4): the one where the new document is not new.
+    def test_a_duplicate_document_gets_a_key_of_its_own(self, tmp_path: Path):
+        """Row 4: the one where identical text is still a second document.
 
-        Added under a different key with identical text. The stage key is over
-        input *hashes*, not over document names, so it is the same computation
-        and the model is never asked. Keying on the name would re-run it and
-        charge for an answer already held.
+        Added under a different key with identical text. Under R5.7 this was
+        one key and no model call, and the entry it hit held an artifact naming
+        the *other* document -- `extract/INC-9999.json` saying
+        `"document": "INC-4821"`, every span cited against `INC-4821`, filed
+        under `INC-9999` regardless. The document key is inside the value now
+        (R3.13), so the hashes differ, the model is asked once, and the answer
+        names the document it is filed under.
         """
         run(
             tmp_path,
@@ -203,7 +211,7 @@ class TestOnlyTheNewDocumentReruns:
         text = text_for(HELD)
         text[duplicate] = text["INC-4821"]
 
-        model = FakeModelClient(responses=[])
+        model = FakeModelClient(responses=scripted([duplicate]))
         report = execute(
             workspace=tmp_path,
             pipeline=config,
@@ -219,12 +227,58 @@ class TestOnlyTheNewDocumentReruns:
             dossier_version="0.1.0",
         )
 
-        assert model.call_count == 0
-        assert report.cache_hits == len(keys) * 2
+        assert model.call_count == 2, "one `extract` and one `verify`, for the duplicate"
+        assert report.cache_hits == len(HELD) * 2
+
+    def test_the_duplicate_s_artifact_names_the_duplicate(self, tmp_path: Path):
+        """Row 5: the misattribution R5.7 accepted, stated as a test.
+
+        The artifact filed under `INC-9999` says `INC-9999`. Under R5.7 it said
+        `INC-4821`, because it *was* `INC-4821`'s artifact: one entry, served
+        for both, and `_from_cache` passed the stored bytes on rather than
+        re-serialising them under a name the cache had never held.
+        """
+        run(
+            tmp_path,
+            FakeModelClient(responses=scripted(HELD)),
+            keys=HELD,
+            with_report=False,
+            run_id="20260806T142203Z-4f1a",
+        )
+
+        config = pipeline(with_report=False)
+        duplicate = "INC-9999"
+        keys = [*HELD, duplicate]
+        text = text_for(HELD)
+        text[duplicate] = text["INC-4821"]
+
+        report = execute(
+            workspace=tmp_path,
+            pipeline=config,
+            pipeline_hash=PIPELINE_HASH,
+            documents={key: f"{index:064d}" for index, key in enumerate(keys)},
+            document_text=text,
+            schemas={"extract": SCHEMA, "verify": SCHEMA},
+            prompts={step.id: prompt_for(step.inputs) for step in config.steps},
+            model=FakeModelClient(responses=scripted([duplicate])),
+            cache=ArtifactCache(tmp_path, namespace="stage"),
+            run_id="20260907T090000Z-dddd",
+            started_at=STARTED_AT,
+            dossier_version="0.1.0",
+        )
+
+        # `_as_text` is the serialiser R0.11 writes the artifact with, so this
+        # reads exactly what lands in `runs/<id>/extract/<document>.json`. A
+        # freshly computed result carries no stored text; a cache hit carries
+        # the entry's bytes, which under R5.7 were another document's.
+        extract = next(step for step in report.steps if step.step == "extract")
+        produced = {result.document: json.loads(_as_text(result)) for result in extract.results}
+        assert produced[duplicate]["document"] == duplicate
+        assert produced["INC-4821"]["document"] == "INC-4821"
 
 
 class TestWhatAnAggregateStepIs:
-    """The mode itself, which R5.7 examples 2 and 3 depend on."""
+    """The mode itself, which R5.10 examples 2 and 3 depend on."""
 
     def test_it_asks_the_model_once_however_many_documents_there_are(self, tmp_path: Path):
         """The one that distinguishes `aggregate` from `per_file`.
