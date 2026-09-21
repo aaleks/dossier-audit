@@ -30,11 +30,13 @@ from dossier.domain.keys import JudgeInputs, cache_key, provenance
 from dossier.domain.ports import ArtifactStore, ImagePart, Tracker
 from dossier.domain.scoring import (
     DocumentScore,
+    FieldDelta,
     FieldKind,
     FieldTotal,
     GoldField,
     Verdict,
     overall,
+    regressed_fields,
     score_document,
     with_judged,
 )
@@ -243,6 +245,74 @@ SHOWN_AS_PAGES = (
     "The document is supplied as one image per page, in page order. "
     "Read the pages; there is no text transcript."
 )
+
+
+def record_comparison(
+    tracker: Tracker,
+    *,
+    experiment: str,
+    pipeline: str,
+    runs: tuple[str, str],
+    models: tuple[str, str],
+    gold: str,
+    gold_files: Mapping[str, bytes],
+    rows: Sequence[FieldDelta],
+    overalls: tuple[FieldTotal | None, FieldTotal | None],
+    dataset_stale: bool = False,
+) -> None:
+    """Record a comparison as one MLflow run of per-field deltas (R11.8, R11.9).
+
+    Opened and closed here, because a comparison has no traces to sit inside it:
+    it reproduces both runs from their manifests and caches and asks no model
+    (R7.10), so there is no (step, document) unit of work to trace. The two runs
+    it reads carry their own traces, recorded when they ran.
+
+    Every figure is one `_compare_runs` prints. MLflow is a second place to read
+    a figure, never a second way of arriving at one (spec 011).
+    """
+    tracker.start_run(
+        experiment=experiment,
+        name=f"compare {runs[0]} -> {runs[1]}",
+        tags={
+            **tracking_tags(kind="compare", pipeline=pipeline),
+            "dossier.gold_hash": gold_set_hash(gold_files),
+            # Present and empty when nothing regressed. An absent tag is
+            # indistinguishable from a comparison recorded before this rule
+            # existed, as an absent `changes.json` is from a sync that never ran
+            # (R11.6 row 2).
+            "dossier.regressed": ", ".join(regressed_fields(rows)),
+            **({"dossier.dataset_stale": "true"} if dataset_stale else {}),
+        },
+    )
+    tracker.log_params(
+        {
+            "a": runs[0],
+            "b": runs[1],
+            # Each run's own pin, from its own manifest. A single `model` param
+            # would be a claim about both runs that is false in exactly the case
+            # the change gate exists for: comparing two models (R7.8).
+            "a/model": models[0],
+            "b/model": models[1],
+            "gold": Path(gold).name,
+        }
+    )
+    metrics: dict[str, float] = {}
+    for row in rows:
+        if row.before is not None:
+            metrics[f"a/{row.field}"] = row.before.percentage
+        if row.after is not None:
+            metrics[f"b/{row.field}"] = row.after.percentage
+        if row.delta is not None:
+            metrics[f"delta/{row.field}"] = row.delta
+    earlier, later = overalls
+    if earlier is not None:
+        metrics["a/overall"] = earlier.percentage
+    if later is not None:
+        metrics["b/overall"] = later.percentage
+    if earlier is not None and later is not None:
+        metrics["delta/overall"] = later.percentage - earlier.percentage
+    tracker.log_metrics(metrics)
+    tracker.end_run(status="FINISHED")
 
 
 def judge_prompt_hash() -> str:

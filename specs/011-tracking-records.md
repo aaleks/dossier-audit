@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
 **Status:** Implemented
-**Rules:** R11.1 – R11.7
+**Rules:** R11.1 – R11.10
 
 ## Purpose
 
@@ -23,6 +23,7 @@ that could disagree with the terminal would leave nobody sure which to believe.
 | `dossier sync` | one | none | `<source>/known`, `/changed`, `/new`, `/fetched`, `/failed`; `changes.json` attached (R11.6) |
 | `dossier convert` | one | none | `<source>/held`, `/converted`, `/cached`, `/failed` |
 | `dossier calibrate` | one, per gold set | one per sample case | `judge/<field>/agreement`, `judge/<field>/cases` |
+| `dossier eval --compare a b` | one | none | `a/<field>`, `b/<field>`, `delta/<field>`, and the same three for the overall (R11.8) |
 | `dossier run --plan`, `--replay` | none | none | none |
 | `dossier dataset publish` | none | none | none; it publishes a dataset rather than recording a run (spec 012) |
 
@@ -178,4 +179,71 @@ dataset that cannot be read at all costs the eval nothing (R10.6).
 | 2 | the gold set edited since publishing — published `3b7e1d90`, scored `9c4f21a8` | linked anyway, tagged `dossier.dataset_stale=true` with both hashes; the terminal says which is which and names `dossier dataset publish`. The figures are the edited set's, because that is what was scored |
 | 3 | no dataset published for `gold/incidents` | the eval records exactly what R11.3 says and no input; a missing dataset is not an error, and nothing about the score changed |
 | 4 | the dataset unreadable — the server answers the run's calls and 500s on the dataset | recorded without the link, one line saying so; a lost record never changes a command's outcome (R10.6) |
-| 5 | *counter-example* — `dossier eval incident-audit --gold gold/incidents --compare A B` | no MLflow run and so no link; a comparison reads two runs each recorded when they ran (R7.8) |
+| 5 | *counter-example* — `dossier run --replay runs/20260806T142203Z-4f1a/` | no MLflow run at all, so nothing to link (R11.1 row 6). A replay reproduces a record rather than making one, and a dataset link is a record. A comparison *does* open a run and *does* link the dataset, which is R11.10 |
+
+### R11.8 — a `dossier eval --compare a b` is one MLflow run of per-field deltas, with no traces
+
+The figures R7.8 prints, in a run of their own. Until now a comparison recorded
+nothing, on the reasoning that it reads two runs each already recorded when they
+ran -- true of the two *scores*, and not true of the **delta**, which is a figure
+neither run holds and the only one the change gate exists to produce. A regression
+found in a terminal that has since scrolled away is the failure this prevents, and
+it is the same one every other rule in this spec prevents.
+
+Its own experiment kind, `compare`, because an experiment should hold runs that are
+comparable with one another (R10.2) and a delta is not an accuracy: `accuracy/severity`
+and `delta/severity` in one experiment would sit in the same column reading as the
+same kind of number. `{gold}` renders for it, as it does for an eval, and
+`DOSSIER_MLFLOW_EXPERIMENT_COMPARE` overrides it.
+
+No traces: a comparison reproduces both runs from their manifests and caches and
+asks no model (R7.10), so there is no (step, document) unit of work to trace. The
+two runs it reads have their own traces, recorded when they ran.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.record_comparison`)
+- **Proved by:** `tests/unit/test_R011_8__a_comparison_records_one_run_of_deltas.py`, `tests/acceptance/test_R011_8__compare_records_its_deltas_to_mlflow.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier eval incident-audit --gold gold/incidents --compare 20260806T142203Z-4f1a 20260907T090000Z-bbbb` over the comparison example | 1 MLflow run in `dossier-audit/incident-audit/compare`, tagged `dossier.kind=compare`; metrics `a/affected_systems` 75.0, `b/affected_systems` 50.0, `delta/affected_systems` -25.0, and the same three for every other field and for the overall -- the figures the table prints |
+| 2 | the same | params naming both run ids and the model each pinned, and the gold set's full 64-character hash as a tag (R0.7); 0 traces |
+| 3 | `severity` at 100.0% in both runs | `delta/severity` 0.0, recorded. A field omitted because it did not move is indistinguishable from one nobody scored (R7.8 row 4) |
+| 4 | *counter-example* — run `b` covering a fifth document `INC-5102` that `a` did not | refused (R7.8 row 3); 0 MLflow runs. Nothing was compared, so there is nothing to record -- as a refused calibration records nothing (R11.5 row 4) |
+
+### R11.9 — the fields a comparison regressed are named on its run
+
+The one thing a person opens a comparison to find. R7.8 flags a regression in the
+terminal; this is the same flag where it can be filtered on months later, which is
+the difference between "which change broke `affected_systems`" being a query and
+being an archaeology exercise.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring.regressed`)
+- **Proved by:** `tests/unit/test_R011_9__a_comparison_names_the_fields_that_regressed.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `affected_systems` moving 75.0% to 50.0% while the overall moves 80.0% to 90.0% | `dossier.regressed` is `affected_systems`; the improving overall does not hide it, which is R7.8 row 2 seen in MLflow |
+| 2 | two fields regressed | both named, in the order the report lists them, so the tag reads as the report does |
+| 3 | *counter-example* — a comparison where no field moved down | `dossier.regressed` present and empty. An absent tag is indistinguishable from a comparison recorded before this rule existed, as an absent `changes.json` is from a sync that never ran (R11.6 row 2) |
+
+### R11.10 — a comparison links the dataset of the gold set it scored
+
+The same link an eval makes (R11.7), on the other command that scores against a
+gold set -- so "every run measured against these answers" is one query in MLflow
+rather than one per command. A stale dataset is named here as it is there, and for
+the same reason: the figures came from the files (R12.4).
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.record_comparison`)
+- **Proved by:** `tests/acceptance/test_R011_10__compare_links_its_dataset_in_mlflow.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `gold/incidents` published, then a comparison over it | the dataset `incidents` logged as an input of the comparison's run, beside the deltas |
+| 2 | the gold set edited since publishing | linked and tagged `dossier.dataset_stale=true`, the terminal naming both hashes (R11.7 row 2) |
+| 3 | *counter-example* — no dataset published for `gold/incidents` | the comparison records its deltas and links nothing; a missing dataset is not an error (R11.7 row 3) |

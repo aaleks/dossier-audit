@@ -167,6 +167,15 @@ class FakeTracker:
         self._trace.error = error
 
     def end_run(self, *, status: str) -> None:
+        # The statuses MLflow's `RunStatus.from_string` accepts. A run and a trace
+        # have different vocabularies -- a trace ends `OK` or `ERROR` -- and
+        # passing a trace's to a run raises against a real server while a fake
+        # that stored any string at all said nothing (R10.6 is about records that
+        # are lost, not records that were never valid).
+        if status not in ("RUNNING", "SCHEDULED", "FINISHED", "FAILED", "KILLED"):
+            raise FakeTrackerError(
+                f"{status!r} is not an MLflow run status; a run ends FINISHED or FAILED"
+            )
         self._run.status = status
 
     @property
