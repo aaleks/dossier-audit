@@ -83,10 +83,17 @@ abstention, and it is carried rather than dropped (R12.2). A field absent from
 `expectations` reads as a field nobody verified, which R7.3 row 4 treats as a
 different thing entirely from a field verified as having no answer.
 
-The digest a publish prints is MLflow's own, computed over the records. It is
-not the gold set hash `3b7e1d90` that tags the dataset and the eval run: the two
-move together and are different values, and a spec example showing one where the
-other belongs would be transcribed straight into a test.
+The digest a publish prints is MLflow's own, and it is **not** a content hash:
+MLflow computes it as `sha256("<name>:<last_update_time>")`, so it moves whenever
+the dataset is written to and says nothing about what the dataset holds. The value
+that identifies the answers is the gold set hash `3b7e1d90` in the dataset's tags,
+which is dossier's own and is over the bytes of the files (R0.7).
+
+That is why an unchanged gold set is not merged again (R12.3): a second publish
+that sent the same four records would move the digest and leave a person comparing
+two dataset versions that are identical. The publish compares the gold hash it
+would tag with the one already there, and when they agree it writes nothing at
+all.
 
 A reviewer's `verified_by` and `verified_at` are dataset **tags**, not
 expectations. They are attribution for the set, not answers in it.
@@ -152,8 +159,14 @@ person opens and the tag on the eval run beside it read as the same thing.
 ### R12.3 — republishing an unchanged gold set adds no record and leaves the digest unchanged
 
 Records are merged on the document their `inputs` name -- MLflow's key is the
-SHA-256 of `inputs`, and the document key is all that is in there (R12.2) -- so
-publishing is idempotent, and publishing twice is a no-op a person can run
+SHA-256 of `inputs`, and the document key is all that is in there (R12.2) -- so a
+correction updates a record rather than adding one.
+
+Nothing being *sent* is the other half, and it is what keeps the digest still.
+MLflow's digest is over the dataset's name and the time it was last written, not
+over its records, so a publish that merged the same four records again would move
+it and offer a person two identical versions to compare. An unchanged gold set is
+recognised by its hash and not sent: publishing twice is a no-op a person can run
 without thinking about it.
 
 - **Kind:** deterministic
@@ -163,11 +176,11 @@ without thinking about it.
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `gold/incidents` published, then published again with no file changed | 1 dataset, 4 records, the same digest `61da2705`; 0 datasets created the second time |
+| 1 | `gold/incidents` published, then published again with no file changed | 1 dataset, 4 records, the same digest `61da2705`; 0 datasets created, 0 records sent and 0 tags written the second time -- the gold hash already there is the one this publish would have tagged |
 | 2 | `INC-4822`'s `resolution_date` corrected by a reviewer (R7.7), then published | still 4 records — the document is the merge key, not the answer — and a new digest |
 | 3 | a fifth document `INC-4830` verified and published | 5 records, a new digest; the four already there unchanged |
 | 4 | `INC-4822` repointed from `0e52dd18` to `77c1b40a` by a sync (R2.18), then published | still 4 records, `INC-4822`'s `dossier.snapshot` tag updated in place. A record keyed on its snapshot as well would leave one document holding two records, one of them addressing content the store no longer serves |
-| 5 | *counter-example* — a gold file rewritten with the same answers formatted differently | a new digest, because the gold set hash is over bytes (R0.7) and the set it addresses has moved. A digest that ignored the rewrite would claim a set nobody can reproduce |
+| 5 | *counter-example* — a gold file rewritten with the same answers formatted differently | sent, and a new gold hash tag, because that hash is over bytes (R0.7) and the set it addresses has moved. Skipping it would leave the dataset claiming a set nobody can reproduce |
 
 ### R12.4 — a dataset is a projection of `gold/`, and no score, key or file is ever computed from it
 
