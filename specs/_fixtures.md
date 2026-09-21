@@ -213,7 +213,8 @@ differ.
 |---|---|
 | `incidents` | the dataset `gold/incidents` publishes as: the gold set's own name, one dataset per gold set rather than per pipeline (R12.1, R12.6) |
 | `d-18afc31376cb427a` | the dataset id MLflow returns, which may reach a tag and the terminal and nothing on disk (R12.4 row 3) |
-| `61da2705` | the digest of a dataset published from a gold set of four documents; it moves when any answer moves (R12.3) |
+| `61da2705` | the digest MLflow gives a dataset: `sha256("<name>:<last_update_time>")`, so it moves when the dataset is *written to* and says nothing about what it holds (R12.3) |
+| `dossier.gold_hash`, `dossier.snapshots_hash` | the two tags a publish compares with what is already there, to decide whether it would write anything different: the first over the bytes of the gold files, the second over the document keys and the snapshot addresses they are held at (R12.3) |
 
 
 ## Fields on `INC-4821`
