@@ -25,6 +25,7 @@ from dossier.application.eval import (
     FieldSample,
     Judging,
     calibrate_fields,
+    deltas_artifact,
     finish_eval,
     judge_prompt_hash,
     judge_scores,
@@ -32,6 +33,7 @@ from dossier.application.eval import (
     load_gold,
     record_comparison,
     score_run,
+    scores_artifact,
     start_eval,
 )
 from dossier.application.manifest import MANIFEST_NAME, Manifest
@@ -1424,6 +1426,9 @@ def eval_(
                 totals=reported,
                 withheld=withheld,
             ),
+            # The per-document lines printed just above, which nothing else
+            # keeps (R11.14).
+            detail=scores_artifact(scores, withheld=withheld),
         )
         typer.echo(f"recorded to MLflow: {experiment}")
 
@@ -1554,6 +1559,7 @@ def _compare_runs(
                 rows=deltas,
                 overalls=(earlier, later),
             ),
+            detail=deltas_artifact(deltas, runs=runs),
         )
         if published is not None:
             # The same link an eval makes, on the other command that scores
