@@ -1,6 +1,6 @@
 ---
 name: verify
-model: claude-opus-5
+model: claude-opus-5-5
 allowed-tools: Read, Glob, Grep, Bash
 description: Audit that specs and code still agree, in both directions - spec2code and code2spec - plus the code-quality dimensions a green suite hides. Use after /tdd, before a PR, or any time you want to know whether the repo has drifted. Read-only; reports findings and a verdict, modifies nothing.
 argument-hint: "[spec id or rule id to focus on]"

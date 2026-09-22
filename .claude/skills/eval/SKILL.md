@@ -1,6 +1,6 @@
 ---
 name: eval
-model: claude-opus-5
+model: claude-opus-5-5
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 description: Build or run the check for an `evaluated` spec rule - the non-deterministic half of the workflow. Use when a rule cannot be asserted with == (judge agreement, narrative quality) and needs a scored threshold instead. Counterpart to /tdd.
 argument-hint: "<rule id> [spec file] | --run"

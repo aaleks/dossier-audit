@@ -1,6 +1,6 @@
 ---
 name: discover
-model: claude-opus-5
+model: claude-opus-5-5
 allowed-tools: Read, Glob, Grep, Write, AskUserQuestion
 description: Turn a feature idea into a specification with testable rules, resolving the unknowns with the user interactively before anything is written to disk. Use at the START of a new capability or behaviour change, before any test exists. First step of the SDD loop; /accept comes next.
 argument-hint: "<the feature request, in quotes>"
