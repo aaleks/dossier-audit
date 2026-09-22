@@ -14,6 +14,7 @@ from typing import Protocol, runtime_checkable
 from pydantic import BaseModel, ConfigDict
 
 from dossier.domain.datasets import PublishedDataset
+from dossier.domain.prompts import PublishedPrompt
 
 
 class ItemRef(BaseModel):
@@ -362,3 +363,43 @@ class LedgerWriter(Protocol):
     def config_hash(self, source_id: str) -> str | None: ...
 
     def set_config_hash(self, source_id: str, value: str) -> None: ...
+
+
+class PromptRegistry(Protocol):
+    """Where a pipeline's prompts are published as versions (spec 013).
+
+    A third port beside `DatasetRegistry`, for the reason spec 012 gave for the
+    second: it **returns**. A version number comes back from a server, which
+    `Tracker`'s contract forbids.
+
+    There is no `load`. MLflow's prompt registry exists to be read from, and
+    dossier declines that half of it: a prompt fetched at run time would be an
+    input to a cache key that no checkout can reproduce (R0.4), a route into a
+    run that no review passed through, and a network read on the replay path
+    (R0.10). The prompt files in the pipeline's own directory stay the only
+    source (R13.5).
+    """
+
+    def publish(
+        self,
+        *,
+        name: str,
+        template: str,
+        tags: Mapping[str, str],
+        commit_message: str = "",
+    ) -> PublishedPrompt:
+        """Register `template` under `name`, creating the prompt if it is new.
+
+        MLflow versions unconditionally -- `register_prompt` creates a version
+        even for text identical to the one above it -- so deciding *whether* to
+        call this is the caller's, and R13.4 is that decision.
+        """
+        ...
+
+    def latest(self, name: str) -> PublishedPrompt | None:
+        """The newest version of `name`, or `None` if there is no such prompt.
+
+        The one read the one-way promise permits, because it decides a **write**
+        and reaches no output (R13.5 row 4).
+        """
+        ...

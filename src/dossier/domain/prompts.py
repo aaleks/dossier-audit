@@ -46,6 +46,11 @@ _FENCED = re.compile(r"^(?P<fence>```|~~~).*?^(?P=fence)", re.MULTILINE | re.DOT
 # request rather than partway through a publish (R13.1 row 5).
 _REJECTED_BY_MLFLOW = ("/", ":")
 
+# The tag that ties a version to the provenance record of the run that rendered
+# it. Named once, because the publish that writes it and the compare that reads
+# it back must agree (R13.3, R13.4).
+PROMPT_HASH_TAG = "dossier.prompt_hash"
+
 
 def placeholders_in(prompt: str) -> set[str]:
     """Every input name the prompt injects, ignoring fenced code."""
@@ -241,9 +246,26 @@ def _to_publish(
             # This is the one value that ties a version in MLflow back to the
             # provenance record of the run that rendered it, and a prefix would
             # tie it to several.
-            "dossier.prompt_hash": content_hash(template.encode("utf-8")),
+            PROMPT_HASH_TAG: content_hash(template.encode("utf-8")),
             "dossier.pipeline": pipeline,
             owner_tag: owner_value,
             "dossier.path": path,
         },
     )
+
+
+@dataclass(frozen=True)
+class PublishedPrompt:
+    """What a registry says about a prompt version it created or found (R13.3).
+
+    Comes *back* from a tracking server, which is why publishing prompts has a
+    port of its own rather than a method on `Tracker`, whose contract is that
+    every method sends and returns nothing (R0.10). Every field here may reach
+    the terminal line and nothing else: no key, no manifest, no file under
+    `runs/`, `gold/` or the pipeline's own directory (R13.5 row 3).
+    """
+
+    name: str
+    version: int
+    prompt_hash: str
+    created: bool

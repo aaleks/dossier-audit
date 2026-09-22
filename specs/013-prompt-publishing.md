@@ -184,7 +184,7 @@ says.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.publish_set`)
-- **Proved by:** `tests/acceptance/test_R013_1__a_pipeline_publishes_one_prompt_per_step.py`, `tests/unit/test_R013_1__a_prompt_is_named_for_its_pipeline_and_step.py`, `tests/unit/test_R013_1__a_pipeline_contributes_one_prompt_per_step.py`
+- **Proved by:** `tests/acceptance/test_R013_1__a_pipeline_publishes_one_prompt_per_step.py`, `tests/unit/test_R013_1__a_prompt_is_named_for_its_pipeline_and_step.py`, `tests/unit/test_R013_1__a_pipeline_contributes_one_prompt_per_step.py`, `tests/unit/test_R013_1__publishing_sends_every_prompt_the_pipeline_names.py`
 - **Status:** IN PROGRESS
 
 | # | Given | Then |
