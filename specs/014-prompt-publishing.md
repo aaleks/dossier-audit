@@ -390,7 +390,7 @@ rubric edited since its calibration -- the commonest reason for withholding
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
-- **Proved by:** `tests/acceptance/test_R014_9__a_judge_links_the_rubric_version_it_judged_with.py`
+- **Proved by:** `tests/acceptance/test_R014_9__a_judge_links_the_rubric_version_it_judged_with.py`, `tests/unit/test_R014_9__a_judge_looks_up_the_rubric_of_every_field_it_may_report.py`
 - **Status:** IN PROGRESS
 
 | # | Given | Then |

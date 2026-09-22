@@ -20,7 +20,7 @@ pipeline this module has already checked.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
 from dossier.domain.hashing import content_hash, normalised_text
@@ -189,6 +189,33 @@ def judge_prompt_name(pipeline: str, field: str, *, prefix: str = "") -> str:
     and therefore cannot contain a dot.
     """
     return f"{prompt_name(pipeline, 'judge', prefix=prefix)}.{field}"
+
+
+def rubric_links(
+    pipeline: str,
+    rubric_hashes: Mapping[str, str],
+    *,
+    withheld: Collection[str] = (),
+    prefix: str = "",
+) -> list[tuple[str, str]]:
+    """R14.9 — the rubric versions a judge's record looks for: a name and a hash each.
+
+    `rubric_hashes` maps a judged field to the `text_hash` of its rubric, which
+    is the value R14.3 tags a published version with, so a version is found by
+    the words it holds rather than by being newest.
+
+    A withheld field is left out. Nothing was judged with its rubric, and a
+    rubric edited since its calibration -- the commonest reason to withhold
+    (R7.15) -- would otherwise link words no reported figure came from.
+
+    In field order, so two evals of one pipeline ask the registry the same
+    questions in the same order (R0.4).
+    """
+    return [
+        (judge_prompt_name(pipeline, field, prefix=prefix), rubric_hashes[field])
+        for field in sorted(rubric_hashes)
+        if field not in withheld
+    ]
 
 
 def publish_set(
