@@ -1,7 +1,7 @@
 # 014 — A pipeline's prompts as MLflow prompt registry versions
 
-**Status:** Implemented
-**Rules:** R14.1 – R14.7
+**Status:** Partially implemented
+**Rules:** R14.1 – R14.8
 
 ## Purpose
 
@@ -85,6 +85,23 @@ which both declare `schemas/incident.yaml`, publish its `root_cause` rubric once
 because that is one job. The alternative -- naming by path -- puts a rename into
 the version history of a prompt whose text never changed, and leaves a person
 reading `02_verify` in a list where every other line says what it does.
+
+**A name says nothing about the workspace it came from**, and that was missed
+when the two paragraphs above were written. Carrying the pipeline was meant to
+make a name unique, and it does so only within one workspace: two checkouts with
+a pipeline called `incident-audit` -- two people on one team server, or one person
+with a playground and a real project -- publish into the same history, each edit
+landing as the next version of the other's prompt, and R14.7's lookup can match a
+hash that was published from somewhere else. Found live, after R14.1 was MET: a
+publish from one workspace arrived as `v2` of a prompt another had published.
+
+So a name may carry a namespace, set per machine in
+`DOSSIER_MLFLOW_PROMPT_PREFIX` like every other `DOSSIER_MLFLOW_` variable, and
+placed in front with the same dot: `sandbox.incident-audit.extract`. Unset or
+empty it is nothing, and every name is byte-identical to what R14.1 and R14.2
+compose. That is why R14.8 adds to them rather than superseding them: they say
+how a name is composed, and R14.8 says where it lives. A person who never sets
+the variable sees no change at all, including in a history already published.
 
 ## What a version holds
 
@@ -174,6 +191,14 @@ machine's configuration is refused at startup by name (R14.6, R10.5).
 command publishes, and neither links the version it used. R14.7 covers
 `dossier run` only. The calibration analogue is a rule nobody has written yet
 rather than one this spec implies.
+
+A gold set's dataset has the same property and is not namespaced here: it is
+named after its directory (R12.1), globally, so two workspaces each holding
+`gold/incidents` merge their records into one dataset, keyed by a document key
+the two may share. That is spec 012's name and spec 012's decision. It is
+recorded rather than folded in because the prefix below was agreed for prompts,
+and widening it to a second command's records is a change a person should see
+proposed rather than find done.
 
 ## Must hold
 
@@ -314,3 +339,25 @@ link is a statement about the prompt that ran rather than about what is newest.
 | 2 | the same run, `incident-audit.extract` never published | `extract` links nothing, `verify` and `report` link theirs; the run records and exits exactly as it would have (R10.4) |
 | 3 | *counter-example* — `DOSSIER_MLFLOW_ENABLED=false` | no registry read and no link; byte-identical manifest, keys and artifacts (R10.4 row 1) |
 | 4 | *counter-example* — `dossier run --plan` and `--replay` | no link and no registry read; neither opens a run to link to (R4.6, R4.7) |
+
+### R14.8 — a configured `DOSSIER_MLFLOW_PROMPT_PREFIX` goes in front of every prompt name, and an unset one changes none
+
+The namespace a name was missing. Per machine, read with the rest of the
+tracking configuration and never from committed files, because which namespace a
+checkout publishes into is a fact about where it runs rather than about the
+pipeline (R10.1, R9.2). Applied to every name a publish sends and every name a
+run looks up, so the two can only agree.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.prompts.prompt_name`)
+- **Proved by:** `tests/acceptance/test_R014_8__a_prompt_prefix_namespaces_every_name.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `DOSSIER_MLFLOW_PROMPT_PREFIX=sandbox`, `dossier prompts publish incident-audit` | `sandbox.incident-audit.extract`, `sandbox.incident-audit.verify`, `sandbox.incident-audit.report` and `sandbox.incident-audit.judge.root_cause`, each at version 1; the terminal names each as it was published |
+| 2 | two workspaces each holding `incident-audit`, one publishing with `sandbox` and one with no prefix | two prompts, `sandbox.incident-audit.extract` and `incident-audit.extract`, each at version 1. Without the prefix the second publish would have been version 2 of the first workspace's prompt, which is the failure this rule exists for |
+| 3 | published under `sandbox`, then `dossier run incident-audit` on the same machine | the run looks up and links `sandbox.incident-audit.extract` at the version carrying the hash it rendered (R14.7). A run asks under the name it would have published under |
+| 4 | *counter-example* — unset, or set to the empty string | every name byte-identical to R14.1's and R14.2's -- `incident-audit.extract`. A prompt published before this rule is found, compared and not sent again (R14.4) |
+| 5 | *counter-example* — `DOSSIER_MLFLOW_PROMPT_PREFIX=team/a` | exit 2 naming `/` and `DOSSIER_MLFLOW_PROMPT_PREFIX`; 0 prompts sent. The refusal R14.1 row 5 makes of a pipeline name, on the other component nothing else constrains |
+| 6 | *counter-example* — published under `sandbox`, then run on a machine with no prefix | the run looks up `incident-audit.extract`, finds nothing, links nothing, and exits as it would have (R14.7 row 2). A prefix is per machine; two machines that disagree about it are the one case it cannot help |

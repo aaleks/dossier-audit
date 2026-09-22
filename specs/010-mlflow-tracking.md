@@ -33,6 +33,7 @@ records its runs is not a property of the pipeline.
 | `DOSSIER_MLFLOW_CAPTURE` | `full` / `hashes` | `full` |
 | `DOSSIER_MLFLOW_RUN_NAME_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE`, `_COMPARE` | a template | the default for that kind (R10.10) |
 | `DOSSIER_MLFLOW_RUN_PREFIX` | a name | none; `{prefix}` renders empty |
+| `DOSSIER_MLFLOW_PROMPT_PREFIX` | a name | none; every prompt name is exactly what R14.1 and R14.2 compose (R14.8) |
 | `DOSSIER_MLFLOW_RUN_LABEL` | a name | none; `--label` wins over it (R10.11) |
 | `DOSSIER_MLFLOW_USER` | a name | the account the command ran under (R10.12) |
 

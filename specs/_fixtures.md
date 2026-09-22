@@ -234,6 +234,7 @@ differ.
 | `incident-audit.judge.root_cause` | the rubric `root_cause` is judged against, published under the field it judges rather than the file it sits in (R14.2) |
 | `postmortem-review.verify` | the same prompt file in a second pipeline: a separate prompt, because a prompt name is global in MLflow and a prompt file is resolved against the pipeline's own directory (R14.1 row 2) |
 | `dossier.prompt_hash` | the tag carrying the full 64 characters of the hash that enters the stage key, and the one a publish compares before sending (R14.3, R14.4) |
+| `sandbox` | `DOSSIER_MLFLOW_PROMPT_PREFIX` in the examples: a per-machine namespace, so `incident-audit.extract` publishes as `sandbox.incident-audit.extract` (R14.8) |
 
 
 ## Fields on `INC-4821`
