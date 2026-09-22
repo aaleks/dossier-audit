@@ -20,7 +20,10 @@ pipeline this module has already checked.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+
+from dossier.domain.pipeline import PipelineConfig
 
 # `{{ name }}` with optional inner whitespace. Rejecting the spaced form would be
 # defensible and would waste an afternoon; it is unambiguously the same thing.
@@ -115,3 +118,31 @@ def prompt_name(pipeline: str, step: str) -> str:
     reading two different pipelines.
     """
     return f"{pipeline}.{step}"
+
+
+@dataclass(frozen=True)
+class PromptToPublish:
+    """One prompt a publish would send: what it is called and what it says."""
+
+    name: str
+    template: str
+
+
+def publish_set(config: PipelineConfig, texts: Mapping[str, str]) -> list[PromptToPublish]:
+    """R13.1 — the prompts a pipeline publishes, one per step.
+
+    Handed the text rather than reading it, so the decision about what is
+    published under which name stays in domain/ and stays provable without a
+    workspace. `texts` is keyed by the path the step writes, which is also why
+    two steps naming one file publish twice: the lookup is shared, the name is
+    not.
+
+    Declaration order, not sorted. It is the order a person reads the pipeline
+    in and the order the terminal line prints, and nothing here reaches a cache
+    key -- the ordering rule that R5.6 imposes on hashed collections does not
+    apply to a list nobody hashes.
+    """
+    return [
+        PromptToPublish(name=prompt_name(config.name, step.id), template=texts[step.prompt])
+        for step in config.steps
+    ]
