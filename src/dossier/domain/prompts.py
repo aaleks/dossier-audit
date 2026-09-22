@@ -1,4 +1,9 @@
-"""What a prompt declares it needs, and what it is given (spec 003).
+"""What a prompt declares it needs, what it is given, and what it is called.
+
+Spec 003 for the first two, spec 013 for the third: a prompt's name in MLflow's
+registry is a pure decision about a pipeline name and a step id, so it lives
+here beside the other decisions a prompt is subject to rather than next to the
+call that sends it.
 
 Two failures this closes, and both are quiet. A declared input that no
 placeholder injects is a silent no-op: it sits in the stage's key, so changing it
@@ -15,7 +20,11 @@ pipeline this module has already checked.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+
+from dossier.domain.hashing import content_hash, normalised_text
+from dossier.domain.pipeline import PipelineConfig
 
 # `{{ name }}` with optional inner whitespace. Rejecting the spaced form would be
 # defensible and would waste an afternoon; it is unambiguously the same thing.
@@ -29,6 +38,18 @@ _PLACEHOLDER = re.compile(r"\{\{\s*([a-z][a-z0-9_()]*(?:@[a-z][a-z0-9_]*)?)\s*\}
 # format contains braces, and treating those as inputs would make the most useful
 # prompts unwritable (R3.6 example 4).
 _FENCED = re.compile(r"^(?P<fence>```|~~~).*?^(?P=fence)", re.MULTILINE | re.DOTALL)
+
+
+# `_validate_model_name` in mlflow.utils.validation refuses both outright, and a
+# prompt is a registered model underneath. Checked here rather than at the call
+# that sends, so the refusal is dossier's sentence and arrives before the first
+# request rather than partway through a publish (R14.1 row 5).
+_REJECTED_BY_MLFLOW = ("/", ":")
+
+# The tag that ties a version to the provenance record of the run that rendered
+# it. Named once, because the publish that writes it and the compare that reads
+# it back must agree (R14.3, R14.4).
+PROMPT_HASH_TAG = "dossier.prompt_hash"
 
 
 def placeholders_in(prompt: str) -> set[str]:
@@ -93,3 +114,158 @@ def render(prompt: str, values: dict[str, str]) -> str:
     rendered.append(fill(prompt[end_of_last_fence:]))
 
     return "".join(rendered)
+
+
+def prompt_name(pipeline: str, step: str) -> str:
+    """R14.1 — what a step's prompt is called in MLflow's prompt registry.
+
+    The separator is a dot because MLflow rejects `/` and `:` outright:
+    `_validate_model_name` refuses both, so `incident-audit/verify` -- the
+    obvious spelling, and the one the rest of these specs would suggest -- was
+    never available to choose.
+
+    The pipeline is in the name because a prompt name is global in MLflow while a
+    prompt file is resolved against the pipeline's own directory (spec 005). Two
+    pipelines each holding a `verify` step would otherwise interleave unrelated
+    edits into one version history, and a person diffing v2 against v1 would be
+    reading two different pipelines.
+
+    Only the pipeline is checked. R3.2 already holds a step id to
+    `[a-z][a-z0-9_]*`, so no step can carry either character and a guard there
+    would be unreachable; a pipeline's name is its directory under `pipelines/`
+    and nothing constrains it at all (R14.1 row 5).
+    """
+    for character in _REJECTED_BY_MLFLOW:
+        if character in pipeline:
+            raise ValueError(
+                f"pipeline {pipeline!r} cannot be published: MLflow rejects {character!r} "
+                "in a prompt name, and the name is composed from the pipeline and the "
+                "step. Rename the pipeline directory, or publish a pipeline whose name "
+                "holds neither '/' nor ':'."
+            )
+    return f"{pipeline}.{step}"
+
+
+@dataclass(frozen=True)
+class PromptToPublish:
+    """One prompt a publish would send: what it is called, what it says, and its tags."""
+
+    name: str
+    template: str
+    tags: dict[str, str]
+
+
+def judge_prompt_name(pipeline: str, field: str) -> str:
+    """R14.2 — what a judged field's rubric is called.
+
+    The field rather than the step, because no step owns a rubric: two steps
+    declaring one field declaration both see it, and naming it after either
+    would be a coin toss a reader could not reconstruct. `judge.` sits in the
+    middle so a registry listing groups a pipeline's rubrics together and so the
+    name cannot collide with a step id, which R3.2 holds to `[a-z][a-z0-9_]*`
+    and therefore cannot contain a dot.
+    """
+    return f"{prompt_name(pipeline, 'judge')}.{field}"
+
+
+def publish_set(
+    config: PipelineConfig,
+    texts: Mapping[str, str],
+    rubrics: Mapping[str, Mapping[str, str]] | None = None,
+) -> list[PromptToPublish]:
+    """R14.1 — the prompts a pipeline publishes, one per step.
+
+    Handed the text rather than reading it, so the decision about what is
+    published under which name stays in domain/ and stays provable without a
+    workspace. `texts` is keyed by the path the step writes, which is also why
+    two steps naming one file publish twice: the lookup is shared, the name is
+    not.
+
+    Declaration order, not sorted. It is the order a person reads the pipeline
+    in and the order the terminal line prints, and nothing here reaches a cache
+    key -- the ordering rule that R5.6 imposes on hashed collections does not
+    apply to a list nobody hashes.
+
+    `rubrics` arrives per step -- `{step id: {field: rubric path}}` -- rather
+    than pre-merged, so the decision that judging one field is one job however
+    many steps declare it is made here and not by whoever loaded the
+    declarations (R14.2). The rubrics follow the steps for the same reason the
+    steps are in declaration order: it is the order the terminal prints.
+    """
+    published: list[PromptToPublish] = []
+    for step in config.steps:
+        published.append(
+            _to_publish(
+                name=prompt_name(config.name, step.id),
+                pipeline=config.name,
+                path=step.prompt,
+                text=texts[step.prompt],
+                owner=("dossier.step", step.id),
+            )
+        )
+    seen = {prompt.name for prompt in published}
+    for step in config.steps:
+        for field, path in (rubrics or {}).get(step.id, {}).items():
+            name = judge_prompt_name(config.name, field)
+            # Judging one field is one job however many steps declare it. The
+            # name is the field's, so the second sighting is a duplicate by
+            # construction rather than something to compare paths over (R14.2).
+            if name in seen:
+                continue
+            seen.add(name)
+            published.append(
+                _to_publish(
+                    name=name,
+                    pipeline=config.name,
+                    path=path,
+                    text=texts[path],
+                    # The field, never a step: no step owns a rubric.
+                    owner=("dossier.field", field),
+                )
+            )
+    return published
+
+
+def _to_publish(
+    *, name: str, pipeline: str, path: str, text: str, owner: tuple[str, str]
+) -> PromptToPublish:
+    """One prompt, with the four tags R14.3 puts on every version.
+
+    The template and the hash come from one local, so the words published and
+    the digest taken over them cannot drift apart. `owner` is the one tag that
+    differs between a step's prompt and a rubric, and it is a parameter rather
+    than a branch so that neither kind can quietly lose its other three.
+    """
+    template = normalised_text(text)
+    owner_tag, owner_value = owner
+    return PromptToPublish(
+        name=name,
+        template=template,
+        tags={
+            # The full 64 characters, never the eight a log line shows (R0.7).
+            # This is the one value that ties a version in MLflow back to the
+            # provenance record of the run that rendered it, and a prefix would
+            # tie it to several.
+            PROMPT_HASH_TAG: content_hash(template.encode("utf-8")),
+            "dossier.pipeline": pipeline,
+            owner_tag: owner_value,
+            "dossier.path": path,
+        },
+    )
+
+
+@dataclass(frozen=True)
+class PublishedPrompt:
+    """What a registry says about a prompt version it created or found (R14.3).
+
+    Comes *back* from a tracking server, which is why publishing prompts has a
+    port of its own rather than a method on `Tracker`, whose contract is that
+    every method sends and returns nothing (R0.10). Every field here may reach
+    the terminal line and nothing else: no key, no manifest, no file under
+    `runs/`, `gold/` or the pipeline's own directory (R14.5 row 3).
+    """
+
+    name: str
+    version: int
+    prompt_hash: str
+    created: bool

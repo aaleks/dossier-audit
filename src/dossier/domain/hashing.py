@@ -57,6 +57,18 @@ def short(digest: str) -> str:
     return digest[:DISPLAY_LENGTH]
 
 
+def normalised_text(text: str) -> str:
+    """Text with line endings normalised, the one form a hash is taken over.
+
+    The rule `text_hash` has always applied -- it gets it for free, because
+    `read_text` translates newlines on the way in -- named so that a caller
+    holding text rather than a path can apply the same one. Two spellings of
+    this would be R5's original failure over again, where `pipeline_hash` was
+    taken over raw bytes while prompt hashes were taken over decoded text.
+    """
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def text_hash(path) -> str:
     """The hash of a text file the workspace supplies -- a prompt, a schema, a config.
 
@@ -80,4 +92,4 @@ def text_hash(path) -> str:
     received (R1.2, R2.10); translating newlines there would change the content
     hash of every file it touched and make the store lie about what it holds.
     """
-    return content_hash(path.read_text(encoding="utf-8").encode("utf-8"))
+    return content_hash(normalised_text(path.read_text(encoding="utf-8")).encode("utf-8"))

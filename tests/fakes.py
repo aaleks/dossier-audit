@@ -513,6 +513,88 @@ def register_connector(monkeypatch, type_name: str, factory, *, keys=None) -> No
 
 
 @dataclass
+class FakePrompt:
+    """One prompt in the registry, and every version it has held.
+
+    A version is append-only here as it is in MLflow: `register_prompt` creates
+    one unconditionally, including for text identical to the version above it,
+    which is the behaviour R13.4 exists to work around. A fake that returned the
+    existing version for identical text would let R13.4 pass here and fail
+    against a real server.
+    """
+
+    name: str
+    versions: list[dict] = field(default_factory=list)
+
+    @property
+    def version(self) -> int:
+        return len(self.versions)
+
+    @property
+    def latest_hash(self) -> str:
+        return self.versions[-1]["tags"].get("dossier.prompt_hash", "") if self.versions else ""
+
+
+class FakePromptRegistry:
+    """A prompt registry that holds what it is told and sends it nowhere.
+
+    A third port beside `FakeDatasetRegistry`, for the reason spec 013 gives it
+    one: publishing **returns** a version number, which `Tracker`'s contract
+    forbids (R0.10). What a command may do with what comes back is R13.5 -- the
+    terminal line, and nothing on disk.
+
+    It counts, because R13.1 and R13.4 are claims about how many prompts and
+    versions exist afterwards, not about what came back from making them.
+    """
+
+    def __init__(self) -> None:
+        self.prompts: dict[str, FakePrompt] = {}
+        self.publishes: list[dict] = []
+        self.reads: list[str] = []
+
+    def publish(
+        self,
+        *,
+        name: str,
+        template: str,
+        tags: Mapping[str, str],
+        commit_message: str = "",
+    ):
+        from dossier.domain.prompts import PublishedPrompt
+
+        self.publishes.append({"name": name, "template": template, "tags": dict(tags)})
+        prompt = self.prompts.setdefault(name, FakePrompt(name=name))
+        prompt.versions.append(
+            {"template": template, "tags": dict(tags), "commit_message": commit_message}
+        )
+        return PublishedPrompt(
+            name=name,
+            version=prompt.version,
+            prompt_hash=tags.get("dossier.prompt_hash", ""),
+            created=True,
+        )
+
+    def latest(self, name: str):
+        """The newest version of `name`, or `None`. The one read R14.5 row 4 permits.
+
+        Recorded, so a test can assert that a publish asked before it wrote and
+        that nothing on the run path ever asks at all.
+        """
+        from dossier.domain.prompts import PublishedPrompt
+
+        self.reads.append(name)
+        prompt = self.prompts.get(name)
+        if prompt is None:
+            return None
+        return PublishedPrompt(
+            name=name,
+            version=prompt.version,
+            prompt_hash=prompt.latest_hash,
+            created=False,
+        )
+
+
+@dataclass
 class FakeVersion:
     """One logged model, as a registry was told about it."""
 
