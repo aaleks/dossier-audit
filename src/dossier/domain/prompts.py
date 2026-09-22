@@ -39,6 +39,13 @@ _PLACEHOLDER = re.compile(r"\{\{\s*([a-z][a-z0-9_()]*(?:@[a-z][a-z0-9_]*)?)\s*\}
 _FENCED = re.compile(r"^(?P<fence>```|~~~).*?^(?P=fence)", re.MULTILINE | re.DOTALL)
 
 
+# `_validate_model_name` in mlflow.utils.validation refuses both outright, and a
+# prompt is a registered model underneath. Checked here rather than at the call
+# that sends, so the refusal is dossier's sentence and arrives before the first
+# request rather than partway through a publish (R13.1 row 5).
+_REJECTED_BY_MLFLOW = ("/", ":")
+
+
 def placeholders_in(prompt: str) -> set[str]:
     """Every input name the prompt injects, ignoring fenced code."""
     return set(_PLACEHOLDER.findall(_FENCED.sub("", prompt)))
@@ -116,7 +123,20 @@ def prompt_name(pipeline: str, step: str) -> str:
     pipelines each holding a `verify` step would otherwise interleave unrelated
     edits into one version history, and a person diffing v2 against v1 would be
     reading two different pipelines.
+
+    Only the pipeline is checked. R3.2 already holds a step id to
+    `[a-z][a-z0-9_]*`, so no step can carry either character and a guard there
+    would be unreachable; a pipeline's name is its directory under `pipelines/`
+    and nothing constrains it at all (R13.1 row 5).
     """
+    for character in _REJECTED_BY_MLFLOW:
+        if character in pipeline:
+            raise ValueError(
+                f"pipeline {pipeline!r} cannot be published: MLflow rejects {character!r} "
+                "in a prompt name, and the name is composed from the pipeline and the "
+                "step. Rename the pipeline directory, or publish a pipeline whose name "
+                "holds neither '/' nor ':'."
+            )
     return f"{pipeline}.{step}"
 
 

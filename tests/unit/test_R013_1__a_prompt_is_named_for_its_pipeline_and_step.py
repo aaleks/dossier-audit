@@ -14,6 +14,8 @@ interleave two pipelines' unrelated edits in one version history.
 
 from __future__ import annotations
 
+import pytest
+
 
 class TestAPromptIsNamedForItsPipelineAndStep:
     """R13.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`."""
@@ -29,3 +31,22 @@ class TestAPromptIsNamedForItsPipelineAndStep:
 
         assert prompt_name("incident-audit", "verify") == "incident-audit.verify"
         assert prompt_name("postmortem-review", "verify") == "postmortem-review.verify"
+
+    def test_a_pipeline_name_mlflow_cannot_hold_is_refused_naming_the_character(self):
+        """Row 5: the one where the name would be composed and then rejected by a server.
+
+        A prompt name has two components and only one of them is constrained:
+        R3.2 holds a step id to `[a-z][a-z0-9_]*`, while a pipeline's name is its
+        directory under `pipelines/` and nothing checks it. Refused where the
+        name is composed, so a person reads dossier's sentence rather than
+        MLflow's traceback partway through a publish.
+
+        Both characters, and each named in its own message -- a refusal that
+        always said `/` would be a sentence that lies about half the cases.
+        """
+        from dossier.domain.prompts import prompt_name
+
+        for pipeline, character in (("foo/bar", "/"), ("foo:bar", ":")):
+            with pytest.raises(ValueError) as refusal:
+                prompt_name(pipeline, "verify")
+            assert character in str(refusal.value), f"the message must name {character!r}"
