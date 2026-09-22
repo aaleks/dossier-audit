@@ -91,7 +91,9 @@ from dossier.domain.store import replay_path
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.domain.tracking import (
     TrackingSettings,
+    comparison_description,
     count_metrics,
+    eval_description,
     experiment_name,
     label_for,
     name_template,
@@ -1405,7 +1407,24 @@ def eval_(
     if tracker is not None:
         # The figures the lines above printed, recorded once rather than computed
         # a second way (R11.3).
-        finish_eval(tracker, totals=totals, withheld=withheld)
+        finish_eval(
+            tracker,
+            totals=totals,
+            withheld=withheld,
+            # Built from the figures the lines above printed, by the command that
+            # printed them. MLflow is a second place to read them (R11.12).
+            description=eval_description(
+                run_id=Path(run_dir).name,
+                pipeline=pipeline,
+                model=config.model,
+                pipeline_hash=manifest.plan.pipeline_hash,
+                gold=Path(gold).name,
+                gold_hash=gold_set_hash(gold_files),
+                documents=len(manifest.plan.documents),
+                totals=reported,
+                withheld=withheld,
+            ),
+        )
         typer.echo(f"recorded to MLflow: {experiment}")
 
 
@@ -1525,6 +1544,16 @@ def _compare_runs(
             started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
             label=label_for(label, environment(workspace)),
             plans=(manifests[0].plan, manifests[1].plan),
+            description=comparison_description(
+                runs=runs,
+                pipeline=pipeline,
+                models=(manifests[0].plan.model, manifests[1].plan.model),
+                gold=Path(gold).name,
+                gold_hash=scored_hash,
+                documents=len(manifests[0].plan.documents),
+                rows=deltas,
+                overalls=(earlier, later),
+            ),
         )
         if published is not None:
             # The same link an eval makes, on the other command that scores
