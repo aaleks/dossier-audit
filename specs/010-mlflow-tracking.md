@@ -344,7 +344,7 @@ the name, and nothing is abbreviated to fit it.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.run_name`)
 - **Proved by:** `tests/unit/test_R010_10__a_name_is_rendered_from_its_template.py`, `tests/acceptance/test_R010_10__a_record_is_named_from_its_template.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

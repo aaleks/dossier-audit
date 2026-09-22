@@ -40,8 +40,6 @@ from dossier.application.eval import judge_prompt_hash
 from dossier.domain.gold import gold_set_hash
 from dossier.domain.hashing import text_hash
 
-pytestmark = pytest.mark.outer_loop
-
 URI = "http://localhost:5000"
 GOLD = "gold/incidents"
 

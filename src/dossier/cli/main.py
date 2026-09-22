@@ -89,7 +89,13 @@ from dossier.domain.scoring import (
 )
 from dossier.domain.store import replay_path
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
-from dossier.domain.tracking import TrackingSettings, count_metrics, experiment_name
+from dossier.domain.tracking import (
+    TrackingSettings,
+    count_metrics,
+    experiment_name,
+    name_template,
+    run_name,
+)
 from dossier.domain.tracking import capture as capture_setting
 from dossier.domain.tracking import settings as tracking_settings
 from dossier.domain.tracking import tags as tracking_tags
@@ -213,7 +219,14 @@ def sync(
         # the same names, and no traces (R11.4).
         tracker.start_run(
             experiment=experiment or "",
-            name=f"sync {started_at:%Y%m%dT%H%M%SZ}",
+            name=run_name(
+                kind="sync",
+                values={
+                    "pipeline": pipeline,
+                    "started": f"{started_at:%Y%m%dT%H%M%SZ}",
+                },
+                environ=environment(workspace),
+            ),
             tags=tracking_tags(kind="sync", pipeline=pipeline),
         )
         metrics: dict[str, float] = {}
@@ -335,6 +348,11 @@ def _tracking_for(
         if tracking is None:
             return None, None
         experiment = experiment_name(kind=kind, pipeline=pipeline, gold=gold, environ=environ)
+        # Resolved and discarded: the name is rendered later, when the command
+        # holds the run id or the figures it carries, but a template naming a
+        # placeholder this command cannot fill is refused here -- before any work
+        # (R10.10 row 4), as the experiment's is.
+        name_template(kind=kind, environ=environ)
         return BestEffortTracker(build_tracker(tracking)), experiment
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)
@@ -600,7 +618,14 @@ def convert(pipeline: str = typer.Argument(..., help="Pipeline name under pipeli
         # look like a command nobody ran.
         tracker.start_run(
             experiment=experiment or "",
-            name=f"convert {started_at:%Y%m%dT%H%M%SZ}",
+            name=run_name(
+                kind="convert",
+                values={
+                    "pipeline": pipeline,
+                    "started": f"{started_at:%Y%m%dT%H%M%SZ}",
+                },
+                environ=environment(workspace),
+            ),
             tags=tracking_tags(kind="convert", pipeline=pipeline),
         )
         metrics: dict[str, float] = {}
@@ -842,6 +867,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
             cache=ArtifactCache(workspace, namespace="stage"),
             tracker=tracker,
             experiment=experiment,
+            environ=environment(workspace),
             capture=capture,
             run_id=this_run,
             started_at=started_at,
@@ -1077,6 +1103,8 @@ def calibrate(
             parts=held_parts,
             tracker=tracker,
             experiment=experiment or "",
+            environ=environment(workspace),
+            started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
             pipeline=pipeline,
             # As bytes, as `record_eval` reads them: the hash has to move when
             # any answer moves (R11.3 row 2).
@@ -1249,6 +1277,9 @@ def eval_(
             judges=judges,
             withheld=withheld,
             dataset_stale=stale,
+            environ=environment(workspace),
+            started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
+            pipeline_hash=manifest.plan.pipeline_hash,
         )
         if published is not None:
             tracker.log_dataset(
@@ -1453,6 +1484,8 @@ def _compare_runs(
             rows=deltas,
             overalls=(earlier, later),
             dataset_stale=was is not None and was != scored_hash,
+            environ=environment(workspace),
+            started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
         )
         if published is not None:
             # The same link an eval makes, on the other command that scores
