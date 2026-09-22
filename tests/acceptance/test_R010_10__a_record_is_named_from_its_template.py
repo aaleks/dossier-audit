@@ -216,8 +216,7 @@ class TestARecordIsNamedFromItsTemplate:
         workspace, _ = scored
         monkeypatch.setenv("DOSSIER_MLFLOW_RUN_NAME_EVAL", "{prefix}eval {gold_hash}")
         files = {
-            path.name: path.read_bytes()
-            for path in sorted((workspace / GOLD).glob("*.json"))
+            path.name: path.read_bytes() for path in sorted((workspace / GOLD).glob("*.json"))
         }
         full = gold_set_hash(files)
 

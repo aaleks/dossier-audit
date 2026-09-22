@@ -111,6 +111,25 @@ def experiment_name(
     return _PLACEHOLDER.sub(lambda match: values[match.group(1)], template)
 
 
+# The name each kind of record is given (R10.10). Data rather than an f-string at
+# the call site, because a person overrides one of these by name -- and because
+# the defaults are a table in spec 010 that a reader can check this against.
+DEFAULT_NAMES = {
+    "eval": "eval {run_id} · {model}",
+}
+
+
+def run_name(*, kind: str, values: Mapping[str, str]) -> str:
+    """The name a `dossier <kind>` record is given, rendered from its template (R10.10).
+
+    The experiment says which records are comparable (R10.2); the name says which
+    one this is. Every placeholder is a value the command already holds -- the run
+    it reproduced, the model that run pinned -- so a name restates and never
+    computes, as every other record does (spec 011).
+    """
+    return _PLACEHOLDER.sub(lambda match: values[match.group(1)], DEFAULT_NAMES[kind])
+
+
 def tags(*, kind: str, pipeline: str) -> dict[str, str]:
     """The tags every record carries, whichever experiment it lands in (R10.3).
 
