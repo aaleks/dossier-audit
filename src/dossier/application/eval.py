@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from dataclasses import field as _default
 from pathlib import Path
 
+from dossier.application.prompts import link_published
 from dossier.application.run import StepReport
 from dossier.domain.gold import CalibrationCase, GoldDocument, gold_set_hash
 from dossier.domain.grounding import DESCRIBED, GROUNDED, FieldVerdict, judge_name
@@ -28,7 +29,14 @@ from dossier.domain.judges import (
 )
 from dossier.domain.keys import JudgeInputs, cache_key, provenance
 from dossier.domain.plan import changed_steps, diff
-from dossier.domain.ports import ArtifactStore, ImagePart, Tracker, VersionRegistry
+from dossier.domain.ports import (
+    ArtifactStore,
+    ImagePart,
+    PromptRegistry,
+    Tracker,
+    VersionRegistry,
+)
+from dossier.domain.prompts import rubric_links
 from dossier.domain.resolution import ResolvedPlan
 from dossier.domain.scoring import (
     DocumentScore,
@@ -180,6 +188,9 @@ def start_eval(
     scored_at: str = "",
     versions: VersionRegistry | None = None,
     version_experiment: str = "",
+    prompt_registry: PromptRegistry | None = None,
+    rubric_hashes: Mapping[str, str] | None = None,
+    prompt_prefix: str = "",
 ) -> str | None:
     """Open the eval's MLflow run with what is known before scoring (R11.3 rows 2-4).
 
@@ -233,6 +244,17 @@ def start_eval(
     if scored_at:
         params["scored_at"] = scored_at
     tracker.log_params(params)
+    # The rubric each reported field was judged with, found by the hash the
+    # gate just compared rather than by recency (R14.9). A withheld field is
+    # left out: nothing was judged with its rubric.
+    if prompt_registry is not None:
+        link_published(
+            tracker,
+            prompt_registry,
+            rubric_links(
+                pipeline, rubric_hashes or {}, withheld=withheld or {}, prefix=prompt_prefix
+            ),
+        )
     # The pipeline version this eval is scoring, linked as an *input*: an
     # eval consumes a version, it does not make one (R13.2 row 2). Returned
     # so `finish_eval` can put the accuracy on it -- a use case may return,
