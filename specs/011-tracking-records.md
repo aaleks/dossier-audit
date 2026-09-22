@@ -346,8 +346,8 @@ bytes do not depend on the order anything happened to run in (R0.4).
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
-- **Proved by:** `tests/unit/test_R011_14__an_eval_attaches_the_detail_it_printed.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R011_14__an_eval_attaches_the_detail_it_printed.py`, `tests/acceptance/test_R011_14__eval_attaches_what_the_terminal_showed.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

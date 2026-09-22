@@ -235,6 +235,7 @@ def finish_eval(
     totals: Sequence[FieldTotal],
     withheld: Mapping[str, str] | None = None,
     description: str = "",
+    detail: bytes = b"",
 ) -> None:
     """Close the eval's run with the figures the report printed (R11.3 rows 1, 4).
 
@@ -253,6 +254,11 @@ def finish_eval(
     if summed is not None:
         metrics["accuracy/overall"] = summed.percentage
     tracker.log_metrics(metrics)
+    if detail:
+        # The per-document lines the report printed and would otherwise lose
+        # (R11.14). Attached before the run closes, as a sync attaches its
+        # `changes.json` (R11.6).
+        tracker.log_artifact(SCORES_NAME, detail)
     if description:
         # Set as the run closes, because none of the figures in it exist when the
         # run opens (R11.12).
@@ -311,6 +317,7 @@ def record_comparison(
     overalls: tuple[FieldTotal | None, FieldTotal | None],
     dataset_stale: bool = False,
     description: str = "",
+    detail: bytes = b"",
     environ: Mapping[str, str] | None = None,
     started: str = "",
     label: str = "",
@@ -398,6 +405,8 @@ def record_comparison(
     if earlier is not None and later is not None:
         metrics["delta/overall"] = later.percentage - earlier.percentage
     tracker.log_metrics(metrics)
+    if detail:
+        tracker.log_artifact(DELTAS_NAME, detail)
     if description:
         tracker.describe(description)
     tracker.end_run(status="FINISHED")
@@ -857,3 +866,63 @@ def _gold_fields(document: GoldDocument) -> dict[str, GoldField]:
         name: GoldField(**{key: entry[key] for key in _SCORED_KEYS if key in entry})
         for name, entry in document.fields.items()
     }
+
+
+SCORES_NAME = "scores.json"
+DELTAS_NAME = "deltas.md"
+
+
+def scores_artifact(scores: Sequence[DocumentScore], *, withheld: Mapping[str, str]) -> bytes:
+    """`scores.json`: every verdict an eval reached, with the detail it printed (R11.14).
+
+    The percentage says a field is at 75.0%; these entries say which document and
+    why. They existed only in the terminal -- `runs/` does not hold them, because
+    a score is not something a run produced (R0.11).
+
+    Composed from the scores the report was built from, as `changes.json` is from
+    the reports the sync printed (R11.6). Sorted by document and field, so two
+    evals of one run are byte-identical however the documents happened to run
+    (R0.4) -- which nothing requires, and which is the difference between a
+    record a person trusts and one they have to explain.
+
+    A withheld field is named with its reason rather than dropped: an absent
+    entry reads as a field nobody verified, which wants different work (R7.15,
+    R7.3 row 4).
+    """
+    entries = sorted(
+        (
+            {
+                "document": score.document,
+                "field": result.field,
+                "verdict": result.verdict.value,
+                "detail": result.detail,
+                "judged": result.judged,
+            }
+            for score in scores
+            for result in score.scored
+        ),
+        key=lambda entry: (entry["document"], entry["field"]),
+    )
+    record = {"scores": entries, "withheld": dict(sorted(withheld.items()))}
+    return (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+
+def deltas_artifact(rows: Sequence[FieldDelta], *, runs: tuple[str, str]) -> bytes:
+    """`deltas.md`: the comparison table the terminal printed (R11.14 row 3).
+
+    Markdown rather than JSON, because this one is read rather than parsed: it is
+    the table, and MLflow renders it. The figures are `_compare_runs`'s own.
+    """
+    lines = [
+        f"# compare {runs[0]} -> {runs[1]}",
+        "",
+        "| field | a | b | delta | |",
+        "|---|---|---|---|---|",
+    ]
+    for row in rows:
+        was = f"{row.before.percentage:.1f}%" if row.before else "--"
+        now = f"{row.after.percentage:.1f}%" if row.after else "--"
+        moved = f"{row.delta:+.1f}" if row.delta is not None else "--"
+        marker = "regression" if row.regressed else ""
+        lines.append(f"| {row.field} | {was} | {now} | {moved} | {marker} |")
+    return ("\n".join(lines) + "\n").encode("utf-8")
