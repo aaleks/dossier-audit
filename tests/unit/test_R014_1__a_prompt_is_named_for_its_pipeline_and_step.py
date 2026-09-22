@@ -1,4 +1,4 @@
-"""R13.1 — a step's prompt is named `<pipeline>.<step id>`.
+"""R14.1 — a step's prompt is named `<pipeline>.<step id>`.
 
 The naming decision on its own, in the layer that owns it. It is pure: a
 pipeline name and a step id go in, a string comes out, and nothing about it
@@ -18,7 +18,7 @@ import pytest
 
 
 class TestAPromptIsNamedForItsPipelineAndStep:
-    """R13.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`."""
+    """R14.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`."""
 
     def test_a_step_prompt_is_named_for_its_pipeline_and_its_step_id(self):
         """The one where the name carries the pipeline, so two pipelines are two prompts.

@@ -28,7 +28,7 @@ from dossier.domain.judges import (
 )
 from dossier.domain.keys import JudgeInputs, cache_key, provenance
 from dossier.domain.plan import changed_steps, diff
-from dossier.domain.ports import ArtifactStore, ImagePart, Tracker
+from dossier.domain.ports import ArtifactStore, ImagePart, Tracker, VersionRegistry
 from dossier.domain.resolution import ResolvedPlan
 from dossier.domain.scoring import (
     DocumentScore,
@@ -52,6 +52,7 @@ from dossier.domain.tracking import (
     version_params,
 )
 from dossier.domain.tracking import tags as tracking_tags
+from dossier.domain.versions import version_record
 
 # What a gold field entry holds that scoring reads. A reviewer's correction also
 # records who made it, when, and what it superseded (R7.7) -- the audit trail of
@@ -177,7 +178,9 @@ def start_eval(
     plan: ResolvedPlan | None = None,
     dossier_version: str = "",
     scored_at: str = "",
-) -> None:
+    versions: VersionRegistry | None = None,
+    version_experiment: str = "",
+) -> str | None:
     """Open the eval's MLflow run with what is known before scoring (R11.3 rows 2-4).
 
     `dataset_stale` says the dataset published for this gold set addresses answers
@@ -230,6 +233,19 @@ def start_eval(
     if scored_at:
         params["scored_at"] = scored_at
     tracker.log_params(params)
+    # The pipeline version this eval is scoring, linked as an *input*: an
+    # eval consumes a version, it does not make one (R13.2 row 2). Returned
+    # so `finish_eval` can put the accuracy on it -- a use case may return,
+    # which is what keeps the id off `Tracker` (R0.10).
+    if versions is None or plan is None:
+        return None
+    registered = versions.register(record=version_record(plan), experiment=version_experiment)
+    if registered is None:
+        # The registry is best-effort: a server that cannot hold a logged
+        # model costs the Models tab and never the score (R13.5).
+        return None
+    tracker.scored_version(registered.version_id)
+    return registered.version_id
 
 
 def finish_eval(
@@ -239,6 +255,7 @@ def finish_eval(
     withheld: Mapping[str, str] | None = None,
     description: str = "",
     detail: bytes = b"",
+    version_id: str | None = None,
 ) -> None:
     """Close the eval's run with the figures the report printed (R11.3 rows 1, 4).
 
@@ -257,6 +274,13 @@ def finish_eval(
     if summed is not None:
         metrics["accuracy/overall"] = summed.percentage
     tracker.log_metrics(metrics)
+    if version_id is not None:
+        # The same dict, to a second place (R13.3). A metric on a run
+        # compares with other runs; a metric on a version compares with
+        # other versions, which is the comparison spec 013 exists for.
+        # `metrics` already excludes every withheld field, so a version
+        # never carries an accuracy the report refused to print (R7.17).
+        tracker.log_version_metrics(version_id=version_id, metrics=metrics)
     if detail:
         # The per-document lines the report printed and would otherwise lose
         # (R11.14). Attached before the run closes, as a sync attaches its
@@ -326,6 +350,8 @@ def record_comparison(
     label: str = "",
     plans: tuple[ResolvedPlan, ResolvedPlan] | None = None,
     dossier_version: str = "",
+    versions: VersionRegistry | None = None,
+    version_experiment: str = "",
 ) -> None:
     """Record a comparison as one MLflow run of per-field deltas (R11.8, R11.9).
 
@@ -386,6 +412,16 @@ def record_comparison(
             **({"dossier_version": dossier_version} if dossier_version else {}),
         }
     )
+    # Both versions, both as inputs (R13.2 row 4). A comparison measures two, and
+    # naming one would be a claim about the pair that is false of half of it --
+    # the same argument `a/model` and `b/model` are two params for (R11.11 row 3).
+    if versions is not None and plans is not None:
+        for plan in plans:
+            registered = versions.register(
+                record=version_record(plan), experiment=version_experiment
+            )
+            if registered is not None:
+                tracker.scored_version(registered.version_id)
     if plans is not None:
         # Each run's own versions, as `a/model` and `b/model` already are: one
         # set would be a claim about both runs that is false in exactly the case

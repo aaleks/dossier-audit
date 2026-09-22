@@ -1,4 +1,4 @@
-"""R13.4 — publishing a prompt whose hash is already the latest version's sends nothing.
+"""R14.4 — publishing a prompt whose hash is already the latest version's sends nothing.
 
 The rule that keeps a version history readable. `register_prompt` creates a
 version every time it is called, including for text identical to the version
@@ -46,7 +46,7 @@ def _write(directory: Path, verify: str = VERIFY) -> None:
 
 
 class TestRepublishingAnUnchangedPromptAddsNoVersion:
-    """R13.4 — a prompt whose hash is already the latest version's is not sent."""
+    """R14.4 — a prompt whose hash is already the latest version's is not sent."""
 
     def test_publishing_twice_with_nothing_edited_sends_nothing_the_second_time(
         self, tmp_path: Path

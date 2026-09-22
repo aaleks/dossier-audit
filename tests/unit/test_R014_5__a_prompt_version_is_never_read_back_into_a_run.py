@@ -1,4 +1,4 @@
-"""R13.5 — no prompt version is ever read back into a rendered prompt, a key, a score or a file.
+"""R14.5 — no prompt version is ever read back into a rendered prompt, a key, a score or a file.
 
 The one-way promise spec 013 opens with, and the reason the spec is narrow.
 MLflow's prompt registry exists to be loaded from -- `load_prompt` is its
@@ -21,7 +21,7 @@ SOURCE = Path(__file__).resolve().parents[2] / "src" / "dossier"
 
 
 class TestAPromptVersionIsNeverReadBackIntoARun:
-    """R13.5 — a prompt version is read by a person, never by dossier."""
+    """R14.5 — a prompt version is read by a person, never by dossier."""
 
     def test_no_module_loads_a_prompt_from_the_registry(self):
         """Row 1: the one where MLflow is ahead of the disk and the disk wins.

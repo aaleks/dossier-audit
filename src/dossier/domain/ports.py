@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict
 
 from dossier.domain.datasets import PublishedDataset
 from dossier.domain.prompts import PublishedPrompt
+from dossier.domain.versions import PublishedVersion, VersionRecord
 
 
 class ItemRef(BaseModel):
@@ -222,6 +223,34 @@ class Tracker(Protocol):
         """
         ...
 
+    def produced_version(self, version_id: str) -> None:
+        """Record that this run built that pipeline version (R13.2 row 1).
+
+        An output edge: the run made it. Sends and returns nothing, like every
+        other method here -- the version was registered through
+        `VersionRegistry`, which is the port allowed to read, and this one only
+        says which way round the two are.
+        """
+        ...
+
+    def scored_version(self, version_id: str) -> None:
+        """Record that this run measured that pipeline version (R13.2 row 2).
+
+        An input edge: an eval consumes a version, it does not make one. The
+        same edge in both directions would make an eval look like it produced
+        the pipeline it scored.
+        """
+        ...
+
+    def log_version_metrics(self, *, version_id: str, metrics: Mapping[str, float]) -> None:
+        """Record this run's figures against that version too (R13.3).
+
+        The same numbers `log_metrics` puts on the run. A metric on a run
+        compares with other runs; a metric on a version compares with other
+        versions, which is the comparison spec 013 exists for.
+        """
+        ...
+
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None: ...
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None: ...
@@ -366,7 +395,7 @@ class LedgerWriter(Protocol):
 
 
 class PromptRegistry(Protocol):
-    """Where a pipeline's prompts are published as versions (spec 013).
+    """Where a pipeline's prompts are published as versions (spec 014).
 
     A third port beside `DatasetRegistry`, for the reason spec 012 gave for the
     second: it **returns**. A version number comes back from a server, which
@@ -377,7 +406,7 @@ class PromptRegistry(Protocol):
     input to a cache key that no checkout can reproduce (R0.4), a route into a
     run that no review passed through, and a network read on the replay path
     (R0.10). The prompt files in the pipeline's own directory stay the only
-    source (R13.5).
+    source (R14.5).
     """
 
     def publish(
@@ -392,7 +421,7 @@ class PromptRegistry(Protocol):
 
         MLflow versions unconditionally -- `register_prompt` creates a version
         even for text identical to the one above it -- so deciding *whether* to
-        call this is the caller's, and R13.4 is that decision.
+        call this is the caller's, and R14.4 is that decision.
         """
         ...
 
@@ -400,6 +429,38 @@ class PromptRegistry(Protocol):
         """The newest version of `name`, or `None` if there is no such prompt.
 
         The one read the one-way promise permits, because it decides a **write**
-        and reaches no output (R13.5 row 4).
+        and reaches no output (R14.5 row 4).
+        """
+        ...
+
+
+class VersionRegistry(Protocol):
+    """Where a pipeline version is registered as an MLflow logged model (spec 013).
+
+    A third port, beside `Tracker` and `DatasetRegistry`, and for
+    `DatasetRegistry`'s reason: registering a version **returns** an id, which
+    `Tracker`'s contract forbids and R0.10 leans on.
+
+    It matters more here than it did for datasets. A dataset is published by a
+    command whose only output is the record; a version is registered during
+    `dossier run`, the command R10.4 promises tracking cannot change. So what
+    comes back may reach an MLflow tag, the link `Tracker` records and a line in
+    the terminal, and nothing else: no cache key, no manifest, no score, no file
+    under `runs/` or `.dossier/` (R13.4).
+    """
+
+    def register(
+        self,
+        *,
+        record: VersionRecord,
+        experiment: str,
+    ) -> PublishedVersion:
+        """Find the version `record` identifies, or create it ready.
+
+        Found, never assumed. MLflow creates a new logged model every time it is
+        asked by name, so a registry that did not look first would leave one per
+        run and compare nothing with nothing (R13.1 row 2). The pair that finds
+        it is the name and the pipeline hash: neither half identifies alone
+        (R13.1 rows 4-5).
         """
         ...

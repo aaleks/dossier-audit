@@ -1,4 +1,4 @@
-"""R13.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`.
+"""R14.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`.
 
 The outer loop for spec 013. What a person observes is a command they can run
 against a pipeline they already have, before any run exists and before anything
@@ -15,7 +15,7 @@ steps naming one file publish two prompts.
 Tracking is switched on the way a person switches it on, in the environment
 (R10.1). The registry is handed in through the same seam `build_tracker`,
 `build_model_client` and `build_dataset_registry` use, and it counts, because
-R13.1 is a claim about how many prompts exist afterwards rather than about what
+R14.1 is a claim about how many prompts exist afterwards rather than about what
 came back from making them.
 """
 
@@ -55,7 +55,7 @@ def registry(workspace: Path, monkeypatch) -> FakePromptRegistry:
 
 
 class TestAPipelinePublishesOnePromptPerStep:
-    """R13.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`."""
+    """R14.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`."""
 
     def test_each_step_publishes_one_prompt_named_for_the_pipeline_and_the_step(
         self, workspace: Path, monkeypatch, registry: FakePromptRegistry
@@ -80,7 +80,7 @@ class TestAPipelinePublishesOnePromptPerStep:
         """Example 1, second half: the one where a person sees what was published.
 
         Without opening MLflow at all. The hash is what ties a version to the
-        provenance record of the run that rendered it (R13.3), so it is on the
+        provenance record of the run that rendered it (R14.3), so it is on the
         line rather than only in the registry.
         """
         result = _cli(workspace, monkeypatch, "prompts", "publish", PIPELINE)

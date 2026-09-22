@@ -1,4 +1,4 @@
-"""R13.1 — a pipeline contributes one prompt per step, named and holding its own text.
+"""R14.1 — a pipeline contributes one prompt per step, named and holding its own text.
 
 The projection itself: a loaded pipeline goes in, the set of prompts to publish
 comes out. Pure, because `publish_set` is handed the text of each prompt rather
@@ -6,7 +6,7 @@ than reading it -- the caller does the IO, and the decision about what is
 published under which name stays testable in milliseconds.
 
 Keyed by the path each step writes, so two steps naming one file resolve to the
-same text and still publish as two prompts (R13.1 row 3): a prompt is named for
+same text and still publish as two prompts (R14.1 row 3): a prompt is named for
 the job it does, not the file it sits in.
 """
 
@@ -38,7 +38,7 @@ def _pipeline() -> PipelineConfig:
 
 
 class TestAPipelineContributesOnePromptPerStep:
-    """R13.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`."""
+    """R14.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`."""
 
     def test_each_step_contributes_one_named_prompt_holding_its_own_text(self):
         """The one where three steps become three prompts, in the order they are declared.

@@ -1,4 +1,4 @@
-"""R13.6 — publishing with tracking off is refused by name before anything is sent.
+"""R14.6 — publishing with tracking off is refused by name before anything is sent.
 
 A machine's configuration, refused where R12.5 and R10.5 refuse theirs: at
 startup, naming the thing to fix. Unlike a run, this command has nothing to do
@@ -38,7 +38,7 @@ def registry(workspace: Path, monkeypatch) -> FakePromptRegistry:
 
 
 class TestPublishingPromptsIsRefusedByName:
-    """R13.6 — tracking off, or a server with no prompt registry, is refused by name."""
+    """R14.6 — tracking off, or a server with no prompt registry, is refused by name."""
 
     def test_tracking_off_refuses_naming_the_variable(
         self, workspace: Path, monkeypatch, registry: FakePromptRegistry

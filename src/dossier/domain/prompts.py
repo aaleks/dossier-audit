@@ -43,12 +43,12 @@ _FENCED = re.compile(r"^(?P<fence>```|~~~).*?^(?P=fence)", re.MULTILINE | re.DOT
 # `_validate_model_name` in mlflow.utils.validation refuses both outright, and a
 # prompt is a registered model underneath. Checked here rather than at the call
 # that sends, so the refusal is dossier's sentence and arrives before the first
-# request rather than partway through a publish (R13.1 row 5).
+# request rather than partway through a publish (R14.1 row 5).
 _REJECTED_BY_MLFLOW = ("/", ":")
 
 # The tag that ties a version to the provenance record of the run that rendered
 # it. Named once, because the publish that writes it and the compare that reads
-# it back must agree (R13.3, R13.4).
+# it back must agree (R14.3, R14.4).
 PROMPT_HASH_TAG = "dossier.prompt_hash"
 
 
@@ -117,7 +117,7 @@ def render(prompt: str, values: dict[str, str]) -> str:
 
 
 def prompt_name(pipeline: str, step: str) -> str:
-    """R13.1 — what a step's prompt is called in MLflow's prompt registry.
+    """R14.1 — what a step's prompt is called in MLflow's prompt registry.
 
     The separator is a dot because MLflow rejects `/` and `:` outright:
     `_validate_model_name` refuses both, so `incident-audit/verify` -- the
@@ -133,7 +133,7 @@ def prompt_name(pipeline: str, step: str) -> str:
     Only the pipeline is checked. R3.2 already holds a step id to
     `[a-z][a-z0-9_]*`, so no step can carry either character and a guard there
     would be unreachable; a pipeline's name is its directory under `pipelines/`
-    and nothing constrains it at all (R13.1 row 5).
+    and nothing constrains it at all (R14.1 row 5).
     """
     for character in _REJECTED_BY_MLFLOW:
         if character in pipeline:
@@ -156,7 +156,7 @@ class PromptToPublish:
 
 
 def judge_prompt_name(pipeline: str, field: str) -> str:
-    """R13.2 — what a judged field's rubric is called.
+    """R14.2 — what a judged field's rubric is called.
 
     The field rather than the step, because no step owns a rubric: two steps
     declaring one field declaration both see it, and naming it after either
@@ -173,7 +173,7 @@ def publish_set(
     texts: Mapping[str, str],
     rubrics: Mapping[str, Mapping[str, str]] | None = None,
 ) -> list[PromptToPublish]:
-    """R13.1 — the prompts a pipeline publishes, one per step.
+    """R14.1 — the prompts a pipeline publishes, one per step.
 
     Handed the text rather than reading it, so the decision about what is
     published under which name stays in domain/ and stays provable without a
@@ -189,7 +189,7 @@ def publish_set(
     `rubrics` arrives per step -- `{step id: {field: rubric path}}` -- rather
     than pre-merged, so the decision that judging one field is one job however
     many steps declare it is made here and not by whoever loaded the
-    declarations (R13.2). The rubrics follow the steps for the same reason the
+    declarations (R14.2). The rubrics follow the steps for the same reason the
     steps are in declaration order: it is the order the terminal prints.
     """
     published: list[PromptToPublish] = []
@@ -209,7 +209,7 @@ def publish_set(
             name = judge_prompt_name(config.name, field)
             # Judging one field is one job however many steps declare it. The
             # name is the field's, so the second sighting is a duplicate by
-            # construction rather than something to compare paths over (R13.2).
+            # construction rather than something to compare paths over (R14.2).
             if name in seen:
                 continue
             seen.add(name)
@@ -229,7 +229,7 @@ def publish_set(
 def _to_publish(
     *, name: str, pipeline: str, path: str, text: str, owner: tuple[str, str]
 ) -> PromptToPublish:
-    """One prompt, with the four tags R13.3 puts on every version.
+    """One prompt, with the four tags R14.3 puts on every version.
 
     The template and the hash come from one local, so the words published and
     the digest taken over them cannot drift apart. `owner` is the one tag that
@@ -256,13 +256,13 @@ def _to_publish(
 
 @dataclass(frozen=True)
 class PublishedPrompt:
-    """What a registry says about a prompt version it created or found (R13.3).
+    """What a registry says about a prompt version it created or found (R14.3).
 
     Comes *back* from a tracking server, which is why publishing prompts has a
     port of its own rather than a method on `Tracker`, whose contract is that
     every method sends and returns nothing (R0.10). Every field here may reach
     the terminal line and nothing else: no key, no manifest, no file under
-    `runs/`, `gold/` or the pipeline's own directory (R13.5 row 3).
+    `runs/`, `gold/` or the pipeline's own directory (R14.5 row 3).
     """
 
     name: str

@@ -2,13 +2,13 @@
 
 The use case `dossier prompts publish` runs. It reads each prompt and rubric out
 of the pipeline's own directory, projects them onto the set `publish_set`
-decides (R13.1, R13.2), and hands each to a `PromptRegistry` it is given rather
+decides (R14.1, R14.2), and hands each to a `PromptRegistry` it is given rather
 than one it builds -- the registry is infrastructure, and which one this is
 belongs to the composition root.
 
 Nothing here reads a prompt back. A version is written from the pipeline
 directory and read by a person; the files on disk stay the only source a run
-renders from (R13.5).
+renders from (R14.5).
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ def publish_prompts(
     directory: Path,
     rubrics: Mapping[str, Mapping[str, str]] | None = None,
 ) -> list[PublishedPrompt]:
-    """Every prompt `config` names, published under its own name (R13.1, R13.2).
+    """Every prompt `config` names, published under its own name (R14.1, R14.2).
 
     `directory` is the pipeline's own -- `prompts/` and `rubrics/` are resolved
     against it, as spec 005 resolves every path a step writes, because a pipeline
@@ -48,8 +48,8 @@ def publish_prompts(
         # unconditionally: called again with the text already at the top of the
         # history it creates a second, identical version, and a person opening
         # the registry finds two entries to compare that differ in nothing
-        # (R13.4). This read is the one the one-way promise permits -- it
-        # decides a write and reaches no key, score or file (R13.5 row 4).
+        # (R14.4). This read is the one the one-way promise permits -- it
+        # decides a write and reaches no key, score or file (R14.5 row 4).
         held = registry.latest(prompt.name)
         if held is not None and held.prompt_hash == prompt.tags[PROMPT_HASH_TAG]:
             published.append(held)
@@ -72,7 +72,7 @@ def _paths(
 
     A dict rather than a set: two steps naming one prompt file read it once and
     the order stays the pipeline's, which is what `publish_set` then publishes in
-    (R13.1 row 3).
+    (R14.1 row 3).
     """
     paths = {step.prompt: None for step in config.steps}
     for declared in (rubrics or {}).values():
@@ -81,7 +81,7 @@ def _paths(
 
 
 def _commit_message(tags: Mapping[str, str]) -> str:
-    """What MLflow's version list shows beside each entry (R13.3).
+    """What MLflow's version list shows beside each entry (R14.3).
 
     A column of blank messages is a version history nobody reads without opening
     every row, and the path plus eight characters of the hash is what tells two

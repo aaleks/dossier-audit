@@ -1,7 +1,7 @@
-# 013 — A pipeline's prompts as MLflow prompt registry versions
+# 014 — A pipeline's prompts as MLflow prompt registry versions
 
 **Status:** Partially implemented
-**Rules:** R13.1 – R13.7
+**Rules:** R14.1 – R14.7
 
 ## Purpose
 
@@ -32,7 +32,7 @@ would be:
   fetch.
 
 `dossier` therefore writes prompts to MLflow and never reads one into a run
-(R13.5). That is R12.4's promise for datasets, restated where the temptation is
+(R14.5). That is R12.4's promise for datasets, restated where the temptation is
 strongest.
 
 ## The command
@@ -57,7 +57,7 @@ whose contract is that its outputs depend on nothing but its inputs (R10.4).
 A prompt is registry-level in MLflow rather than experiment-level, so unlike a
 dataset (R12.6) there is no experiment for a publish to join. What ties a version
 to the runs it produced is its `dossier.prompt_hash` tag, which is the same value
-the run's provenance record already carries -- until R13.7 makes the tie a link.
+the run's provenance record already carries -- until R14.7 makes the tie a link.
 
 ## What a prompt is called
 
@@ -72,7 +72,7 @@ a step id, which R3.2 already constrains to `[a-z][a-z0-9_]*`. A pipeline's name
 is constrained by nothing except being a directory name -- `path.parent.name`,
 one component -- so `/` cannot reach it either and `:` can, on the systems that
 allow it in a filename. Both are refused where the name is composed rather than
-where it is sent (R13.1 row 5), because the pair is what MLflow rejects and a
+where it is sent (R14.1 row 5), because the pair is what MLflow rejects and a
 check that tracked which half was currently reachable would be a comment
 pretending to be code. The pipeline is not droppable either: a
 prompt name is global in MLflow, while a prompt file and a rubric are both
@@ -136,7 +136,7 @@ moved and here it is the artifact itself that duplicates.
 
 So a publish reads the latest version's `dossier.prompt_hash` and sends nothing
 when it matches what it would have written. That read is the one the one-way
-promise permits, and R13.5 row 4 says why: it decides whether to **write**, and
+promise permits, and R14.5 row 4 says why: it decides whether to **write**, and
 reaches no key, no score and no file. It is the same comparison R12.3 makes
 against `dossier.gold_hash`, against the same objection.
 
@@ -166,18 +166,18 @@ A prompt registry needs a tracking server with a SQL backend, as an evaluation
 dataset does: a file-backed store has no model registry behind it, and the
 endpoint fails rather than answering. What is checked is that the answer is a
 *success*, not that it is any particular failure (R12.5 row 2's reasoning), and a
-machine's configuration is refused at startup by name (R13.6, R10.5).
+machine's configuration is refused at startup by name (R14.6, R10.5).
 
 ## What this spec does not claim
 
 `dossier calibrate` and `dossier eval` render a judge prompt from a rubric this
-command publishes, and neither links the version it used. R13.7 covers
+command publishes, and neither links the version it used. R14.7 covers
 `dossier run` only. The calibration analogue is a rule nobody has written yet
 rather than one this spec implies.
 
 ## Must hold
 
-### R13.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`
+### R14.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`
 
 One publish covers the whole pipeline. The name carries the pipeline because a
 prompt name is global in MLflow while a prompt file is resolved against the
@@ -187,18 +187,18 @@ says.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.publish_set`)
-- **Proved by:** `tests/acceptance/test_R013_1__a_pipeline_publishes_one_prompt_per_step.py`, `tests/unit/test_R013_1__a_prompt_is_named_for_its_pipeline_and_step.py`, `tests/unit/test_R013_1__a_pipeline_contributes_one_prompt_per_step.py`, `tests/unit/test_R013_1__publishing_sends_every_prompt_the_pipeline_names.py`
+- **Proved by:** `tests/acceptance/test_R014_1__a_pipeline_publishes_one_prompt_per_step.py`, `tests/unit/test_R014_1__a_prompt_is_named_for_its_pipeline_and_step.py`, `tests/unit/test_R014_1__a_pipeline_contributes_one_prompt_per_step.py`, `tests/unit/test_R014_1__publishing_sends_every_prompt_the_pipeline_names.py`
 - **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `dossier prompts publish incident-audit`, whose steps are `extract`, `verify`, `report` | 3 prompts named for those steps -- `incident-audit.extract`, `incident-audit.verify`, `incident-audit.report` -- one version each, beside whatever rubric R13.2 publishes; the terminal names each with its hash and version; exit 0 |
+| 1 | `dossier prompts publish incident-audit`, whose steps are `extract`, `verify`, `report` | 3 prompts named for those steps -- `incident-audit.extract`, `incident-audit.verify`, `incident-audit.report` -- one version each, beside whatever rubric R14.2 publishes; the terminal names each with its hash and version; exit 0 |
 | 2 | `postmortem-review` whose `verify` step names a prompt file byte-identical to `incident-audit`'s | a separate prompt `postmortem-review.verify` at version 1; `incident-audit.verify` untouched. One pipeline's step is one prompt, and a shared file is not a shared history |
 | 3 | two steps of `incident-audit` naming the same `prompts/02_verify.md` | 2 prompts, one per step, each at version 1. A prompt is named for the job it does, not the file it sits in |
 | 4 | *counter-example* — a step naming a prompt file that is not there | exit 2 from load, as R3.6 already refuses it; 0 prompts registered. A publish reads the pipeline the run reads, and does not get further than the run would |
 | 5 | *counter-example* — a pipeline directory named `incident:audit`, legal on Linux and macOS | `prompt_name` raises rather than composing `incident:audit.verify`; nothing is sent. A pipeline's name is `path.parent.name`, one component, so `/` cannot reach it and `:` can -- `dossier prompts publish foo/bar` resolves `pipelines/foo/bar/` and is named `bar`, which is legal. Refused where the name is composed rather than by an MLflow traceback partway through a publish |
 
-### R13.2 — every judged field publishes its rubric as one prompt named `<pipeline>.judge.<field>`
+### R14.2 — every judged field publishes its rubric as one prompt named `<pipeline>.judge.<field>`
 
 The rubric is a prompt by every measure that matters: an author writes it, an
 edit to it changes what a model is asked, and its hash gates a calibration
@@ -207,7 +207,7 @@ its name carries the pipeline too.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.publish_set`)
-- **Proved by:** `tests/unit/test_R013_2__a_judged_field_publishes_its_rubric.py`
+- **Proved by:** `tests/unit/test_R014_2__a_judged_field_publishes_its_rubric.py`
 - **Status:** MET
 
 | # | Given | Then |
@@ -217,14 +217,14 @@ its name carries the pipeline too.
 | 3 | *counter-example* — `loss_amount`, `resolution_date`, `severity`, declared with no `judge` | no prompt for any of them; a field scored by string comparison has no rubric to publish (R6.10) |
 | 4 | *counter-example* — the judge prompt `dossier` renders around that rubric (R7.19) | not published, and not part of `incident-audit.judge.root_cause`'s template. What a version holds is the author's file; what the model was asked is in the calibration, which hashes both |
 
-### R13.3 — a version holds the text the prompt's hash was taken over, tagged with that hash
+### R14.3 — a version holds the text the prompt's hash was taken over, tagged with that hash
 
 The tie between a version in MLflow and a key in a provenance record. Without the
 tag a person has a prompt they can read and no way to know which run rendered it.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.publish_set`)
-- **Proved by:** `tests/unit/test_R013_3__a_version_holds_the_text_its_hash_was_taken_over.py`
+- **Proved by:** `tests/unit/test_R014_3__a_version_holds_the_text_its_hash_was_taken_over.py`
 - **Status:** MET
 
 | # | Given | Then |
@@ -235,7 +235,7 @@ tag a person has a prompt they can read and no way to know which run rendered it
 | 4 | *counter-example* — the generated JSON Schema `d24c86e1` the step's `output` declares | not on the version. A version that moved when only the schema changed would claim the prompt had |
 | 5 | *counter-example* — the pipeline hash `2f60a7d3` | not on the version. It moves with every prompt in the pipeline, so it would mark `verify` stale for an edit to `extract` |
 
-### R13.4 — publishing a prompt whose hash is already the latest version's sends nothing
+### R14.4 — publishing a prompt whose hash is already the latest version's sends nothing
 
 `register_prompt` versions unconditionally, so this is the rule that keeps a
 version history readable. Publishing twice is a no-op a person can run without
@@ -243,7 +243,7 @@ thinking about it.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.prompts.publish_prompts`)
-- **Proved by:** `tests/unit/test_R013_4__republishing_an_unchanged_prompt_adds_no_version.py`
+- **Proved by:** `tests/unit/test_R014_4__republishing_an_unchanged_prompt_adds_no_version.py`
 - **Status:** MET
 
 | # | Given | Then |
@@ -254,14 +254,14 @@ thinking about it.
 | 4 | *counter-example* — trailing whitespace added to `prompts/03_report.md` | a new version. The hash moves (R5.2 row 4), and a "harmless" edit is not distinguishable from a real one |
 | 5 | *counter-example* — `prompts/01_extract.md` rewritten with CRLF line endings and no other change | no new version. Line endings are normalised before hashing (R5), so the key did not move and neither does the registry |
 
-### R13.5 — no prompt version is ever read back into a rendered prompt, a key, a score or a file
+### R14.5 — no prompt version is ever read back into a rendered prompt, a key, a score or a file
 
 The one-way promise this spec opens with, and the reason it is narrow. A prompt
 version is read by a person, never by `dossier`.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
-- **Proved by:** `tests/unit/test_R013_5__a_prompt_version_is_never_read_back_into_a_run.py`
+- **Proved by:** `tests/unit/test_R014_5__a_prompt_version_is_never_read_back_into_a_run.py`
 - **Status:** MET
 
 | # | Given | Then |
@@ -271,14 +271,14 @@ version is read by a person, never by `dossier`.
 | 3 | a publish returning version `2` | it reaches the terminal line and nothing else: no file under `runs/`, `gold/`, `.dossier/` or the pipeline's own directory holds a version number (R10.4 row 2, R12.4 row 3) |
 | 4 | *counter-example* — the publish reading the latest version's `dossier.prompt_hash` before deciding to send | permitted, and the only read there is. It decides a **write**, as R12.3's comparison against `dossier.gold_hash` does, and nothing about it reaches an output |
 
-### R13.6 — publishing with tracking off, or to a server with no prompt registry, is refused by name before anything is sent
+### R14.6 — publishing with tracking off, or to a server with no prompt registry, is refused by name before anything is sent
 
 Both are a machine's configuration, and both are refused where R12.5 and R10.5
 refuse theirs: at startup, naming the thing to fix.
 
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.main`)
-- **Proved by:** `tests/acceptance/test_R013_6__publishing_prompts_is_refused_by_name.py`, `tests/integration/test_R013_6__mlflow_prompt_registry_adapter.py`
+- **Proved by:** `tests/acceptance/test_R014_6__publishing_prompts_is_refused_by_name.py`, `tests/integration/test_R014_6__mlflow_prompt_registry_adapter.py`
 - **Status:** MET
 
 | # | Given | Then |
@@ -289,7 +289,7 @@ refuse theirs: at startup, naming the thing to fix.
 | 4 | tracking enabled, the `tracking` extra not installed | exit 2 naming `dossier[tracking]` (R10.5 row 3) |
 | 5 | *counter-example* — `dossier run incident-audit` against that same file-backed server | runs and exits 0. A run publishes no prompt and needs no registry |
 
-### R13.7 — a run's MLflow record links the prompt version each step rendered, and links nothing for a prompt that was never published
+### R14.7 — a run's MLflow record links the prompt version each step rendered, and links nothing for a prompt that was never published
 
 What the publishing is for: opening a run and reading the words that produced it.
 The version is found by the `dossier.prompt_hash` the run already holds, so the
@@ -297,7 +297,7 @@ link is a statement about the prompt that ran rather than about what is newest.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
-- **Proved by:** `tests/unit/test_R013_7__a_run_links_the_prompt_versions_it_rendered.py`
+- **Proved by:** `tests/unit/test_R014_7__a_run_links_the_prompt_versions_it_rendered.py`
 - **Status:** NOT MET
 
 | # | Given | Then |

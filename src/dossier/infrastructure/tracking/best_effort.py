@@ -10,9 +10,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from dossier.domain.ports import Tracker
+from dossier.domain.ports import Tracker, VersionRegistry
+from dossier.domain.versions import PublishedVersion, VersionRecord
 
-__all__ = ["BestEffortTracker"]
+__all__ = ["BestEffortTracker", "BestEffortVersionRegistry"]
 
 
 class BestEffortTracker:
@@ -56,6 +57,15 @@ class BestEffortTracker:
     def describe(self, text: str) -> None:
         self._sent(self._inner.describe, text)
 
+    def produced_version(self, version_id: str) -> None:
+        self._sent(self._inner.produced_version, version_id)
+
+    def scored_version(self, version_id: str) -> None:
+        self._sent(self._inner.scored_version, version_id)
+
+    def log_version_metrics(self, *, version_id: str, metrics: Mapping[str, float]) -> None:
+        self._sent(self._inner.log_version_metrics, version_id=version_id, metrics=metrics)
+
     def log_artifact(self, name: str, content: bytes) -> None:
         self._sent(self._inner.log_artifact, name, content)
 
@@ -78,3 +88,31 @@ class BestEffortTracker:
 
     def end_run(self, *, status: str) -> None:
         self._sent(self._inner.end_run, status=status)
+
+
+class BestEffortVersionRegistry:
+    """A version registry whose failures cost the record only (R13.5).
+
+    `dossier run` fetches nothing, converts nothing and asks no model
+    differently because MLflow is down. R10.6 already promises that of the
+    tracker; this is the same promise for the second port on the same code path,
+    and it has to be made separately because this one **returns** -- a caller
+    that got `None` back and used it would fail for a different reason a line
+    later.
+
+    So a failure gives `None`, and the caller's `if version is None` is the
+    whole of what it costs. The gap is counted and said out loud, as a lost
+    trace is: a Models tab with nothing in it should not read as a pipeline
+    nobody ever ran.
+    """
+
+    def __init__(self, inner: VersionRegistry) -> None:
+        self._inner = inner
+        self.lost_versions = 0
+
+    def register(self, *, record: VersionRecord, experiment: str) -> PublishedVersion | None:
+        try:
+            return self._inner.register(record=record, experiment=experiment)
+        except Exception:
+            self.lost_versions += 1
+            return None

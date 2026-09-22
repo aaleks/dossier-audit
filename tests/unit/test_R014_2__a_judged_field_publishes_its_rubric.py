@@ -1,4 +1,4 @@
-"""R13.2 — a judged field publishes its rubric as one prompt named `<pipeline>.judge.<field>`.
+"""R14.2 — a judged field publishes its rubric as one prompt named `<pipeline>.judge.<field>`.
 
 A rubric is a prompt by every measure that matters: an author writes it, an edit
 to it changes what a model is asked, and its hash gates a calibration (R7.14).
@@ -12,7 +12,7 @@ fall out rather than needing a branch. `extract` and `verify` both declare
 
 The declarations arrive per step, not pre-merged, precisely so this test can
 prove the dedup happens here. A caller that flattened them first would be making
-the decision R13.2 claims, and this file would be asserting the caller's work.
+the decision R14.2 claims, and this file would be asserting the caller's work.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ def _pipeline() -> PipelineConfig:
 
 
 class TestAJudgedFieldPublishesItsRubric:
-    """R13.2 — a judged field publishes its rubric as `<pipeline>.judge.<field>`."""
+    """R14.2 — a judged field publishes its rubric as `<pipeline>.judge.<field>`."""
 
     def test_two_steps_declaring_one_field_declaration_publish_its_rubric_once(self):
         """Example 2: the one where judging `root_cause` is one job, not two.

@@ -1,4 +1,4 @@
-"""R13.3 — a version holds the text the prompt's hash was taken over, tagged with that hash.
+"""R14.3 — a version holds the text the prompt's hash was taken over, tagged with that hash.
 
 The tie between a version in MLflow and a key in a provenance record. Without
 it a person has a prompt they can read and no way to know which run rendered it,
@@ -36,7 +36,7 @@ def _pipeline() -> PipelineConfig:
 
 
 class TestAVersionHoldsTheTextItsHashWasTakenOver:
-    """R13.3 — a version holds the text its hash was taken over, tagged with that hash."""
+    """R14.3 — a version holds the text its hash was taken over, tagged with that hash."""
 
     def test_a_prompt_carries_the_four_tags_that_tie_it_to_a_provenance_record(
         self, tmp_path: Path
@@ -65,7 +65,7 @@ class TestAVersionHoldsTheTextItsHashWasTakenOver:
         assert is_content_hash(published[0].tags["dossier.prompt_hash"])
 
     def test_a_crlf_rewrite_changes_neither_the_template_nor_its_hash(self):
-        """Row 1's other half, and what R13.4 row 5 rests on.
+        """Row 1's other half, and what R14.4 row 5 rests on.
 
         A workspace is the user's own directory, which dossier does not control
         and which may have no `.gitattributes`. Publishing the bytes as handed
@@ -77,7 +77,7 @@ class TestAVersionHoldsTheTextItsHashWasTakenOver:
         The third assertion is the guard. Normalising newlines is not
         normalising content: a green that stripped or collapsed whitespace would
         satisfy the first two and quietly make a real edit invisible, which is
-        what R13.4 row 4 refuses.
+        what R14.4 row 4 refuses.
         """
         from dossier.domain.prompts import publish_set
 

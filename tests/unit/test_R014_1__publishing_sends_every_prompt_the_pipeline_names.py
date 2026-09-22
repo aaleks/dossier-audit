@@ -1,11 +1,11 @@
-"""R13.1 — publishing sends every prompt the pipeline names, and reports what came back.
+"""R14.1 — publishing sends every prompt the pipeline names, and reports what came back.
 
 The use case above the projection. `publish_set` decides what a publish *would*
 send; this reads the files off disk, hands them over, and calls the registry --
 which is given rather than built, because which registry this is belongs to the
 composition root and not to a use case (spec 012's shape).
 
-The registry counts. R13.1 is a claim about how many prompts exist afterwards,
+The registry counts. R14.1 is a claim about how many prompts exist afterwards,
 and a fake that only returned a version number could not prove it.
 """
 
@@ -57,13 +57,13 @@ def _write(directory: Path) -> None:
 
 
 class TestPublishingSendsEveryPromptThePipelineNames:
-    """R13.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`."""
+    """R14.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`."""
 
     def test_every_prompt_the_pipeline_names_is_sent_and_reported(self, tmp_path: Path):
         """The one where the files on disk reach the registry under their own names.
 
         Three sent, not two: the rubric `root_cause` is judged against counts as
-        a prompt (R13.2), and both steps declaring it publish it once. What comes
+        a prompt (R14.2), and both steps declaring it publish it once. What comes
         back carries the version, which is the only thing a person needs to find
         the entry in MLflow.
         """
