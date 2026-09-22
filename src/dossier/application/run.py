@@ -200,6 +200,7 @@ def execute(
     tracker: Tracker | None = None,
     experiment: str | None = None,
     environ: Mapping[str, str] | None = None,
+    label: str = "",
     capture: str = "full",
 ) -> RunReport:
     """Resolve the pipeline, freeze it, then run it.
@@ -270,10 +271,11 @@ def execute(
                     "run_id": run_id,
                     "model": plan.model,
                     "pipeline_hash": plan.pipeline_hash,
+                    "label": label,
                 },
                 environ=environ or {},
             ),
-            tags=tracking_tags(kind="run", pipeline=pipeline.name),
+            tags=tracking_tags(kind="run", pipeline=pipeline.name, label=label),
         )
         tracker.log_params(
             {

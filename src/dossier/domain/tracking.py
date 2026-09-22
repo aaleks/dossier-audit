@@ -23,6 +23,7 @@ EXPERIMENT = "DOSSIER_MLFLOW_EXPERIMENT"
 CAPTURE = "DOSSIER_MLFLOW_CAPTURE"
 RUN_PREFIX = "DOSSIER_MLFLOW_RUN_PREFIX"
 RUN_NAME = "DOSSIER_MLFLOW_RUN_NAME"
+RUN_LABEL = "DOSSIER_MLFLOW_RUN_LABEL"
 
 # What a span may carry: the text a stage read and wrote, or only its hashes.
 _CAPTURES = ("full", "hashes")
@@ -117,15 +118,15 @@ def experiment_name(
 # the call site, because a person overrides one of these by name -- and because
 # the defaults are a table in spec 010 that a reader can check this against.
 DEFAULT_NAMES = {
-    "sync": "{prefix}sync {started}",
-    "convert": "{prefix}convert {started}",
+    "sync": "{prefix}sync {started}{label}",
+    "convert": "{prefix}convert {started}{label}",
     # The run id alone, as R11.1 row 1 asserts it. A run directory is named this,
     # and a record named anything else would stop being the thing a person pastes
     # from one to the other.
-    "run": "{prefix}{run_id}",
-    "eval": "{prefix}eval {run_id} · {model}",
-    "compare": "{prefix}compare {a} -> {b}",
-    "calibrate": "{prefix}calibrate {gold} · {judge_model}",
+    "run": "{prefix}{run_id}{label}",
+    "eval": "{prefix}eval {run_id} · {model}{label}",
+    "compare": "{prefix}compare {a} -> {b}{label}",
+    "calibrate": "{prefix}calibrate {gold} · {judge_model}{label}",
 }
 
 # What ` · ` separates. A name is read left to right, and the separator belongs to
@@ -145,7 +146,7 @@ _DISPLAY_HASH = 8
 # inferred from what a caller happened to pass, so a template is refused at the
 # same point whether or not the value would have been there this once -- as an
 # experiment template is (R10.2).
-_EVERY_COMMAND = ("prefix", "pipeline", "kind", "started")
+_EVERY_COMMAND = ("prefix", "label", "pipeline", "kind", "started")
 NAME_PLACEHOLDERS = {
     "sync": _EVERY_COMMAND,
     "convert": _EVERY_COMMAND,
@@ -154,6 +155,20 @@ NAME_PLACEHOLDERS = {
     "compare": (*_EVERY_COMMAND, "a", "b", "gold", "gold_hash"),
     "calibrate": (*_EVERY_COMMAND, "gold", "gold_hash", "judge_model"),
 }
+
+
+def label_for(given: str | None, environ: Mapping[str, str]) -> str:
+    """The label this record carries: what was typed, else what was set (R10.11).
+
+    An argument wins over a variable, as it does everywhere else in this tool: a
+    variable that could not be overridden per command would let
+    `DOSSIER_MLFLOW_RUN_LABEL=nightly` left in a shell silently relabel a run
+    someone made by hand.
+
+    Empty rather than `None` for "no label", because both the name and the tag
+    read it and two callers each handling a `None` is two chances to differ.
+    """
+    return given or environ.get(RUN_LABEL, "")
 
 
 def name_template(*, kind: str, environ: Mapping[str, str]) -> str:
@@ -197,11 +212,13 @@ def run_name(*, kind: str, values: Mapping[str, str], environ: Mapping[str, str]
         for name, value in values.items()
     }
     rendered["prefix"] = f"{prefix}{SEPARATOR}" if prefix else ""
+    label = values.get("label", "")
+    rendered["label"] = f"{SEPARATOR}{label}" if label else ""
     rendered["kind"] = kind
     return _PLACEHOLDER.sub(lambda match: rendered[match.group(1)], template)
 
 
-def tags(*, kind: str, pipeline: str) -> dict[str, str]:
+def tags(*, kind: str, pipeline: str, label: str = "") -> dict[str, str]:
     """The tags every record carries, whichever experiment it lands in (R10.3).
 
     They keep a shared experiment filterable: with every command recording to
@@ -210,7 +227,15 @@ def tags(*, kind: str, pipeline: str) -> dict[str, str]:
     what MLflow records about a run -- `mlflow.user`, `mlflow.source.name` -- is
     left as MLflow sets it.
     """
-    return {"dossier.kind": kind, "dossier.pipeline": pipeline}
+    written = {"dossier.kind": kind, "dossier.pipeline": pipeline}
+    if label:
+        # Absent when nobody labelled it, rather than present and empty: a label
+        # is supplied or it is not, so absent reads correctly. `dossier.regressed`
+        # goes the other way (R11.9 row 3) because a comparison computes it every
+        # time, and there an absent tag would read as a record written before the
+        # rule existed (R10.11 row 4).
+        written["dossier.label"] = label
+    return written
 
 
 # The per-source counts each command prints, in the order it prints them (R2.13,
