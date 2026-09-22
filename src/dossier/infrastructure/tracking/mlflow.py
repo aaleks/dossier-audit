@@ -443,10 +443,10 @@ class MlflowDatasetRegistry:
 
 class MlflowPromptRegistry:
     """The `PromptRegistry` port, over `mlflow.genai.register_prompt` and the
-    model registry's version search (spec 013).
+    model registry's version search (spec 014).
 
     The one read this port permits is `latest` -- it decides a **write**
-    (whether to publish at all), and reaches no run, key or file (R13.5 row 4).
+    (whether to publish at all), and reaches no run, key or file (R14.5 row 4).
     """
 
     def __init__(self, uri: str) -> None:

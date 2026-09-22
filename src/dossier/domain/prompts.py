@@ -1,6 +1,6 @@
 """What a prompt declares it needs, what it is given, and what it is called.
 
-Spec 003 for the first two, spec 013 for the third: a prompt's name in MLflow's
+Spec 003 for the first two, spec 014 for the third: a prompt's name in MLflow's
 registry is a pure decision about a pipeline name and a step id, so it lives
 here beside the other decisions a prompt is subject to rather than next to the
 call that sends it.

@@ -1,4 +1,4 @@
-"""Publishing a pipeline's prompts as MLflow prompt versions (spec 013).
+"""Publishing a pipeline's prompts as MLflow prompt versions (spec 014).
 
 The use case `dossier prompts publish` runs. It reads each prompt and rubric out
 of the pipeline's own directory, projects them onto the set `publish_set`

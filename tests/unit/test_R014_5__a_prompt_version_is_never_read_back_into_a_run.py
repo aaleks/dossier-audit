@@ -1,6 +1,6 @@
 """R14.5 — no prompt version is ever read back into a rendered prompt, a key, a score or a file.
 
-The one-way promise spec 013 opens with, and the reason the spec is narrow.
+The one-way promise spec 014 opens with, and the reason the spec is narrow.
 MLflow's prompt registry exists to be loaded from -- `load_prompt` is its
 headline -- and dossier takes only the half that writes.
 
