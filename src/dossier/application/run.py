@@ -275,7 +275,9 @@ def execute(
                 },
                 environ=environ or {},
             ),
-            tags=tracking_tags(kind="run", pipeline=pipeline.name, label=label),
+            tags=tracking_tags(
+                kind="run", pipeline=pipeline.name, label=label, environ=environ or {}
+            ),
         )
         tracker.log_params(
             {

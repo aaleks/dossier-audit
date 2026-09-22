@@ -156,6 +156,12 @@ class FakeTracker:
     def log_dataset(self, *, name: str, dataset_id: str, digest: str) -> None:
         self._run.inputs.append({"name": name, "dataset_id": dataset_id, "digest": digest})
 
+    def describe(self, text: str) -> None:
+        # Stored as the tag MLflow renders as Description, rather than as a field
+        # of its own: R10.12 is the claim that it goes *there*, and a fake that
+        # kept it somewhere else could not fail when the tracker stopped.
+        self._run.tags["mlflow.note.content"] = text
+
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
         self._run.traces.append(FakeTrace(name=name, tags=dict(tags)))
 

@@ -24,6 +24,7 @@ CAPTURE = "DOSSIER_MLFLOW_CAPTURE"
 RUN_PREFIX = "DOSSIER_MLFLOW_RUN_PREFIX"
 RUN_NAME = "DOSSIER_MLFLOW_RUN_NAME"
 RUN_LABEL = "DOSSIER_MLFLOW_RUN_LABEL"
+USER = "DOSSIER_MLFLOW_USER"
 
 # What a span may carry: the text a stage read and wrote, or only its hashes.
 _CAPTURES = ("full", "hashes")
@@ -157,6 +158,41 @@ NAME_PLACEHOLDERS = {
 }
 
 
+# Every tag dossier writes under MLflow's own prefix (R10.12). A closed list, and
+# a test asserts it is this one: `mlflow.runName` is the trap, because MLflow
+# reads a run's name from that tag as well as from `create_run`'s argument, and
+# writing it would give a name two sources when R10.10 gives it one.
+MLFLOW_TAGS = (
+    "mlflow.user",
+    "mlflow.source.name",
+    "mlflow.source.type",
+    "mlflow.note.content",
+)
+
+# Where a shell records the account a command ran under, in the order a machine
+# is likely to have them. Read out of the same mapping as everything else, so no
+# part of `domain/` asks the operating system anything (R9.11).
+_ACCOUNT = ("USERNAME", "USER", "LOGNAME")
+
+
+def user_for(environ: Mapping[str, str]) -> str:
+    """Who a record says ran the command (R10.12).
+
+    `unknown` when nothing names anybody, which is exactly what
+    `MlflowClient.create_run` stores when no `mlflow.user` tag reaches it: this
+    path is no worse than the one before the rule, and it is a value rather than
+    an absence, so the column reads the same on every record.
+    """
+    named = environ.get(USER, "")
+    if named:
+        return named
+    for variable in _ACCOUNT:
+        found = environ.get(variable, "")
+        if found:
+            return found
+    return "unknown"
+
+
 def label_for(given: str | None, environ: Mapping[str, str]) -> str:
     """The label this record carries: what was typed, else what was set (R10.11).
 
@@ -218,7 +254,13 @@ def run_name(*, kind: str, values: Mapping[str, str], environ: Mapping[str, str]
     return _PLACEHOLDER.sub(lambda match: rendered[match.group(1)], template)
 
 
-def tags(*, kind: str, pipeline: str, label: str = "") -> dict[str, str]:
+def tags(
+    *,
+    kind: str,
+    pipeline: str,
+    label: str = "",
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, str]:
     """The tags every record carries, whichever experiment it lands in (R10.3).
 
     They keep a shared experiment filterable: with every command recording to
@@ -235,6 +277,20 @@ def tags(*, kind: str, pipeline: str, label: str = "") -> dict[str, str]:
         # time, and there an absent tag would read as a record written before the
         # rule existed (R10.11 row 4).
         written["dossier.label"] = label
+
+    # Three of the four `mlflow.*` tags R10.12 permits. The fourth,
+    # `mlflow.note.content`, is written when a run closes and its figures exist
+    # (R11.12), so it is not here.
+    #
+    # Written rather than left to MLflow, because MLflow does not write them on
+    # this path: `MlflowClient.create_run` reads `mlflow.user` out of the tags
+    # handed to it and defaults it to `unknown`, and sets no source at all. R10.3
+    # said they were "left as MLflow sets them"; they were left empty.
+    written["mlflow.user"] = user_for(environ or {})
+    written["mlflow.source.name"] = f"dossier {kind}"
+    # `LOCAL` is MLflow's own vocabulary for "a command someone ran", as against
+    # NOTEBOOK, JOB or PROJECT. A `dossier` command is always the first.
+    written["mlflow.source.type"] = "LOCAL"
     return written
 
 

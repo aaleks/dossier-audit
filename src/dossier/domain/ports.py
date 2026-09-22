@@ -212,6 +212,15 @@ class Tracker(Protocol):
         """
         ...
 
+    def describe(self, text: str) -> None:
+        """Set this run's description, which MLflow shows first (R10.12, R11.12).
+
+        A method of its own rather than a tag in `start_run`, because a
+        description restates figures that do not exist when a run opens: an eval
+        describes itself when it closes, with the accuracy it just printed.
+        """
+        ...
+
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None: ...
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None: ...
