@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.19
 
 ## Purpose
@@ -491,7 +491,7 @@ metadata: the value R4.9 already writes into every manifest.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application`)
 - **Proved by:** `tests/acceptance/test_R011_19__every_record_says_which_dossier_wrote_it.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

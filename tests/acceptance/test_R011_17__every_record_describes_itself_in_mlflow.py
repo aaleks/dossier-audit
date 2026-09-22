@@ -79,6 +79,21 @@ def _line(output: str, starting: str) -> str:
     raise AssertionError(f"no line starting {starting!r} in:\n{output}")
 
 
+class GarbledOnOne(RoutedModel):
+    """The scoring example's answers, except for one document it garbles.
+
+    A reply nothing can parse fails that document after its retry (R6.9) and
+    leaves the other three alone, which is the run row 2 is about: partly done,
+    exit code 1, and still a record worth opening.
+    """
+
+    bad = "INC-4822"
+
+    def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
+        reply = super().complete(prompt, schema=schema, parts=parts)
+        return "not json at all" if self.calls[-1] == self.bad else reply
+
+
 @pytest.fixture
 def declared(workspace: Path, monkeypatch) -> Path:
     """The scoring example's four incidents, behind a pipeline and a gold set."""
@@ -180,6 +195,27 @@ class TestEveryRecordDescribesItself:
         assert steps, result.output
         for line in steps:
             assert line in described
+
+    def test_a_run_with_a_failed_document_is_described_all_the_same(
+        self, declared: Path, monkeypatch, tracker: FakeTracker
+    ):
+        """Example 2: the one where the run went wrong and said so.
+
+        `INC-4822` fails after its retry; the other three documents complete.
+        The record closes FAILED and carries the same lines the terminal showed,
+        failure count included. A description written only on success would make
+        a failed run look like a command nobody ran (R8.6).
+        """
+        assert _cli(declared, monkeypatch, "sync", PIPELINE).exit_code == 0
+        tracker.runs.clear()
+        _answer_with(monkeypatch, GarbledOnOne(ANSWERS))
+
+        result = _cli(declared, monkeypatch, "run", PIPELINE)
+
+        assert result.exit_code == 1, result.output
+        described = _described(tracker)
+        assert "1 failed" in described
+        assert _line(result.output, "extract:") in described
 
     def test_a_calibration_describes_what_it_measured(
         self, declared: Path, monkeypatch, tracker: FakeTracker

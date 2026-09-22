@@ -254,6 +254,10 @@ def sync(
                 environ=environment(workspace),
             ),
         )
+        # Which dossier fetched this, on the record of the fetching
+        # (R11.19). The ledger holds no such field, so a sync whose counts
+        # look wrong could not be tied to a version at all.
+        tracker.log_params({"dossier_version": version("dossier")})
         metrics: dict[str, float] = {}
         for report in reports:
             metrics.update(
@@ -675,6 +679,7 @@ def convert(
                 environ=environment(workspace),
             ),
         )
+        tracker.log_params({"dossier_version": version("dossier")})
         metrics: dict[str, float] = {}
         for report in reports:
             metrics.update(
@@ -1167,6 +1172,7 @@ def calibrate(
             started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
             label=label_for(label, environment(workspace)),
             pipeline=pipeline,
+            dossier_version=version("dossier"),
             # As bytes, as `record_eval` reads them: the hash has to move when
             # any answer moves (R11.3 row 2).
             gold_files={
@@ -1572,6 +1578,7 @@ def _compare_runs(
             tracker,
             experiment=experiment or "",
             pipeline=pipeline,
+            dossier_version=version("dossier"),
             runs=runs,
             models=(manifests[0].plan.model, manifests[1].plan.model),
             gold=gold,

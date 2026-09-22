@@ -325,6 +325,7 @@ def record_comparison(
     started: str = "",
     label: str = "",
     plans: tuple[ResolvedPlan, ResolvedPlan] | None = None,
+    dossier_version: str = "",
 ) -> None:
     """Record a comparison as one MLflow run of per-field deltas (R11.8, R11.9).
 
@@ -380,6 +381,9 @@ def record_comparison(
             "a/model": models[0],
             "b/model": models[1],
             "gold": Path(gold).name,
+            # Not prefixed, because it is a property of neither run: it is
+            # which dossier did the comparing (R11.19).
+            **({"dossier_version": dossier_version} if dossier_version else {}),
         }
     )
     if plans is not None:
@@ -884,6 +888,7 @@ def calibrate_fields(
     environ: Mapping[str, str] | None = None,
     started: str = "",
     label: str = "",
+    dossier_version: str = "",
 ) -> dict[str, Calibration]:
     """Measure every judged field, as one MLflow run when there is a tracker (R11.5).
 
@@ -949,6 +954,11 @@ def calibrate_fields(
         params.update(recorded_params)
         metrics.update(recorded_metrics)
     if tracker is not None:
+        # Which dossier measured this, beside what it measured (R11.19). An
+        # agreement figure re-measured under another dossier is another
+        # measurement, which the calibration file cannot say and this can.
+        if dossier_version:
+            params["dossier_version"] = dossier_version
         tracker.log_params(params)
         tracker.log_metrics(metrics)
         # The lines the CLI is about to print, from the same function it

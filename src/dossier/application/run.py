@@ -283,6 +283,10 @@ def execute(
             {
                 "pipeline": pipeline.name,
                 "model": plan.model,
+                # Which dossier wrote this record (R11.19). The value R4.9
+                # already puts in every manifest: a record is a second place
+                # to read it, never a second way of arriving at it.
+                "dossier_version": dossier_version,
                 # The version of everything this run is about to use, off the
                 # plan it has just resolved: the same function over the same
                 # data that the eval scoring this run reads off its manifest
