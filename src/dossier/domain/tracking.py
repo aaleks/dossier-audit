@@ -16,6 +16,7 @@ from collections.abc import Mapping
 from pydantic import BaseModel, ConfigDict
 
 from dossier.domain.judges import Calibration
+from dossier.domain.resolution import ResolvedPlan
 
 ENABLED = "DOSSIER_MLFLOW_ENABLED"
 TRACKING_URI = "DOSSIER_MLFLOW_TRACKING_URI"
@@ -324,6 +325,40 @@ def count_metrics(*, kind: str, source: str, counts: Mapping[str, int]) -> dict[
             "zeros included -- a missing one reads as a source that was skipped (R2.13)."
         )
     return {f"{source}/{name}": counts[name] for name in names}
+
+
+def version_params(plan: ResolvedPlan, *, prefix: str = "") -> dict[str, str]:
+    """The version of everything a run used, for the eval that scores it (R11.11).
+
+    Read off the plan the run wrote and never recomputed. A converter pinned at
+    `1.3.0` in a manifest is recorded as `1.3.0` on a machine where `1.4.0` is
+    installed, because the record describes the run and not the machine that
+    scored it (R4.9) -- and because two evals of one run on two laptops that
+    disagreed would be worse than no record at all.
+
+    `prefix` is `a/` or `b/` for a comparison, as `a/model` and `b/model` already
+    are (R7.8): one set of params would be a claim about both runs that is false
+    in exactly the case the change gate exists for.
+
+    A step with no schema records none rather than an empty one: `schema/verify=`
+    reads as a schema that was computed and came out empty, which is a different
+    and more alarming claim than a step that declares no output.
+    """
+    recorded = {f"{prefix}pipeline_hash": plan.pipeline_hash}
+    for step in plan.steps:
+        recorded[f"{prefix}prompt/{step.id}"] = step.prompt_hash
+        if step.schema_hash:
+            recorded[f"{prefix}schema/{step.id}"] = step.schema_hash
+        if step.generated_schema_hash:
+            recorded[f"{prefix}generated_schema/{step.id}"] = step.generated_schema_hash
+    # Sorted, though nothing here enters a key (R10.4): an unsorted list would
+    # make two evals of one run differ in MLflow for a reason nobody could
+    # explain, which is its own kind of wrong (R0.4).
+    recorded[f"{prefix}converters"] = ", ".join(
+        sorted(f"{converter.id} {converter.version}" for converter in plan.converters)
+    )
+    recorded[f"{prefix}documents"] = str(len(plan.documents))
+    return recorded
 
 
 def calibration_record(
