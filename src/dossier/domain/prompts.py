@@ -150,7 +150,24 @@ class PromptToPublish:
     tags: dict[str, str]
 
 
-def publish_set(config: PipelineConfig, texts: Mapping[str, str]) -> list[PromptToPublish]:
+def judge_prompt_name(pipeline: str, field: str) -> str:
+    """R13.2 — what a judged field's rubric is called.
+
+    The field rather than the step, because no step owns a rubric: two steps
+    declaring one field declaration both see it, and naming it after either
+    would be a coin toss a reader could not reconstruct. `judge.` sits in the
+    middle so a registry listing groups a pipeline's rubrics together and so the
+    name cannot collide with a step id, which R3.2 holds to `[a-z][a-z0-9_]*`
+    and therefore cannot contain a dot.
+    """
+    return f"{prompt_name(pipeline, 'judge')}.{field}"
+
+
+def publish_set(
+    config: PipelineConfig,
+    texts: Mapping[str, str],
+    rubrics: Mapping[str, Mapping[str, str]] | None = None,
+) -> list[PromptToPublish]:
     """R13.1 — the prompts a pipeline publishes, one per step.
 
     Handed the text rather than reading it, so the decision about what is
@@ -163,29 +180,70 @@ def publish_set(config: PipelineConfig, texts: Mapping[str, str]) -> list[Prompt
     in and the order the terminal line prints, and nothing here reaches a cache
     key -- the ordering rule that R5.6 imposes on hashed collections does not
     apply to a list nobody hashes.
+
+    `rubrics` arrives per step -- `{step id: {field: rubric path}}` -- rather
+    than pre-merged, so the decision that judging one field is one job however
+    many steps declare it is made here and not by whoever loaded the
+    declarations (R13.2). The rubrics follow the steps for the same reason the
+    steps are in declaration order: it is the order the terminal prints.
     """
-    published = []
+    published: list[PromptToPublish] = []
     for step in config.steps:
-        # Normalised here rather than trusted from the caller. `text_hash`
-        # gets this for free because `read_text` translates newlines, and a
-        # caller who read bytes instead would publish a template and a hash
-        # that disagreed with the stage key over nothing but a checkout
-        # convention (R5, R13.4 row 5).
-        template = normalised_text(texts[step.prompt])
         published.append(
-            PromptToPublish(
+            _to_publish(
                 name=prompt_name(config.name, step.id),
-                template=template,
-                tags={
-                    # The full 64 characters, never the eight a log line shows
-                    # (R0.7). This is the one value that ties a version in
-                    # MLflow back to the provenance record of the run that
-                    # rendered it, and a prefix would tie it to several.
-                    "dossier.prompt_hash": content_hash(template.encode("utf-8")),
-                    "dossier.pipeline": config.name,
-                    "dossier.step": step.id,
-                    "dossier.path": step.prompt,
-                },
+                pipeline=config.name,
+                path=step.prompt,
+                text=texts[step.prompt],
+                owner=("dossier.step", step.id),
             )
         )
+    seen = {prompt.name for prompt in published}
+    for step in config.steps:
+        for field, path in (rubrics or {}).get(step.id, {}).items():
+            name = judge_prompt_name(config.name, field)
+            # Judging one field is one job however many steps declare it. The
+            # name is the field's, so the second sighting is a duplicate by
+            # construction rather than something to compare paths over (R13.2).
+            if name in seen:
+                continue
+            seen.add(name)
+            published.append(
+                _to_publish(
+                    name=name,
+                    pipeline=config.name,
+                    path=path,
+                    text=texts[path],
+                    # The field, never a step: no step owns a rubric.
+                    owner=("dossier.field", field),
+                )
+            )
     return published
+
+
+def _to_publish(
+    *, name: str, pipeline: str, path: str, text: str, owner: tuple[str, str]
+) -> PromptToPublish:
+    """One prompt, with the four tags R13.3 puts on every version.
+
+    The template and the hash come from one local, so the words published and
+    the digest taken over them cannot drift apart. `owner` is the one tag that
+    differs between a step's prompt and a rubric, and it is a parameter rather
+    than a branch so that neither kind can quietly lose its other three.
+    """
+    template = normalised_text(text)
+    owner_tag, owner_value = owner
+    return PromptToPublish(
+        name=name,
+        template=template,
+        tags={
+            # The full 64 characters, never the eight a log line shows (R0.7).
+            # This is the one value that ties a version in MLflow back to the
+            # provenance record of the run that rendered it, and a prefix would
+            # tie it to several.
+            "dossier.prompt_hash": content_hash(template.encode("utf-8")),
+            "dossier.pipeline": pipeline,
+            owner_tag: owner_value,
+            "dossier.path": path,
+        },
+    )
