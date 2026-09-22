@@ -67,7 +67,47 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all thirteen specs are
-implemented, and 170 of the 180 rules are MET with the other 10 superseded.
+implemented, and 178 of the 189 rules are MET with the other 11 superseded.
+
+A record says what it is. `eval of 20260921T153441Z-07f1` was filterable and not
+readable, and four `calibration of incidents` in a list were one measurement
+each and told apart by nothing. A name is now rendered from a template per
+command kind, exactly as an experiment is -- `{prefix}` and `{label}` carrying
+their own separators so an unconfigured name is byte-identical to the one
+recorded before (R10.10), and a placeholder a command cannot fill refused before
+any work. The version a person means by `v2` is supplied rather than counted: a
+count of the runs on a server would name the same eval differently on another
+machine, and differently again after a record was lost (R10.11).
+
+R10.3 is superseded by R10.12, which names the four `mlflow.*` tags dossier
+writes. Its counter-example said `mlflow.user` and `mlflow.source.name` were
+"left as MLflow sets them"; `MlflowClient.create_run` reads `mlflow.user` out of
+the tags handed to it and defaults it to `unknown`, and sets no source at all --
+so they were left *empty*, and Created by, Source and Description were blank on
+every record dossier had ever written. `mlflow.runName` stays out: MLflow reads
+a name from that tag as well as from `create_run`, and R10.10 gives a name one
+source.
+
+An eval says what produced what it scored. The pipeline hash, each step's prompt
+and schema hashes, the converters and the judge's rubric, read off the manifest
+it already reproduces and never recomputed -- a converter pinned at `1.3.0` is
+recorded as `1.3.0` on a machine where `1.4.0` is installed (R11.11). It
+describes itself from the figures it printed (R11.12), attaches the per-document
+lines the terminal loses (R11.14), and a comparison names the steps that differ
+between its two runs, from the decision `--plan` already makes (R11.13) -- the
+cause of a delta on the same page as the delta.
+
+The judge is readable. Its span carries what a stage's carries under the same
+capture setting, instead of the model identifier alone (R11.15), and its verdict
+is an MLflow assessment on the trace an eval already opens -- a projection, never
+`mlflow.genai.evaluate` reaching a verdict of its own (R11.16). That one was
+green in the suite and broken live: MLflow exports traces asynchronously, so
+`log_feedback(trace_id=...)` right after the span answers
+`RESOURCE_DOES_NOT_EXIST` -- the asynchrony R10.9 was written about, in a second
+place. `FakeTracker` records the call and returns and `BestEffortTracker`
+swallows the exception, so in production the assessment would have been missing
+with no error anywhere. Verdicts are now held and sent in `end_trace`, after the
+exporter is flushed.
 
 A comparison is a record. `dossier eval --compare a b` printed per-field deltas
 and recorded nothing, on the reasoning that it reads two runs each already
