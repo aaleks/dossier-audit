@@ -27,6 +27,7 @@ from dossier.domain.judges import (
     require_measurable,
 )
 from dossier.domain.keys import JudgeInputs, cache_key, provenance
+from dossier.domain.plan import changed_steps, diff
 from dossier.domain.ports import ArtifactStore, ImagePart, Tracker
 from dossier.domain.resolution import ResolvedPlan
 from dossier.domain.scoring import (
@@ -350,6 +351,12 @@ def record_comparison(
             # existed, as an absent `changes.json` is from a sync that never ran
             # (R11.6 row 2).
             "dossier.regressed": ", ".join(regressed_fields(rows)),
+            # What differs between the two runs, from the same decision
+            # `--plan` makes (R4.12). Present and empty when nothing moved, for
+            # the reason `dossier.regressed` is (R11.13 row 4).
+            "dossier.changed_steps": changed_steps(
+                diff(plans[1], plans[0]) if plans is not None else []
+            ),
             **({"dossier.dataset_stale": "true"} if dataset_stale else {}),
         },
     )
