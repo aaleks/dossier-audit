@@ -305,8 +305,8 @@ link is a statement about the prompt that ran rather than about what is newest.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
-- **Proved by:** `tests/unit/test_R014_7__a_run_links_the_prompt_versions_it_rendered.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R014_7__a_run_links_the_prompt_versions_it_rendered.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
