@@ -1,7 +1,7 @@
 # 014 — A pipeline's prompts as MLflow prompt registry versions
 
-**Status:** Implemented
-**Rules:** R14.1 – R14.9
+**Status:** Partially implemented
+**Rules:** R14.1 – R14.10
 
 ## Purpose
 
@@ -403,3 +403,33 @@ rubric edited since its calibration -- the commonest reason for withholding
 | 6 | *counter-example* — `incident-audit.judge.root_cause` never published | links nothing; the eval and the calibration record and exit exactly as they would have (R10.4, R14.7 row 2) |
 | 7 | *counter-example* — `DOSSIER_MLFLOW_ENABLED=false` | no registry read and no link, on `eval` and on `calibrate` |
 | 8 | *counter-example* — `dossier eval --compare 20260806T142203Z-4f1a 20260907T090000Z-bbbb` | no registry read and no link. A comparison's record holds a delta, and the change behind it is named by R11.13, not by a link to either side's rubric |
+
+### R14.10 — a prefix MLflow would reject is refused before any work by every command that records, and by none while tracking is off
+
+R14.8 row 5 refuses `team/a` where a publish composes a name. Every other
+command that looks a name up met it later and worse: `dossier run` refused it
+through a handler written for plan resolution, after its MLflow run was open,
+and `dossier eval` and `dossier calibrate` raised a traceback -- the second of
+them with its run left open. A setting that is wrong is wrong before anything
+is sent, so it is refused where the rest of this machine's tracking settings
+are: before any work, with exit 2 naming the variable (R10.1, R10.5).
+
+Every command that records, not only the three that look a name up. The
+prefix is part of this machine's tracking configuration, and a person told at
+`dossier sync` fixes it before the run that would have needed it -- as a
+mistyped `DOSSIER_MLFLOW_ENABLED` is refused by every command rather than by
+the ones that would have recorded most.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.main._tracking_for`), over `dossier.domain.prompts.check_prompt_prefix`
+- **Proved by:** `tests/acceptance/test_R014_10__a_prefix_mlflow_would_reject_is_refused_before_any_work.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `DOSSIER_MLFLOW_PROMPT_PREFIX=team/a`, tracking on, `dossier eval incident-audit --gold gold/incidents` | exit 2 naming `/` and `DOSSIER_MLFLOW_PROMPT_PREFIX`; 0 judge calls and 0 MLflow runs opened |
+| 2 | the same prefix, `dossier calibrate incident-audit --gold gold/incidents` | exit 2 naming the variable; 0 judge calls and 0 MLflow runs opened |
+| 3 | the same prefix, `dossier run incident-audit` | exit 2 naming the variable; 0 model calls and 0 MLflow runs opened. Refused before the run opens, not after |
+| 4 | the same prefix, `dossier sync incident-audit` | exit 2 naming the variable; 0 items fetched. The setting is refused where it is read, not where it would first have mattered |
+| 5 | *counter-example* — `team/a`, `DOSSIER_MLFLOW_ENABLED=false`, `dossier run incident-audit` | exit 0, as the run would have. Nothing is recorded or looked up, so nothing reads the prefix (R14.7 row 3) |
+| 6 | *counter-example* — `DOSSIER_MLFLOW_PROMPT_PREFIX=sandbox` | nothing refused; every command records as R14.8 row 1 names |
