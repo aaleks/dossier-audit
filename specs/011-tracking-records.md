@@ -371,9 +371,9 @@ documents can check what was asked, and nobody who has only the server can read
 them.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.tracking.span_payload`)
-- **Proved by:** `tests/unit/test_R011_15__a_judge_span_carries_what_a_stage_span_carries.py`
-- **Status:** NOT MET
+- **Layer:** application (`dossier.application.eval.judge_span`)
+- **Proved by:** `tests/unit/test_R011_15__a_judge_span_carries_what_a_stage_span_carries.py`, `tests/acceptance/test_R011_15__the_judge_call_is_readable_in_mlflow.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
