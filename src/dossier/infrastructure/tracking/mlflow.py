@@ -18,7 +18,13 @@ from collections.abc import Mapping, Sequence
 import httpx
 
 from dossier.domain.datasets import PublishedDataset
-from dossier.domain.ports import DatasetRegistry, Tracker
+from dossier.domain.ports import DatasetRegistry, Tracker, VersionRegistry
+from dossier.domain.versions import (
+    HASH_TAG,
+    MODEL_TYPE,
+    PublishedVersion,
+    VersionRecord,
+)
 
 # How the startup check reaches the server. `None` is a real connection; a test
 # answers with an `httpx.MockTransport`, so no socket is opened (R0.10).
@@ -169,6 +175,37 @@ class MlflowTracker:
                 )
             ],
         )
+
+    def produced_version(self, version_id: str) -> None:
+        """Link this run to the version it built, as one of its outputs (R13.2).
+
+        `log_outputs` rather than the registry's `source_run_id`: a live spike
+        found that `source_run_id` fills the *model's* source field and leaves
+        the run's own model column empty, and the run's column is the one this
+        spec exists to fill. `step=0` because dossier registers one version per
+        run and MLflow wants an ordinal.
+        """
+        from mlflow.entities import LoggedModelOutput
+
+        self._client.log_outputs(self._run_id, models=[LoggedModelOutput(version_id, 0)])
+
+    def scored_version(self, version_id: str) -> None:
+        """Link this run to the version it measured, as one of its inputs (R13.2)."""
+        from mlflow.entities import LoggedModelInput
+
+        self._client.log_inputs(self._run_id, models=[LoggedModelInput(version_id)])
+
+    def log_version_metrics(self, *, version_id: str, metrics: Mapping[str, float]) -> None:
+        """Record figures against the version as well as against this run (R13.3).
+
+        Through `log_metric` with `model_id`, which a live spike confirmed
+        accumulates across runs with each value carrying the run it came from --
+        so a version scored twice shows both measurements rather than the later
+        one silently replacing the earlier.
+        """
+        run_id = self._run_id
+        for name, value in metrics.items():
+            self._client.log_metric(run_id, name, value, model_id=version_id)
 
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
         root = self._client.start_trace(
@@ -393,3 +430,84 @@ def _record_count(dataset) -> int:
     if isinstance(profile, str):
         profile = json.loads(profile or "{}")
     return int((profile or {}).get("num_records", 0))
+
+
+def connect_versions(uri: str) -> VersionRegistry:
+    """A version registry recording to `uri` (spec 013).
+
+    Only `connect`'s checks -- the extra and a server that answers. No check
+    that the store can hold a logged model, and deliberately not: a dataset
+    publish exists only to make the record and is refused when it cannot (R12.5),
+    while a version is registered during `dossier run`, which has work to do
+    either way. A store that cannot hold one fails at `register` and is swallowed
+    by the best-effort wrapper, which says so at the end (R13.5).
+    """
+    connect(uri)
+    return MlflowVersionRegistry(uri)
+
+
+class MlflowVersionRegistry:
+    """The `VersionRegistry` port, over MLflow's logged models.
+
+    The second thing in `dossier` that reads an id back from a tracking server.
+    It may reach a tag, the link `Tracker` records and a terminal line, and
+    nothing else, which is the caller's obligation and stated at the port
+    (R13.4).
+    """
+
+    def __init__(self, uri: str) -> None:
+        import mlflow
+
+        self._uri = uri
+        self._client = mlflow.MlflowClient(tracking_uri=uri)
+
+    def register(self, *, record: VersionRecord, experiment: str) -> PublishedVersion:
+        """Find this version by its identifying pair, or create it ready (R13.1)."""
+        experiment_id = self._experiment_id(experiment)
+        found = self._find(record, experiment_id)
+        if found is not None:
+            return PublishedVersion(
+                version_id=found.model_id,
+                name=found.name,
+                pipeline_hash=record.tags[HASH_TAG],
+                created=False,
+                params=dict(found.params or {}),
+            )
+        made = self._client.create_logged_model(
+            experiment_id=experiment_id,
+            name=record.name,
+            model_type=MODEL_TYPE,
+            params=dict(record.params),
+            tags=dict(record.tags),
+        )
+        # A model left pending reads as something still being written, which is
+        # untrue the moment the run that produced it has ended (R13.1).
+        self._client.finalize_logged_model(made.model_id, "READY")
+        return PublishedVersion(
+            version_id=made.model_id,
+            name=made.name,
+            pipeline_hash=record.tags[HASH_TAG],
+            created=True,
+            params=dict(record.params),
+        )
+
+    def _experiment_id(self, experiment: str) -> str:
+        found = self._client.get_experiment_by_name(experiment)
+        return found.experiment_id if found else self._client.create_experiment(experiment)
+
+    def _find(self, record: VersionRecord, experiment_id: str):
+        """The one logged model this pair names, or `None`.
+
+        The conjunction, never either half. A live spike found that the name
+        alone matched every version of the pipeline and the hash alone matched
+        every pipeline that resolved to it; only both together returned one
+        (R13.1 rows 4-5). Matching on one would hand one pipeline's accuracy to
+        another.
+        """
+        version = record.tags[HASH_TAG]
+        hits = self._client.search_logged_models(
+            experiment_ids=[experiment_id],
+            filter_string=(f"name = '{record.name}' AND params.version_hash = '{version}'"),
+            max_results=1,
+        )
+        return hits[0] if hits else None
