@@ -35,6 +35,7 @@ it. A new use case is a folder of prompts plus a configuration block.
 | **run** | One execution of a pipeline, pinned to specific snapshots. |
 | **manifest** | The frozen, fully-resolved description of a run. |
 | **gold set** | Documents with human-verified expected answers. |
+| **pipeline version** | A pipeline at one `pipeline_hash`: the prompts, schemas, converters and model pin a run used. MLflow stores one as a *logged model*; `dossier`'s **model** is the LLM, and is a param of the version (spec 013). |
 | **score** | The measured agreement between a run's output and the gold set. |
 
 ## The hash boundary

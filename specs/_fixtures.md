@@ -320,3 +320,12 @@ except here:
 Overall 80.0% to 90.0%: the figure improved while `affected_systems` got worse,
 which is the case the change gate exists for. `INC-5102` (from the corpus above)
 is the fifth document that makes two runs cover different documents.
+
+## Pipeline versions in MLflow
+
+| Value | Is |
+|---|---|
+| `m-4746b054b65f4891b78c065e65a472ff` | the id MLflow hands back for a registered pipeline version. The `m-` prefix and 32 hex characters are MLflow's shape, not `dossier`'s; it is printed and written nowhere (R13.4) |
+| `incident-audit` at `2f60a7d3` | the pipeline version run `20260806T142203Z-4f1a` produced, measured at 80.0% overall |
+| `incident-audit` at `8ad3e115` | the version after the prompt changed, which run `20260907T090000Z-bbbb` produced and which measures 90.0% |
+| `postmortem-review` at `2f60a7d3` | a second pipeline that resolves to the same hash: two versions, not one, because the hash alone does not identify (R13.1 row 4) |

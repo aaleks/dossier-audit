@@ -21,6 +21,7 @@ spec assumes.
 | `010-mlflow-tracking.md` | MLflow tracking: the switch, experiment routing, naming, and what tracking may not do | R10.1 – R10.12 | Implemented |
 | `011-tracking-records.md` | What each command records to MLflow: runs, traces, spans and metrics | R11.1 – R11.19 | Implemented |
 | `012-evaluation-datasets.md` | Publishing a gold set as an MLflow evaluation dataset, and the eval run that links to it | R12.1 – R12.6 | Implemented |
+| `013-pipeline-versions.md` | Publishing a pipeline version as an MLflow logged model, and the accuracy recorded against it | R13.1 – R13.5 | Proposed |
 
 Supporting files:
 
