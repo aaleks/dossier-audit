@@ -66,7 +66,6 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-<<<<<<< HEAD
 Currently open: **none**, and nothing is outstanding: all fifteen specs are
 implemented, and 193 of the 204 rules are MET with the other 11 superseded.
 
@@ -74,10 +73,6 @@ Spec 013 is *pipeline versions*; prompt publishing is **014**. Two sessions
 wrote a spec 013 in parallel and the logged-models one merged first, so the
 prompt rules renumbered from R13.x to R14.x before they ever reached `main`.
 Ids never move once merged -- these had not.
-=======
-Currently open: **none**, and nothing is outstanding: all fourteen specs are
-implemented, and 186 of the 197 rules are MET with the other 11 superseded.
->>>>>>> origin/main
 
 A record says what it is. `eval of 20260921T153441Z-07f1` was filterable and not
 readable, and four `calibration of incidents` in a list were one measurement
@@ -143,21 +138,12 @@ and the two records agree because they are one function over one set of data
 (R11.19) -- the value R4.9 already puts in every manifest, which no sync, convert
 or calibration could previously be tied to at all.
 
-<<<<<<< HEAD
 One thing was considered and left out, and the other was split in half. MLflow's
 **prompt registry** was refused whole because loading from it would make a
 server-held version something dossier reads back, which is the hazard R12.4
-fences off. Spec 013 takes the half that writes and leaves the half that reads:
-the objection was never to publishing. MLflow 3's **logged models** -- the empty column beside every
-record -- is the one worth doing next: a `LoggedModel` per pipeline at a
-pipeline hash would make the model-centric comparison view work, and it needs a
-port of its own, because creating one *returns* an id and `Tracker`'s contract
-forbids returning anything (R0.10). `DatasetRegistry` is the precedent.
-=======
-MLflow's **prompt registry** stays out: it would make a server-held version
-something dossier reads back, which is the hazard R12.4 fences off, and prompt
-hashes on the run and on its eval give the same traceability one way only.
-Logged models, named there as the thing worth doing next, is spec 013.
+fences off. Spec 014 takes the half that writes and leaves the half that reads:
+the objection was never to publishing. Logged models, named there as the thing
+worth doing next, is spec 013.
 
 A pipeline version is a thing in MLflow. The Models column beside every record
 was empty, and MLflow's logged model is the object built for the one comparison a
@@ -190,7 +176,6 @@ so a version has to be found rather than assumed; only `name AND params` returns
 one, where either half alone returns many; `log_outputs` fills a run's own model
 column while the registry's `source_run_id` does not; and metrics against a model
 accumulate across runs with each value carrying the run it came from.
->>>>>>> origin/main
 
 A prompt is published, never loaded. MLflow's prompt registry exists to be read
 from, and `dossier` takes only the half that writes: `dossier prompts publish
