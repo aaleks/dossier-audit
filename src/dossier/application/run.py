@@ -61,6 +61,7 @@ from dossier.domain.ports import (
     ModelClient,
     SnapshotReader,
     Tracker,
+    VersionRegistry,
 )
 from dossier.domain.prompts import render
 from dossier.domain.resolution import (
@@ -75,6 +76,7 @@ from dossier.domain.schemas import StageOutput
 from dossier.domain.store import RESERVED_KEY, output_path, record_path
 from dossier.domain.tracking import run_description, run_name, step_line, version_params
 from dossier.domain.tracking import tags as tracking_tags
+from dossier.domain.versions import version_record
 
 # The `document` an aggregate result is reported under (spec 003). An aggregate
 # step has no document -- it read all of them -- so naming it after any one would
@@ -202,6 +204,8 @@ def execute(
     environ: Mapping[str, str] | None = None,
     label: str = "",
     capture: str = "full",
+    versions: VersionRegistry | None = None,
+    version_experiment: str = "",
 ) -> RunReport:
     """Resolve the pipeline, freeze it, then run it.
 
@@ -297,6 +301,16 @@ def execute(
                 **version_params(plan),
             }
         )
+        # The pipeline version this run is about to build: registered, then
+        # linked as one of this run's outputs (R13.1, R13.2). The registry
+        # is best-effort and answers `None` when the server cannot hold a
+        # logged model, which costs the record and never the run (R13.5).
+        if versions is not None:
+            registered = versions.register(
+                record=version_record(plan), experiment=version_experiment
+            )
+            if registered is not None:
+                tracker.produced_version(registered.version_id)
 
     try:
         for step in plan.steps:

@@ -66,8 +66,8 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**, and nothing is outstanding: all thirteen specs are
-implemented, and 181 of the 192 rules are MET with the other 11 superseded.
+Currently open: **none**, and nothing is outstanding: all fourteen specs are
+implemented, and 186 of the 197 rules are MET with the other 11 superseded.
 
 A record says what it is. `eval of 20260921T153441Z-07f1` was filterable and not
 readable, and four `calibration of incidents` in a list were one measurement
@@ -133,14 +133,42 @@ and the two records agree because they are one function over one set of data
 (R11.19) -- the value R4.9 already puts in every manifest, which no sync, convert
 or calibration could previously be tied to at all.
 
-Two things were considered and left out. MLflow's **prompt registry** would make
-a server-held version something dossier reads back, which is the hazard R12.4
-fences off; prompt hashes on the run and on its eval give the same traceability
-one way only. MLflow 3's **logged models** -- the empty column beside every
-record -- is the one worth doing next: a `LoggedModel` per pipeline at a
-pipeline hash would make the model-centric comparison view work, and it needs a
-port of its own, because creating one *returns* an id and `Tracker`'s contract
-forbids returning anything (R0.10). `DatasetRegistry` is the precedent.
+MLflow's **prompt registry** stays out: it would make a server-held version
+something dossier reads back, which is the hazard R12.4 fences off, and prompt
+hashes on the run and on its eval give the same traceability one way only.
+Logged models, named there as the thing worth doing next, is spec 013.
+
+A pipeline version is a thing in MLflow. The Models column beside every record
+was empty, and MLflow's logged model is the object built for the one comparison a
+change gate exists to make: this version scores 80%, the next scores 90%. What
+fills that slot is not the LLM -- `dossier`'s **model** is the LLM -- but the
+pipeline at a version, so spec 013 says *pipeline version*, records the pin as a
+param of it, and spec 000's vocabulary carries the term.
+
+Its identity is a **version hash** over everything that produced the answers, and
+emphatically not `pipeline_hash`: that is `text_hash(pipeline.yaml)` and does not
+move when a prompt does, so keyed on it an edited prompt shared a row with the
+prompt it replaced and there was nothing to compare. The spec was written with
+that mistake in it and R13.1 row 3 caught it. The document count is deliberately
+outside the digest -- a run over five documents instead of four is the same
+version measured more widely (R13.1).
+
+A run links the version on its **outputs** and an eval on its **inputs**, because
+a run made it and an eval only measured it (R13.2); the accuracy `finish_eval`
+already computes goes to the version as well as the run, from one dict, so the two
+cannot disagree and a withheld field is missing from both (R13.3, R7.17). A third
+port was needed for `DatasetRegistry`'s reason -- registering **returns** an id --
+and it matters more here, because this one is called during `dossier run`, the
+command R10.4 is about; the id reaches a tag, a link and the terminal and nothing
+on disk (R13.4). A registry that cannot be reached costs the Models tab and never
+the run, at construction as well as at every call, and says so (R13.5).
+
+Four facts came from a live spike run *before* the spec was written, and three of
+them changed it: MLflow creates a new logged model every time it is asked by name,
+so a version has to be found rather than assumed; only `name AND params` returns
+one, where either half alone returns many; `log_outputs` fills a run's own model
+column while the registry's `source_run_id` does not; and metrics against a model
+accumulate across runs with each value carrying the run it came from.
 
 A comparison is a record. `dossier eval --compare a b` printed per-field deltas
 and recorded nothing, on the reasoning that it reads two runs each already

@@ -80,7 +80,13 @@ from dossier.domain.grounding import GROUNDED, judge_name, judged_states
 from dossier.domain.hashing import text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
-from dossier.domain.ports import DatasetRegistry, ImagePart, ModelClient, Tracker
+from dossier.domain.ports import (
+    DatasetRegistry,
+    ImagePart,
+    ModelClient,
+    Tracker,
+    VersionRegistry,
+)
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
 from dossier.domain.scoring import (
     check_same_documents,
@@ -120,11 +126,15 @@ from dossier.infrastructure.models.openai_compatible import ModelRequestFailed
 from dossier.infrastructure.models.registry import UnknownProvider, available_providers
 from dossier.infrastructure.models.registry import provider as model_provider
 from dossier.infrastructure.store import SnapshotStore
-from dossier.infrastructure.tracking.best_effort import BestEffortTracker
+from dossier.infrastructure.tracking.best_effort import (
+    BestEffortTracker,
+    BestEffortVersionRegistry,
+)
 from dossier.infrastructure.tracking.mlflow import (
     TrackingUnavailable,
     connect,
     connect_datasets,
+    connect_versions,
 )
 
 app = typer.Typer(add_completion=False)
@@ -389,6 +399,44 @@ def _tracking_for(
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
+
+
+def _version_experiment(workspace: Path, pipeline: str) -> str:
+    """Where this pipeline's versions live: its **run** experiment (spec 013).
+
+    Not the experiment of the command doing the registering. A version is
+    produced by a run and merely measured by an eval, so it belongs beside the
+    runs that produced it -- and an eval registering into its own experiment
+    would give one pipeline two Models tabs that never meet. Spec 012 puts a
+    dataset in the eval experiment on the same reasoning, from the other end.
+    """
+    return experiment_name(
+        kind="run", pipeline=pipeline, gold="", environ=environment(workspace)
+    )
+
+
+def _versions_for(workspace: Path) -> VersionRegistry | None:
+    """The version registry for this workspace, or `None` when it cannot be built.
+
+    `None` rather than raising. `_tracking_for` has already refused a server
+    nobody can reach (R10.5), so reaching here means tracking is on and
+    answering; a registry that still cannot be built is a store that cannot hold
+    a logged model, which costs the Models tab and not the run (R13.5).
+    """
+    settings = tracking_settings(environment(workspace))
+    if settings is None:
+        return None
+    try:
+        return build_version_registry(settings)
+    except Exception:
+        # Broadly, and on purpose. R13.5 is the promise that a run does not fail
+        # because a Models tab cannot be filled, and *building* the registry is
+        # as much a part of that as registering: it reaches the server, so it
+        # can fail in as many ways. `BestEffortVersionRegistry` covers the
+        # calls; this covers the construction. A tracker that could not be built
+        # has already refused the command by here (R10.5), so nothing silently
+        # lost is lost twice.
+        return None
 
 
 def _capture_for(workspace: Path, pipeline: str) -> str:
@@ -791,6 +839,9 @@ def _execute(workspace: Path, pipeline: str, *, label: str = "") -> None:
 
     tracker, experiment = _tracking_for(workspace, pipeline, kind="run")
     capture = _capture_for(workspace, pipeline) if tracker is not None else "full"
+    # On the same switch as the tracker: a version is part of the record,
+    # and R10.1 is one decision about whether there is a record at all.
+    versions = _versions_for(workspace) if tracker is not None else None
 
     store = SnapshotStore(workspace)
     converters = installed_converters()
@@ -923,6 +974,8 @@ def _execute(workspace: Path, pipeline: str, *, label: str = "") -> None:
             environ=environment(workspace),
             label=label_for(label, environment(workspace)),
             capture=capture,
+            versions=versions,
+            version_experiment=experiment or "",
             run_id=this_run,
             started_at=started_at,
             dossier_version=version("dossier"),
@@ -965,6 +1018,11 @@ def _execute(workspace: Path, pipeline: str, *, label: str = "") -> None:
             typer.echo(
                 f"warning: {tracker.lost_traces} trace(s) could not be recorded", err=True
             )
+        if getattr(versions, "lost_versions", 0):
+            # Said for the reason a lost trace is (R10.6): a Models tab with
+            # nothing in it should not read as a pipeline nobody ever ran
+            # (R13.5 row 2). The run itself is untouched.
+            typer.echo("warning: the pipeline version could not be recorded", err=True)
     for step in report.steps:
         cached = len(step.served_from_cache)
         # Only when there are any. A `· 0 described` on every line of every run
@@ -1309,6 +1367,8 @@ def eval_(
     # so a server nobody can reach is refused now rather than after a
     # reproduction nobody can then inspect (R10.5).
     tracker, experiment = _tracking_for(workspace, pipeline, kind="eval", gold=gold)
+    # A version is part of the record, so it rides on the same switch (R10.1).
+    versions = _versions_for(workspace) if tracker is not None else None
 
     _, run_dir = latest_manifest(workspace / "runs", pipeline)
     if run_dir is None:
@@ -1343,7 +1403,7 @@ def eval_(
         stale = was is not None and was != scored_hash
         # Opened before the judge is asked, so its traces sit inside the run
         # (R7.18 row 5); closed below with the figures the report printed.
-        start_eval(
+        scored_version = start_eval(
             tracker,
             experiment=experiment or "",
             pipeline=pipeline,
@@ -1360,6 +1420,8 @@ def eval_(
             plan=manifest.plan,
             dossier_version=manifest.dossier_version,
             scored_at=manifest.started_at.isoformat().replace("+00:00", "Z"),
+            versions=versions,
+            version_experiment=_version_experiment(workspace, pipeline),
         )
         if published is not None:
             tracker.log_dataset(
@@ -1469,6 +1531,9 @@ def eval_(
             # The per-document lines printed just above, which nothing else
             # keeps (R11.14).
             detail=scores_artifact(scores, withheld=withheld),
+            # The accuracy this eval measured, recorded against the version it
+            # scored as well as against this run (R13.3).
+            version_id=scored_version,
         )
         typer.echo(f"recorded to MLflow: {experiment}")
 
@@ -1579,6 +1644,8 @@ def _compare_runs(
             experiment=experiment or "",
             pipeline=pipeline,
             dossier_version=version("dossier"),
+            versions=_versions_for(workspace),
+            version_experiment=_version_experiment(workspace, pipeline),
             runs=runs,
             models=(manifests[0].plan.model, manifests[1].plan.model),
             gold=gold,
@@ -1739,6 +1806,17 @@ dataset_app = typer.Typer(
     help="Publish a gold set to MLflow as an evaluation dataset (spec 012).",
 )
 app.add_typer(dataset_app, name="dataset")
+
+
+def build_version_registry(settings: TrackingSettings) -> VersionRegistry:
+    """The registry a pipeline version is registered through (spec 013).
+
+    The seam a test replaces with a `FakeVersionRegistry`, as `build_tracker`
+    and `build_dataset_registry` are. Wrapped best-effort here rather than at
+    the call site, because `dossier run` has work to do whether or not MLflow
+    can hold a logged model (R13.5).
+    """
+    return BestEffortVersionRegistry(connect_versions(settings.uri))
 
 
 def build_dataset_registry(settings: TrackingSettings) -> DatasetRegistry:

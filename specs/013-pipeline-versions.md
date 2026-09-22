@@ -1,6 +1,6 @@
 # 013 — The pipeline version as an MLflow logged model
 
-**Status:** Proposed
+**Status:** Implemented
 **Rules:** R13.1 – R13.5
 
 ## Purpose
@@ -23,7 +23,7 @@ pinned in `pipeline.yaml` and hashed into every key (spec 009). MLflow's
 *logged model* is a different thing entirely -- the artefact being evaluated.
 What `dossier` has that fits that slot is not the LLM but the **pipeline
 version**: the prompts, schemas, converters and model pin a run used, identified
-by its `pipeline_hash`.
+by a digest over all of them.
 
 So the two names are kept apart everywhere. `dossier` says *pipeline version*;
 MLflow stores it as a logged model; the LLM stays the *model*, and appears as a
@@ -36,15 +36,24 @@ could not.
 ```
 Models  ·  dossier-audit/incident-audit/run
 
-  incident-audit  2f60a7d3   accuracy/overall 80.0   prompt/extract 77c1b40a
-  incident-audit  8ad3e115   accuracy/overall 90.0   prompt/extract 0e52dd18
+  incident-audit  9c2b04f7   accuracy/overall 80.0   prompt/extract 77c1b40a
+  incident-audit  4e8d13aa   accuracy/overall 90.0   prompt/extract 0e52dd18
 ```
 
 One row per pipeline version. Its params are `version_params` (R11.18) -- the
 pipeline hash, each step's prompt and schema hashes, the converters, the model
-pin. Its metrics are the accuracies the evals of that version measured. It is
-named after the pipeline, because that is what a person is comparing versions
-*of*.
+pin -- and one more: the **version hash**, a digest over all of them. Its metrics
+are the accuracies the evals of that version measured. It is named after the
+pipeline, because that is what a person is comparing versions *of*.
+
+The version hash is the identity, and `pipeline_hash` is not. `pipeline_hash` is
+`text_hash(pipeline.yaml)` and covers neither the prompts nor the schemas, so two
+runs whose prompts differ share it -- and a version keyed on it would put an
+edited prompt in the same row as the prompt it replaced. "Did the edit help" is
+the question this tab is opened with, and it needs two rows to have an answer.
+The corpus is deliberately *not* in the digest: a run over five documents instead
+of four is the same version measured more widely, and folding the count in would
+make every sync a new row with nothing to compare against.
 
 It lives in the **run** experiment, rendered from `DOSSIER_MLFLOW_EXPERIMENT_RUN`
 by R10.2, for the reason spec 012 puts a dataset in the eval experiment: a
@@ -72,15 +81,18 @@ cannot change what it produces (R10.4).
 
 ## Must hold
 
-### R13.1 — a pipeline version is one ready logged model, found by its name and hash or created
+### R13.1 — a pipeline version is one ready logged model, found by its name and version hash or created
 
-A pipeline version is identified by the pair **(pipeline name, `pipeline_hash`)**
+A pipeline version is identified by the pair **(pipeline name, version hash)**
 and by nothing else. Creating one by name alone makes a new object every time, so
 a registry that did not look first would leave one logged model per run and
 compare nothing with nothing.
 
 Neither half of the pair identifies on its own: two pipelines can resolve to one
-hash, and one pipeline has many. Found means found by the conjunction.
+digest, and one pipeline has many. Found means found by the conjunction.
+
+The version hash and not `pipeline_hash`, for the reason above: the latter is the
+hash of `pipeline.yaml` alone, and a prompt edit leaves it where it was.
 
 A registered version is finalised ready. A model left pending is a record that
 says something is still being written, which is untrue the moment the run that
@@ -89,16 +101,17 @@ produced it has ended.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow.MlflowVersionRegistry`)
 - **Proved by:** `tests/unit/test_R013_1__a_version_is_identified_by_its_pipeline_and_hash.py`, `tests/acceptance/test_R013_1__a_run_registers_its_pipeline_version.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `dossier run incident-audit` at pipeline hash `2f60a7d3`, nothing registered yet | one logged model named `incident-audit` in `dossier-audit/incident-audit/run`, `params.pipeline_hash=2f60a7d3…`, the rest of `version_params` beside it (R11.18), status ready |
+| 1 | `dossier run incident-audit` at version `9c2b04f7`, nothing registered yet | one logged model named `incident-audit` in `dossier-audit/incident-audit/run`, `params.version_hash=9c2b04f7…`, `params.pipeline_hash=2f60a7d3…` and the rest of `version_params` beside it (R11.18), status ready |
 | 2 | the same pipeline run again, unchanged | the same version id; 1 logged model, not 2. The second run found what the first registered |
-| 3 | the `verify` prompt edited, run again | a second version at `8ad3e115`, beside the first in the Models tab: two rows is the comparison the tab exists for |
-| 4 | *counter-example* — `postmortem-review` resolving to `2f60a7d3` | two versions, not one. The hash alone does not identify, and a registry matching on it would give one pipeline's accuracy to another |
-| 5 | *counter-example* — a second `incident-audit` version at `8ad3e115` while `2f60a7d3` exists | the name alone does not identify either. Only the pair does |
-| 6 | *counter-example* — `dossier run --plan` or `--replay` | nothing registered. Neither produces a run, so neither produces a version (R11.1 row 5) |
+| 3 | the same pipeline run again over a fifth document | still the same version. The corpus is not part of what a version *is*, so a sync does not open a row |
+| 4 | the `verify` prompt edited, run again | a second version at `4e8d13aa`, beside the first in the Models tab, though `pipeline_hash` has not moved at all: two rows is the comparison the tab exists for, and keying on `pipeline_hash` would give one |
+| 5 | *counter-example* — `postmortem-review` written byte-identically, so resolving to `9c2b04f7` | two versions, not one. The digest alone does not identify, and a registry matching on it would give one pipeline's accuracy to another |
+| 6 | *counter-example* — a second `incident-audit` version at `4e8d13aa` while `9c2b04f7` exists | the name alone does not identify either. Only the pair does |
+| 7 | *counter-example* — `dossier run --plan` or `--replay` | nothing registered. Neither produces a run, so neither produces a version (R11.1 row 5) |
 
 ### R13.2 — a record links to the version it produced or the version it scored, in the direction that says which
 
@@ -111,7 +124,7 @@ scored.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`, `dossier.application.eval`)
 - **Proved by:** `tests/acceptance/test_R013_2__a_record_links_the_version_it_produced_or_scored.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -134,7 +147,7 @@ arriving at one (spec 011).
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
 - **Proved by:** `tests/acceptance/test_R013_3__an_eval_measures_the_version_it_scored.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -158,7 +171,7 @@ a record.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/acceptance/test_R013_4__a_version_id_reaches_nothing_on_disk.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -181,7 +194,7 @@ ever ran.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.best_effort`)
 - **Proved by:** `tests/unit/test_R013_5__a_registry_that_fails_does_not_fail_the_command.py`, `tests/acceptance/test_R013_5__a_run_survives_a_registry_that_is_down.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

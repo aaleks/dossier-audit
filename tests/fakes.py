@@ -21,6 +21,7 @@ from pathlib import Path
 
 from dossier.domain.datasets import PublishedDataset
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
+from dossier.domain.versions import PublishedVersion
 
 
 class FakeModelClientError(AssertionError):
@@ -120,6 +121,15 @@ class FakeRun:
     # a flag: R11.7 rows 3 and 4 are both claims that there is exactly none.
     inputs: list[dict[str, str]] = field(default_factory=list)
     traces: list[FakeTrace] = field(default_factory=list)
+    # The pipeline versions this run produced and the ones it scored
+    # (R13.2). Two lists rather than one with a direction on it, because
+    # a fake that stored both the same way could not fail when a run
+    # claimed to have produced the version it only measured.
+    produced: list[str] = field(default_factory=list)
+    scored: list[str] = field(default_factory=list)
+    # The figures recorded against a version rather than against this run
+    # (R13.3), by version id.
+    version_metrics: dict[str, dict[str, float]] = field(default_factory=dict)
     status: str | None = None
 
 
@@ -158,6 +168,15 @@ class FakeTracker:
 
     def log_dataset(self, *, name: str, dataset_id: str, digest: str) -> None:
         self._run.inputs.append({"name": name, "dataset_id": dataset_id, "digest": digest})
+
+    def produced_version(self, version_id: str) -> None:
+        self._run.produced.append(version_id)
+
+    def scored_version(self, version_id: str) -> None:
+        self._run.scored.append(version_id)
+
+    def log_version_metrics(self, *, version_id: str, metrics: Mapping[str, float]) -> None:
+        self._run.version_metrics.setdefault(version_id, {}).update(metrics)
 
     def describe(self, text: str) -> None:
         # Stored as the tag MLflow renders as Description, rather than as a field
@@ -491,3 +510,71 @@ def register_connector(monkeypatch, type_name: str, factory, *, keys=None) -> No
         return [stub] + [point for point in found if point.name != type_name]
 
     monkeypatch.setattr(registry, "entry_points", with_stub)
+
+
+@dataclass
+class FakeVersion:
+    """One logged model, as a registry was told about it."""
+
+    version_id: str
+    name: str
+    experiment: str
+    params: dict[str, str]
+    tags: dict[str, str]
+    # A version left pending is a record saying something is still being
+    # written, which is untrue the moment the run that made it has ended
+    # (R13.1). A field rather than an assumption, so a registry that forgot to
+    # finalise fails a test.
+    ready: bool = False
+
+
+class FakeVersionRegistry:
+    """A version registry that holds what it is told and sends it nowhere.
+
+    Like `FakeDatasetRegistry` and unlike `FakeTracker`, it **returns** -- a
+    version id, which is the whole reason spec 013 gives it a port of its own
+    (R0.10). What a command may do with what comes back is R13.4.
+
+    It finds before it creates, because that is the behaviour under test: MLflow
+    makes a new logged model every time it is asked by name, so `registrations`
+    counting higher than `versions` is exactly what R13.1 row 2 asserts.
+    """
+
+    def __init__(self) -> None:
+        self.versions: list[FakeVersion] = []
+        self.registrations: list[dict] = []
+
+    def register(self, *, record, experiment: str) -> PublishedVersion:
+        from dossier.domain.versions import HASH_TAG, PIPELINE_TAG
+
+        self.registrations.append(
+            {"name": record.name, "experiment": experiment, "tags": dict(record.tags)}
+        )
+        wanted = (record.tags[PIPELINE_TAG], record.tags[HASH_TAG])
+        for held in self.versions:
+            if (held.tags[PIPELINE_TAG], held.tags[HASH_TAG]) == wanted:
+                return PublishedVersion(
+                    version_id=held.version_id,
+                    name=held.name,
+                    pipeline_hash=held.tags[HASH_TAG],
+                    created=False,
+                    params=dict(held.params),
+                )
+        made = FakeVersion(
+            # MLflow's shape, so a test asserting on what is printed sees what a
+            # person would (`_fixtures.md`).
+            version_id=f"m-{len(self.versions):032x}",
+            name=record.name,
+            experiment=experiment,
+            params=dict(record.params),
+            tags=dict(record.tags),
+            ready=True,
+        )
+        self.versions.append(made)
+        return PublishedVersion(
+            version_id=made.version_id,
+            name=made.name,
+            pipeline_hash=made.tags[HASH_TAG],
+            created=True,
+            params=dict(made.params),
+        )
