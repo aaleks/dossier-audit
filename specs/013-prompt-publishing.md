@@ -67,7 +67,11 @@ the run's provenance record already carries -- until R13.7 makes the tie a link.
 | a judged field's rubric | `<pipeline>.judge.<field>` | the `judge:` a `free_text` field declares in the step's `output` (R6.10) |
 
 The separator is a dot because MLflow rejects `/` and `:` in a prompt name, so
-`incident-audit/verify` is not available. The pipeline is not droppable either: a
+`incident-audit/verify` is not available. Neither character can reach a name from
+a step id, which R3.2 already constrains to `[a-z][a-z0-9_]*`; a pipeline's
+directory name is constrained by nothing, so that is the one component checked,
+and it is checked where the name is composed rather than where it is sent
+(R13.1 row 5). The pipeline is not droppable either: a
 prompt name is global in MLflow, while a prompt file and a rubric are both
 resolved against the pipeline's own directory (spec 005). `verify` alone would
 interleave two pipelines' edits in one version history.
@@ -189,6 +193,7 @@ says.
 | 2 | `postmortem-review` whose `verify` step names a prompt file byte-identical to `incident-audit`'s | a separate prompt `postmortem-review.verify` at version 1; `incident-audit.verify` untouched. One pipeline's step is one prompt, and a shared file is not a shared history |
 | 3 | two steps of `incident-audit` naming the same `prompts/02_verify.md` | 2 prompts, one per step, each at version 1. A prompt is named for the job it does, not the file it sits in |
 | 4 | *counter-example* — a step naming a prompt file that is not there | exit 2 from load, as R3.6 already refuses it; 0 prompts registered. A publish reads the pipeline the run reads, and does not get further than the run would |
+| 5 | *counter-example* — a pipeline directory named `foo/bar`, so the name would render `foo/bar.verify` | exit 2 naming the character MLflow rejects; 0 prompts sent. R3.2 constrains a step id to `[a-z][a-z0-9_]*` and nothing constrains a pipeline's directory name, so this is the one component of the name that can hold `/` or `:` -- and it is refused here rather than by an MLflow traceback partway through a publish |
 
 ### R13.2 — every judged field publishes its rubric as one prompt named `<pipeline>.judge.<field>`
 
