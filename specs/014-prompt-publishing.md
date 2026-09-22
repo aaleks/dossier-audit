@@ -351,7 +351,7 @@ run looks up, so the two can only agree.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.prompt_name`)
 - **Proved by:** `tests/acceptance/test_R014_8__a_prompt_prefix_namespaces_every_name.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
