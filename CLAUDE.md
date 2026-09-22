@@ -67,7 +67,7 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all fifteen specs are
-implemented, and 193 of the 204 rules are MET with the other 11 superseded.
+implemented, and 194 of the 205 rules are MET with the other 11 superseded.
 
 Spec 013 is *pipeline versions*; prompt publishing is **014**. Two sessions
 wrote a spec 013 in parallel and the logged-models one merged first, so the
@@ -194,7 +194,11 @@ anywhere under `src/`, and a test asserts both (R14.5). A run links the version
 carrying the hash it rendered, found by tag rather than by recency, so a prompt
 edited since cannot attach its newest words to a run that never saw them
 (R14.7) -- best-effort, because a registry that is down must cost the link and
-never the run. A prompt fetched at run
+never the run. A prompt name is global and carries its pipeline, which is
+unique within one workspace and no further -- found live, when a publish from one
+checkout arrived as `v2` of another's prompt -- so `DOSSIER_MLFLOW_PROMPT_PREFIX`
+namespaces every name a publish sends and a run looks up, per machine, and empty
+it changes none (R14.8). A prompt fetched at run
 time would be an input to a key no checkout can reproduce, a route into a run no
 review passed through, and a network read on the replay path.
 

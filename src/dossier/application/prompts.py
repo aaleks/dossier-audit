@@ -1,4 +1,4 @@
-"""Publishing a pipeline's prompts as MLflow prompt versions (spec 013).
+"""Publishing a pipeline's prompts as MLflow prompt versions (spec 014).
 
 The use case `dossier prompts publish` runs. It reads each prompt and rubric out
 of the pipeline's own directory, projects them onto the set `publish_set`
@@ -28,6 +28,7 @@ def publish_prompts(
     config: PipelineConfig,
     directory: Path,
     rubrics: Mapping[str, Mapping[str, str]] | None = None,
+    prefix: str = "",
 ) -> list[PublishedPrompt]:
     """Every prompt `config` names, published under its own name (R14.1, R14.2).
 
@@ -43,7 +44,7 @@ def publish_prompts(
         path: (directory / path).read_text(encoding="utf-8") for path in _paths(config, rubrics)
     }
     published: list[PublishedPrompt] = []
-    for prompt in publish_set(config, texts, rubrics=rubrics):
+    for prompt in publish_set(config, texts, rubrics=rubrics, prefix=prefix):
         # Asked before written, because `register_prompt` versions
         # unconditionally: called again with the text already at the top of the
         # history it creates a second, identical version, and a person opening

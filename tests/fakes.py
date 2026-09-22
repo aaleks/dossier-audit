@@ -525,8 +525,8 @@ class FakePrompt:
 
     A version is append-only here as it is in MLflow: `register_prompt` creates
     one unconditionally, including for text identical to the version above it,
-    which is the behaviour R13.4 exists to work around. A fake that returned the
-    existing version for identical text would let R13.4 pass here and fail
+    which is the behaviour R14.4 exists to work around. A fake that returned the
+    existing version for identical text would let R14.4 pass here and fail
     against a real server.
     """
 
@@ -545,12 +545,12 @@ class FakePrompt:
 class FakePromptRegistry:
     """A prompt registry that holds what it is told and sends it nowhere.
 
-    A third port beside `FakeDatasetRegistry`, for the reason spec 013 gives it
+    A third port beside `FakeDatasetRegistry`, for the reason spec 014 gives it
     one: publishing **returns** a version number, which `Tracker`'s contract
-    forbids (R0.10). What a command may do with what comes back is R13.5 -- the
+    forbids (R0.10). What a command may do with what comes back is R14.5 -- the
     terminal line, and nothing on disk.
 
-    It counts, because R13.1 and R13.4 are claims about how many prompts and
+    It counts, because R14.1 and R14.4 are claims about how many prompts and
     versions exist afterwards, not about what came back from making them.
     """
 

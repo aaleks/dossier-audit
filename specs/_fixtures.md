@@ -125,9 +125,9 @@ consistently here so a reader can follow one artifact across specs.
 | `2f60a7d3` | the `incident-audit` pipeline hash of run `20260806T142203Z-4f1a`: the version of the prompts and declarations that produced the answers an eval scores (R11.11) |
 | `8ad3e115` | the same pipeline after the prompt change that produced run `20260907T090000Z-bbbb` -- the two hashes R11.13 reports as `verify (prompt changed)` |
 | `f7a2d9c4` | `rubrics/root_cause.md` — the rubric `root_cause` names as its `judge`, and the hash a calibration is measured against (R7.14, R11.5) |
-| `4be9c072` | `prompts/01_extract.md` — the first step's prompt, unchanged throughout (R13.1) |
-| `ca31f5d8` | `prompts/03_report.md` — the aggregate step's prompt. The one R13.4 row 4 moves by adding trailing whitespace |
-| `35d1a8ef` | `prompts/02_verify.md` after the edit that took the pipeline from `2f60a7d3` to `8ad3e115`: the second version of the one prompt that moved (R13.4 row 2) |
+| `4be9c072` | `prompts/01_extract.md` — the first step's prompt, unchanged throughout (R14.1) |
+| `ca31f5d8` | `prompts/03_report.md` — the aggregate step's prompt. The one R14.4 row 4 moves by adding trailing whitespace |
+| `35d1a8ef` | `prompts/02_verify.md` after the edit that took the pipeline from `2f60a7d3` to `8ad3e115`: the second version of the one prompt that moved (R14.4 row 2) |
 
 ## Converters
 
@@ -226,14 +226,15 @@ differ.
 | `61da2705` | the digest MLflow gives a dataset: `sha256("<name>:<last_update_time>")`, so it moves when the dataset is *written to* and says nothing about what it holds (R12.3) |
 | `dossier.gold_hash`, `dossier.snapshots_hash` | the two tags a publish compares with what is already there, to decide whether it would write anything different: the first over the bytes of the gold files, the second over the document keys and the snapshot addresses they are held at (R12.3) |
 
-## The prompt registry (spec 013)
+## The prompt registry (spec 014)
 
 | Value | Meaning |
 |---|---|
-| `incident-audit.extract`, `incident-audit.verify`, `incident-audit.report` | the three prompts `incident-audit` publishes, one per step. The separator is a dot because MLflow rejects `/` and `:` in a prompt name (R13.1) |
-| `incident-audit.judge.root_cause` | the rubric `root_cause` is judged against, published under the field it judges rather than the file it sits in (R13.2) |
-| `postmortem-review.verify` | the same prompt file in a second pipeline: a separate prompt, because a prompt name is global in MLflow and a prompt file is resolved against the pipeline's own directory (R13.1 row 2) |
-| `dossier.prompt_hash` | the tag carrying the full 64 characters of the hash that enters the stage key, and the one a publish compares before sending (R13.3, R13.4) |
+| `incident-audit.extract`, `incident-audit.verify`, `incident-audit.report` | the three prompts `incident-audit` publishes, one per step. The separator is a dot because MLflow rejects `/` and `:` in a prompt name (R14.1) |
+| `incident-audit.judge.root_cause` | the rubric `root_cause` is judged against, published under the field it judges rather than the file it sits in (R14.2) |
+| `postmortem-review.verify` | the same prompt file in a second pipeline: a separate prompt, because a prompt name is global in MLflow and a prompt file is resolved against the pipeline's own directory (R14.1 row 2) |
+| `dossier.prompt_hash` | the tag carrying the full 64 characters of the hash that enters the stage key, and the one a publish compares before sending (R14.3, R14.4) |
+| `sandbox` | `DOSSIER_MLFLOW_PROMPT_PREFIX` in the examples: a per-machine namespace, so `incident-audit.extract` publishes as `sandbox.incident-audit.extract` (R14.8) |
 
 
 ## Fields on `INC-4821`

@@ -1,6 +1,6 @@
 """R14.1 — every step of a pipeline publishes as one prompt named `<pipeline>.<step id>`.
 
-The outer loop for spec 013. What a person observes is a command they can run
+The outer loop for spec 014. What a person observes is a command they can run
 against a pipeline they already have, before any run exists and before anything
 has been synced: publishing prompts is not running them, and needs neither a
 document nor a model call.

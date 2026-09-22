@@ -1,6 +1,6 @@
 """What a prompt declares it needs, what it is given, and what it is called.
 
-Spec 003 for the first two, spec 013 for the third: a prompt's name in MLflow's
+Spec 003 for the first two, spec 014 for the third: a prompt's name in MLflow's
 registry is a pure decision about a pipeline name and a step id, so it lives
 here beside the other decisions a prompt is subject to rather than next to the
 call that sends it.
@@ -45,6 +45,14 @@ _FENCED = re.compile(r"^(?P<fence>```|~~~).*?^(?P=fence)", re.MULTILINE | re.DOT
 # that sends, so the refusal is dossier's sentence and arrives before the first
 # request rather than partway through a publish (R14.1 row 5).
 _REJECTED_BY_MLFLOW = ("/", ":")
+
+# The namespace a prompt name carries in front of it, per machine (R14.8). Kept
+# here rather than beside the other `DOSSIER_MLFLOW_` names in `tracking.py`
+# because this is the module that composes the name and must name the variable
+# when it refuses one, and importing `tracking.py` for a string would pull in
+# scoring and resolution to spell it. Spec 010's configuration table lists it
+# with the others, which is where a person looks.
+PROMPT_PREFIX = "DOSSIER_MLFLOW_PROMPT_PREFIX"
 
 # The tag that ties a version to the provenance record of the run that rendered
 # it. Named once, because the publish that writes it and the compare that reads
@@ -116,7 +124,7 @@ def render(prompt: str, values: dict[str, str]) -> str:
     return "".join(rendered)
 
 
-def prompt_name(pipeline: str, step: str) -> str:
+def prompt_name(pipeline: str, step: str, *, prefix: str = "") -> str:
     """R14.1 — what a step's prompt is called in MLflow's prompt registry.
 
     The separator is a dot because MLflow rejects `/` and `:` outright:
@@ -134,6 +142,12 @@ def prompt_name(pipeline: str, step: str) -> str:
     `[a-z][a-z0-9_]*`, so no step can carry either character and a guard there
     would be unreachable; a pipeline's name is its directory under `pipelines/`
     and nothing constrains it at all (R14.1 row 5).
+
+    `prefix` is the namespace the name was missing (R14.8). A name that carries
+    its pipeline is unique within one workspace and no further, so two checkouts
+    holding `incident-audit` would publish into one history. Empty, it is
+    nothing, and the name is exactly what it was before the prefix existed --
+    which is what lets a person who never sets it see no change at all.
     """
     for character in _REJECTED_BY_MLFLOW:
         if character in pipeline:
@@ -143,7 +157,16 @@ def prompt_name(pipeline: str, step: str) -> str:
                 "step. Rename the pipeline directory, or publish a pipeline whose name "
                 "holds neither '/' nor ':'."
             )
-    return f"{pipeline}.{step}"
+        if character in prefix:
+            # The variable is named as well as the character: the person reading
+            # this never typed the prefix into the command, so the message has to
+            # say which setting to go and change (R14.8 row 5).
+            raise ValueError(
+                f"{PROMPT_PREFIX}={prefix!r} cannot be published: MLflow rejects "
+                f"{character!r} in a prompt name, and the prefix goes in front of every "
+                "one. Choose a prefix holding neither '/' nor ':'."
+            )
+    return f"{prefix}.{pipeline}.{step}" if prefix else f"{pipeline}.{step}"
 
 
 @dataclass(frozen=True)
@@ -155,7 +178,7 @@ class PromptToPublish:
     tags: dict[str, str]
 
 
-def judge_prompt_name(pipeline: str, field: str) -> str:
+def judge_prompt_name(pipeline: str, field: str, *, prefix: str = "") -> str:
     """R14.2 — what a judged field's rubric is called.
 
     The field rather than the step, because no step owns a rubric: two steps
@@ -165,13 +188,15 @@ def judge_prompt_name(pipeline: str, field: str) -> str:
     name cannot collide with a step id, which R3.2 holds to `[a-z][a-z0-9_]*`
     and therefore cannot contain a dot.
     """
-    return f"{prompt_name(pipeline, 'judge')}.{field}"
+    return f"{prompt_name(pipeline, 'judge', prefix=prefix)}.{field}"
 
 
 def publish_set(
     config: PipelineConfig,
     texts: Mapping[str, str],
     rubrics: Mapping[str, Mapping[str, str]] | None = None,
+    *,
+    prefix: str = "",
 ) -> list[PromptToPublish]:
     """R14.1 — the prompts a pipeline publishes, one per step.
 
@@ -196,7 +221,7 @@ def publish_set(
     for step in config.steps:
         published.append(
             _to_publish(
-                name=prompt_name(config.name, step.id),
+                name=prompt_name(config.name, step.id, prefix=prefix),
                 pipeline=config.name,
                 path=step.prompt,
                 text=texts[step.prompt],
@@ -206,7 +231,7 @@ def publish_set(
     seen = {prompt.name for prompt in published}
     for step in config.steps:
         for field, path in (rubrics or {}).get(step.id, {}).items():
-            name = judge_prompt_name(config.name, field)
+            name = judge_prompt_name(config.name, field, prefix=prefix)
             # Judging one field is one job however many steps declare it. The
             # name is the field's, so the second sighting is a duplicate by
             # construction rather than something to compare paths over (R14.2).
