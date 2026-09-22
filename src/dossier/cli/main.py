@@ -93,6 +93,7 @@ from dossier.domain.tracking import (
     TrackingSettings,
     count_metrics,
     experiment_name,
+    label_for,
     name_template,
     run_name,
 )
@@ -138,6 +139,9 @@ def sync(
         False,
         "--full",
         help="Ask every source for a full listing, so what it dropped is tombstoned.",
+    ),
+    label: str = typer.Option(
+        "", "--label", help="A name for this record, in MLflow (R10.11).", metavar="NAME"
     ),
 ) -> None:
     """Fetch only what changed for the sources a pipeline declares (R2.12).
@@ -224,10 +228,15 @@ def sync(
                 values={
                     "pipeline": pipeline,
                     "started": f"{started_at:%Y%m%dT%H%M%SZ}",
+                    "label": label_for(label, environment(workspace)),
                 },
                 environ=environment(workspace),
             ),
-            tags=tracking_tags(kind="sync", pipeline=pipeline),
+            tags=tracking_tags(
+                kind="sync",
+                pipeline=pipeline,
+                label=label_for(label, environment(workspace)),
+            ),
         )
         metrics: dict[str, float] = {}
         for report in reports:
@@ -412,6 +421,9 @@ def run(
     replay_from: str = typer.Option(
         "", "--replay", help="Reproduce a past run from runs/<run_id>/", metavar="DIR"
     ),
+    label: str = typer.Option(
+        "", "--label", help="A name for this record, in MLflow (R10.11).", metavar="NAME"
+    ),
 ) -> None:
     """Execute a pipeline, report what executing it would do, or replay one (spec 004).
 
@@ -430,7 +442,7 @@ def run(
         raise typer.Exit(code=2)
 
     if not plan:
-        _execute(Path.cwd(), pipeline)
+        _execute(Path.cwd(), pipeline, label=label)
         return
 
     workspace = Path.cwd()
@@ -538,7 +550,12 @@ def _plan_lines(report: Plan) -> list[str]:
 
 
 @app.command()
-def convert(pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/")) -> None:
+def convert(
+    pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
+    label: str = typer.Option(
+        "", "--label", help="A name for this record, in MLflow (R10.11).", metavar="NAME"
+    ),
+) -> None:
     """Convert what a pipeline needs, and report what that cost (R8.8).
 
     Optional: `run` converts what it needs anyway, and conversion is idempotent
@@ -623,10 +640,15 @@ def convert(pipeline: str = typer.Argument(..., help="Pipeline name under pipeli
                 values={
                     "pipeline": pipeline,
                     "started": f"{started_at:%Y%m%dT%H%M%SZ}",
+                    "label": label_for(label, environment(workspace)),
                 },
                 environ=environment(workspace),
             ),
-            tags=tracking_tags(kind="convert", pipeline=pipeline),
+            tags=tracking_tags(
+                kind="convert",
+                pipeline=pipeline,
+                label=label_for(label, environment(workspace)),
+            ),
         )
         metrics: dict[str, float] = {}
         for report in reports:
@@ -708,7 +730,7 @@ def _replay(workspace: Path, directory: Path) -> None:
     typer.echo(f"{reproduced} · no model calls · written to {destination}/")
 
 
-def _execute(workspace: Path, pipeline: str) -> None:
+def _execute(workspace: Path, pipeline: str, *, label: str = "") -> None:
     """`dossier run <pipeline>` (spec 004, spec 005)."""
     try:
         path = _pipeline_path(workspace, pipeline)
@@ -868,6 +890,7 @@ def _execute(workspace: Path, pipeline: str) -> None:
             tracker=tracker,
             experiment=experiment,
             environ=environment(workspace),
+            label=label_for(label, environment(workspace)),
             capture=capture,
             run_id=this_run,
             started_at=started_at,
@@ -1019,6 +1042,9 @@ def _held_content(workspace: Path, config) -> tuple[dict[str, str], dict[str, li
 def calibrate(
     pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
     gold: str = typer.Option(..., "--gold", help="Gold set directory", metavar="DIR"),
+    label: str = typer.Option(
+        "", "--label", help="A name for this record, in MLflow (R10.11).", metavar="NAME"
+    ),
 ) -> None:
     """Measure each judged field's judge against the gold set's sample (R7.14).
 
@@ -1105,6 +1131,7 @@ def calibrate(
             experiment=experiment or "",
             environ=environment(workspace),
             started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
+            label=label_for(label, environment(workspace)),
             pipeline=pipeline,
             # As bytes, as `record_eval` reads them: the hash has to move when
             # any answer moves (R11.3 row 2).
@@ -1184,6 +1211,9 @@ def eval_(
     compare: tuple[str, str] = typer.Option(
         (None, None), "--compare", help="Two run ids to compare, per field", metavar="A B"
     ),
+    label: str = typer.Option(
+        "", "--label", help="A name for this record, in MLflow (R10.11).", metavar="NAME"
+    ),
 ) -> None:
     """Score a pipeline's latest run against a gold set, per field (spec 007).
 
@@ -1223,6 +1253,7 @@ def eval_(
             config=config,
             pipeline_dir=path.parent,
             declaration=path.parent / step.output,
+            label=label,
         )
         return
 
@@ -1279,6 +1310,7 @@ def eval_(
             dataset_stale=stale,
             environ=environment(workspace),
             started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
+            label=label_for(label, environment(workspace)),
             pipeline_hash=manifest.plan.pipeline_hash,
         )
         if published is not None:
@@ -1384,6 +1416,7 @@ def _compare_runs(
     config,
     pipeline_dir: Path,
     declaration: Path,
+    label: str = "",
 ) -> None:
     """`dossier eval <pipeline> --gold <dir> --compare <a> <b>` (R7.8).
 
@@ -1486,6 +1519,7 @@ def _compare_runs(
             dataset_stale=was is not None and was != scored_hash,
             environ=environment(workspace),
             started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
+            label=label_for(label, environment(workspace)),
         )
         if published is not None:
             # The same link an eval makes, on the other command that scores

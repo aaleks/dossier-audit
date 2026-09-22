@@ -164,6 +164,7 @@ def start_eval(
     environ: Mapping[str, str] | None = None,
     started: str = "",
     pipeline_hash: str = "",
+    label: str = "",
 ) -> None:
     """Open the eval's MLflow run with what is known before scoring (R11.3 rows 2-4).
 
@@ -184,11 +185,12 @@ def start_eval(
                 "pipeline_hash": pipeline_hash,
                 "gold": Path(gold).name,
                 "gold_hash": gold_set_hash(gold_files),
+                "label": label,
             },
             environ=environ or {},
         ),
         tags={
-            **tracking_tags(kind="eval", pipeline=pipeline),
+            **tracking_tags(kind="eval", pipeline=pipeline, label=label),
             "dossier.run_id": run_id,
             "dossier.gold_hash": gold_set_hash(gold_files),
             **({"dossier.dataset_stale": "true"} if dataset_stale else {}),
@@ -276,6 +278,7 @@ def record_comparison(
     dataset_stale: bool = False,
     environ: Mapping[str, str] | None = None,
     started: str = "",
+    label: str = "",
 ) -> None:
     """Record a comparison as one MLflow run of per-field deltas (R11.8, R11.9).
 
@@ -298,11 +301,12 @@ def record_comparison(
                 "b": runs[1],
                 "gold": Path(gold).name,
                 "gold_hash": gold_set_hash(gold_files),
+                "label": label,
             },
             environ=environ or {},
         ),
         tags={
-            **tracking_tags(kind="compare", pipeline=pipeline),
+            **tracking_tags(kind="compare", pipeline=pipeline, label=label),
             "dossier.gold_hash": gold_set_hash(gold_files),
             # Present and empty when nothing regressed. An absent tag is
             # indistinguishable from a comparison recorded before this rule
@@ -702,6 +706,7 @@ def calibrate_fields(
     gold_files: Mapping[str, bytes] | None = None,
     environ: Mapping[str, str] | None = None,
     started: str = "",
+    label: str = "",
 ) -> dict[str, Calibration]:
     """Measure every judged field, as one MLflow run when there is a tracker (R11.5).
 
@@ -730,11 +735,12 @@ def calibrate_fields(
                     "gold": directory.name,
                     "gold_hash": gold_set_hash(gold_files or {}),
                     "judge_model": judge_model,
+                    "label": label,
                 },
                 environ=environ or {},
             ),
             tags={
-                **tracking_tags(kind="calibrate", pipeline=pipeline),
+                **tracking_tags(kind="calibrate", pipeline=pipeline, label=label),
                 "dossier.gold_hash": gold_set_hash(gold_files or {}),
             },
         )

@@ -369,8 +369,8 @@ places, one decision.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.tags`)
-- **Proved by:** `tests/unit/test_R010_11__a_label_is_in_the_name_and_on_the_record.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R010_11__a_label_is_resolved_and_carried.py`, `tests/acceptance/test_R010_11__a_label_is_in_the_name_and_on_the_record.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
