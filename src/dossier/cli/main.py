@@ -1243,6 +1243,10 @@ def calibrate(
             label=label_for(label, environment(workspace)),
             pipeline=pipeline,
             dossier_version=version("dossier"),
+            # Best-effort, as the eval's is (R14.9): a server with no prompt
+            # store costs the link and never the measurement.
+            prompt_registry=_prompt_registry_for(workspace) if tracker is not None else None,
+            prompt_prefix=environment(workspace).get(PROMPT_PREFIX, ""),
             # As bytes, as `record_eval` reads them: the hash has to move when
             # any answer moves (R11.3 row 2).
             gold_files={

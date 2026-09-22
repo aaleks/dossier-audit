@@ -947,6 +947,8 @@ def calibrate_fields(
     started: str = "",
     label: str = "",
     dossier_version: str = "",
+    prompt_registry: PromptRegistry | None = None,
+    prompt_prefix: str = "",
 ) -> dict[str, Calibration]:
     """Measure every judged field, as one MLflow run when there is a tracker (R11.5).
 
@@ -989,6 +991,22 @@ def calibrate_fields(
                 "dossier.gold_hash": gold_set_hash(gold_files or {}),
             },
         )
+        # The rubric each field is measured against, found by its hash (R14.9).
+        # Keyed by field, so two grounding states measured against one rubric
+        # -- two judges, one prompt (R7.22) -- link it once.
+        if prompt_registry is not None:
+            link_published(
+                tracker,
+                prompt_registry,
+                rubric_links(
+                    pipeline,
+                    {
+                        sample.field or name: sample.rubric_hash
+                        for name, sample in samples.items()
+                    },
+                    prefix=prompt_prefix,
+                ),
+            )
     measured: dict[str, Calibration] = {}
     params: dict[str, str] = {}
     metrics: dict[str, float] = {}
