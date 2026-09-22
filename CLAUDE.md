@@ -66,8 +66,10 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none** yet. Fourteen specs and 199 rules: 181 MET, 11
-superseded, and the 7 of spec 013 written and unbuilt.
+Currently open: **none**. Fourteen specs and 199 rules: 187 MET, 11 superseded,
+and R13.7 alone NOT MET -- specced deliberately ahead of the code, because
+linking a run to the versions it rendered needs a registry read on the run path
+and is its own outer loop.
 
 A record says what it is. `eval of 20260921T153441Z-07f1` was filterable and not
 readable, and four `calibration of incidents` in a list were one measurement
@@ -133,14 +135,32 @@ and the two records agree because they are one function over one set of data
 (R11.19) -- the value R4.9 already puts in every manifest, which no sync, convert
 or calibration could previously be tied to at all.
 
-Two things were considered and left out. MLflow's **prompt registry** would make
-a server-held version something dossier reads back, which is the hazard R12.4
-fences off; prompt hashes on the run and on its eval give the same traceability
-one way only. MLflow 3's **logged models** -- the empty column beside every
+One thing was considered and left out, and the other was split in half. MLflow's
+**prompt registry** was refused whole because loading from it would make a
+server-held version something dossier reads back, which is the hazard R12.4
+fences off. Spec 013 takes the half that writes and leaves the half that reads:
+the objection was never to publishing. MLflow 3's **logged models** -- the empty column beside every
 record -- is the one worth doing next: a `LoggedModel` per pipeline at a
 pipeline hash would make the model-centric comparison view work, and it needs a
 port of its own, because creating one *returns* an id and `Tracker`'s contract
 forbids returning anything (R0.10). `DatasetRegistry` is the precedent.
+
+A prompt is published, never loaded. MLflow's prompt registry exists to be read
+from, and `dossier` takes only the half that writes: `dossier prompts publish
+<pipeline>` sends one prompt per step, named `incident-audit.verify`, and one per
+judged field's rubric, named `incident-audit.judge.root_cause` -- the field's
+name rather than a step's, because two steps declaring one field declaration
+publish it once (R13.1, R13.2). The dot is forced: MLflow's
+`_validate_model_name` refuses `/` and `:`. Each version carries
+`dossier.prompt_hash` in all 64 characters, which is the same value that enters
+the stage key and the only thing tying a version in the UI back to the run that
+rendered it (R13.3). `register_prompt` versions unconditionally, so a publish
+asks `latest` first and sends nothing when the hash already matches -- verified
+live, twice, against a real server rather than only against the fake (R13.4).
+Nothing reads a prompt back: there is no `load` on the port, no `load_prompt`
+anywhere under `src/`, and a test asserts both (R13.5). A prompt fetched at run
+time would be an input to a key no checkout can reproduce, a route into a run no
+review passed through, and a network read on the replay path.
 
 A comparison is a record. `dossier eval --compare a b` printed per-field deltas
 and recorded nothing, on the reasoning that it reads two runs each already

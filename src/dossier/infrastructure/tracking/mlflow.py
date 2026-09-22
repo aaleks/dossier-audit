@@ -18,7 +18,8 @@ from collections.abc import Mapping, Sequence
 import httpx
 
 from dossier.domain.datasets import PublishedDataset
-from dossier.domain.ports import DatasetRegistry, Tracker
+from dossier.domain.ports import DatasetRegistry, PromptRegistry, Tracker
+from dossier.domain.prompts import PublishedPrompt
 
 # How the startup check reaches the server. `None` is a real connection; a test
 # answers with an `httpx.MockTransport`, so no socket is opened (R0.10).
@@ -377,6 +378,113 @@ class MlflowDatasetRegistry:
             added=0,
             created=False,
             tags=dict(dataset.tags or {}),
+        )
+
+
+# What a FileStore-backed server has no endpoint for. A prompt is a registered
+# model version underneath, and the model registry is a component a FileStore
+# does not implement at all -- every one of its endpoints 404s, search
+# included -- while a SQL-backed server answers.
+PROMPTS_ENDPOINT = "/api/2.0/mlflow/registered-models/search"
+
+
+def connect_prompts(uri: str) -> PromptRegistry:
+    """A prompt registry recording to `uri`, or `TrackingUnavailable` saying why not.
+
+    Three checks, in the order a person would fix them: the `tracking` extra, a
+    server that answers, and a server whose store can hold a prompt at all
+    (R13.6). The third is this function's reason for existing beside `connect`:
+    a prompt version is a registered model version, and a FileStore-backed
+    server has no model registry behind it, so a person publishing to one is
+    told which server setting to change rather than handed an MLflow
+    traceback.
+    """
+    connect(uri)  # the extra and the server, refused with their own messages
+
+    if uri.startswith(("http://", "https://")):
+        search = uri.rstrip("/") + PROMPTS_ENDPOINT
+        try:
+            with httpx.Client(
+                transport=HEALTH_TRANSPORT, timeout=HEALTH_TIMEOUT_SECONDS
+            ) as http:
+                answered = http.get(search, params={"max_results": 1})
+        except httpx.HTTPError as error:
+            raise TrackingUnavailable(
+                f"tracking is enabled and no MLflow server answers at {uri} ({error}). "
+                "Start it, or set DOSSIER_MLFLOW_ENABLED=false."
+            ) from None
+        if not answered.is_success:
+            # Any answer that is not a success, not only a 404. A file-backed
+            # server does not 404 here -- it reaches the handler and fails
+            # inside it, answering 500 -- and a check that looked only for 404
+            # let the publish through to hang on MLflow's own retry of the 500.
+            raise TrackingUnavailable(
+                f"the MLflow server at {uri} cannot hold a prompt registry: "
+                f"{PROMPTS_ENDPOINT} answered {answered.status_code} "
+                f"{answered.reason_phrase}. A prompt registry needs a SQL backend -- "
+                "start the server with --backend-store-uri (postgresql, mysql, "
+                "sqlite or mssql), not a file store."
+            )
+    return MlflowPromptRegistry(uri)
+
+
+class MlflowPromptRegistry:
+    """The `PromptRegistry` port, over `mlflow.genai.register_prompt` and the
+    model registry's version search (spec 013).
+
+    The one read this port permits is `latest` -- it decides a **write**
+    (whether to publish at all), and reaches no run, key or file (R13.5 row 4).
+    """
+
+    def __init__(self, uri: str) -> None:
+        import mlflow
+
+        mlflow.set_tracking_uri(uri)
+        self._uri = uri
+
+    def publish(
+        self,
+        *,
+        name: str,
+        template: str,
+        tags: Mapping[str, str],
+        commit_message: str = "",
+    ) -> PublishedPrompt:
+        import mlflow
+
+        version = mlflow.genai.register_prompt(
+            name=name,
+            template=template,
+            commit_message=commit_message,
+            tags=dict(tags),
+        )
+        return PublishedPrompt(
+            name=version.name,
+            version=int(version.version),
+            prompt_hash=dict(version.tags or {}).get("dossier.prompt_hash", ""),
+            created=True,
+        )
+
+    def latest(self, name: str) -> PublishedPrompt | None:
+        from mlflow import MlflowClient
+        from mlflow.exceptions import MlflowException
+
+        client = MlflowClient(tracking_uri=self._uri)
+        try:
+            versions = client.search_prompt_versions(name)
+        except MlflowException as error:
+            if error.error_code == "RESOURCE_DOES_NOT_EXIST":
+                return None
+            raise
+        if not versions:
+            return None
+
+        newest = max(versions, key=lambda version: version.version)
+        return PublishedPrompt(
+            name=newest.name,
+            version=int(newest.version),
+            prompt_hash=dict(newest.tags or {}).get("dossier.prompt_hash", ""),
+            created=False,
         )
 
 

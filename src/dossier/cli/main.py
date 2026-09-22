@@ -43,6 +43,7 @@ from dossier.application.plan import (
     latest_manifest,
     pinned_documents,
 )
+from dossier.application.prompts import publish_prompts
 from dossier.application.run import (
     MissingFromReplay,
     execute,
@@ -77,10 +78,16 @@ from dossier.domain.conversion import used as used_converters
 from dossier.domain.datasets import PublishedDataset
 from dossier.domain.gold import gold_set_hash
 from dossier.domain.grounding import GROUNDED, judge_name, judged_states
-from dossier.domain.hashing import text_hash
+from dossier.domain.hashing import short, text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
-from dossier.domain.ports import DatasetRegistry, ImagePart, ModelClient, Tracker
+from dossier.domain.ports import (
+    DatasetRegistry,
+    ImagePart,
+    ModelClient,
+    PromptRegistry,
+    Tracker,
+)
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
 from dossier.domain.scoring import (
     check_same_documents,
@@ -125,6 +132,7 @@ from dossier.infrastructure.tracking.mlflow import (
     TrackingUnavailable,
     connect,
     connect_datasets,
+    connect_prompts,
 )
 
 app = typer.Typer(add_completion=False)
@@ -1839,3 +1847,87 @@ def _held_snapshots(workspace: Path) -> dict[str, str]:
             for row in ledger.rows(source)
             if row.state is not State.TOMBSTONED
         }
+
+
+prompts_app = typer.Typer(
+    add_completion=False,
+    help="Publish a pipeline's prompts to MLflow's prompt registry (spec 013).",
+)
+app.add_typer(prompts_app, name="prompts")
+
+
+def build_prompt_registry(settings: TrackingSettings) -> PromptRegistry:
+    """The registry a pipeline's prompts are published through.
+
+    The seam `build_dataset_registry` is, for the port beside it: this one also
+    returns what it wrote, which a `Tracker` may never do (R0.10, spec 013). A
+    test replaces it with a `FakePromptRegistry`.
+    """
+    return connect_prompts(settings.uri)
+
+
+@prompts_app.command("publish")
+def prompts_publish(
+    pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
+) -> None:
+    """Publish every prompt and rubric the pipeline names, as MLflow prompt versions.
+
+    Writes to MLflow and nowhere else: no prompt is ever read back into a run,
+    a key or a file, and the files under `pipelines/<name>/` stay the only
+    source a run renders from (R13.5). A prompt already at the hash it would be
+    published under is not sent again (R13.4).
+    """
+    workspace = Path.cwd()
+    environ = environment(workspace)
+
+    try:
+        path = _pipeline_path(workspace, pipeline)
+        config = load_pipeline(path, providers=available_providers())
+    except ConfigError as error:
+        # R13.1 row 4: a publish reads the pipeline a run reads, and gets no
+        # further than the run would. A prompt file that is not there is
+        # already refused here, by R3.6.
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    try:
+        tracking = tracking_settings(environ)
+        if tracking is None:
+            raise ValueError(
+                "publishing prompts needs tracking on: set DOSSIER_MLFLOW_ENABLED=true "
+                "and DOSSIER_MLFLOW_TRACKING_URI. A prompt version is published to "
+                "MLflow and nowhere else"
+            )
+        registry = build_prompt_registry(tracking)
+    except (ValueError, TrackingUnavailable) as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+
+    directory = path.parent
+    try:
+        rubrics = {
+            step.id: load_judge_rubrics(directory / step.output)
+            for step in config.steps
+            if step.output
+        }
+        published = publish_prompts(
+            registry, config=config, directory=directory, rubrics=rubrics
+        )
+    except (ConfigError, ValueError) as error:
+        # The illegal pipeline name lands here (R13.1 row 5): composed, refused,
+        # and nothing sent -- rather than an MLflow traceback partway through.
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+
+    typer.echo(f"{config.name} · {_count(len(published), 'prompt')}")
+    width = max((len(prompt.name) for prompt in published), default=0)
+    for prompt in published:
+        state = "created" if prompt.created else "unchanged"
+        typer.echo(
+            f"  {prompt.name:<{width}}  {short(prompt.prompt_hash)}  v{prompt.version}  {state}"
+        )
+    created = sum(1 for prompt in published if prompt.created)
+    typer.echo(f"{_count(created, 'version')} created, {len(published) - created} unchanged")
+    # The URI, not a version id in a file: what comes back from the registry
+    # reaches this line and nothing on disk (R13.5 row 3).
+    typer.echo(f"published to MLflow: {tracking.uri}")

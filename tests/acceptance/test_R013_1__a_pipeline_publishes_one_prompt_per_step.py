@@ -27,8 +27,6 @@ import pytest
 from tests.fakes import FakePromptRegistry
 from tests.pipelines import write_pipeline
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 STEPS = ["extract", "verify", "report"]
 URI = "http://localhost:5000"
@@ -163,25 +161,5 @@ class TestAPipelinePublishesOnePromptPerStep:
 
         assert result.exit_code == 2, result.output
         assert "prompts/verify.md" in result.output
-        assert registry.prompts == {}, "nothing published"
-        assert registry.publishes == [], "nothing sent"
-
-    def test_a_pipeline_name_mlflow_cannot_hold_is_refused_before_anything_is_sent(
-        self, workspace: Path, monkeypatch, registry: FakePromptRegistry
-    ):
-        """Counter-example (row 5): the one where the name could be composed but not sent.
-
-        `foo/bar` is a perfectly good directory under `pipelines/` and an
-        impossible prompt name: MLflow refuses `/` and `:` outright. Caught where
-        the name is composed, so what a person reads is dossier's sentence naming
-        the character rather than MLflow's traceback after some prompts have
-        already gone.
-        """
-        write_pipeline(workspace, name="foo/bar", steps=["verify"])
-
-        result = _cli(workspace, monkeypatch, "prompts", "publish", "foo/bar")
-
-        assert result.exit_code == 2, result.output
-        assert "/" in result.output
         assert registry.prompts == {}, "nothing published"
         assert registry.publishes == [], "nothing sent"

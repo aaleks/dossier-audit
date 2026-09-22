@@ -1,6 +1,6 @@
 # 013 — A pipeline's prompts as MLflow prompt registry versions
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R13.1 – R13.7
 
 ## Purpose
@@ -68,10 +68,13 @@ the run's provenance record already carries -- until R13.7 makes the tie a link.
 
 The separator is a dot because MLflow rejects `/` and `:` in a prompt name, so
 `incident-audit/verify` is not available. Neither character can reach a name from
-a step id, which R3.2 already constrains to `[a-z][a-z0-9_]*`; a pipeline's
-directory name is constrained by nothing, so that is the one component checked,
-and it is checked where the name is composed rather than where it is sent
-(R13.1 row 5). The pipeline is not droppable either: a
+a step id, which R3.2 already constrains to `[a-z][a-z0-9_]*`. A pipeline's name
+is constrained by nothing except being a directory name -- `path.parent.name`,
+one component -- so `/` cannot reach it either and `:` can, on the systems that
+allow it in a filename. Both are refused where the name is composed rather than
+where it is sent (R13.1 row 5), because the pair is what MLflow rejects and a
+check that tracked which half was currently reachable would be a comment
+pretending to be code. The pipeline is not droppable either: a
 prompt name is global in MLflow, while a prompt file and a rubric are both
 resolved against the pipeline's own directory (spec 005). `verify` alone would
 interleave two pipelines' edits in one version history.
@@ -185,7 +188,7 @@ says.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.publish_set`)
 - **Proved by:** `tests/acceptance/test_R013_1__a_pipeline_publishes_one_prompt_per_step.py`, `tests/unit/test_R013_1__a_prompt_is_named_for_its_pipeline_and_step.py`, `tests/unit/test_R013_1__a_pipeline_contributes_one_prompt_per_step.py`, `tests/unit/test_R013_1__publishing_sends_every_prompt_the_pipeline_names.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -193,7 +196,7 @@ says.
 | 2 | `postmortem-review` whose `verify` step names a prompt file byte-identical to `incident-audit`'s | a separate prompt `postmortem-review.verify` at version 1; `incident-audit.verify` untouched. One pipeline's step is one prompt, and a shared file is not a shared history |
 | 3 | two steps of `incident-audit` naming the same `prompts/02_verify.md` | 2 prompts, one per step, each at version 1. A prompt is named for the job it does, not the file it sits in |
 | 4 | *counter-example* — a step naming a prompt file that is not there | exit 2 from load, as R3.6 already refuses it; 0 prompts registered. A publish reads the pipeline the run reads, and does not get further than the run would |
-| 5 | *counter-example* — a pipeline directory named `foo/bar`, so the name would render `foo/bar.verify` | exit 2 naming the character MLflow rejects; 0 prompts sent. R3.2 constrains a step id to `[a-z][a-z0-9_]*` and nothing constrains a pipeline's directory name, so this is the one component of the name that can hold `/` or `:` -- and it is refused here rather than by an MLflow traceback partway through a publish |
+| 5 | *counter-example* — a pipeline directory named `incident:audit`, legal on Linux and macOS | `prompt_name` raises rather than composing `incident:audit.verify`; nothing is sent. A pipeline's name is `path.parent.name`, one component, so `/` cannot reach it and `:` can -- `dossier prompts publish foo/bar` resolves `pipelines/foo/bar/` and is named `bar`, which is legal. Refused where the name is composed rather than by an MLflow traceback partway through a publish |
 
 ### R13.2 — every judged field publishes its rubric as one prompt named `<pipeline>.judge.<field>`
 
@@ -205,7 +208,7 @@ its name carries the pipeline too.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.publish_set`)
 - **Proved by:** `tests/unit/test_R013_2__a_judged_field_publishes_its_rubric.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -222,7 +225,7 @@ tag a person has a prompt they can read and no way to know which run rendered it
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.publish_set`)
 - **Proved by:** `tests/unit/test_R013_3__a_version_holds_the_text_its_hash_was_taken_over.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -241,7 +244,7 @@ thinking about it.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.prompts.publish_prompts`)
 - **Proved by:** `tests/unit/test_R013_4__republishing_an_unchanged_prompt_adds_no_version.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -259,7 +262,7 @@ version is read by a person, never by `dossier`.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R013_5__a_prompt_version_is_never_read_back_into_a_run.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -275,8 +278,8 @@ refuse theirs: at startup, naming the thing to fix.
 
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.main`)
-- **Proved by:** `tests/acceptance/test_R013_6__publishing_prompts_is_refused_by_name.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R013_6__publishing_prompts_is_refused_by_name.py`, `tests/integration/test_R013_6__mlflow_prompt_registry_adapter.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

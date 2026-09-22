@@ -42,15 +42,27 @@ def publish_prompts(
     texts = {
         path: (directory / path).read_text(encoding="utf-8") for path in _paths(config, rubrics)
     }
-    return [
-        registry.publish(
-            name=prompt.name,
-            template=prompt.template,
-            tags=prompt.tags,
-            commit_message=_commit_message(prompt.tags),
+    published: list[PublishedPrompt] = []
+    for prompt in publish_set(config, texts, rubrics=rubrics):
+        # Asked before written, because `register_prompt` versions
+        # unconditionally: called again with the text already at the top of the
+        # history it creates a second, identical version, and a person opening
+        # the registry finds two entries to compare that differ in nothing
+        # (R13.4). This read is the one the one-way promise permits -- it
+        # decides a write and reaches no key, score or file (R13.5 row 4).
+        held = registry.latest(prompt.name)
+        if held is not None and held.prompt_hash == prompt.tags[PROMPT_HASH_TAG]:
+            published.append(held)
+            continue
+        published.append(
+            registry.publish(
+                name=prompt.name,
+                template=prompt.template,
+                tags=prompt.tags,
+                commit_message=_commit_message(prompt.tags),
+            )
         )
-        for prompt in publish_set(config, texts, rubrics=rubrics)
-    ]
+    return published
 
 
 def _paths(
