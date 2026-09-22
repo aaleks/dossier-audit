@@ -181,11 +181,11 @@ says.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.publish_set`)
 - **Proved by:** `tests/acceptance/test_R013_1__a_pipeline_publishes_one_prompt_per_step.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `dossier prompts publish incident-audit`, whose steps are `extract`, `verify`, `report` | 3 prompts `incident-audit.extract`, `incident-audit.verify`, `incident-audit.report`, one version each; the terminal names each with its hash and version; exit 0 |
+| 1 | `dossier prompts publish incident-audit`, whose steps are `extract`, `verify`, `report` | 3 prompts named for those steps -- `incident-audit.extract`, `incident-audit.verify`, `incident-audit.report` -- one version each, beside whatever rubric R13.2 publishes; the terminal names each with its hash and version; exit 0 |
 | 2 | `postmortem-review` whose `verify` step names a prompt file byte-identical to `incident-audit`'s | a separate prompt `postmortem-review.verify` at version 1; `incident-audit.verify` untouched. One pipeline's step is one prompt, and a shared file is not a shared history |
 | 3 | two steps of `incident-audit` naming the same `prompts/02_verify.md` | 2 prompts, one per step, each at version 1. A prompt is named for the job it does, not the file it sits in |
 | 4 | *counter-example* — a step naming a prompt file that is not there | exit 2 from load, as R3.6 already refuses it; 0 prompts registered. A publish reads the pipeline the run reads, and does not get further than the run would |
