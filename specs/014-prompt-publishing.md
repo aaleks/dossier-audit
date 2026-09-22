@@ -1,6 +1,6 @@
 # 014 — A pipeline's prompts as MLflow prompt registry versions
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R14.1 – R14.9
 
 ## Purpose
@@ -390,8 +390,8 @@ rubric edited since its calibration -- the commonest reason for withholding
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
-- **Proved by:** `tests/acceptance/test_R014_9__a_judge_links_the_rubric_version_it_judged_with.py`, `tests/unit/test_R014_9__a_judge_looks_up_the_rubric_of_every_field_it_may_report.py`, `tests/unit/test_R014_9__a_record_links_the_version_carrying_the_hash_it_used.py`
-- **Status:** IN PROGRESS
+- **Proved by:** `tests/acceptance/test_R014_9__a_judge_links_the_rubric_version_it_judged_with.py`, `tests/unit/test_R014_9__a_judge_looks_up_the_rubric_of_every_field_it_may_report.py`, `tests/unit/test_R014_9__a_record_links_the_version_carrying_the_hash_it_used.py`, `tests/unit/test_R014_9__a_calibration_links_the_rubric_it_measured_once.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
