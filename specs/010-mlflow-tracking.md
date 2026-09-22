@@ -1,7 +1,7 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
-**Status:** Implemented
-**Rules:** R10.1 – R10.9
+**Status:** Partially implemented
+**Rules:** R10.1 – R10.12
 
 ## Purpose
 
@@ -31,6 +31,10 @@ records its runs is not a property of the pipeline.
 | `DOSSIER_MLFLOW_EXPERIMENT` | a template | `dossier-audit/{pipeline}/{kind}` |
 | `DOSSIER_MLFLOW_EXPERIMENT_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE`, `_COMPARE` | a template | falls back to `DOSSIER_MLFLOW_EXPERIMENT` |
 | `DOSSIER_MLFLOW_CAPTURE` | `full` / `hashes` | `full` |
+| `DOSSIER_MLFLOW_RUN_NAME_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE`, `_COMPARE` | a template | the default for that kind (R10.10) |
+| `DOSSIER_MLFLOW_RUN_PREFIX` | a name | none; `{prefix}` renders empty |
+| `DOSSIER_MLFLOW_RUN_LABEL` | a name | none; `--label` wins over it (R10.11) |
+| `DOSSIER_MLFLOW_USER` | a name | the account the command ran under (R10.12) |
 
 The tracking URI has no default in code, for the reason the project's default
 model has none (spec 009): a default is a value written into `.env.example`,
@@ -72,6 +76,75 @@ that is what the per-kind variables are for. A calibration is the fifth kind
 (R11.5): it reads a gold set as an eval does, so `{gold}` renders for it, and
 R10.5 refuses it before its first judge call when the server is unreachable, as
 it refuses a run before its first model call.
+
+## How a record is named
+
+The experiment says which records are comparable; the name says which one this
+is. A list of forty evals all called `eval of <run id>` is filterable and not
+readable: the thing a person is looking for -- which model, which prompt, which
+attempt -- is in the params, one click away from a list they have to open forty
+times.
+
+So the name is rendered from a template per command kind, exactly as the
+experiment is (R10.2), from values the command already holds:
+
+| Placeholder | Holds | Available to |
+|---|---|---|
+| `{prefix}` | `DOSSIER_MLFLOW_RUN_PREFIX` and a separator, or empty | every command |
+| `{label}` | a separator and the label, or empty (R10.11) | every command |
+| `{pipeline}` | the pipeline name, `incident-audit` | every command |
+| `{kind}` | `sync`, `convert`, `run`, `eval`, `calibrate` or `compare` | every command |
+| `{started}` | when the command started, `20260806T142203Z` | every command |
+| `{run_id}` | the run recorded, or the run scored | `run`, `eval` |
+| `{model}` | that run's pinned model identifier | `run`, `eval` |
+| `{pipeline_hash}` | that run's pipeline hash, eight characters | `run`, `eval` |
+| `{gold}` | the gold set's name, `incidents` | `eval`, `calibrate`, `compare` |
+| `{gold_hash}` | the gold set hash, eight characters | `eval`, `calibrate`, `compare` |
+| `{judge_model}` | the judge's model identifier | `calibrate` |
+| `{a}`, `{b}` | the two run ids being compared | `compare` |
+
+A hash renders as eight characters because a name is read by a person, and the
+display convention is already eight everywhere else in these specs. The full 64
+are in the params and the tags, where a comparison is made (R0.7).
+
+The defaults:
+
+| Kind | Template | Renders |
+|---|---|---|
+| `sync` | `{prefix}sync {started}{label}` | `sync 20260806T142203Z` |
+| `convert` | `{prefix}convert {started}{label}` | `convert 20260806T142203Z` |
+| `run` | `{prefix}{run_id}{label}` | `20260806T142203Z-4f1a` |
+| `eval` | `{prefix}eval {run_id} · {model}{label}` | `eval 20260806T142203Z-4f1a · anthropic:claude-sonnet-4-5-20250929` |
+| `compare` | `{prefix}compare {a} -> {b}{label}` | `compare 20260806T142203Z-4f1a -> 20260907T090000Z-bbbb` |
+| `calibrate` | `{prefix}calibrate {gold} · {judge_model}{label}` | `calibrate incidents · anthropic:claude-sonnet-4-5-20250929` |
+
+Nothing is abbreviated. A model identifier is written as `model:` pins it and as
+every param records it, because a shortened one is a second spelling of a value
+whose whole point is to be exact (R0.6), and a reader who cannot map the name
+back to the pin has to open the run anyway.
+
+`{prefix}` and `{label}` carry their own separators, so a name with neither set
+has no stray ` · ` at its edges -- which is what lets the defaults above leave
+every name recorded before this spec byte-identical until someone configures one.
+
+## What dossier writes about itself
+
+Four tags under MLflow's own prefix, and no others: `mlflow.note.content`, the
+description a person reads first (R11.12); `mlflow.user`, who ran it;
+`mlflow.source.name` and `mlflow.source.type`, what ran it.
+
+They are here because MLflow does **not** fill them on the path dossier records
+through. `mlflow.start_run` -- the fluent API -- sets the user, the source name
+and the source type from the process. `MlflowClient.create_run` does not: it
+reads `mlflow.user` out of the tags it was handed and defaults it to `unknown`,
+and it sets no source at all. dossier holds its run by id rather than activating
+one, precisely so that a record is never an ambient global (R10.4), and the cost
+is that Created by, Source and Description are blank on every record dossier has
+ever written.
+
+R10.3 said these were "left as MLflow sets them". On this path MLflow sets none
+of them, so the rule was true only in the sense that nothing was there. R10.12
+replaces it and names the four.
 
 ## The shape of a trace
 
@@ -140,7 +213,7 @@ should have recorded.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.tags`)
 - **Proved by:** `tests/unit/test_R010_3__every_record_is_tagged_with_its_kind_and_pipeline.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R10.12
 
 | # | Given | Then |
 |---|-------|------|
@@ -256,3 +329,83 @@ nothing about what the run computes (R10.4).
 | 2 | `MLFLOW_TRACKING_URI` set to another server in the shell | the tracker still records to the URI dossier was configured with; MLflow's own variable decides nothing (R10.1 row 5) |
 | 3 | a run recorded against a live server | its traces are readable on the same server as its metrics, under the experiment the run was created in (R11.1) |
 | 4 | *counter-example* — tracking off | no tracker is built, nothing is configured, and MLflow's own configuration is left exactly as it was |
+
+### R10.10 — a record's name is rendered from the name template for its command
+
+The same mechanism as R10.2, on the other thing a person reads in a list of runs.
+`DOSSIER_MLFLOW_RUN_NAME_<KIND>` wins over the default for that kind; a template
+naming a placeholder the command cannot fill is refused before any work, naming
+the variable it came from, because a literal `{gold}` in a run's name is a name
+nobody meant and records pile up under it unnoticed.
+
+Every placeholder is a value the command already holds. Nothing is computed for
+the name, and nothing is abbreviated to fit it.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.run_name`)
+- **Proved by:** `tests/unit/test_R010_10__a_record_is_named_from_its_template.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier eval incident-audit --gold gold/incidents`, nothing configured | `eval 20260806T142203Z-4f1a · anthropic:claude-sonnet-4-5-20250929` |
+| 2 | `DOSSIER_MLFLOW_RUN_PREFIX=nightly`, the same | `nightly · eval 20260806T142203Z-4f1a · anthropic:claude-sonnet-4-5-20250929`; the prefix carries its own separator |
+| 3 | `DOSSIER_MLFLOW_RUN_NAME_COMPARE={a} vs {b}` | `20260806T142203Z-4f1a vs 20260907T090000Z-bbbb`; a template with no `{prefix}` takes none |
+| 4 | `DOSSIER_MLFLOW_RUN_NAME_RUN={gold} {run_id}` | refused before any work, naming the variable and the placeholders a run may use (R10.2's shape) |
+| 5 | `DOSSIER_MLFLOW_RUN_NAME_EVAL={prefix}eval {gold_hash}` | `eval 3b7e1d90`; a hash in a name is its eight-character display form, not its 64 (R0.7) |
+| 6 | *counter-example* — `dossier run incident-audit`, nothing configured | `20260806T142203Z-4f1a`, byte-identical to R11.1 row 1. Every name recorded before this rule is unchanged until someone configures one |
+
+### R10.11 — the label a command is given is rendered into its name and tagged on its record
+
+A version a person means -- `v2`, `after the prompt rewrite`, `nightly` -- is not
+a figure dossier can derive. A count of the runs already on the server would be
+one: it would name the same eval differently on another machine, and differently
+again after a record was lost (R10.6). So the label is supplied, and the versions
+dossier *can* defend -- the pipeline hash and the gold set hash -- are recorded
+beside it (R11.11).
+
+In the name so a list reads, and as a tag so a list filters. One value, two
+places, one decision.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.tags`)
+- **Proved by:** `tests/unit/test_R010_11__a_label_is_in_the_name_and_on_the_record.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier eval incident-audit --gold gold/incidents --label v2` | named `eval 20260806T142203Z-4f1a · anthropic:claude-sonnet-4-5-20250929 · v2`; tag `dossier.label=v2` |
+| 2 | `DOSSIER_MLFLOW_RUN_LABEL=nightly` and `--label v2` | `v2`; the flag wins over the variable, as an argument wins over a default everywhere else |
+| 3 | `dossier run incident-audit --label v2` | the same two places: every command that opens a record takes one |
+| 4 | *counter-example* — no flag and no variable | no `dossier.label` tag at all, and a name with no trailing separator. Absent means nobody labelled it -- unlike `dossier.regressed`, which the command computes for every comparison and is therefore present and empty (R11.9 row 3) |
+
+### R10.12 — dossier writes four `mlflow.*` tags, and no others
+
+Supersedes R10.3, whose counter-example said `mlflow.user` and
+`mlflow.source.name` were "left as MLflow sets them". `MlflowClient.create_run`
+sets neither -- it reads `mlflow.user` from the tags handed to it and defaults it
+to `unknown` -- so on dossier's path they were left empty rather than left alone,
+and Created by, Source and Description have been blank on every record.
+
+The four are `mlflow.note.content`, `mlflow.user`, `mlflow.source.name` and
+`mlflow.source.type`. Everything dossier says about the *work* stays under
+`dossier.`, which is what R10.3 was protecting and what this rule keeps.
+
+`mlflow.user` is read where every per-machine value is read (R9.11): the account
+the command ran under, overridden by `DOSSIER_MLFLOW_USER`. It is a name, not a
+credential, and R10.7 is unaffected -- no value of a `_TOKEN` or `_API_KEY`
+variable reaches a record.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.tags`)
+- **Proved by:** `tests/unit/test_R010_12__dossier_writes_four_mlflow_tags_and_no_others.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier run incident-audit` | `dossier.kind=run`, `dossier.pipeline=incident-audit` -- R10.3's rows 1 and 2, unchanged -- and `mlflow.source.name=dossier run`, `mlflow.source.type=LOCAL` |
+| 2 | `DOSSIER_MLFLOW_USER=a.aleks` | `mlflow.user=a.aleks`; MLflow's UI shows it as Created by |
+| 3 | `DOSSIER_MLFLOW_USER` unset | the account the command ran under; a machine with no such value records `unknown`, which is what MLflow would have stored anyway |
+| 4 | a `dossier eval` with a description (R11.12) | `mlflow.note.content` holds it, and the Description box is no longer empty |
+| 5 | *counter-example* — `mlflow.runName`, `mlflow.parentRunId`, `mlflow.log-model.history` | not written. The name goes through `run_name` (R10.10), and the other two are MLflow's own bookkeeping about a shape dossier does not use |
+| 6 | *counter-example* — `DOSSIER_JIRA_TOKEN` set | its value is in no tag, `mlflow.` prefixed or otherwise (R10.7) |
