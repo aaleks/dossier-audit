@@ -73,7 +73,7 @@ from dossier.domain.resolution import (
 )
 from dossier.domain.schemas import StageOutput
 from dossier.domain.store import RESERVED_KEY, output_path, record_path
-from dossier.domain.tracking import run_name
+from dossier.domain.tracking import run_description, run_name, step_line, version_params
 from dossier.domain.tracking import tags as tracking_tags
 
 # The `document` an aggregate result is reported under (spec 003). An aggregate
@@ -283,7 +283,18 @@ def execute(
             {
                 "pipeline": pipeline.name,
                 "model": plan.model,
-                "pipeline_hash": plan.pipeline_hash,
+                # Which dossier wrote this record (R11.19). The value R4.9
+                # already puts in every manifest: a record is a second place
+                # to read it, never a second way of arriving at it.
+                "dossier_version": dossier_version,
+                # The version of everything this run is about to use, off the
+                # plan it has just resolved: the same function over the same
+                # data that the eval scoring this run reads off its manifest
+                # (R11.18). `pipeline_hash` is among them. Recorded here
+                # and not only there, because "which prompt moved" is the
+                # question MLflow's run comparison exists for, and two runs of
+                # one pipeline could not answer it.
+                **version_params(plan),
             }
         )
 
@@ -407,6 +418,28 @@ def execute(
             }
         )
         tracker.log_artifact(manifest.name, manifest.read_bytes())
+        # What the terminal is about to print, in the record's Description
+        # (R11.17). Composed from the same function the CLI prints with, so
+        # the two cannot say different things about one run.
+        tracker.describe(
+            run_description(
+                run_id=run_id,
+                pipeline=pipeline.name,
+                model=plan.model,
+                pipeline_hash=plan.pipeline_hash,
+                lines=[
+                    step_line(
+                        step=done.step,
+                        documents=len(done.results),
+                        cached=len(done.served_from_cache),
+                        failed=len(done.failed),
+                        described=done.described,
+                        findings=len(done.findings),
+                    )
+                    for done in report.steps
+                ],
+            )
+        )
         tracker.end_run(status="FAILED" if report.failed else "FINISHED")
     return report
 

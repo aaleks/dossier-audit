@@ -67,7 +67,7 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all thirteen specs are
-implemented, and 178 of the 189 rules are MET with the other 11 superseded.
+implemented, and 181 of the 192 rules are MET with the other 11 superseded.
 
 A record says what it is. `eval of 20260921T153441Z-07f1` was filterable and not
 readable, and four `calibration of incidents` in a list were one measurement
@@ -108,6 +108,39 @@ place. `FakeTracker` records the call and returns and `BestEffortTracker`
 swallows the exception, so in production the assessment would have been missing
 with no error anywhere. Verdicts are now held and sent in `end_trace`, after the
 exporter is flushed.
+
+Every record describes itself now, not only the two that score. `run`, `sync`,
+`convert` and `calibrate` opened a record whose Description -- the first thing on
+its page -- was empty, so eight `sync incident-audit` records in a list were eight
+identical rows. Each hands the lines it printed to `tracker.describe`, under a
+header naming the kind (R11.17). Verbatim, indentation stripped: `sync` and
+`convert` keep the lines they echo and pass the same list on, and the two lines
+`run` and `calibrate` share with a terminal they have not printed to yet -- their
+record closes inside the application layer -- moved into `domain/tracking.py`,
+where both readers call them. One format string, two consumers, so a figure
+cannot move in the terminal and stay put in the record. A run that failed on a
+document is described all the same, failure count included; a run that stopped
+at its first cache miss on an unreachable model closes FAILED and describes
+nothing, because nothing was counted.
+
+A run says what produced it, as its eval already did. R11.11 gave the eval the
+prompt, schema, converter and generated-schema versions read off the manifest;
+the run that *wrote* that manifest recorded three params, so "which prompt moved
+between these two runs" was answerable about the evals and not about the runs it
+is actually asked of. `version_params` now runs over the plan as it is resolved,
+and the two records agree because they are one function over one set of data
+(R11.18). And `dossier_version` is on every record rather than on the eval alone
+(R11.19) -- the value R4.9 already puts in every manifest, which no sync, convert
+or calibration could previously be tied to at all.
+
+Two things were considered and left out. MLflow's **prompt registry** would make
+a server-held version something dossier reads back, which is the hazard R12.4
+fences off; prompt hashes on the run and on its eval give the same traceability
+one way only. MLflow 3's **logged models** -- the empty column beside every
+record -- is the one worth doing next: a `LoggedModel` per pipeline at a
+pipeline hash would make the model-centric comparison view work, and it needs a
+port of its own, because creating one *returns* an id and `Tracker`'s contract
+forbids returning anything (R0.10). `DatasetRegistry` is the precedent.
 
 A comparison is a record. `dossier eval --compare a b` printed per-field deltas
 and recorded nothing, on the reasoning that it reads two runs each already

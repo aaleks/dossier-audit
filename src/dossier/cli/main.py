@@ -94,12 +94,16 @@ from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.domain.tracking import (
     TrackingSettings,
     comparison_description,
+    convert_description,
     count_metrics,
     eval_description,
     experiment_name,
+    judge_line,
     label_for,
     name_template,
     run_name,
+    step_line,
+    sync_description,
 )
 from dossier.domain.tracking import capture as capture_setting
 from dossier.domain.tracking import settings as tracking_settings
@@ -180,6 +184,11 @@ def sync(
 
     store = SnapshotStore(workspace)
     reports: list[SourceReport] = []
+    # What this sync printed about its work, kept so the record can hold
+    # the same lines rather than a second rendering of the same counts
+    # (R11.17). The per-item lines are not here: `changes.json` already
+    # carries them in full, and a description is a summary (R11.6).
+    printed: list[str] = []
 
     with Ledger(workspace) as ledger:
         for name in config.synced_sources:
@@ -209,7 +218,8 @@ def sync(
                 full=full,
             )
             reports.append(report)
-            typer.echo(_source_line(report))
+            printed.append(_source_line(report))
+            typer.echo(printed[-1])
             for line in _named_lines(report):
                 typer.echo(line)
             for key, error in report.failures:
@@ -220,7 +230,8 @@ def sync(
 
     written = sum(report.snapshots_written for report in reports)
     tombstoned = sum(report.tombstoned for report in reports)
-    typer.echo(f"ledger updated · {written} new snapshots · {tombstoned} tombstoned")
+    printed.append(f"ledger updated · {written} new snapshots · {tombstoned} tombstoned")
+    typer.echo(printed[-1])
 
     if tracker is not None:
         # One MLflow run of the per-source counts the lines above printed, under
@@ -243,6 +254,10 @@ def sync(
                 environ=environment(workspace),
             ),
         )
+        # Which dossier fetched this, on the record of the fetching
+        # (R11.19). The ledger holds no such field, so a sync whose counts
+        # look wrong could not be tied to a version at all.
+        tracker.log_params({"dossier_version": version("dossier")})
         metrics: dict[str, float] = {}
         for report in reports:
             metrics.update(
@@ -262,6 +277,9 @@ def sync(
         # What the lines under each source named, handed over as the report's
         # own list rather than read back from the ledger (R11.6).
         tracker.log_artifact(CHANGES_NAME, changes_artifact(reports))
+        # Written as the run closes, because none of these counts exist
+        # until the sources have been asked (R11.17).
+        tracker.describe(sync_description(pipeline=pipeline, lines=printed))
         failed_items = any(report.failed for report in reports)
         tracker.end_run(status="FAILED" if failed_items else "FINISHED")
 
@@ -621,14 +639,19 @@ def convert(
                 typer.echo(str(error), err=True)
                 raise typer.Exit(code=2) from error
 
+    # Kept as they are printed, so the record holds the command's own lines
+    # rather than a second rendering of the same counts (R11.17).
+    printed: list[str] = []
     for report in reports:
-        typer.echo(_convert_line(report))
+        printed.append(_convert_line(report))
+        typer.echo(printed[-1])
         for failure in report.failed:
             typer.echo(f"    {failure.document}: {failure.error}")
 
     converted = sum(report.converted for report in reports)
     cached = sum(report.cached for report in reports)
-    typer.echo(f"cache updated · {converted} converted · {cached} cached")
+    printed.append(f"cache updated · {converted} converted · {cached} cached")
+    typer.echo(printed[-1])
 
     failed = [failure for report in reports for failure in report.failed]
 
@@ -656,6 +679,7 @@ def convert(
                 environ=environment(workspace),
             ),
         )
+        tracker.log_params({"dossier_version": version("dossier")})
         metrics: dict[str, float] = {}
         for report in reports:
             metrics.update(
@@ -671,6 +695,7 @@ def convert(
                 )
             )
         tracker.log_metrics(metrics)
+        tracker.describe(convert_description(pipeline=pipeline, lines=printed))
         tracker.end_run(status="FAILED" if failed else "FINISHED")
 
     if failed:
@@ -945,16 +970,24 @@ def _execute(workspace: Path, pipeline: str, *, label: str = "") -> None:
         # Only when there are any. A `· 0 described` on every line of every run
         # of every text pipeline would be noise, and the number is interesting
         # precisely because it is usually absent (R6.15).
-        described = f" · {step.described} described" if step.described else ""
         # Counted the same way and absent for the same reason (R6.16). A finding
         # is not a failure -- the document produced usable output and every
         # artifact was written -- so it is its own number beside `failed` rather
         # than folded into it, and the exit code below does not see it.
         findings = step.findings
-        found = f" · {len(findings)} finding(s)" if findings else ""
+        # Composed in the domain, because the record the run just closed holds
+        # this same line (R11.17): two format strings would drift, and the drift
+        # would read as the terminal and MLflow disagreeing (spec 011).
         typer.echo(
-            f"  {step.step}: {len(step.results)} document(s) · {cached} from cache · "
-            f"{len(step.failed)} failed{described}{found}"
+            "  "
+            + step_line(
+                step=step.step,
+                documents=len(step.results),
+                cached=cached,
+                failed=len(step.failed),
+                described=step.described,
+                findings=len(findings),
+            )
         )
         for document, check in findings:
             # The detail `check_field` composed, verbatim. It already names the
@@ -1139,6 +1172,7 @@ def calibrate(
             started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
             label=label_for(label, environment(workspace)),
             pipeline=pipeline,
+            dossier_version=version("dossier"),
             # As bytes, as `record_eval` reads them: the hash has to move when
             # any answer moves (R11.3 row 2).
             gold_files={
@@ -1151,9 +1185,15 @@ def calibrate(
         raise typer.Exit(code=2) from error
 
     for field, calibration in sorted(measured.items()):
+        # In the domain for the reason the run's step line is: `calibrate_fields`
+        # put this same line on the record it closed (R11.17).
         typer.echo(
-            f"{field:<18} {calibration.agreement:.1%} agreement over "
-            f"{_count(calibration.sample_size, 'case')} · {calibration.judge_model}"
+            judge_line(
+                field=field,
+                agreement=calibration.agreement,
+                cases=calibration.sample_size,
+                judge_model=calibration.judge_model,
+            )
         )
     if tracker is not None:
         typer.echo(f"recorded to MLflow: {experiment}")
@@ -1538,6 +1578,7 @@ def _compare_runs(
             tracker,
             experiment=experiment or "",
             pipeline=pipeline,
+            dossier_version=version("dossier"),
             runs=runs,
             models=(manifests[0].plan.model, manifests[1].plan.model),
             gold=gold,

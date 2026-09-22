@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
 **Status:** Implemented
-**Rules:** R11.1 – R11.16
+**Rules:** R11.1 – R11.19
 
 ## Purpose
 
@@ -31,6 +31,11 @@ Metric names use `/` so MLflow's UI groups them: every field's accuracy under
 `accuracy/`, every count of one source under its id. Accuracy is recorded as the
 percentage the report prints -- `75.0`, not `0.75` -- for the reason above, and a
 judge's agreement likewise: `100.0`, the figure `dossier calibrate` prints.
+
+Every one of those records also carries a description generated from the lines
+the command printed (R11.12, R11.17) and a param naming the `dossier` that wrote
+it (R11.19). They are the two fields a person reads before any metric, and both
+were blank on every record dossier had written.
 
 A trace is one (step, document), the unit of a cache key. Following `INC-4821`
 through the pipeline is a filter on the `dossier.document` tag; every `verify`
@@ -410,3 +415,87 @@ on a cache miss would make a second eval of one run look like it judged nothing.
 | 4 | `DOSSIER_MLFLOW_CAPTURE=hashes` | the value is recorded and the rationale is not; the evidence quotes the document (R10.8) |
 | 5 | *counter-example* — a field withheld (R7.15) | no assessment, because it was never judged: nothing is measured for a number nobody may print (R7.17) |
 | 6 | *counter-example* — `mlflow.genai.evaluate` | never called. Every value on a trace is one `dossier` computed and printed |
+
+### R11.17 — every command's record describes itself from the lines it printed
+
+R11.12 gave a description to the two commands that score. The four that do the
+work -- `run`, `sync`, `convert`, `calibrate` -- open a record whose Description
+is the first thing on its page and is empty on every one of them. Eight
+`sync incident-audit` records in a list are eight identical rows, and which one
+fetched the twenty documents is a click each.
+
+The same construction, for the same reason: generated and never authored, every
+line restating one the command printed, written when the run closes because none
+of the counts exist until the work is done. Carried in `mlflow.note.content`,
+one of the four tags R10.12 permits.
+
+Verbatim rather than restated. The description holds the command's own lines with
+their indentation stripped, so a figure that moves in the terminal and not in the
+record fails a test instead of drifting quietly -- which is the failure mode this
+spec's opening paragraph is about, in the one place a second copy of a line is
+unavoidable.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.run_description`, `.sync_description`, `.convert_description`, `.calibration_description`)
+- **Proved by:** `tests/unit/test_R011_17__every_command_describes_what_it_did.py`, `tests/acceptance/test_R011_17__every_record_describes_itself_in_mlflow.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier run incident-audit` over 4 documents and 3 steps, `verify` serving all 4 from cache | `run 20260806T142203Z-4f1a · incident-audit`, `model anthropic:claude-sonnet-4-5-20250929 · pipeline 2f60a7d3`, then `verify: 4 document(s) · 4 from cache · 0 failed` -- the step line R6.9 prints, verbatim |
+| 2 | that run with `extract` failing on `INC-5044` and two findings in `verify` | described all the same, `extract` naming its failure and `verify` its findings. A description written only on success would make a failure look like a command nobody ran (R8.6) |
+| 3 | the sync of R11.4 row 1 | `incidents-jira  420 known · 18 changed · 2 new -> 20 fetched` and `ledger updated · 20 new snapshots · 0 tombstoned` -- the source line and the ledger line (R2.13, R2.18) |
+| 4 | the convert of R11.4 row 2 | `incidents-manual  3 held · 3 converted · 0 cached` and `cache updated · 3 converted · 0 cached` (R8.8) |
+| 5 | the calibration of R11.5 row 1 | `calibrate incident-audit · gold incidents 3b7e1d90` and `root_cause 100.0% agreement over 20 cases · openai:gpt-5.4-mini` -- the line the terminal prints (R7.14) |
+| 6 | *counter-example* — a run that stops at its first cache miss on an unreachable model (R9.2 row 3) | the record closes `FAILED` with no description. Nothing was counted, and a description is a restatement of counts |
+| 7 | *counter-example* — the same run twice, tracking on and off | byte-identical manifests and stage keys (R10.4). A description is a record, and a record is not an input |
+
+### R11.18 — a `dossier run` records the version of everything it used
+
+R11.11 gave the eval that scores a run the prompt, schema, converter and
+generated-schema versions, read off the manifest. The run that *wrote* that
+manifest records three params -- its pipeline, its model and its pipeline hash --
+so two runs of one pipeline sit side by side in MLflow's comparison with no way
+to see which prompt moved between them. The evals of those same two runs answer
+it, and the runs themselves do not.
+
+The same function over the same plan, at the moment it is resolved rather than at
+the moment it is read back. `documents` lands as a param beside the metric of the
+same name R11.1 already records: the plan's document count is an input to the run
+and the metric is what it processed, equal by construction and read in different
+places.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run.execute`)
+- **Proved by:** `tests/acceptance/test_R011_18__a_run_records_what_produced_it.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier run incident-audit` at pipeline hash `2f60a7d3` | params `prompt/verify=0e52dd18`, `schema/extract=6e0d4b27`, `converters=markdown-text 1.0.0`, `documents=4`, beside the three it already records |
+| 2 | the `verify` prompt edited and the pipeline run again | `prompt/verify` differs between the two records, and MLflow's run comparison names the one param that moved |
+| 3 | a step whose declaration generates a schema (R6.12) | `generated_schema/<step>=d24c86e1`, as the eval records it (R11.11 row 4) |
+| 4 | *counter-example* — `dossier run --plan` | no MLflow run at all (R11.1 row 5). Params of a plan nobody executed would be a record of work that did not happen |
+| 5 | *counter-example* — the eval that scores that run | the same values, read off the manifest (R11.11). Two records of one plan agree because they are one function over one set of data, not because two computations happened to match |
+
+### R11.19 — every record says which `dossier` wrote it
+
+`dossier_version` is a param on an eval and on none of the other five kinds. A
+sync whose counts look wrong, a convert that produced different bytes, a run
+whose plan resolved differently -- the first question asked of each is which
+`dossier` did it, and only the eval can answer.
+
+One param, on every run any command opens, from the installed distribution's own
+metadata: the value R4.9 already writes into every manifest.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application`)
+- **Proved by:** `tests/acceptance/test_R011_19__every_record_says_which_dossier_wrote_it.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier sync incident-audit` under `dossier` 0.9.0 | param `dossier_version=0.9.0` |
+| 2 | `dossier run`, `convert`, `calibrate` and `eval --compare` | the same param, under the same name the eval already records it (R11.11 row 1) |
+| 3 | *counter-example* — the manifest that run wrote | already holds it (R4.9). The param is a second place to read the version, never a second way of arriving at it |
+| 4 | *counter-example* — tracking off | no param, and nothing under `runs/` or `.dossier/` differs by a byte (R10.4) |

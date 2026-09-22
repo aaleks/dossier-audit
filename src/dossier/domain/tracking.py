@@ -442,6 +442,104 @@ def comparison_description(
     return "\n".join(lines)
 
 
+def step_line(
+    *,
+    step: str,
+    documents: int,
+    cached: int,
+    failed: int,
+    described: int = 0,
+    findings: int = 0,
+) -> str:
+    """The line `dossier run` prints for one step (R6.9, R6.15, R6.16).
+
+    Composed here rather than in `cli/` because two readers need exactly these
+    words: the terminal, and the description of the record the run closes
+    (R11.17). Two format strings would drift, and the drift would look like the
+    disagreement spec 011 exists to rule out.
+
+    `described` and `findings` are absent when zero. A `· 0 described` on every
+    line of every run of every text pipeline is noise, and the number is
+    interesting precisely because it is usually absent (R6.15).
+    """
+    shown = f" · {described} described" if described else ""
+    found = f" · {findings} finding(s)" if findings else ""
+    return (
+        f"{step}: {documents} document(s) · {cached} from cache · {failed} failed{shown}{found}"
+    )
+
+
+def judge_line(*, field: str, agreement: float, cases: int, judge_model: str) -> str:
+    """The line `dossier calibrate` prints for one judged field (R7.14).
+
+    Here for the reason `step_line` is: the terminal and the record's
+    description hold the same measurement, and holding it twice is how the file,
+    the terminal and MLflow start to disagree (spec 011).
+
+    The field is padded so a column of fields lines up in the terminal. A
+    description strips it, which is why the padding is on the left of the figure
+    and not between it and the judge.
+    """
+    plural = "" if cases == 1 else "s"
+    return f"{field:<18} {agreement:.1%} agreement over {cases} case{plural} · {judge_model}"
+
+
+def run_description(
+    *, run_id: str, pipeline: str, model: str, pipeline_hash: str, lines: Sequence[str]
+) -> str:
+    """What a `dossier run` says about itself, in MLflow's Description (R11.17).
+
+    The run id, the pin and the pipeline hash, then the step lines the command
+    printed. The hash is shown at the width every other record shows it at
+    (R10.10): sixty-four characters here would push the lines that matter off
+    the card.
+    """
+    return _described(
+        [
+            f"run {run_id} · {pipeline}",
+            f"model {model} · pipeline {pipeline_hash[:_DISPLAY_HASH]}",
+        ],
+        lines,
+    )
+
+
+def sync_description(*, pipeline: str, lines: Sequence[str]) -> str:
+    """What a `dossier sync` says about itself (R11.17 row 3)."""
+    return _described([f"sync {pipeline}"], lines)
+
+
+def convert_description(*, pipeline: str, lines: Sequence[str]) -> str:
+    """What a `dossier convert` says about itself (R11.17 row 4)."""
+    return _described([f"convert {pipeline}"], lines)
+
+
+def calibration_description(
+    *, pipeline: str, gold: str, gold_hash: str, lines: Sequence[str]
+) -> str:
+    """What a `dossier calibrate` says about itself (R11.17 row 5).
+
+    The gold set is on the header and not in the lines, because a line is per
+    field and the set is per run -- and because a second calibration of one
+    field against edited answers is a different measurement that would otherwise
+    read as identical (R7.14 row 2).
+    """
+    return _described(
+        [f"calibrate {pipeline} · gold {_gold_name(gold)} {gold_hash[:_DISPLAY_HASH]}"], lines
+    )
+
+
+def _described(header: Sequence[str], lines: Sequence[str]) -> str:
+    """A header, then the command's own lines with their indentation removed.
+
+    Handed over rather than recomposed: what the command printed is what the
+    record holds, so a figure that moves in one and not the other fails a test
+    instead of drifting (R11.17). Blank lines are dropped -- MLflow renders the
+    description as markdown, and a trailing blank reads as a paragraph break
+    before nothing.
+    """
+    return "\n".join([*header, *(line.strip() for line in lines if line.strip())])
+
+
 def calibration_record(
     *, field: str, calibration: Calibration
 ) -> tuple[dict[str, str], dict[str, float]]:
