@@ -1,6 +1,6 @@
 ---
 name: quality
-model: claude-opus-5
+model: claude-opus-5-5
 allowed-tools: Read, Glob, Grep, Bash, Write, Agent
 description: Run the spec-compliance, architecture-guardian and mutation-analyst agents and consolidate their findings into quality-report.md, grouped by severity. Use before a PR, or after a slice lands. Read-only apart from the report it writes.
 argument-hint: "[--mutation] [--determinism]"
