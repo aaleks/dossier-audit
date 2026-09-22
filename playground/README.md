@@ -56,6 +56,7 @@ when you want the reasoning behind what you just saw.
 | 09 | [Cache keys, determinism and replay](09-cache-keys-determinism-and-replay/) | what changes a key and what does not, replay, byte-identical keys across machines | R5.2, R5.3, R5.6, R4.6, R4.7, R5.9 |
 | 10 | [Charts, screenshots and the `described` state](10-charts-screenshots-and-the-described-state/) | `page_images`, a `per_part` step, one call per page, the third grounding state, a judge shown the pages, a threshold per state | R8.10, R8.11, R8.12, R3.12, R6.15, R7.20, R7.22, R7.23, R4.14 |
 | 11 | [A real Jira on your machine](11-a-real-jira-on-your-machine/) | a remote authenticated source, a credential named and never written, issues and attachments as separate addresses, a listing that cannot report a deletion, and a payload nothing converts | R1.1, R1.6, R1.8, R1.12, R1.13, R2.6, R2.17, R2.18, R2.22, R8.5 |
+| 12 | [A dataset, and the change gate](12-a-dataset-and-the-change-gate/) | publishing a gold set as an MLflow evaluation dataset, what a record holds, a publish that sends nothing, a stale dataset, and a comparison recorded as per-field deltas | R12.1, R12.2, R12.3, R12.4, R12.5, R11.7, R11.8, R11.9, R11.10 |
 
 ## How an exercise folder is laid out
 
