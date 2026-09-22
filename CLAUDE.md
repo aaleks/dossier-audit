@@ -66,8 +66,8 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**, and nothing is outstanding: all thirteen specs are
-implemented, and 181 of the 192 rules are MET with the other 11 superseded.
+Currently open: **none** yet. Fourteen specs and 199 rules: 181 MET, 11
+superseded, and the 7 of spec 013 written and unbuilt.
 
 A record says what it is. `eval of 20260921T153441Z-07f1` was filterable and not
 readable, and four `calibration of incidents` in a list were one measurement
