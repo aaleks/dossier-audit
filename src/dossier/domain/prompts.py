@@ -23,7 +23,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from dossier.domain.hashing import content_hash
+from dossier.domain.hashing import content_hash, normalised_text
 from dossier.domain.pipeline import PipelineConfig
 
 # `{{ name }}` with optional inner whitespace. Rejecting the spaced form would be
@@ -166,7 +166,12 @@ def publish_set(config: PipelineConfig, texts: Mapping[str, str]) -> list[Prompt
     """
     published = []
     for step in config.steps:
-        template = texts[step.prompt]
+        # Normalised here rather than trusted from the caller. `text_hash`
+        # gets this for free because `read_text` translates newlines, and a
+        # caller who read bytes instead would publish a template and a hash
+        # that disagreed with the stage key over nothing but a checkout
+        # convention (R5, R13.4 row 5).
+        template = normalised_text(texts[step.prompt])
         published.append(
             PromptToPublish(
                 name=prompt_name(config.name, step.id),

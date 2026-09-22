@@ -63,3 +63,33 @@ class TestAVersionHoldsTheTextItsHashWasTakenOver:
             "dossier.path": "prompts/02_verify.md",
         }
         assert is_content_hash(published[0].tags["dossier.prompt_hash"])
+
+    def test_a_crlf_rewrite_changes_neither_the_template_nor_its_hash(self):
+        """Row 1's other half, and what R13.4 row 5 rests on.
+
+        A workspace is the user's own directory, which dossier does not control
+        and which may have no `.gitattributes`. Publishing the bytes as handed
+        over would show a person a version differing from the one their
+        colleague published from the same commit on the other operating system,
+        while the key both runs computed was identical (R5, "How a text file is
+        hashed").
+
+        The third assertion is the guard. Normalising newlines is not
+        normalising content: a green that stripped or collapsed whitespace would
+        satisfy the first two and quietly make a real edit invisible, which is
+        what R13.4 row 4 refuses.
+        """
+        from dossier.domain.prompts import publish_set
+
+        def published(text: str):
+            return publish_set(_pipeline(), {"prompts/02_verify.md": text})[0]
+
+        unix = published(VERIFY)
+        windows = published(VERIFY.replace("\n", "\r\n"))
+        spaced = published(VERIFY.replace("\n", " \n", 1))
+
+        assert windows.template == unix.template
+        assert windows.tags["dossier.prompt_hash"] == unix.tags["dossier.prompt_hash"]
+        assert spaced.tags["dossier.prompt_hash"] != unix.tags["dossier.prompt_hash"], (
+            "trailing whitespace is a real edit and must still move the hash"
+        )
