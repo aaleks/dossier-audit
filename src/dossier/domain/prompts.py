@@ -23,6 +23,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from dossier.domain.hashing import content_hash
 from dossier.domain.pipeline import PipelineConfig
 
 # `{{ name }}` with optional inner whitespace. Rejecting the spaced form would be
@@ -142,10 +143,11 @@ def prompt_name(pipeline: str, step: str) -> str:
 
 @dataclass(frozen=True)
 class PromptToPublish:
-    """One prompt a publish would send: what it is called and what it says."""
+    """One prompt a publish would send: what it is called, what it says, and its tags."""
 
     name: str
     template: str
+    tags: dict[str, str]
 
 
 def publish_set(config: PipelineConfig, texts: Mapping[str, str]) -> list[PromptToPublish]:
@@ -162,7 +164,23 @@ def publish_set(config: PipelineConfig, texts: Mapping[str, str]) -> list[Prompt
     key -- the ordering rule that R5.6 imposes on hashed collections does not
     apply to a list nobody hashes.
     """
-    return [
-        PromptToPublish(name=prompt_name(config.name, step.id), template=texts[step.prompt])
-        for step in config.steps
-    ]
+    published = []
+    for step in config.steps:
+        template = texts[step.prompt]
+        published.append(
+            PromptToPublish(
+                name=prompt_name(config.name, step.id),
+                template=template,
+                tags={
+                    # The full 64 characters, never the eight a log line shows
+                    # (R0.7). This is the one value that ties a version in
+                    # MLflow back to the provenance record of the run that
+                    # rendered it, and a prefix would tie it to several.
+                    "dossier.prompt_hash": content_hash(template.encode("utf-8")),
+                    "dossier.pipeline": config.name,
+                    "dossier.step": step.id,
+                    "dossier.path": step.prompt,
+                },
+            )
+        )
+    return published
