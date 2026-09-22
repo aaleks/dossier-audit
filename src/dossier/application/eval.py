@@ -413,6 +413,31 @@ def record_comparison(
     tracker.end_run(status="FINISHED")
 
 
+def _assess(
+    tracker: Tracker | None,
+    inputs: JudgeInputs,
+    *,
+    field: str,
+    supported: bool,
+    evidence: str,
+    capture: str,
+) -> None:
+    """Put the verdict on the trace it is about (R11.16).
+
+    The evidence quotes the document, so it obeys the setting a span's text does
+    (R10.8). The verdict is not a quotation and is recorded either way, which is
+    what keeps MLflow's Evaluations view usable on a machine that withholds text.
+    """
+    if tracker is None:
+        return
+    tracker.assess(
+        name=field,
+        value=supported,
+        rationale=evidence if capture == "full" else "",
+        source=inputs.judge_model,
+    )
+
+
 def judge_span(
     *,
     capture: str,
@@ -555,7 +580,21 @@ def judged_cached(
         if hit is not None:
             try:
                 verdict = json.loads(hit)
-                return bool(verdict["supported"]), str(verdict.get("evidence", ""))
+                supported = bool(verdict["supported"])
+                evidence = str(verdict.get("evidence", ""))
+                # Recorded although nothing was asked: the verdict is what the
+                # eval scored either way, and an assessment appearing only on a
+                # miss would make a second eval of one run look like it judged
+                # nothing (R11.16 row 3).
+                _assess(
+                    tracker,
+                    inputs,
+                    field=field,
+                    supported=supported,
+                    evidence=evidence,
+                    capture=capture,
+                )
+                return supported, evidence
             except (ValueError, KeyError, TypeError):
                 # A damaged entry is a miss, not authority (R5.9): the judge is
                 # asked again and the entry rewritten below.
@@ -583,6 +622,14 @@ def judged_cached(
                     key=key,
                 ),
             )
+        _assess(
+            tracker,
+            inputs,
+            field=field,
+            supported=supported,
+            evidence=evidence,
+            capture=capture,
+        )
         cache.put(
             key,
             _verdict_bytes(supported, evidence),

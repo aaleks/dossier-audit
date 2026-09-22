@@ -99,6 +99,9 @@ class FakeTrace:
     name: str
     tags: dict[str, str]
     spans: list[dict[str, object]] = field(default_factory=list)
+    # The verdicts recorded on this trace (R11.16). A list, not a flag: rows 3
+    # and 5 are both claims about how many there are.
+    assessments: list[dict[str, object]] = field(default_factory=list)
     status: str | None = None
     error: str | None = None
 
@@ -167,6 +170,11 @@ class FakeTracker:
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None:
         self._trace.spans.append({"kind": kind, "name": name, **attributes})
+
+    def assess(self, *, name: str, value: bool, rationale: str, source: str) -> None:
+        self._trace.assessments.append(
+            {"name": name, "value": value, "rationale": rationale, "source": source}
+        )
 
     def end_trace(self, *, status: str, error: str | None = None) -> None:
         self._trace.status = status

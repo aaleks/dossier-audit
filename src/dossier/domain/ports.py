@@ -225,6 +225,17 @@ class Tracker(Protocol):
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None: ...
 
+    def assess(self, *, name: str, value: bool, rationale: str, source: str) -> None:
+        """Record a verdict `dossier` reached on the trace it is about (R11.16).
+
+        A projection, one way only, as a published dataset is (R12.4): nothing
+        MLflow holds about an assessment is ever read back, and no score, key or
+        file is computed from one. `mlflow.genai.evaluate` is the thing this is
+        not -- it would have MLflow arrive at a verdict of its own from the same
+        material, which is the second way of computing spec 011 forbids.
+        """
+        ...
+
     def end_trace(self, *, status: str, error: str | None = None) -> None: ...
 
     def end_run(self, *, status: str) -> None: ...
