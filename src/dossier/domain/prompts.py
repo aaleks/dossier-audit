@@ -1,4 +1,9 @@
-"""What a prompt declares it needs, and what it is given (spec 003).
+"""What a prompt declares it needs, what it is given, and what it is called.
+
+Spec 003 for the first two, spec 013 for the third: a prompt's name in MLflow's
+registry is a pure decision about a pipeline name and a step id, so it lives
+here beside the other decisions a prompt is subject to rather than next to the
+call that sends it.
 
 Two failures this closes, and both are quiet. A declared input that no
 placeholder injects is a silent no-op: it sits in the stage's key, so changing it
@@ -93,3 +98,20 @@ def render(prompt: str, values: dict[str, str]) -> str:
     rendered.append(fill(prompt[end_of_last_fence:]))
 
     return "".join(rendered)
+
+
+def prompt_name(pipeline: str, step: str) -> str:
+    """R13.1 — what a step's prompt is called in MLflow's prompt registry.
+
+    The separator is a dot because MLflow rejects `/` and `:` outright:
+    `_validate_model_name` refuses both, so `incident-audit/verify` -- the
+    obvious spelling, and the one the rest of these specs would suggest -- was
+    never available to choose.
+
+    The pipeline is in the name because a prompt name is global in MLflow while a
+    prompt file is resolved against the pipeline's own directory (spec 005). Two
+    pipelines each holding a `verify` step would otherwise interleave unrelated
+    edits into one version history, and a person diffing v2 against v1 would be
+    reading two different pipelines.
+    """
+    return f"{pipeline}.{step}"
