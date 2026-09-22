@@ -122,6 +122,8 @@ consistently here so a reader can follow one artifact across specs.
 | `3b7e1d90` | the `gold/incidents` set hash: SHA-256 over its files, the value R11.3 row 2 tags an eval with and R12.1 tags a dataset with |
 | `9c4f21a8` | the same set after a reviewer corrects one answer (R7.7) — the hash R11.7 row 2 reports as scored against a dataset published at `3b7e1d90` |
 | `1c0f8e6b` | the Hugging Face revision `Qwen/Qwen2.5-7B-Instruct` is pinned to (R9.5). A real one is a 40-character commit |
+| `2f60a7d3` | the `incident-audit` pipeline hash of run `20260806T142203Z-4f1a`: the version of the prompts and declarations that produced the answers an eval scores (R11.11) |
+| `8ad3e115` | the same pipeline after the prompt change that produced run `20260907T090000Z-bbbb` -- the two hashes R11.13 reports as `verify (prompt changed)` |
 | `f7a2d9c4` | `rubrics/root_cause.md` — the rubric `root_cause` names as its `judge`, and the hash a calibration is measured against (R7.14, R11.5) |
 
 ## Converters
@@ -206,6 +208,11 @@ differ.
 | `dossier-audit/incident-audit/calibrate` | where `dossier calibrate incident-audit --gold gold/incidents` records under the default template (R11.5) |
 | `dossier-audit` | a template with no placeholder: every record in one experiment (R10.2 row 3) |
 | `incidents` | the gold set name `{gold}` renders for `--gold gold/incidents` |
+| `eval 20260806T142203Z-4f1a · anthropic:claude-sonnet-4-5-20250929` | what the default eval name template renders (R10.10). Nothing is abbreviated: the model is written as `model:` pins it |
+| `compare 20260806T142203Z-4f1a -> 20260907T090000Z-bbbb` | the default comparison name |
+| `nightly` | `DOSSIER_MLFLOW_RUN_PREFIX` in the examples; `{prefix}` renders it as `nightly · ` and renders empty when unset |
+| `v2` | the label in the examples: `--label v2`, rendered by `{label}` and tagged `dossier.label` (R10.11) |
+| `a.aleks` | `DOSSIER_MLFLOW_USER`, which MLflow shows as Created by (R10.12). The same name that verifies the gold answers |
 
 ## Evaluation datasets (spec 012)
 

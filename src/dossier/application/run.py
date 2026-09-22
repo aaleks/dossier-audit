@@ -73,6 +73,7 @@ from dossier.domain.resolution import (
 )
 from dossier.domain.schemas import StageOutput
 from dossier.domain.store import RESERVED_KEY, output_path, record_path
+from dossier.domain.tracking import run_name
 from dossier.domain.tracking import tags as tracking_tags
 
 # The `document` an aggregate result is reported under (spec 003). An aggregate
@@ -198,6 +199,7 @@ def execute(
     source_configs: Mapping[str, SourceConfig] | None = None,
     tracker: Tracker | None = None,
     experiment: str | None = None,
+    environ: Mapping[str, str] | None = None,
     capture: str = "full",
 ) -> RunReport:
     """Resolve the pipeline, freeze it, then run it.
@@ -260,7 +262,17 @@ def execute(
     if tracker is not None:
         tracker.start_run(
             experiment=experiment or "",
-            name=run_id,
+            name=run_name(
+                kind="run",
+                values={
+                    "pipeline": pipeline.name,
+                    "started": f"{started_at:%Y%m%dT%H%M%SZ}",
+                    "run_id": run_id,
+                    "model": plan.model,
+                    "pipeline_hash": plan.pipeline_hash,
+                },
+                environ=environ or {},
+            ),
             tags=tracking_tags(kind="run", pipeline=pipeline.name),
         )
         tracker.log_params(

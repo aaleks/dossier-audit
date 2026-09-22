@@ -40,7 +40,7 @@ from dossier.domain.scoring import (
     score_document,
     with_judged,
 )
-from dossier.domain.tracking import calibration_record, case_tags
+from dossier.domain.tracking import calibration_record, case_tags, run_name
 from dossier.domain.tracking import tags as tracking_tags
 
 # What a gold field entry holds that scoring reads. A reviewer's correction also
@@ -161,6 +161,9 @@ def start_eval(
     judges: Mapping[str, Calibration] | None = None,
     withheld: Mapping[str, str] | None = None,
     dataset_stale: bool = False,
+    environ: Mapping[str, str] | None = None,
+    started: str = "",
+    pipeline_hash: str = "",
 ) -> None:
     """Open the eval's MLflow run with what is known before scoring (R11.3 rows 2-4).
 
@@ -171,7 +174,19 @@ def start_eval(
     """
     tracker.start_run(
         experiment=experiment,
-        name=f"eval of {run_id}",
+        name=run_name(
+            kind="eval",
+            values={
+                "pipeline": pipeline,
+                "started": started,
+                "run_id": run_id,
+                "model": model,
+                "pipeline_hash": pipeline_hash,
+                "gold": Path(gold).name,
+                "gold_hash": gold_set_hash(gold_files),
+            },
+            environ=environ or {},
+        ),
         tags={
             **tracking_tags(kind="eval", pipeline=pipeline),
             "dossier.run_id": run_id,
@@ -259,6 +274,8 @@ def record_comparison(
     rows: Sequence[FieldDelta],
     overalls: tuple[FieldTotal | None, FieldTotal | None],
     dataset_stale: bool = False,
+    environ: Mapping[str, str] | None = None,
+    started: str = "",
 ) -> None:
     """Record a comparison as one MLflow run of per-field deltas (R11.8, R11.9).
 
@@ -272,7 +289,18 @@ def record_comparison(
     """
     tracker.start_run(
         experiment=experiment,
-        name=f"compare {runs[0]} -> {runs[1]}",
+        name=run_name(
+            kind="compare",
+            values={
+                "pipeline": pipeline,
+                "started": started,
+                "a": runs[0],
+                "b": runs[1],
+                "gold": Path(gold).name,
+                "gold_hash": gold_set_hash(gold_files),
+            },
+            environ=environ or {},
+        ),
         tags={
             **tracking_tags(kind="compare", pipeline=pipeline),
             "dossier.gold_hash": gold_set_hash(gold_files),
@@ -672,6 +700,8 @@ def calibrate_fields(
     experiment: str = "",
     pipeline: str = "",
     gold_files: Mapping[str, bytes] | None = None,
+    environ: Mapping[str, str] | None = None,
+    started: str = "",
 ) -> dict[str, Calibration]:
     """Measure every judged field, as one MLflow run when there is a tracker (R11.5).
 
@@ -692,7 +722,17 @@ def calibrate_fields(
     if tracker is not None:
         tracker.start_run(
             experiment=experiment,
-            name=f"calibration of {directory.name}",
+            name=run_name(
+                kind="calibrate",
+                values={
+                    "pipeline": pipeline,
+                    "started": started,
+                    "gold": directory.name,
+                    "gold_hash": gold_set_hash(gold_files or {}),
+                    "judge_model": judge_model,
+                },
+                environ=environ or {},
+            ),
             tags={
                 **tracking_tags(kind="calibrate", pipeline=pipeline),
                 "dossier.gold_hash": gold_set_hash(gold_files or {}),

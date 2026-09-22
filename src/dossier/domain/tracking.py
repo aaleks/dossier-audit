@@ -21,6 +21,8 @@ ENABLED = "DOSSIER_MLFLOW_ENABLED"
 TRACKING_URI = "DOSSIER_MLFLOW_TRACKING_URI"
 EXPERIMENT = "DOSSIER_MLFLOW_EXPERIMENT"
 CAPTURE = "DOSSIER_MLFLOW_CAPTURE"
+RUN_PREFIX = "DOSSIER_MLFLOW_RUN_PREFIX"
+RUN_NAME = "DOSSIER_MLFLOW_RUN_NAME"
 
 # What a span may carry: the text a stage read and wrote, or only its hashes.
 _CAPTURES = ("full", "hashes")
@@ -109,6 +111,94 @@ def experiment_name(
 
     values = {"pipeline": pipeline, "kind": kind, "gold": _gold_name(gold) if gold else ""}
     return _PLACEHOLDER.sub(lambda match: values[match.group(1)], template)
+
+
+# The name each kind of record is given (R10.10). Data rather than an f-string at
+# the call site, because a person overrides one of these by name -- and because
+# the defaults are a table in spec 010 that a reader can check this against.
+DEFAULT_NAMES = {
+    "sync": "{prefix}sync {started}",
+    "convert": "{prefix}convert {started}",
+    # The run id alone, as R11.1 row 1 asserts it. A run directory is named this,
+    # and a record named anything else would stop being the thing a person pastes
+    # from one to the other.
+    "run": "{prefix}{run_id}",
+    "eval": "{prefix}eval {run_id} · {model}",
+    "compare": "{prefix}compare {a} -> {b}",
+    "calibrate": "{prefix}calibrate {gold} · {judge_model}",
+}
+
+# What ` · ` separates. A name is read left to right, and the separator belongs to
+# the segment that may be absent rather than to the template around it -- which is
+# what lets one prefix variable open every kind's name without six templates being
+# rewritten, and leaves an unset one with no stray separator to strip (R10.10 row 6).
+SEPARATOR = " · "
+
+# The placeholders whose value is a hash, and which therefore render as the eight
+# characters every spec displays rather than the 64 a real digest carries (R0.7).
+# Decided here rather than at each call site: a caller hands over the hash it
+# holds, and six callers truncating for themselves is six chances to differ.
+_HASH_PLACEHOLDERS = ("gold_hash", "pipeline_hash")
+_DISPLAY_HASH = 8
+
+# What each kind of command holds to put in its own name. Declared rather than
+# inferred from what a caller happened to pass, so a template is refused at the
+# same point whether or not the value would have been there this once -- as an
+# experiment template is (R10.2).
+_EVERY_COMMAND = ("prefix", "pipeline", "kind", "started")
+NAME_PLACEHOLDERS = {
+    "sync": _EVERY_COMMAND,
+    "convert": _EVERY_COMMAND,
+    "run": (*_EVERY_COMMAND, "run_id", "model", "pipeline_hash"),
+    "eval": (*_EVERY_COMMAND, "run_id", "model", "pipeline_hash", "gold", "gold_hash"),
+    "compare": (*_EVERY_COMMAND, "a", "b", "gold", "gold_hash"),
+    "calibrate": (*_EVERY_COMMAND, "gold", "gold_hash", "judge_model"),
+}
+
+
+def name_template(*, kind: str, environ: Mapping[str, str]) -> str:
+    """The template a `dossier <kind>` record is named from, checked (R10.10).
+
+    Separate from the rendering because the two happen at different moments. A
+    command resolves its template at startup, where a bad one is refused before
+    any work (R10.5's moment); it renders the name later, when it holds the run
+    id or the figures the name carries. Resolving twice is cheaper than carrying
+    a resolved template through five signatures, and both calls are pure.
+    """
+    variable = f"{RUN_NAME}_{kind.upper()}"
+    template = environ.get(variable) or DEFAULT_NAMES[kind]
+
+    available = NAME_PLACEHOLDERS[kind]
+    unknown = sorted(set(_PLACEHOLDER.findall(template)) - set(available))
+    if unknown:
+        # Named rather than rendered literally or left blank: a run called
+        # `{gold} 20260806T142203Z-4f1a` is a name nobody meant, and records pile
+        # up under it unnoticed (R10.10 row 4).
+        allowed = ", ".join(f"{{{name}}}" for name in available)
+        raise ValueError(
+            f"{variable} is {template!r}, which uses {{{unknown[0]}}}; "
+            f"`dossier {kind}` may use {allowed}."
+        )
+    return template
+
+
+def run_name(*, kind: str, values: Mapping[str, str], environ: Mapping[str, str]) -> str:
+    """The name a `dossier <kind>` record is given, rendered from its template (R10.10).
+
+    The experiment says which records are comparable (R10.2); the name says which
+    one this is. Every placeholder is a value the command already holds -- the run
+    it reproduced, the model that run pinned -- so a name restates and never
+    computes, as every other record does (spec 011).
+    """
+    template = name_template(kind=kind, environ=environ)
+    prefix = environ.get(RUN_PREFIX, "")
+    rendered = {
+        name: value[:_DISPLAY_HASH] if name in _HASH_PLACEHOLDERS else value
+        for name, value in values.items()
+    }
+    rendered["prefix"] = f"{prefix}{SEPARATOR}" if prefix else ""
+    rendered["kind"] = kind
+    return _PLACEHOLDER.sub(lambda match: rendered[match.group(1)], template)
 
 
 def tags(*, kind: str, pipeline: str) -> dict[str, str]:

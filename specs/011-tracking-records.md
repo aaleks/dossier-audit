@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.10
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.16
 
 ## Purpose
 
@@ -36,6 +36,15 @@ A trace is one (step, document), the unit of a cache key. Following `INC-4821`
 through the pipeline is a filter on the `dossier.document` tag; every `verify`
 failure is a filter on `dossier.step` and status. A cache hit is still a trace,
 with no LLM span in it: seeing that a document cost nothing is information.
+
+A record also says what it *is*, not only what it measured. An eval carries the
+version of everything it scored -- the pipeline hash, each step's prompt and
+schema hashes, the converters, read off the manifest of the run it reproduced
+(R11.11) -- a description generated from the figures it printed (R11.12), and the
+per-document detail the terminal showed (R11.14). A comparison adds the one thing
+a person opens it to find: which steps actually differ between the two runs
+(R11.13). None of it is a second computation. Every value is read from a manifest
+the run wrote or restated from a line the command printed.
 
 A calibration has no steps and no cache; its unit is one sample case, and that is
 its trace. A calibration is the most experiment-shaped thing `dossier` does --
@@ -247,3 +256,157 @@ the same reason: the figures came from the files (R12.4).
 | 1 | `gold/incidents` published, then a comparison over it | the dataset `incidents` logged as an input of the comparison's run, beside the deltas |
 | 2 | the gold set edited since publishing | linked and tagged `dossier.dataset_stale=true`, the terminal naming both hashes (R11.7 row 2) |
 | 3 | *counter-example* — no dataset published for `gold/incidents` | the comparison records its deltas and links nothing; a missing dataset is not an error (R11.7 row 3) |
+
+### R11.11 — an eval records the version of everything it scored, read from the manifest
+
+An eval records the model and the gold set (R11.3 row 2) and nothing else about
+*what produced the answers*. So two evals five points apart in MLflow are two
+figures with no stated cause: which prompt, which schema, which converter, which
+rubric. The manifest of the run being scored holds all four, and an eval already
+reads it to reproduce the run.
+
+Read, never recomputed. A converter pinned at `1.3.0` in the manifest is recorded
+as `1.3.0` on a machine where `1.4.0` is installed, because the record describes
+the run and not the machine that scored it (R4.9).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.version_params`)
+- **Proved by:** `tests/unit/test_R011_11__an_eval_records_the_version_of_what_it_scored.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier eval incident-audit --gold gold/incidents` over run `20260806T142203Z-4f1a` | params `pipeline_hash=2f60a7d3`, `prompt/verify=0e52dd18`, `schema/extract=6e0d4b27`, `converters=markdown-text 1.0.0`, `documents=4`, `dossier_version`, `scored_at=2026-08-06T14:22:03Z` |
+| 2 | a judged `root_cause` | `judge/root_cause/rubric=f7a2d9c4` beside the model and agreement R11.3 row 3 already records: an edit to the rubric is visible on the eval that used it, as it is on the calibration (R11.5) |
+| 3 | `--compare 20260806T142203Z-4f1a 20260907T090000Z-bbbb` | the same params under `a/` and `b/`, as `a/model` and `b/model` already are: `a/pipeline_hash=2f60a7d3`, `b/pipeline_hash=8ad3e115` |
+| 4 | a step whose declaration generates a schema (R6.12) | its `generated_schema/<step>` hash too, `d24c86e1`; it is in the stage key, so it is part of what produced the answer |
+| 5 | *counter-example* — the manifest pins `pdf-markdown 1.3.0`, `1.4.0` is installed | `1.3.0` recorded. A value recomputed here would describe the scoring machine, and two evals of one run on two laptops would disagree |
+
+### R11.12 — an eval and a comparison carry a description generated from the figures they printed
+
+MLflow's Description is the first thing on a run's page and has been empty on
+every record dossier has written. It is the one field that can say, without a
+click, what this run was and what it found.
+
+Generated, never authored: every sentence restates a line the command printed. A
+figure appearing only in the description would be a second way of arriving at
+one, which is what this spec exists to forbid. Written when the run closes rather
+than when it opens, because the figures do not exist until the scoring is done.
+
+Carried in `mlflow.note.content`, one of the four tags R10.12 permits.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.description`)
+- **Proved by:** `tests/unit/test_R011_12__a_record_describes_what_it_measured.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the scoring example (R7.2) | the description holds `overall 80.0% over 5 fields`, `root_cause 50.0% — weakest`, the run id scored, the pinned model, and `gold incidents 3b7e1d90` |
+| 2 | `root_cause` withheld because its calibration is stale (R7.15) | the description names the field and the reason, as the terminal line does, and states no accuracy for it |
+| 3 | the comparison example (R7.8) | `overall 80.0% -> 90.0% (+10.0)`, `regressed: affected_systems`, both run ids and both pinned models |
+| 4 | *counter-example* — a comparison refused because the two runs cover different documents (R7.8 row 3) | no run is opened, so there is no description. Nothing was measured |
+| 5 | *counter-example* — the same eval run twice, with tracking on and off | byte-identical manifests and stage keys (R10.4). A description is a record, and a record is not an input |
+
+### R11.13 — a comparison names the steps that differ between the two runs it compared
+
+The question a change gate is opened with is "what changed?", and until now the
+record answered "these five numbers did". Which prompt moved, which model, which
+documents -- the cause of the delta -- was in neither run's record and had to be
+reconstructed by diffing two manifests by hand.
+
+`dossier run --plan` already computes exactly this, over exactly these inputs
+(R4.12). The comparison runs the same decision over the two manifests it has
+already read, and records what it returns.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.plan.diff`)
+- **Proved by:** `tests/unit/test_R011_13__a_comparison_names_what_differs_between_its_runs.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | run `b` produced after the `verify` prompt changed | `dossier.changed_steps=verify (prompt changed)`; the delta has a stated cause on the same page as the delta |
+| 2 | the pinned model changed between the two runs | every step named `(model changed)`: the pin belongs to the whole plan, not to one step (R4.12) |
+| 3 | `INC-4822` re-fetched at a new snapshot between the runs | `extract (documents changed)`, and the steps below it `(upstream changed)` -- the propagation R4.12 walks |
+| 4 | *counter-example* — both runs at pipeline hash `2f60a7d3`, over the same snapshots | `dossier.changed_steps` present and empty. An absent tag is indistinguishable from a comparison recorded before this rule existed (R11.9 row 3) |
+| 5 | *counter-example* — run `b` is a run of `postmortem-review` | already refused before anything is recorded; a comparison across pipelines is not a comparison |
+
+### R11.14 — an eval and a comparison attach the per-document detail the terminal printed
+
+An eval prints one line per miss -- `INC-4901 resolution_date 2026-08-12 does not
+match 2026-08-11` -- and records a percentage. The percentage says a field is at
+75.0%; the lines say which document and why, which is the difference between
+knowing a field is weak and knowing what to do about it. They live only in the
+terminal, and R0.11's run directory does not hold them, because a score is not
+something a run produced.
+
+Composed from what was printed, as `changes.json` is (R11.6), and sorted, so the
+bytes do not depend on the order anything happened to run in (R0.4).
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval`)
+- **Proved by:** `tests/unit/test_R011_14__an_eval_attaches_the_detail_it_printed.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the scoring example (R7.2) | `scores.json` attached: 20 entries, four documents by five fields, each with its verdict and the detail the terminal printed beside it |
+| 2 | `INC-4822`'s `root_cause`, where gold abstains | its entry reads `incorrect; gold abstains` -- the words R7.3 printed, not a restatement of them |
+| 3 | the comparison example (R7.8) | `deltas.md` attached, holding the table the terminal printed, `affected_systems` marked as the regression |
+| 4 | a judged field under `DOSSIER_MLFLOW_CAPTURE=hashes` | the verdict is in the entry and the judge's evidence is not: the evidence quotes the document (R10.8) |
+| 5 | *counter-example* — a field withheld (R7.15) | its entry says which of missing, short or stale, and no percentage. A withheld field is named, never omitted |
+| 6 | *counter-example* — the same eval with tracking off | nothing under `runs/` or `.dossier/` differs by a byte; the artifact is built from what was printed and written nowhere else (R10.4) |
+
+### R11.15 — the judge's LLM span carries what a stage span carries
+
+A stage's span holds the rendered prompt and the model's reply under `full`, and
+their hashes under `hashes` (R10.8). A judge's span holds its model identifier
+and nothing else, so the one question in `dossier` whose answer is a *judgement*
+is the one call nobody can read back. The verdict and the evidence are in the
+cache artifact, which is on the scoring machine and not on the server.
+
+The same payload, under the same setting, for the same reason: anyone who has the
+documents can check what was asked, and nobody who has only the server can read
+them.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.span_payload`)
+- **Proved by:** `tests/unit/test_R011_15__a_judge_span_carries_what_a_stage_span_carries.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `full`, a miss on `INC-4830` candidate `rc-01` | the span holds the rendered judge question and the reply, as R10.8 row 1 gives a stage |
+| 2 | `DOSSIER_MLFLOW_CAPTURE=hashes` | the judge prompt hash, the input hashes and the verdict's cache key; no words of the document and none of the candidate |
+| 3 | either setting | the field, the document, the judge model and the verdict: they identify, they do not disclose (R10.8 row 4) |
+| 4 | *counter-example* — the verdict served from cache | a trace with no LLM span at all, as R7.18 already has it. There was no call, so there is nothing to carry |
+
+### R11.16 — a judge's verdict is an assessment on the trace the eval already opened
+
+An eval opens one trace per judged (field, document) (R7.18 row 5). MLflow's
+Evaluations view reads assessments on traces, and dossier attaches none, so the
+view is empty for the one part of scoring that is not arithmetic.
+
+Recorded, never computed. `mlflow.genai.evaluate` would have MLflow arrive at a
+verdict of its own from the same material, which is the second-way-of-computing
+this spec forbids; an assessment is a projection of a verdict dossier already
+reached, one way only, as a published dataset is (R12.4).
+
+On every judged verdict, whether the judge was asked or the cache answered: the
+verdict is what the eval scored either way, and an assessment that appeared only
+on a cache miss would make a second eval of one run look like it judged nothing.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval`)
+- **Proved by:** `tests/unit/test_R011_16__a_judge_verdict_is_an_assessment.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `root_cause · INC-4830`, candidate `rc-01`, judged supported | an assessment named `root_cause`, value `true`, rationale the judge's evidence, sourced to the judge model |
+| 2 | candidate `rc-02`, the planted claim (R7.12) | value `false`: the case that tells a working judge from one that agrees with everything is a filter in the UI |
+| 3 | the same eval run a second time, every verdict from cache | the same assessments, on the traces of the second run. A verdict that cost nothing is still the verdict that was scored |
+| 4 | `DOSSIER_MLFLOW_CAPTURE=hashes` | the value is recorded and the rationale is not; the evidence quotes the document (R10.8) |
+| 5 | *counter-example* — a field withheld (R7.15) | no assessment, because it was never judged: nothing is measured for a number nobody may print (R7.17) |
+| 6 | *counter-example* — `mlflow.genai.evaluate` | never called. Every value on a trace is one `dossier` computed and printed |
