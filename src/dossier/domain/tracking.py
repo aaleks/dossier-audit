@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict
 
 from dossier.domain.judges import Calibration
 from dossier.domain.resolution import ResolvedPlan
+from dossier.domain.scoring import FieldDelta, FieldTotal, overall, regressed_fields, weakest
 
 ENABLED = "DOSSIER_MLFLOW_ENABLED"
 TRACKING_URI = "DOSSIER_MLFLOW_TRACKING_URI"
@@ -359,6 +360,86 @@ def version_params(plan: ResolvedPlan, *, prefix: str = "") -> dict[str, str]:
     )
     recorded[f"{prefix}documents"] = str(len(plan.documents))
     return recorded
+
+
+def eval_description(
+    *,
+    run_id: str,
+    pipeline: str,
+    model: str,
+    pipeline_hash: str,
+    gold: str,
+    gold_hash: str,
+    documents: int,
+    totals: Sequence[FieldTotal],
+    withheld: Mapping[str, str],
+) -> str:
+    """What an eval says about itself, in MLflow's Description (R11.12).
+
+    Generated, never authored. Every line restates one the command printed, and
+    every figure is computed from the totals the report was built from -- a
+    figure that existed only here would be a second way of arriving at one,
+    which is what spec 011 forbids.
+
+    Written when the run closes rather than when it opens, because none of the
+    figures exist until the scoring is done.
+    """
+    lines = [
+        f"eval of {run_id} · {pipeline}",
+        f"model {model} · pipeline {pipeline_hash[:_DISPLAY_HASH]}",
+        f"gold {gold} {gold_hash[:_DISPLAY_HASH]} · {documents} documents",
+    ]
+    summed = overall(totals)
+    if summed is not None:
+        # The overall and the breadth it covers, as R7.2 prints them together: a
+        # percentage without the field count says nothing about what was measured.
+        headline = f"overall {summed.percentage:.1f}% over {len(totals)} fields"
+        lowest = weakest(totals)
+        if lowest:
+            worst = next(total for total in totals if total.field in lowest)
+            headline += f" · weakest {worst.field} {worst.percentage:.1f}%"
+        lines.append(headline)
+    for field, why in withheld.items():
+        # Named with the reason and no figure, as the report's line is (R7.15). A
+        # field silently dropped would read as one nobody verified, which is a
+        # different problem wanting different work (R7.3 row 4).
+        lines.append(f"withheld {field} — {why}")
+    return "\n".join(lines)
+
+
+def comparison_description(
+    *,
+    runs: tuple[str, str],
+    pipeline: str,
+    models: tuple[str, str],
+    gold: str,
+    gold_hash: str,
+    documents: int,
+    rows: Sequence[FieldDelta],
+    overalls: tuple[FieldTotal | None, FieldTotal | None],
+) -> str:
+    """What a comparison says about itself (R11.12 row 3).
+
+    The two runs, the model each pinned, the overall's movement and what
+    regressed -- the four things the report's own opening line and its markers
+    say. `regressed nothing` is said rather than omitted, for the reason R11.9
+    row 3 gives for the tag: a missing line reads as a record written before the
+    line existed.
+    """
+    lines = [
+        f"compare {runs[0]} -> {runs[1]} · {pipeline}",
+        f"model {models[0]} -> {models[1]}",
+        f"gold {gold} {gold_hash[:_DISPLAY_HASH]} · {documents} documents",
+    ]
+    earlier, later = overalls
+    if earlier is not None and later is not None:
+        moved = later.percentage - earlier.percentage
+        lines.append(
+            f"overall {earlier.percentage:.1f}% -> {later.percentage:.1f}% ({moved:+.1f})"
+        )
+    worse = regressed_fields(rows)
+    lines.append(f"regressed {', '.join(worse)}" if worse else "regressed nothing")
+    return "\n".join(lines)
 
 
 def calibration_record(

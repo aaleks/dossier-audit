@@ -229,9 +229,18 @@ def start_eval(
 
 
 def finish_eval(
-    tracker: Tracker, *, totals: Sequence[FieldTotal], withheld: Mapping[str, str] | None = None
+    tracker: Tracker,
+    *,
+    totals: Sequence[FieldTotal],
+    withheld: Mapping[str, str] | None = None,
+    description: str = "",
 ) -> None:
-    """Close the eval's run with the figures the report printed (R11.3 rows 1, 4)."""
+    """Close the eval's run with the figures the report printed (R11.3 rows 1, 4).
+
+    The description is handed in rather than built here, for the reason the
+    withheld list is: the command decides what it reported, and MLflow records
+    that decision rather than reaching it a second way (spec 011, R11.12).
+    """
     # A field whose judge may not be quoted records no accuracy at all -- not its
     # own metric, and not a share of the overall. One list feeds both, so the
     # headline always covers exactly the verdicts the breakdown does. Summing
@@ -243,6 +252,10 @@ def finish_eval(
     if summed is not None:
         metrics["accuracy/overall"] = summed.percentage
     tracker.log_metrics(metrics)
+    if description:
+        # Set as the run closes, because none of the figures in it exist when the
+        # run opens (R11.12).
+        tracker.describe(description)
     tracker.end_run(status="FINISHED")
 
 
@@ -296,6 +309,7 @@ def record_comparison(
     rows: Sequence[FieldDelta],
     overalls: tuple[FieldTotal | None, FieldTotal | None],
     dataset_stale: bool = False,
+    description: str = "",
     environ: Mapping[str, str] | None = None,
     started: str = "",
     label: str = "",
@@ -377,6 +391,8 @@ def record_comparison(
     if earlier is not None and later is not None:
         metrics["delta/overall"] = later.percentage - earlier.percentage
     tracker.log_metrics(metrics)
+    if description:
+        tracker.describe(description)
     tracker.end_run(status="FINISHED")
 
 

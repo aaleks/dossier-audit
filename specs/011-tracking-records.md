@@ -296,9 +296,9 @@ than when it opens, because the figures do not exist until the scoring is done.
 Carried in `mlflow.note.content`, one of the four tags R10.12 permits.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.tracking.description`)
-- **Proved by:** `tests/unit/test_R011_12__a_record_describes_what_it_measured.py`
-- **Status:** NOT MET
+- **Layer:** domain (`dossier.domain.tracking.eval_description`, `.comparison_description`)
+- **Proved by:** `tests/unit/test_R011_12__a_record_describes_what_it_measured.py`, `tests/acceptance/test_R011_12__eval_describes_itself_in_mlflow.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
