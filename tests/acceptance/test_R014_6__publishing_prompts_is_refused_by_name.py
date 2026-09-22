@@ -32,7 +32,9 @@ def registry(workspace: Path, monkeypatch) -> FakePromptRegistry:
     import dossier.cli.main as cli
 
     holder = FakePromptRegistry()
-    monkeypatch.setattr(cli, "build_prompt_registry", lambda settings: holder, raising=False)
+    monkeypatch.setattr(
+        cli, "build_prompt_registry", lambda settings, **_: holder, raising=False
+    )
     write_pipeline(workspace, steps=["verify"])
     return holder
 

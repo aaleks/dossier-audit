@@ -59,11 +59,12 @@ from dossier.domain.ports import (
     ArtifactStore,
     ImagePart,
     ModelClient,
+    PromptRegistry,
     SnapshotReader,
     Tracker,
     VersionRegistry,
 )
-from dossier.domain.prompts import render
+from dossier.domain.prompts import prompt_name, render
 from dossier.domain.resolution import (
     PinnedConverter,
     ResolvedPlan,
@@ -206,6 +207,7 @@ def execute(
     capture: str = "full",
     versions: VersionRegistry | None = None,
     version_experiment: str = "",
+    prompt_registry: PromptRegistry | None = None,
 ) -> RunReport:
     """Resolve the pipeline, freeze it, then run it.
 
@@ -311,6 +313,30 @@ def execute(
             )
             if registered is not None:
                 tracker.produced_version(registered.version_id)
+
+        # The prompt version each step rendered, found by the hash the plan
+        # already holds rather than by recency: a prompt edited and republished
+        # since this text was written would otherwise attach its newest words
+        # to a run that never saw them (R14.7 row 1). A step whose prompt was
+        # never published finds nothing and links nothing -- a run must not
+        # fail, or even differ, because someone has not run `prompts publish`
+        # (R10.4).
+        if prompt_registry is not None:
+            for step in plan.steps:
+                try:
+                    found = prompt_registry.find(
+                        prompt_name(pipeline.name, step.id), step.prompt_hash
+                    )
+                except Exception:
+                    # Broadly, and on purpose, as R13.5 does for the version
+                    # registry: a registry that is unreachable, unwell or
+                    # lacking a prompt store costs this link and must not cost
+                    # the run. R10.4 is that tracking changes nothing about a
+                    # run, and failing one because nobody published its prompts
+                    # would be the loudest possible change.
+                    break
+                if found is not None:
+                    tracker.rendered_prompt(name=found.name, version=found.version)
 
     try:
         for step in plan.steps:

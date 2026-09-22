@@ -182,6 +182,24 @@ class MlflowTracker:
             ],
         )
 
+    def rendered_prompt(self, *, name: str, version: int) -> None:
+        """Link this run to the prompt version it rendered (R14.7).
+
+        `link_prompt_version_to_run` is MLflow's own edge for this, so the
+        prompt's page lists the runs that used it and the run's page lists the
+        prompts -- which is the whole point of having published them.
+
+        The run id comes from the run this tracker already holds. dossier never
+        activates a run (R10.4), so there is no ambient one to infer.
+        """
+        # MLflow addresses a version by URI here. The same scheme is what
+        # `load_prompt` would fetch through, and this is deliberately not that
+        # call: nothing comes back but `None`, and no template crosses into the
+        # run (R14.5).
+        self._client.link_prompt_version_to_run(
+            run_id=self._run_id, prompt=f"prompts:/{name}/{version}"
+        )
+
     def produced_version(self, version_id: str) -> None:
         """Link this run to the version it built, as one of its outputs (R13.2).
 
@@ -423,53 +441,6 @@ class MlflowDatasetRegistry:
         )
 
 
-# What a FileStore-backed server has no endpoint for. A prompt is a registered
-# model version underneath, and the model registry is a component a FileStore
-# does not implement at all -- every one of its endpoints 404s, search
-# included -- while a SQL-backed server answers.
-PROMPTS_ENDPOINT = "/api/2.0/mlflow/registered-models/search"
-
-
-def connect_prompts(uri: str) -> PromptRegistry:
-    """A prompt registry recording to `uri`, or `TrackingUnavailable` saying why not.
-
-    Three checks, in the order a person would fix them: the `tracking` extra, a
-    server that answers, and a server whose store can hold a prompt at all
-    (R13.6). The third is this function's reason for existing beside `connect`:
-    a prompt version is a registered model version, and a FileStore-backed
-    server has no model registry behind it, so a person publishing to one is
-    told which server setting to change rather than handed an MLflow
-    traceback.
-    """
-    connect(uri)  # the extra and the server, refused with their own messages
-
-    if uri.startswith(("http://", "https://")):
-        search = uri.rstrip("/") + PROMPTS_ENDPOINT
-        try:
-            with httpx.Client(
-                transport=HEALTH_TRANSPORT, timeout=HEALTH_TIMEOUT_SECONDS
-            ) as http:
-                answered = http.get(search, params={"max_results": 1})
-        except httpx.HTTPError as error:
-            raise TrackingUnavailable(
-                f"tracking is enabled and no MLflow server answers at {uri} ({error}). "
-                "Start it, or set DOSSIER_MLFLOW_ENABLED=false."
-            ) from None
-        if not answered.is_success:
-            # Any answer that is not a success, not only a 404. A file-backed
-            # server does not 404 here -- it reaches the handler and fails
-            # inside it, answering 500 -- and a check that looked only for 404
-            # let the publish through to hang on MLflow's own retry of the 500.
-            raise TrackingUnavailable(
-                f"the MLflow server at {uri} cannot hold a prompt registry: "
-                f"{PROMPTS_ENDPOINT} answered {answered.status_code} "
-                f"{answered.reason_phrase}. A prompt registry needs a SQL backend -- "
-                "start the server with --backend-store-uri (postgresql, mysql, "
-                "sqlite or mssql), not a file store."
-            )
-    return MlflowPromptRegistry(uri)
-
-
 class MlflowPromptRegistry:
     """The `PromptRegistry` port, over `mlflow.genai.register_prompt` and the
     model registry's version search (spec 013).
@@ -528,6 +499,91 @@ class MlflowPromptRegistry:
             prompt_hash=dict(newest.tags or {}).get("dossier.prompt_hash", ""),
             created=False,
         )
+
+    def find(self, name: str, prompt_hash: str) -> PublishedPrompt | None:
+        """The version of `name` tagged with `prompt_hash`, oldest first (R14.7).
+
+        Searched by tag rather than taken from the top of the history, because a
+        run links what it *rendered*: a prompt edited and republished since would
+        otherwise attach its newest words to a run that never saw them.
+
+        Oldest first because a hash reverted to is the same hash. Republishing a
+        prompt back to text it already held leaves two versions tagged
+        identically, and the first is the one a person reading the history would
+        call the original.
+        """
+        from mlflow import MlflowClient
+        from mlflow.exceptions import MlflowException
+
+        client = MlflowClient(tracking_uri=self._uri)
+        try:
+            versions = client.search_prompt_versions(name)
+        except MlflowException as error:
+            if error.error_code == "RESOURCE_DOES_NOT_EXIST":
+                return None
+            raise
+
+        for version in sorted(versions, key=lambda held: int(held.version)):
+            if dict(version.tags or {}).get("dossier.prompt_hash") == prompt_hash:
+                return PublishedPrompt(
+                    name=version.name,
+                    version=int(version.version),
+                    prompt_hash=prompt_hash,
+                    created=False,
+                )
+        return None
+
+
+# What a FileStore-backed server has no endpoint for. A prompt is a registered
+# model version underneath, and the model registry is a component a FileStore
+# does not implement at all -- every one of its endpoints 404s, search
+# included -- while a SQL-backed server answers.
+PROMPTS_ENDPOINT = "/api/2.0/mlflow/registered-models/search"
+
+
+def connect_prompts(uri: str, *, verify: bool = True) -> PromptRegistry:
+    """A prompt registry recording to `uri`, or `TrackingUnavailable` saying why not.
+
+    Three checks, in the order a person would fix them: the `tracking` extra, a
+    server that answers, and a server whose store can hold a prompt at all
+    (R14.6). The third is this function's reason for existing beside `connect`:
+    a prompt version is a registered model version, and a FileStore-backed
+    server has no model registry behind it, so a person publishing to one is
+    told which server setting to change rather than handed an MLflow
+    traceback.
+    """
+    # `verify=False` on the run path (R14.7): the tracker has already
+    # connected to this same server, so a second probe buys nothing and
+    # costs a round-trip on a command that never made one. R10.4 is that
+    # tracking changes nothing about a run, and a startup probe is a change.
+    if verify:
+        connect(uri)  # the extra and the server, refused with their own messages
+
+    if verify and uri.startswith(("http://", "https://")):
+        search = uri.rstrip("/") + PROMPTS_ENDPOINT
+        try:
+            with httpx.Client(
+                transport=HEALTH_TRANSPORT, timeout=HEALTH_TIMEOUT_SECONDS
+            ) as http:
+                answered = http.get(search, params={"max_results": 1})
+        except httpx.HTTPError as error:
+            raise TrackingUnavailable(
+                f"tracking is enabled and no MLflow server answers at {uri} ({error}). "
+                "Start it, or set DOSSIER_MLFLOW_ENABLED=false."
+            ) from None
+        if not answered.is_success:
+            # Any answer that is not a success, not only a 404. A file-backed
+            # server does not 404 here -- it reaches the handler and fails
+            # inside it, answering 500 -- and a check that looked only for 404
+            # let the publish through to hang on MLflow's own retry of the 500.
+            raise TrackingUnavailable(
+                f"the MLflow server at {uri} cannot hold a prompt registry: "
+                f"{PROMPTS_ENDPOINT} answered {answered.status_code} "
+                f"{answered.reason_phrase}. A prompt registry needs a SQL backend -- "
+                "start the server with --backend-store-uri (postgresql, mysql, "
+                "sqlite or mssql), not a file store."
+            )
+    return MlflowPromptRegistry(uri)
 
 
 def _record_count(dataset) -> int:
