@@ -1434,6 +1434,14 @@ def eval_(
             scored_at=manifest.started_at.isoformat().replace("+00:00", "Z"),
             versions=versions,
             version_experiment=_version_experiment(workspace, pipeline),
+            # Unverified and best-effort, as the run's is (R14.7): a server
+            # with no prompt store costs the link and never the score.
+            prompt_registry=_prompt_registry_for(workspace),
+            rubric_hashes={
+                field: text_hash(path.parent / named)
+                for field, named in load_judge_rubrics(path.parent / step.output).items()
+            },
+            prompt_prefix=environment(workspace).get(PROMPT_PREFIX, ""),
         )
         if published is not None:
             tracker.log_dataset(

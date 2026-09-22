@@ -13,12 +13,12 @@ renders from (R14.5).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 from dossier.domain.hashing import short
 from dossier.domain.pipeline import PipelineConfig
-from dossier.domain.ports import PromptRegistry
+from dossier.domain.ports import PromptRegistry, Tracker
 from dossier.domain.prompts import PROMPT_HASH_TAG, PublishedPrompt, publish_set
 
 
@@ -64,6 +64,31 @@ def publish_prompts(
             )
         )
     return published
+
+
+def link_published(
+    tracker: Tracker, registry: PromptRegistry, wanted: Iterable[tuple[str, str]]
+) -> None:
+    """Link each (name, hash) in `wanted` to the version carrying that hash (R14.7, R14.9).
+
+    Found by hash, never by recency: a prompt edited and republished since
+    would otherwise attach its newest words to a record that never used them.
+    A name nobody published finds nothing and links nothing -- a command must
+    not fail, or even differ, because someone has not run `prompts publish`
+    (R10.4).
+    """
+    for name, prompt_hash in wanted:
+        try:
+            found = registry.find(name, prompt_hash)
+        except Exception:
+            # Broadly, and on purpose, as R13.5 does for the version registry:
+            # a registry that is unreachable, unwell or lacking a prompt store
+            # costs the links and must not cost the command. Stopped at the
+            # first refusal rather than asked once per name, because a server
+            # that has refused one lookup has answered for the rest.
+            break
+        if found is not None:
+            tracker.rendered_prompt(name=found.name, version=found.version)
 
 
 def _paths(

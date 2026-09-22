@@ -39,6 +39,7 @@ from pydantic import ValidationError
 from dossier.application.convert import MARKDOWN, convert_inputs
 from dossier.application.extract import DocumentResult, run_stage
 from dossier.application.manifest import Manifest
+from dossier.application.prompts import link_published
 from dossier.domain.conversion import PART_SUFFIX, PART_TYPE, part_name, unpack_parts
 from dossier.domain.fields import OutputSchema
 from dossier.domain.grounding import FieldCheck, FieldVerdict, check_field, with_derived_page
@@ -323,22 +324,17 @@ def execute(
         # fail, or even differ, because someone has not run `prompts publish`
         # (R10.4).
         if prompt_registry is not None:
-            for step in plan.steps:
-                try:
-                    found = prompt_registry.find(
+            link_published(
+                tracker,
+                prompt_registry,
+                [
+                    (
                         prompt_name(pipeline.name, step.id, prefix=prompt_prefix),
                         step.prompt_hash,
                     )
-                except Exception:
-                    # Broadly, and on purpose, as R13.5 does for the version
-                    # registry: a registry that is unreachable, unwell or
-                    # lacking a prompt store costs this link and must not cost
-                    # the run. R10.4 is that tracking changes nothing about a
-                    # run, and failing one because nobody published its prompts
-                    # would be the loudest possible change.
-                    break
-                if found is not None:
-                    tracker.rendered_prompt(name=found.name, version=found.version)
+                    for step in plan.steps
+                ],
+            )
 
     try:
         for step in plan.steps:
