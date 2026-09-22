@@ -126,6 +126,14 @@ class MlflowTracker:
             metrics=[Metric(key, float(value), now, 0) for key, value in metrics.items()],
         )
 
+    def describe(self, text: str) -> None:
+        """Set `mlflow.note.content`, the tag MLflow's UI renders as Description.
+
+        A tag rather than a field: MLflow has no description column on a run, and
+        this is the one name its UI reads (R10.12).
+        """
+        self._client.set_tag(self._run_id, "mlflow.note.content", text)
+
     def log_artifact(self, name: str, content: bytes) -> None:
         self._client.log_text(self._run_id, content.decode("utf-8"), name)
 

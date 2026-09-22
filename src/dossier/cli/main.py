@@ -236,6 +236,7 @@ def sync(
                 kind="sync",
                 pipeline=pipeline,
                 label=label_for(label, environment(workspace)),
+                environ=environment(workspace),
             ),
         )
         metrics: dict[str, float] = {}
@@ -648,6 +649,7 @@ def convert(
                 kind="convert",
                 pipeline=pipeline,
                 label=label_for(label, environment(workspace)),
+                environ=environment(workspace),
             ),
         )
         metrics: dict[str, float] = {}

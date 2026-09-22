@@ -1,6 +1,6 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R10.1 – R10.12
 
 ## Purpose
@@ -398,8 +398,8 @@ variable reaches a record.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.tags`)
-- **Proved by:** `tests/unit/test_R010_12__dossier_writes_four_mlflow_tags_and_no_others.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R010_12__dossier_writes_four_mlflow_tags_and_no_others.py`, `tests/acceptance/test_R010_12__a_record_says_who_ran_it_and_what_ran_it.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -190,7 +190,7 @@ def start_eval(
             environ=environ or {},
         ),
         tags={
-            **tracking_tags(kind="eval", pipeline=pipeline, label=label),
+            **tracking_tags(kind="eval", pipeline=pipeline, label=label, environ=environ or {}),
             "dossier.run_id": run_id,
             "dossier.gold_hash": gold_set_hash(gold_files),
             **({"dossier.dataset_stale": "true"} if dataset_stale else {}),
@@ -306,7 +306,9 @@ def record_comparison(
             environ=environ or {},
         ),
         tags={
-            **tracking_tags(kind="compare", pipeline=pipeline, label=label),
+            **tracking_tags(
+                kind="compare", pipeline=pipeline, label=label, environ=environ or {}
+            ),
             "dossier.gold_hash": gold_set_hash(gold_files),
             # Present and empty when nothing regressed. An absent tag is
             # indistinguishable from a comparison recorded before this rule
@@ -740,7 +742,12 @@ def calibrate_fields(
                 environ=environ or {},
             ),
             tags={
-                **tracking_tags(kind="calibrate", pipeline=pipeline, label=label),
+                **tracking_tags(
+                    kind="calibrate",
+                    pipeline=pipeline,
+                    label=label,
+                    environ=environ or {},
+                ),
                 "dossier.gold_hash": gold_set_hash(gold_files or {}),
             },
         )
