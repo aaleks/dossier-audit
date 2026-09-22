@@ -11,7 +11,7 @@ here enters a key, a manifest or a score.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from pydantic import BaseModel, ConfigDict
 

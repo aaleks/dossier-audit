@@ -24,6 +24,7 @@ Pure. Two resolved plans in, one line per step out.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
@@ -174,4 +175,25 @@ def _moved(previous: list[PinnedDocument], resolved: list[PinnedDocument]) -> tu
         f"{document.key} {'changed' if document.key in held else 'new'}"
         for document in sorted(resolved, key=lambda d: d.key)
         if held.get(document.key) != document.snapshot
+    )
+
+
+def changed_steps(plans: Sequence[StepPlan]) -> str:
+    """The steps that differ between two runs, as one line (R11.13).
+
+    What `diff` already decided, written the way a tag can hold it: the cause of
+    a delta belongs on the same page as the delta, and until now it was in
+    neither compared run's record.
+
+    In declaration order, which is the order `diff` walks and the order a person
+    reads a pipeline in. Nothing here enters a key (R10.4), so any order would
+    break no rule -- and a line whose order moved between two comparisons of one
+    change would read as two different findings.
+
+    Empty when nothing moved. The caller records that as a present and empty tag,
+    because an absent one is indistinguishable from a comparison recorded before
+    this rule existed (R11.9 row 3).
+    """
+    return ", ".join(
+        f"{plan.step.id} ({plan.status.value})" for plan in plans if plan.rerunning
     )

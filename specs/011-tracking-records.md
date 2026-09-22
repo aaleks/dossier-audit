@@ -320,9 +320,9 @@ reconstructed by diffing two manifests by hand.
 already read, and records what it returns.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.plan.diff`)
-- **Proved by:** `tests/unit/test_R011_13__a_comparison_names_what_differs_between_its_runs.py`
-- **Status:** NOT MET
+- **Layer:** domain (`dossier.domain.plan.changed_steps`)
+- **Proved by:** `tests/unit/test_R011_13__a_comparison_names_what_differs_between_its_runs.py`, `tests/acceptance/test_R011_13__compare_names_what_changed_between_its_runs.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
