@@ -128,11 +128,12 @@ class TestARunRecordsOneTracePerStepAndDocument:
         manifest = workspace / "runs" / run_id / "manifest.json"
         plan = json.loads(manifest.read_text(encoding="utf-8"))["plan"]
         run = tracker.runs[0]
-        assert run.params == {
-            "pipeline": PIPELINE,
-            "model": RoutedModel.model_id,
-            "pipeline_hash": plan["pipeline_hash"],
-        }
+        # Per entry rather than as a whole dict. R11.1 claims these three are
+        # recorded; it does not claim they are the only params, and R11.18 adds
+        # the versions of what produced the run beside them.
+        assert run.params["pipeline"] == PIPELINE
+        assert run.params["model"] == RoutedModel.model_id
+        assert run.params["pipeline_hash"] == plan["pipeline_hash"]
         assert run.metrics == {"documents": 4, "cache_hits": 0, "model_calls": 4, "failed": 0}
         assert run.artifacts["manifest.json"] == manifest.read_bytes()
 

@@ -468,7 +468,7 @@ places.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run.execute`)
 - **Proved by:** `tests/acceptance/test_R011_18__a_run_records_what_produced_it.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

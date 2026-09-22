@@ -73,7 +73,7 @@ from dossier.domain.resolution import (
 )
 from dossier.domain.schemas import StageOutput
 from dossier.domain.store import RESERVED_KEY, output_path, record_path
-from dossier.domain.tracking import run_description, run_name, step_line
+from dossier.domain.tracking import run_description, run_name, step_line, version_params
 from dossier.domain.tracking import tags as tracking_tags
 
 # The `document` an aggregate result is reported under (spec 003). An aggregate
@@ -283,7 +283,14 @@ def execute(
             {
                 "pipeline": pipeline.name,
                 "model": plan.model,
-                "pipeline_hash": plan.pipeline_hash,
+                # The version of everything this run is about to use, off the
+                # plan it has just resolved: the same function over the same
+                # data that the eval scoring this run reads off its manifest
+                # (R11.18). `pipeline_hash` is among them. Recorded here
+                # and not only there, because "which prompt moved" is the
+                # question MLflow's run comparison exists for, and two runs of
+                # one pipeline could not answer it.
+                **version_params(plan),
             }
         )
 
