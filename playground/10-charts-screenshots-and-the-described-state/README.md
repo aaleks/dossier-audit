@@ -198,6 +198,8 @@ is the one that matters:
 - you can explain to someone else why `described` is neither a pass nor a
   failure, and why it needs its own threshold and its own sample.
 
-**Next:** nothing — this is the last exercise. Go back to
-[the index](../README.md), or open `specs/006-extraction.md` and
-`specs/008-conversion.md` and read what you have just been running.
+**Next:** [12 · A dataset, and the change gate](../12-a-dataset-and-the-change-gate/),
+which stays offline like this one. [11 · A real Jira on your
+machine](../11-a-real-jira-on-your-machine/) is the optional detour that needs
+Docker. Or stop here and open `specs/006-output-schemas.md` and
+`specs/008-conversion.md` to read what you have just been running.
