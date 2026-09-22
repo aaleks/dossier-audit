@@ -1,4 +1,4 @@
-"""R14.8 — a configured prefix goes in front of every prompt name, and an unset one changes none.
+"""R14.8 — a configured prefix goes in front of every prompt name; an unset one changes none.
 
 The naming decision, in the layer that owns it. R14.1 and R14.2 compose a name
 from the pipeline and the step or field; this puts it under a namespace. Pure,
@@ -60,3 +60,55 @@ class TestAPrefixGoesInFrontOfEveryPromptName:
         assert character in str(refusal.value)
         assert PROMPT_PREFIX in str(refusal.value)
         assert PROMPT_PREFIX == "DOSSIER_MLFLOW_PROMPT_PREFIX"
+
+
+class TestThePublishSetCarriesThePrefixToEveryName:
+    """R14.8 — the projection names every prompt it produces under the prefix."""
+
+    def test_every_prompt_the_projection_produces_is_namespaced(self):
+        """Row 1, one layer down: the one where no name escapes the namespace.
+
+        Steps and the rubric alike, and the rubric still once however many steps
+        declare it (R14.2): the dedup compares names, so it has to compare the
+        prefixed ones or two steps would publish `root_cause` twice.
+        """
+        from dossier.domain.pipeline import PipelineConfig, StepConfig
+        from dossier.domain.prompts import publish_set
+
+        config = PipelineConfig(
+            name="incident-audit",
+            sources=["incidents-jira"],
+            model="anthropic:claude-sonnet-4-5-20250929",
+            steps=[
+                StepConfig(
+                    id="extract",
+                    prompt="prompts/01_extract.md",
+                    input="documents",
+                    mode="per_file",
+                    output="schemas/incident.yaml",
+                ),
+                StepConfig(
+                    id="verify",
+                    prompt="prompts/02_verify.md",
+                    input="documents",
+                    mode="per_file",
+                    output="schemas/incident.yaml",
+                ),
+            ],
+        )
+        texts = {
+            "prompts/01_extract.md": "Extract the fields.\n",
+            "prompts/02_verify.md": "Verify the extraction.\n",
+            "rubrics/root_cause.md": "Is the stated root cause supported?\n",
+        }
+        declared = {"root_cause": "rubrics/root_cause.md"}
+
+        published = publish_set(
+            config, texts, rubrics={"extract": declared, "verify": declared}, prefix="sandbox"
+        )
+
+        assert [prompt.name for prompt in published] == [
+            "sandbox.incident-audit.extract",
+            "sandbox.incident-audit.verify",
+            "sandbox.incident-audit.judge.root_cause",
+        ]

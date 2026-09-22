@@ -89,6 +89,7 @@ from dossier.domain.ports import (
     Tracker,
     VersionRegistry,
 )
+from dossier.domain.prompts import PROMPT_PREFIX
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
 from dossier.domain.scoring import (
     check_same_documents,
@@ -983,6 +984,9 @@ def _execute(workspace: Path, pipeline: str, *, label: str = "") -> None:
             capture=capture,
             versions=versions,
             prompt_registry=prompt_registry,
+            # The same variable a publish reads, so a run asks for the name it
+            # would have published under (R14.8 row 3).
+            prompt_prefix=environment(workspace).get(PROMPT_PREFIX, ""),
             version_experiment=experiment or "",
             run_id=this_run,
             started_at=started_at,
@@ -2008,7 +2012,11 @@ def prompts_publish(
             if step.output
         }
         published = publish_prompts(
-            registry, config=config, directory=directory, rubrics=rubrics
+            registry,
+            config=config,
+            directory=directory,
+            rubrics=rubrics,
+            prefix=environ.get(PROMPT_PREFIX, ""),
         )
     except (ConfigError, ValueError) as error:
         # The illegal pipeline name lands here (R14.1 row 5): composed, refused,

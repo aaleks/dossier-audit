@@ -28,8 +28,6 @@ from tests.scoring_example import (
     RoutedModel,
 )
 
-pytestmark = pytest.mark.outer_loop
-
 PREFIX = "DOSSIER_MLFLOW_PROMPT_PREFIX"
 URI = "http://localhost:5000"
 STEPS = ["extract", "verify", "report"]

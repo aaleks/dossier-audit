@@ -1,6 +1,6 @@
 # 014 — A pipeline's prompts as MLflow prompt registry versions
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R14.1 – R14.8
 
 ## Purpose
@@ -350,8 +350,8 @@ run looks up, so the two can only agree.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.prompt_name`)
-- **Proved by:** `tests/acceptance/test_R014_8__a_prompt_prefix_namespaces_every_name.py`
-- **Status:** IN PROGRESS
+- **Proved by:** `tests/acceptance/test_R014_8__a_prompt_prefix_namespaces_every_name.py`, `tests/unit/test_R014_8__a_prefix_goes_in_front_of_every_prompt_name.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -208,6 +208,7 @@ def execute(
     versions: VersionRegistry | None = None,
     version_experiment: str = "",
     prompt_registry: PromptRegistry | None = None,
+    prompt_prefix: str = "",
 ) -> RunReport:
     """Resolve the pipeline, freeze it, then run it.
 
@@ -325,7 +326,8 @@ def execute(
             for step in plan.steps:
                 try:
                     found = prompt_registry.find(
-                        prompt_name(pipeline.name, step.id), step.prompt_hash
+                        prompt_name(pipeline.name, step.id, prefix=prompt_prefix),
+                        step.prompt_hash,
                     )
                 except Exception:
                     # Broadly, and on purpose, as R13.5 does for the version

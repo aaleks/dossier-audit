@@ -195,6 +195,8 @@ def publish_set(
     config: PipelineConfig,
     texts: Mapping[str, str],
     rubrics: Mapping[str, Mapping[str, str]] | None = None,
+    *,
+    prefix: str = "",
 ) -> list[PromptToPublish]:
     """R14.1 — the prompts a pipeline publishes, one per step.
 
@@ -219,7 +221,7 @@ def publish_set(
     for step in config.steps:
         published.append(
             _to_publish(
-                name=prompt_name(config.name, step.id),
+                name=prompt_name(config.name, step.id, prefix=prefix),
                 pipeline=config.name,
                 path=step.prompt,
                 text=texts[step.prompt],
@@ -229,7 +231,7 @@ def publish_set(
     seen = {prompt.name for prompt in published}
     for step in config.steps:
         for field, path in (rubrics or {}).get(step.id, {}).items():
-            name = judge_prompt_name(config.name, field)
+            name = judge_prompt_name(config.name, field, prefix=prefix)
             # Judging one field is one job however many steps declare it. The
             # name is the field's, so the second sighting is a duplicate by
             # construction rather than something to compare paths over (R14.2).
