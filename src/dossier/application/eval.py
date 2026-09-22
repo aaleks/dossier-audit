@@ -46,6 +46,7 @@ from dossier.domain.tracking import (
     calibration_record,
     case_tags,
     run_name,
+    span_payload,
     version_params,
 )
 from dossier.domain.tracking import tags as tracking_tags
@@ -412,6 +413,46 @@ def record_comparison(
     tracker.end_run(status="FINISHED")
 
 
+def judge_span(
+    *,
+    capture: str,
+    inputs: JudgeInputs,
+    field: str,
+    document: str,
+    prompt: str,
+    reply: str,
+    key: str,
+) -> dict[str, object]:
+    """What one judge call's LLM span holds, as the capture setting allows (R11.15).
+
+    The same payload a stage's span holds, under the same setting (R10.8). A
+    judge's span held its model identifier and nothing else, which made the one
+    question in `dossier` whose answer is a judgement the one call nobody could
+    read back -- the verdict and the evidence lived in the cache artifact, on the
+    machine that scored and not on the server.
+
+    The identity is wider here than a stage's by one field: a judge has no step,
+    so the field it was asked about is what tells two verdicts on one document
+    apart (R7.18).
+    """
+    return span_payload(
+        capture=capture,
+        identity={
+            "dossier.field": field,
+            "dossier.document": document,
+            "dossier.model": inputs.judge_model,
+            "dossier.rubric": inputs.rubric_hash,
+        },
+        prompt=prompt,
+        reply=reply,
+        hashes={
+            "prompt": inputs.prompt_hash,
+            "inputs": (inputs.document_hash, inputs.candidate_hash),
+            "key": key,
+        },
+    )
+
+
 def judge_prompt_hash() -> str:
     """The hash of the wrapper a judge's question is put in (R7.19)."""
     return content_hash(JUDGE_PROMPT_TEMPLATE.encode("utf-8"))
@@ -439,12 +480,16 @@ def judged(
     text: str,
     answer: str,
     parts: Sequence[ImagePart] = (),
-) -> tuple[bool, str]:
-    """One judge verdict on one candidate, with the evidence it gave.
+) -> tuple[bool, str, str]:
+    """One judge verdict on one candidate, the evidence it gave, and its raw reply.
 
-    Returns the boolean and the evidence separately because they are treated
+    The boolean and the evidence are separate because they are treated
     differently everywhere: the boolean is compared with a human's and is what a
-    rule asserts, the evidence is only ever read by a person.
+    rule asserts, the evidence is only ever read by a person. The reply is
+    neither -- it is what the model actually said, which is what a span records
+    under `full` capture (R11.15). Recording the parsed verdict in its place
+    would put a canonicalised form on a span whose whole purpose is to show what
+    came back.
     """
     reply = model.complete(
         judge_prompt(rubric=rubric, document=document, text=text, answer=answer),
@@ -457,7 +502,7 @@ def judged(
         raise ValueError(f"the judge answered with no JSON object: {error}") from None
     if not isinstance(verdict, dict) or not isinstance(verdict.get("supported"), bool):
         raise ValueError(f"the judge answered with no `supported` boolean: {reply[:200]!r}")
-    return verdict["supported"], str(verdict.get("evidence", ""))
+    return verdict["supported"], str(verdict.get("evidence", "")), reply
 
 
 # What a cached verdict holds: the boolean a rule asserts and the evidence a
@@ -483,6 +528,7 @@ def judged_cached(
     dossier_version: str,
     tracker: Tracker | None = None,
     field: str = "",
+    capture: str = "full",
 ) -> tuple[bool, str]:
     """One judge verdict, served from the cache or asked of the judge on a miss (R7.18).
 
@@ -514,14 +560,28 @@ def judged_cached(
                 # A damaged entry is a miss, not authority (R5.9): the judge is
                 # asked again and the entry rewritten below.
                 pass
-        supported, evidence = judged(
+        supported, evidence, reply = judged(
             model, rubric=rubric, document=document, text=text, answer=answer, parts=parts
         )
         if tracker is not None:
             tracker.span(
                 kind="llm",
                 name=inputs.judge_model,
-                attributes={"dossier.model": inputs.judge_model},
+                # What a stage's span carries, under the same setting (R11.15).
+                # Rendered again rather than returned from `judged`: the question
+                # is a pure function of what it was built from, and threading it
+                # back would make the span's contents depend on a call's shape.
+                attributes=judge_span(
+                    capture=capture,
+                    inputs=inputs,
+                    field=field,
+                    document=document,
+                    prompt=judge_prompt(
+                        rubric=rubric, document=document, text=text, answer=answer
+                    ),
+                    reply=reply,
+                    key=key,
+                ),
             )
         cache.put(
             key,
@@ -553,6 +613,8 @@ class Judging:
     run_id: str
     dossier_version: str
     tracker: Tracker | None = None
+    # What a judge's span may carry on this machine (R10.8, R11.15).
+    capture: str = "full"
     # The pages of each document the run read as pictures, for the fields it
     # answered from them (R7.21). A document that has none is a document the
     # judge is shown as text, which is every document there has ever been until
@@ -637,6 +699,7 @@ def judge_scores(
                 dossier_version=judging.dossier_version,
                 tracker=judging.tracker,
                 field=result.field,
+                capture=judging.capture,
             )
         judged.append(with_judged(score, verdicts))
     return tuple(judged)
@@ -701,7 +764,7 @@ def calibrate_field(
         position = str(index)
         human[position] = case.supported
         shown = tuple((parts or {}).get(case.document, ()))
-        supported, _ = judged(
+        supported, _, _ = judged(
             model,
             rubric=rubric,
             document=case.document,

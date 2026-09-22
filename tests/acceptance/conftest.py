@@ -114,3 +114,72 @@ def two_runs(workspace: Path, monkeypatch) -> tuple[Path, str, str]:
     _calibrate(workspace)
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: NoModelClient())
     return workspace, ids[0], ids[1]
+
+
+# `_fixtures.md`, "Fields on INC-4830": the document that states its root cause,
+# and therefore the only one in this corpus a judge is ever asked about (R7.17).
+STATED = "the renewed TLS certificate was never deployed to the load balancers"
+RC_01 = (
+    "The renewed TLS certificate was issued into Vault but never deployed to the "
+    "load balancers, because deployment needed a Terraform apply that nobody ran; "
+    "the expiry alert went to an archived Slack channel."
+)
+INC_4830 = (
+    "# INC-4830\n\n"
+    "Checkout was unavailable for 41 minutes on 2026-08-14.\n"
+    f"{RC_01}\n"
+    "A quarter-end change freeze was in effect and is noted as a contributing factor.\n"
+)
+
+
+@pytest.fixture
+def judged_run(workspace: Path, monkeypatch) -> tuple[Path, str]:
+    """A run whose `root_cause` reaches a judge, with the bar declared and measured.
+
+    The scoring example's `root_cause` is `null` everywhere, so it is scored on
+    abstention and no judge is asked (R7.3). `INC-4830` is the document that
+    states its cause, so it is the one that makes a judged verdict happen at all
+    -- which R11.15 and R11.16 both need and neither owns.
+    """
+    from tests.scoring_example import FIELDS, abstains, found
+
+    (workspace / "sources.yaml").write_text(
+        f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
+    )
+    write_pipeline(workspace, sources=[SOURCE_ID])
+    register_connector(
+        monkeypatch,
+        SOURCE_TYPE,
+        lambda config, *, workspace: IssueTracker({**ISSUES, "INC-4830": INC_4830}),
+    )
+    gold = workspace / "gold" / "incidents"
+    (gold / "judge.yaml").write_text("root_cause: 0.95\n", encoding="utf-8")
+    (gold / "INC-4830.json").write_text(
+        json.dumps(
+            {
+                "document": "INC-4830",
+                "verified_by": "a.aleks",
+                "verified_at": "2026-09-17",
+                "fields": {"root_cause": {"value": STATED}},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
+
+    import dossier.cli.main as cli
+
+    answers = {
+        **ANSWERS,
+        "INC-4830": [
+            *(abstains(field) for field in FIELDS if field != "root_cause"),
+            found("INC-4830", "root_cause", RC_01, RC_01[:40]),
+        ],
+    }
+    monkeypatch.setattr(cli, "build_model_client", lambda model_id: RoutedModel(answers))
+    ran = _cli(workspace, monkeypatch, "run", PIPELINE)
+    assert ran.exit_code == 0, ran.output
+    _calibrate(workspace)
+    return workspace, re.search(r"^run (\S+)", ran.output, re.MULTILINE).group(1)

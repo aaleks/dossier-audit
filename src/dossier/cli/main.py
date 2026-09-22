@@ -1624,6 +1624,8 @@ def _judging(
         parts=dict(pages or {}),
         rubrics=rubrics,
         judge_model=config.model,
+        # What a judge's span may carry here, read as a stage's is (R10.8).
+        capture=_capture_for(workspace, config.name),
         run_id=run_id,
         dossier_version=version("dossier"),
         tracker=tracker,
