@@ -1,7 +1,7 @@
 # 014 — A pipeline's prompts as MLflow prompt registry versions
 
-**Status:** Implemented
-**Rules:** R14.1 – R14.8
+**Status:** Partially implemented
+**Rules:** R14.1 – R14.9
 
 ## Purpose
 
@@ -361,3 +361,45 @@ run looks up, so the two can only agree.
 | 4 | *counter-example* — unset, or set to the empty string | every name byte-identical to R14.1's and R14.2's -- `incident-audit.extract`. A prompt published before this rule is found, compared and not sent again (R14.4) |
 | 5 | *counter-example* — `DOSSIER_MLFLOW_PROMPT_PREFIX=team/a` | exit 2 naming `/` and `DOSSIER_MLFLOW_PROMPT_PREFIX`; 0 prompts sent. The refusal R14.1 row 5 makes of a pipeline name, on the other component nothing else constrains |
 | 6 | *counter-example* — published under `sandbox`, then run on a machine with no prefix | the run looks up `incident-audit.extract`, finds nothing, links nothing, and exits as it would have (R14.7 row 2). A prefix is per machine; two machines that disagree about it are the one case it cannot help |
+
+### R14.9 — a judge's MLflow record links the rubric version it judged with, and links nothing for a field it did not judge
+
+R14.7 for the other half of what R14.2 publishes. A rubric's words are what a
+verdict is reached under, and an eval whose `root_cause` figure moved is asked
+first whether the judge's standard moved with it. Without a link that question
+goes to a hash and a git log -- the question R14.7 closed for a run's prompts.
+
+Two records judge with a rubric, and each links the one it used:
+`dossier eval` for every judged field it may report -- every field R7.15 did not
+withhold, whether its verdicts were asked for or served from the `judge` cache,
+because a cached verdict's key holds the same rubric hash (R7.18, R7.19) -- and
+`dossier calibrate` for every field it measured, since a calibration is a
+measurement *of* that rubric. The version is found by the rubric's
+`dossier.prompt_hash`, which is the `text_hash` the gate already compares
+(R7.15), never by recency.
+
+**The linked version is the rubric an author wrote, not the prompt the judge
+read.** A calibration is stale when either the rubric or the wrapper dossier puts
+round it moves (R7.19), and only the first is published (R14.2). A person opening
+the link reads the standard; the wrapper is the same text for every rubric and
+lives in the code, where a change to it is a change to dossier.
+
+A withheld field links nothing. Nothing was judged with its rubric, and a
+rubric edited since its calibration -- the commonest reason for withholding
+(R7.15) -- would otherwise link words no reported figure came from.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval`)
+- **Proved by:** `tests/acceptance/test_R014_9__a_judge_links_the_rubric_version_it_judged_with.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier eval incident-audit` of run `20260806T142203Z-4f1a`, tracking on, `root_cause` calibrated against rubric `f7a2d9c4`, published at version 1; a draft rubric published as version 2 and reverted in the checkout since | version 1 linked to the eval's MLflow run, not version 2. The eval judged with `f7a2d9c4`'s words and the link says so |
+| 2 | `dossier calibrate incident-audit --gold gold/incidents`, the same rubric at version 1 | version 1 linked to the calibration's MLflow run, once, although both the grounded and the described judge were measured against it (R7.22) |
+| 3 | the eval of row 1 run a second time, every verdict served from the `judge` cache and 0 judge calls | version 1 linked all the same. The verdicts were reached under that rubric; where they were read from is not what the link is about |
+| 4 | `DOSSIER_MLFLOW_PROMPT_PREFIX=sandbox`, the rubric published under it | the eval looks up and links `sandbox.incident-audit.judge.root_cause` (R14.8) |
+| 5 | *counter-example* — `root_cause` withheld as stale, its rubric edited since calibration | no registry read for `root_cause` and no link; the eval prints, records and exits exactly as it would have |
+| 6 | *counter-example* — `incident-audit.judge.root_cause` never published | links nothing; the eval and the calibration record and exit exactly as they would have (R10.4, R14.7 row 2) |
+| 7 | *counter-example* — `DOSSIER_MLFLOW_ENABLED=false` | no registry read and no link, on `eval` and on `calibrate` |
+| 8 | *counter-example* — `dossier eval --compare 20260806T142203Z-4f1a 20260907T090000Z-bbbb` | no registry read and no link. A comparison's record holds a delta, and the change behind it is named by R11.13, not by a link to either side's rubric |
