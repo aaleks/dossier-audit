@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.16
 
 ## Purpose
@@ -399,8 +399,8 @@ on a cache miss would make a second eval of one run look like it judged nothing.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
-- **Proved by:** `tests/unit/test_R011_16__a_judge_verdict_is_an_assessment.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R011_16__a_judge_verdict_is_an_assessment.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -97,6 +97,8 @@ class MlflowTracker:
         self._run_id: str | None = None
         self._trace_id: str | None = None
         self._root_span_id: str | None = None
+        # Verdicts waiting for their trace to reach the server. See `assess`.
+        self._pending: list[dict[str, str | bool]] = []
 
     def start_run(self, *, experiment: str, name: str, tags: Mapping[str, str]) -> None:
         found = self._client.get_experiment_by_name(experiment)
@@ -187,12 +189,53 @@ class MlflowTracker:
         )
         self._client.end_span(self._trace_id, child.span_id)
 
+    def assess(self, *, name: str, value: bool, rationale: str, source: str) -> None:
+        """Hold the verdict until its trace is on the server, then attach it (R11.16).
+
+        Held rather than sent, and this is the whole of why: a trace is exported
+        by MLflow's **asynchronous** exporter, so at the moment a span is being
+        recorded the trace does not exist on the server yet. Sending the feedback
+        here answers `RESOURCE_DOES_NOT_EXIST: Trace with ID ... not found`, which
+        is what a live run against a real server does and what no fake can show --
+        the same asynchrony R10.9 was written about, biting a second time.
+
+        `end_trace` flushes the exporter and sends what is held.
+        """
+        self._pending.append(
+            {"name": name, "value": value, "rationale": rationale, "source": source}
+        )
+
     def end_trace(self, *, status: str, error: str | None = None) -> None:
+        import mlflow
+        from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+
+        trace_id = self._trace_id
         self._client.end_trace(
-            self._trace_id,
+            trace_id,
             attributes={"error": error} if error else None,
             status=status,
         )
+        if self._pending:
+            # The exporter is asynchronous; feedback on a trace it has not sent
+            # yet is refused. Flushed here rather than at the end of the run, so
+            # the wait is one trace's worth and a verdict is on its trace before
+            # anything else is recorded.
+            mlflow.flush_trace_async_logging()
+            for verdict in self._pending:
+                # The returned `Assessment` is dropped: the port sends and
+                # returns nothing, and an id read back from a server is the first
+                # way for a record to become an input (R0.10).
+                mlflow.log_feedback(
+                    trace_id=trace_id,
+                    name=str(verdict["name"]),
+                    value=verdict["value"],
+                    rationale=str(verdict["rationale"]) or None,
+                    source=AssessmentSource(
+                        source_type=AssessmentSourceType.LLM_JUDGE,
+                        source_id=str(verdict["source"]),
+                    ),
+                )
+            self._pending = []
         self._trace_id = self._root_span_id = None
 
     def end_run(self, *, status: str) -> None:

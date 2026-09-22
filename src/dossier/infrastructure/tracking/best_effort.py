@@ -48,6 +48,11 @@ class BestEffortTracker:
     def log_metrics(self, metrics: Mapping[str, float]) -> None:
         self._sent(self._inner.log_metrics, metrics)
 
+    def assess(self, *, name: str, value: bool, rationale: str, source: str) -> None:
+        self._sent(
+            self._inner.assess, name=name, value=value, rationale=rationale, source=source
+        )
+
     def describe(self, text: str) -> None:
         self._sent(self._inner.describe, text)
 
