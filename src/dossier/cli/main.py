@@ -1313,7 +1313,9 @@ def eval_(
             environ=environment(workspace),
             started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
             label=label_for(label, environment(workspace)),
-            pipeline_hash=manifest.plan.pipeline_hash,
+            plan=manifest.plan,
+            dossier_version=manifest.dossier_version,
+            scored_at=manifest.started_at.isoformat().replace("+00:00", "Z"),
         )
         if published is not None:
             tracker.log_dataset(
@@ -1522,6 +1524,7 @@ def _compare_runs(
             environ=environment(workspace),
             started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
             label=label_for(label, environment(workspace)),
+            plans=(manifests[0].plan, manifests[1].plan),
         )
         if published is not None:
             # The same link an eval makes, on the other command that scores

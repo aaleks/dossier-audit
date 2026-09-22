@@ -28,6 +28,7 @@ from dossier.domain.judges import (
 )
 from dossier.domain.keys import JudgeInputs, cache_key, provenance
 from dossier.domain.ports import ArtifactStore, ImagePart, Tracker
+from dossier.domain.resolution import ResolvedPlan
 from dossier.domain.scoring import (
     DocumentScore,
     FieldDelta,
@@ -40,7 +41,12 @@ from dossier.domain.scoring import (
     score_document,
     with_judged,
 )
-from dossier.domain.tracking import calibration_record, case_tags, run_name
+from dossier.domain.tracking import (
+    calibration_record,
+    case_tags,
+    run_name,
+    version_params,
+)
 from dossier.domain.tracking import tags as tracking_tags
 
 # What a gold field entry holds that scoring reads. A reviewer's correction also
@@ -163,8 +169,10 @@ def start_eval(
     dataset_stale: bool = False,
     environ: Mapping[str, str] | None = None,
     started: str = "",
-    pipeline_hash: str = "",
     label: str = "",
+    plan: ResolvedPlan | None = None,
+    dossier_version: str = "",
+    scored_at: str = "",
 ) -> None:
     """Open the eval's MLflow run with what is known before scoring (R11.3 rows 2-4).
 
@@ -182,7 +190,7 @@ def start_eval(
                 "started": started,
                 "run_id": run_id,
                 "model": model,
-                "pipeline_hash": pipeline_hash,
+                "pipeline_hash": plan.pipeline_hash if plan else "",
                 "gold": Path(gold).name,
                 "gold_hash": gold_set_hash(gold_files),
                 "label": label,
@@ -205,6 +213,18 @@ def start_eval(
     for field, measured in (judges or {}).items():
         params[f"judge/{field}/agreement"] = str(measured.agreement)
         params[f"judge/{field}/model"] = measured.judge_model
+        # Beside the model and the agreement, because an edit to the standard the
+        # judge applies moves the figure and would otherwise leave no trace on
+        # the record that reports it (R11.11 row 2).
+        params[f"judge/{field}/rubric"] = measured.rubric_hash
+    if plan is not None:
+        # The version of everything that produced the answers, read off the
+        # manifest this eval reproduced and never recomputed (R11.11).
+        params.update(version_params(plan))
+    if dossier_version:
+        params["dossier_version"] = dossier_version
+    if scored_at:
+        params["scored_at"] = scored_at
     tracker.log_params(params)
 
 
@@ -279,6 +299,7 @@ def record_comparison(
     environ: Mapping[str, str] | None = None,
     started: str = "",
     label: str = "",
+    plans: tuple[ResolvedPlan, ResolvedPlan] | None = None,
 ) -> None:
     """Record a comparison as one MLflow run of per-field deltas (R11.8, R11.9).
 
@@ -330,6 +351,16 @@ def record_comparison(
             "gold": Path(gold).name,
         }
     )
+    if plans is not None:
+        # Each run's own versions, as `a/model` and `b/model` already are: one
+        # set would be a claim about both runs that is false in exactly the case
+        # the change gate exists for (R11.11 row 3).
+        tracker.log_params(
+            {
+                **version_params(plans[0], prefix="a/"),
+                **version_params(plans[1], prefix="b/"),
+            }
+        )
     metrics: dict[str, float] = {}
     for row in rows:
         if row.before is not None:

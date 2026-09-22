@@ -61,12 +61,18 @@ class TestALabelIsResolvedAndCarried:
         assert not name.endswith(SEPARATOR)
 
     def test_a_labelled_record_is_tagged_with_it(self):
-        """Example 1, the tag half: the one a person filters a list of runs by."""
-        assert tags(kind="run", pipeline="incident-audit", label="v2") == {
-            "dossier.kind": "run",
-            "dossier.pipeline": "incident-audit",
-            "dossier.label": "v2",
-        }
+        """Example 1, the tag half: the one a person filters a list of runs by.
+
+        Asserted by entry rather than by whole-dict equality. R10.12 adds three
+        `mlflow.*` tags to everything this function returns, and a rule about the
+        label should not fail because a rule about the user landed -- what the
+        whole list may hold is R10.12's own claim, and its test makes it.
+        """
+        written = tags(kind="run", pipeline="incident-audit", label="v2")
+
+        assert written["dossier.kind"] == "run"
+        assert written["dossier.pipeline"] == "incident-audit"
+        assert written["dossier.label"] == "v2"
 
     def test_an_unlabelled_record_carries_no_label_tag_at_all(self):
         """Counter-example (row 4), the tag half: absent, not present and empty.

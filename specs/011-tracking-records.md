@@ -271,8 +271,8 @@ the run and not the machine that scored it (R4.9).
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.version_params`)
-- **Proved by:** `tests/unit/test_R011_11__an_eval_records_the_version_of_what_it_scored.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R011_11__an_eval_records_the_version_of_what_it_scored.py`, `tests/acceptance/test_R011_11__eval_records_what_produced_what_it_scored.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
