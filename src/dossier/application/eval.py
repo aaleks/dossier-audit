@@ -43,8 +43,10 @@ from dossier.domain.scoring import (
     with_judged,
 )
 from dossier.domain.tracking import (
+    calibration_description,
     calibration_record,
     case_tags,
+    judge_line,
     run_name,
     span_payload,
     version_params,
@@ -949,6 +951,26 @@ def calibrate_fields(
     if tracker is not None:
         tracker.log_params(params)
         tracker.log_metrics(metrics)
+        # The lines the CLI is about to print, from the same function it
+        # prints them with (R11.17). The bar is not among them: a calibration
+        # never reads `judge.yaml`, and a record holding both the figure and
+        # the bar would read as having applied it (R7.14 row 5).
+        tracker.describe(
+            calibration_description(
+                pipeline=pipeline,
+                gold=directory.name,
+                gold_hash=gold_set_hash(gold_files or {}),
+                lines=[
+                    judge_line(
+                        field=name,
+                        agreement=found.agreement,
+                        cases=found.sample_size,
+                        judge_model=found.judge_model,
+                    )
+                    for name, found in sorted(measured.items())
+                ],
+            )
+        )
         tracker.end_run(status="FINISHED")
     return measured
 

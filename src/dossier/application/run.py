@@ -73,7 +73,7 @@ from dossier.domain.resolution import (
 )
 from dossier.domain.schemas import StageOutput
 from dossier.domain.store import RESERVED_KEY, output_path, record_path
-from dossier.domain.tracking import run_name
+from dossier.domain.tracking import run_description, run_name, step_line
 from dossier.domain.tracking import tags as tracking_tags
 
 # The `document` an aggregate result is reported under (spec 003). An aggregate
@@ -407,6 +407,28 @@ def execute(
             }
         )
         tracker.log_artifact(manifest.name, manifest.read_bytes())
+        # What the terminal is about to print, in the record's Description
+        # (R11.17). Composed from the same function the CLI prints with, so
+        # the two cannot say different things about one run.
+        tracker.describe(
+            run_description(
+                run_id=run_id,
+                pipeline=pipeline.name,
+                model=plan.model,
+                pipeline_hash=plan.pipeline_hash,
+                lines=[
+                    step_line(
+                        step=done.step,
+                        documents=len(done.results),
+                        cached=len(done.served_from_cache),
+                        failed=len(done.failed),
+                        described=done.described,
+                        findings=len(done.findings),
+                    )
+                    for done in report.steps
+                ],
+            )
+        )
         tracker.end_run(status="FAILED" if report.failed else "FINISHED")
     return report
 

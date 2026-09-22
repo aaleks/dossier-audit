@@ -429,17 +429,23 @@ line restating one the command printed, written when the run closes because none
 of the counts exist until the work is done. Carried in `mlflow.note.content`,
 one of the four tags R10.12 permits.
 
+Verbatim rather than restated. The description holds the command's own lines with
+their indentation stripped, so a figure that moves in the terminal and not in the
+record fails a test instead of drifting quietly -- which is the failure mode this
+spec's opening paragraph is about, in the one place a second copy of a line is
+unavoidable.
+
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.run_description`, `.sync_description`, `.convert_description`, `.calibration_description`)
 - **Proved by:** `tests/unit/test_R011_17__every_command_describes_what_it_did.py`, `tests/acceptance/test_R011_17__every_record_describes_itself_in_mlflow.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `dossier run incident-audit` over 4 documents and 3 steps, `verify` serving all 4 from cache | `run 20260806T142203Z-4f1a · incident-audit`, `model anthropic:claude-sonnet-4-5-20250929 · pipeline 2f60a7d3`, then `verify 4 documents · 4 from cache · 0 failed` -- the step line R6.9 prints |
+| 1 | `dossier run incident-audit` over 4 documents and 3 steps, `verify` serving all 4 from cache | `run 20260806T142203Z-4f1a · incident-audit`, `model anthropic:claude-sonnet-4-5-20250929 · pipeline 2f60a7d3`, then `verify: 4 document(s) · 4 from cache · 0 failed` -- the step line R6.9 prints, verbatim |
 | 2 | that run with `extract` failing on `INC-5044` and two findings in `verify` | described all the same, `extract` naming its failure and `verify` its findings. A description written only on success would make a failure look like a command nobody ran (R8.6) |
-| 3 | the sync of R11.4 row 1 | `incidents-jira 420 known · 18 changed · 2 new -> 20 fetched` and `20 new snapshots · 0 tombstoned` -- the source line and the ledger line (R2.13) |
-| 4 | the convert of R11.4 row 2 | `incidents-manual 3 held · 3 converted · 0 cached` (R8.8) |
+| 3 | the sync of R11.4 row 1 | `incidents-jira  420 known · 18 changed · 2 new -> 20 fetched` and `ledger updated · 20 new snapshots · 0 tombstoned` -- the source line and the ledger line (R2.13, R2.18) |
+| 4 | the convert of R11.4 row 2 | `incidents-manual  3 held · 3 converted · 0 cached` and `cache updated · 3 converted · 0 cached` (R8.8) |
 | 5 | the calibration of R11.5 row 1 | `calibrate incident-audit · gold incidents 3b7e1d90` and `root_cause 100.0% agreement over 20 cases · openai:gpt-5.4-mini` -- the line the terminal prints (R7.14) |
 | 6 | *counter-example* — a run that stops at its first cache miss on an unreachable model (R9.2 row 3) | the record closes `FAILED` with no description. Nothing was counted, and a description is a restatement of counts |
 | 7 | *counter-example* — the same run twice, tracking on and off | byte-identical manifests and stage keys (R10.4). A description is a record, and a record is not an input |
