@@ -87,3 +87,30 @@ class TestAJudgedFieldPublishesItsRubric:
             "dossier.path": "rubrics/root_cause.md",
         }
         assert "dossier.step" not in rubric.tags, "no step owns a rubric"
+
+    def test_a_pipeline_with_no_judged_field_publishes_no_rubric(self):
+        """Counter-example (row 3): the one where nothing is judged, so nothing is a rubric.
+
+        `loss_amount`, `resolution_date` and `severity` are scored by comparison,
+        not by a judge (R6.10), so they name no rubric and there is none to
+        publish. Two prompts, not three.
+
+        Pinned rather than left to the shape of the loop: a default that grew a
+        rubric for a string-compared field would fail at `texts[path]` with a
+        KeyError about a file nobody ever said existed, which is a worse way to
+        learn this than a failing assertion here.
+        """
+        from dossier.domain.prompts import publish_set
+
+        texts = {
+            "prompts/01_extract.md": "Extract the fields.\n",
+            "prompts/02_verify.md": "Verify the extraction.\n",
+        }
+
+        published = publish_set(_pipeline(), texts, rubrics={"extract": {}, "verify": {}})
+
+        assert [prompt.name for prompt in published] == [
+            "incident-audit.extract",
+            "incident-audit.verify",
+        ]
+        assert all("dossier.field" not in prompt.tags for prompt in published)
