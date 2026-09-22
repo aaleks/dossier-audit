@@ -845,6 +845,10 @@ def _execute(workspace: Path, pipeline: str, *, label: str = "") -> None:
     # On the same switch as the tracker: a version is part of the record,
     # and R10.1 is one decision about whether there is a record at all.
     versions = _versions_for(workspace) if tracker is not None else None
+    # Same switch, same reason (R14.7 row 3): with tracking off the registry
+    # is not merely unlinked but unasked, because a run reaching a server it
+    # was told not to use is the thing R10.1 decides.
+    prompt_registry = _prompt_registry_for(workspace) if tracker is not None else None
 
     store = SnapshotStore(workspace)
     converters = installed_converters()
@@ -978,6 +982,7 @@ def _execute(workspace: Path, pipeline: str, *, label: str = "") -> None:
             label=label_for(label, environment(workspace)),
             capture=capture,
             versions=versions,
+            prompt_registry=prompt_registry,
             version_experiment=experiment or "",
             run_id=this_run,
             started_at=started_at,
@@ -1929,14 +1934,33 @@ prompts_app = typer.Typer(
 app.add_typer(prompts_app, name="prompts")
 
 
-def build_prompt_registry(settings: TrackingSettings) -> PromptRegistry:
+def _prompt_registry_for(workspace: Path) -> PromptRegistry | None:
+    """The registry a run asks which version carries the prompt it rendered.
+
+    Best-effort in the sense `_versions_for` is: a server that cannot be reached
+    costs the link and never the run, because tracking may not change what a run
+    does (R10.4, R14.7 row 2).
+    """
+    settings = tracking_settings(environment(workspace))
+    if settings is None:
+        return None
+    try:
+        # Through the seam, so a test replaces one function rather than two,
+        # and unverified, so a run pays no probe for a capability only
+        # `prompts publish` needs (R10.4).
+        return build_prompt_registry(settings, verify=False)
+    except TrackingUnavailable:
+        return None
+
+
+def build_prompt_registry(settings: TrackingSettings, *, verify: bool = True) -> PromptRegistry:
     """The registry a pipeline's prompts are published through.
 
     The seam `build_dataset_registry` is, for the port beside it: this one also
     returns what it wrote, which a `Tracker` may never do (R0.10, spec 014). A
     test replaces it with a `FakePromptRegistry`.
     """
-    return connect_prompts(settings.uri)
+    return connect_prompts(settings.uri, verify=verify)
 
 
 @prompts_app.command("publish")

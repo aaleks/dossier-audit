@@ -49,7 +49,9 @@ def registry(workspace: Path, monkeypatch) -> FakePromptRegistry:
     holder = FakePromptRegistry()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
     monkeypatch.setenv("DOSSIER_MLFLOW_TRACKING_URI", URI)
-    monkeypatch.setattr(cli, "build_prompt_registry", lambda settings: holder, raising=False)
+    monkeypatch.setattr(
+        cli, "build_prompt_registry", lambda settings, **_: holder, raising=False
+    )
     write_pipeline(workspace, steps=STEPS, modes={"report": "aggregate"})
     return holder
 

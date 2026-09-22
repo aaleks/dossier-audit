@@ -60,6 +60,9 @@ class BestEffortTracker:
     def produced_version(self, version_id: str) -> None:
         self._sent(self._inner.produced_version, version_id)
 
+    def rendered_prompt(self, *, name: str, version: int) -> None:
+        self._sent(self._inner.rendered_prompt, name=name, version=version)
+
     def scored_version(self, version_id: str) -> None:
         self._sent(self._inner.scored_version, version_id)
 

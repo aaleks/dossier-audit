@@ -242,6 +242,17 @@ class Tracker(Protocol):
         """
         ...
 
+    def rendered_prompt(self, *, name: str, version: int) -> None:
+        """Record that this run rendered that prompt version (R14.7).
+
+        The name and the version, not the words: the tracker says which entry
+        in the registry produced this run, and a person follows the link to
+        read it. Sends and returns nothing, like every other method here --
+        finding the version is `PromptRegistry.find`'s job, and it is the port
+        allowed to read (R14.5 row 5).
+        """
+        ...
+
     def log_version_metrics(self, *, version_id: str, metrics: Mapping[str, float]) -> None:
         """Record this run's figures against that version too (R13.3).
 
@@ -430,6 +441,19 @@ class PromptRegistry(Protocol):
 
         The one read the one-way promise permits, because it decides a **write**
         and reaches no output (R14.5 row 4).
+        """
+        ...
+
+    def find(self, name: str, prompt_hash: str) -> PublishedPrompt | None:
+        """The version of `name` tagged with `prompt_hash`, or `None`.
+
+        By the hash rather than by recency, because a run links what it
+        *rendered*: a prompt edited and republished since would otherwise
+        attach its newest words to a run that never saw them (R14.7 row 1).
+
+        Reads a version number and never a template -- `PublishedPrompt` has no
+        field for one -- so the text a run renders still comes only from the
+        file on disk (R14.5 row 5).
         """
         ...
 

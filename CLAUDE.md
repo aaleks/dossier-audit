@@ -67,10 +67,8 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 <<<<<<< HEAD
-Currently open: **none**. Fifteen specs and 204 rules: 192 MET, 11 superseded,
-and R14.7 alone NOT MET -- specced deliberately ahead of the code, because
-linking a run to the prompt versions it rendered needs a registry read on the
-run path and is its own outer loop.
+Currently open: **none**, and nothing is outstanding: all fifteen specs are
+implemented, and 193 of the 204 rules are MET with the other 11 superseded.
 
 Spec 013 is *pipeline versions*; prompt publishing is **014**. Two sessions
 wrote a spec 013 in parallel and the logged-models one merged first, so the
@@ -207,7 +205,11 @@ rendered it (R14.3). `register_prompt` versions unconditionally, so a publish
 asks `latest` first and sends nothing when the hash already matches -- verified
 live, twice, against a real server rather than only against the fake (R14.4).
 Nothing reads a prompt back: there is no `load` on the port, no `load_prompt`
-anywhere under `src/`, and a test asserts both (R14.5). A prompt fetched at run
+anywhere under `src/`, and a test asserts both (R14.5). A run links the version
+carrying the hash it rendered, found by tag rather than by recency, so a prompt
+edited since cannot attach its newest words to a run that never saw them
+(R14.7) -- best-effort, because a registry that is down must cost the link and
+never the run. A prompt fetched at run
 time would be an input to a key no checkout can reproduce, a route into a run no
 review passed through, and a network read on the replay path.
 

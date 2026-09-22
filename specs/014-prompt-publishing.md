@@ -1,6 +1,6 @@
 # 014 — A pipeline's prompts as MLflow prompt registry versions
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R14.1 – R14.7
 
 ## Purpose
@@ -256,8 +256,15 @@ thinking about it.
 
 ### R14.5 — no prompt version is ever read back into a rendered prompt, a key, a score or a file
 
-The one-way promise this spec opens with, and the reason it is narrow. A prompt
-version is read by a person, never by `dossier`.
+The one-way promise this spec opens with, and the reason it is narrow. What may
+never cross the port is a prompt's **text**: `PublishedPrompt` has no field to
+carry one, so no method can return one however the port grows. A version number
+may cross, and reaches a tag, a link and the terminal (row 3).
+
+That is the promise worth keeping. "Read nothing" would have been easier to
+check and would have banned the comparison that stops a redundant version
+(R14.4) and the lookup that links a run to what it rendered (R14.7) -- neither of
+which puts a word of anyone's prompt into a run.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
@@ -269,7 +276,8 @@ version is read by a person, never by `dossier`.
 | 1 | `incident-audit.verify` at version 2 holding `35d1a8ef`'s text, while `prompts/02_verify.md` on disk still holds `0e52dd18`'s | the run renders the file; the `verify` key is `9f21c0a4` as before; the published version contributes to no key, artifact or manifest |
 | 2 | every prompt deleted from the MLflow registry between two runs | the second run exits 0 with byte-identical keys and a full cache hit. A registry that is gone changes nothing, because nothing was reading it |
 | 3 | a publish returning version `2` | it reaches the terminal line and nothing else: no file under `runs/`, `gold/`, `.dossier/` or the pipeline's own directory holds a version number (R10.4 row 2, R12.4 row 3) |
-| 4 | *counter-example* — the publish reading the latest version's `dossier.prompt_hash` before deciding to send | permitted, and the only read there is. It decides a **write**, as R12.3's comparison against `dossier.gold_hash` does, and nothing about it reaches an output |
+| 4 | *counter-example* — the publish reading the latest version's `dossier.prompt_hash` before deciding to send | permitted. It decides a **write**, as R12.3's comparison against `dossier.gold_hash` does, and nothing about it reaches an output |
+| 5 | *counter-example* — `dossier run` asking the registry which version carries the hash it rendered (R14.7) | permitted, and the narrowest read on the run path there is: it takes a hash the run already computed and gets back a **version number**, which reaches a link and a tag. No template crosses the port -- `PublishedPrompt` has no field to carry one -- so the text a run renders still comes only from the file on disk |
 
 ### R14.6 — publishing with tracking off, or to a server with no prompt registry, is refused by name before anything is sent
 
@@ -297,8 +305,8 @@ link is a statement about the prompt that ran rather than about what is newest.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
-- **Proved by:** `tests/unit/test_R014_7__a_run_links_the_prompt_versions_it_rendered.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R014_7__a_run_links_the_prompt_versions_it_rendered.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

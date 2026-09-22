@@ -145,6 +145,10 @@ class FakeTracker:
 
     def __init__(self) -> None:
         self.runs: list[FakeRun] = []
+        # (prompt name, version) per link, in the order the run made them.
+        # A list rather than a set: R14.7 is a claim about which versions
+        # were linked, and a duplicate would be a defect worth seeing.
+        self.links: list[tuple[str, int]] = []
 
     @property
     def traces(self) -> list[FakeTrace]:
@@ -156,6 +160,9 @@ class FakeTracker:
 
     def start_run(self, *, experiment: str, name: str, tags: Mapping[str, str]) -> None:
         self.runs.append(FakeRun(experiment=experiment, name=name, tags=dict(tags)))
+
+    def rendered_prompt(self, *, name: str, version: int) -> None:
+        self.links.append((name, version))
 
     def log_params(self, params: Mapping[str, str]) -> None:
         self._run.params.update(params)
@@ -592,6 +599,27 @@ class FakePromptRegistry:
             prompt_hash=prompt.latest_hash,
             created=False,
         )
+
+    def find(self, name: str, prompt_hash: str):
+        """The version carrying `prompt_hash`, oldest first, or `None` (R14.7).
+
+        Oldest first because a hash reverted to is the same hash: republishing
+        a prompt back to text it already held leaves two versions tagged
+        identically, and the first is the one a person diffing the history
+        would call the original.
+        """
+        from dossier.domain.prompts import PublishedPrompt
+
+        self.reads.append(name)
+        prompt = self.prompts.get(name)
+        if prompt is None:
+            return None
+        for number, held in enumerate(prompt.versions, start=1):
+            if held["tags"].get("dossier.prompt_hash") == prompt_hash:
+                return PublishedPrompt(
+                    name=name, version=number, prompt_hash=prompt_hash, created=False
+                )
+        return None
 
 
 @dataclass
