@@ -14,6 +14,7 @@ run_id=..., include_spans=False)` answers every trace carrying the run as
 
 from __future__ import annotations
 
+from contextlib import suppress
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 
@@ -33,6 +34,13 @@ class Server:
     """`MlflowClient` and MLflow's exporter, over one server's holdings."""
 
     refused: set[str] = field(default_factory=set)
+    # `create_run` answered 403: `dossier-ci` holds READ (R10.22 row 1).
+    run_refused: bool = False
+    # Traces MLflow could not even open. Local in MLflow, so not expected -- but
+    # a place taken and never filled would shift every place after it.
+    unopenable: set[str] = field(default_factory=set)
+    # Whether the lookup is answered; a server that stopped answering is not.
+    answering: bool = True
     held: dict[str, str] = field(default_factory=dict)  # trace id -> run id
     queued: list[tuple[str, str, str]] = field(default_factory=list)
     calls: list[str] = field(default_factory=list)
@@ -49,9 +57,13 @@ class Server:
 
     def create_run(self, experiment_id, tags=None, run_name=None):
         self.calls.append("create_run")
+        if self.run_refused:
+            raise PermissionError("403 Forbidden: Permission denied")
         return SimpleNamespace(info=SimpleNamespace(run_id="run-1"))
 
     def start_trace(self, *, name, tags, experiment_id, run_id):
+        if name in self.unopenable:
+            raise RuntimeError(f"could not open {name}")
         trace_id = f"tr-{len(self._traces)}"
         self._traces[trace_id] = (name, run_id)
         return SimpleNamespace(trace_id=trace_id, span_id="root")
@@ -71,6 +83,8 @@ class Server:
         self.lookups.append(
             {"locations": locations, "run_id": run_id, "include_spans": include_spans}
         )
+        if not self.answering:
+            raise ConnectionError(f"the MLflow server at {URI} stopped answering")
         return [
             SimpleNamespace(info=SimpleNamespace(trace_id=trace_id))
             for trace_id, owner in self.held.items()
@@ -103,12 +117,21 @@ def server(monkeypatch) -> Server:
 
 
 def a_run(tracker: MlflowTracker) -> None:
-    """Four traces, one per incident, each with its stage span, then the close."""
-    tracker.start_run(experiment=RUN, name="20260806T142203Z-4f1a", tags={})
+    """Four traces, one per incident, each with its stage span, then the close.
+
+    Every failure is passed over, as `BestEffortTracker` passes over it (R10.6):
+    what is under test is what the adapter concludes afterwards.
+    """
+
+    def sent(call, **kwargs) -> None:
+        with suppress(Exception):
+            call(**kwargs)
+
+    sent(tracker.start_run, experiment=RUN, name="20260806T142203Z-4f1a", tags={})
     for document in DOCUMENTS:
-        tracker.start_trace(name=f"verify · {document}", tags={})
-        tracker.span(kind="stage", name="verify", attributes={})
-        tracker.end_trace(status="OK")
+        sent(tracker.start_trace, name=f"verify · {document}", tags={})
+        sent(tracker.span, kind="stage", name="verify", attributes={})
+        sent(tracker.end_trace, status="OK")
     tracker.end_run(status="FINISHED")
 
 
@@ -144,3 +167,60 @@ class TestTheAdapterLooksForEveryTrace:
 
         assert server.calls == ["create_run", "close"]
         assert tracker.unrecorded_traces == frozenset()
+
+    def test_the_exporter_is_flushed_before_anything_is_looked_up(self, server: Server):
+        """Example 3: the one where the fourth trace ends as the third is still being sent.
+
+        Both are found, because the lookup waits for the exporter. Looked up
+        first, every trace still queued would be counted lost.
+        """
+        tracker = MlflowTracker(URI)
+
+        a_run(tracker)
+
+        assert tracker.unrecorded_traces == frozenset()
+        assert server.calls == ["create_run", "flush", "lookup", "close"]
+
+    def test_a_run_the_server_refused_holds_no_trace(self, server: Server):
+        """Example 2: the one where `dossier-ci` holds READ and `create_run` answers 403.
+
+        No run exists for a trace to belong to, so all four are lost, and
+        nothing is looked up: there is no run to look under.
+        """
+        server.run_refused = True
+        tracker = MlflowTracker(URI)
+
+        a_run(tracker)
+
+        assert tracker.unrecorded_traces == frozenset({0, 1, 2, 3})
+        assert server.lookups == []
+
+    def test_a_lookup_that_cannot_be_made_counts_every_trace_and_still_closes(
+        self, server: Server
+    ):
+        """Example 5: the one where the server stops answering and does not answer the lookup.
+
+        None is seen held, so none counts as recorded -- and the close is still
+        sent, because a lookup that fails never stops it.
+        """
+        server.answering = False
+        tracker = MlflowTracker(URI)
+
+        a_run(tracker)
+
+        assert tracker.unrecorded_traces == frozenset({0, 1, 2, 3})
+        assert server.calls[-1] == "close"
+
+    def test_a_trace_that_could_not_be_opened_keeps_its_place(self, server: Server):
+        """Example 4, the adapter's half: a trace whose own call failed is still in its place.
+
+        So the place `BestEffortTracker` counted and the place named here are the
+        same trace, and it is counted once. The third, which was held, is not
+        named in the second's stead.
+        """
+        server.unopenable = {"verify · INC-4822"}
+        tracker = MlflowTracker(URI)
+
+        a_run(tracker)
+
+        assert tracker.unrecorded_traces == frozenset({1})
