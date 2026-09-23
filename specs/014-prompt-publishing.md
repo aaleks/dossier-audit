@@ -7,7 +7,7 @@
 
 A prompt is the input to a run that changes most often and is read least easily.
 It is hashed into its stage's key and every key downstream of it (R5.2), and its
-eight characters reach a provenance record, a trace span and a run name -- but a
+hash reaches a provenance record, a trace span and a run's params -- but a
 person looking at `0e52dd18` in MLflow has no way to see the words behind it, and
 no way to diff them against the `35d1a8ef` that produced the run beside it. The
 question "what changed between these two runs" is answerable today only by taking
@@ -187,10 +187,12 @@ machine's configuration is refused at startup by name (R14.6, R10.5).
 
 ## What this spec does not claim
 
-`dossier calibrate` and `dossier eval` render a judge prompt from a rubric this
-command publishes, and neither links the version it used. R14.7 covers
-`dossier run` only. The calibration analogue is a rule nobody has written yet
-rather than one this spec implies.
+Every record that renders a published prompt or judges with a published rubric
+links the version it used: a run its prompts (R14.7), the pipeline version it built
+the same ones (R14.12), and an eval, a calibration and a comparison their rubric
+(R14.9, R14.11). A trace links none. MLflow can link a prompt version to a trace
+(`link_prompt_versions_to_trace`), and that is a rule nobody has written yet rather
+than one this spec implies.
 
 A gold set's dataset has the same property and is not namespaced here: it is
 named after its directory (R12.1), globally, so two workspaces each holding
