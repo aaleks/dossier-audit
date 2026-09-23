@@ -374,6 +374,10 @@ def record_comparison(
     dossier_version: str = "",
     versions: VersionRegistry | None = None,
     version_experiment: str = "",
+    prompt_registry: PromptRegistry | None = None,
+    rubric_hashes: Mapping[str, str] | None = None,
+    withheld: Mapping[str, str] | None = None,
+    prompt_prefix: str = "",
 ) -> None:
     """Record a comparison as one MLflow run of per-field deltas (R11.8, R11.9).
 
@@ -434,6 +438,18 @@ def record_comparison(
             **({"dossier_version": dossier_version} if dossier_version else {}),
         }
     )
+    # The rubric both sides were judged with, once per field: a comparison judges
+    # both runs with the checkout's rubric, never with the one each was evaluated
+    # under, which is what makes its delta two measurements under one standard
+    # (R14.11). Inside the run, since this function is the one that closes it.
+    if prompt_registry is not None:
+        link_published(
+            tracker,
+            prompt_registry,
+            rubric_links(
+                pipeline, rubric_hashes or {}, withheld=withheld or {}, prefix=prompt_prefix
+            ),
+        )
     # Both versions, both as inputs (R13.2 row 4). A comparison measures two, and
     # naming one would be a claim about the pair that is false of half of it --
     # the same argument `a/model` and `b/model` are two params for (R11.11 row 3).

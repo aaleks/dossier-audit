@@ -1696,6 +1696,14 @@ def _compare_runs(
                 overalls=(earlier, later),
             ),
             detail=deltas_artifact(deltas, runs=runs),
+            # Best-effort and unverified, as the eval's is (R14.11).
+            prompt_registry=_prompt_registry_for(workspace),
+            rubric_hashes={
+                field: text_hash(pipeline_dir / named)
+                for field, named in load_judge_rubrics(declaration).items()
+            },
+            withheld=withheld,
+            prompt_prefix=environment(workspace).get(PROMPT_PREFIX, ""),
         )
         if published is not None:
             # The same link an eval makes, on the other command that scores

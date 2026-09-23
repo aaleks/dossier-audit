@@ -16,14 +16,12 @@ from tests.acceptance.conftest import GOLD, URI, _cli
 from tests.fakes import FakePromptRegistry, FakeTracker
 from tests.scoring_example import PIPELINE
 
-pytestmark = pytest.mark.outer_loop
-
 RUBRIC = f"{PIPELINE}.judge.root_cause"
 
 
 @pytest.fixture
 def wired(two_runs, monkeypatch) -> tuple[FakePromptRegistry, FakeTracker]:
-    """Tracking switched on after both runs, a registry that counts, a tracker that keeps links."""
+    """Tracking on after both runs, a registry that counts, a tracker that keeps links."""
     import dossier.cli.main as cli
 
     registry, tracker = FakePromptRegistry(), FakeTracker()
