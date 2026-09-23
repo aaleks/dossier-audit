@@ -588,7 +588,7 @@ variable. An empty value counts as unset, as an empty endpoint does (R9.2):
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.settings`)
 - **Proved by:** `tests/unit/test_R010_16__the_auth_mode_decides_the_credential.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
