@@ -8,7 +8,7 @@ port: after the startup check, a record lost is never a run lost.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 from dossier.domain.ports import Tracker, VersionRegistry
 from dossier.domain.versions import PublishedVersion, VersionRecord
@@ -28,15 +28,20 @@ class BestEffortTracker:
     documents that were never processed.
     """
 
-    def __init__(self, inner: Tracker) -> None:
+    def __init__(self, inner: Tracker, *, warn: Callable[[str], None] | None = None) -> None:
         self._inner = inner
+        # Where a loss is said: the command's terminal, handed in by the
+        # composition root. The wrapper decides what was lost; it prints nothing.
+        self._warn = warn
         self.lost_traces = 0
+        self.lost_records = 0
         self._this_trace_lost = False
 
     def _sent(self, call, /, *args, **kwargs) -> bool:
         try:
             call(*args, **kwargs)
         except Exception:
+            self.lost_records += 1
             return False
         return True
 
@@ -96,6 +101,11 @@ class BestEffortTracker:
 
     def end_run(self, *, status: str) -> None:
         self._sent(self._inner.end_run, status=status)
+        # Said here because every command that records closes with this call, so
+        # the line is the wrapper's to give and no command can forget it (R10.21).
+        # After the close, so a close that was itself lost is in the count.
+        if self.lost_records and self._warn is not None:
+            self._warn(f"warning: {self.lost_records} record(s) could not be recorded")
 
 
 class BestEffortVersionRegistry:

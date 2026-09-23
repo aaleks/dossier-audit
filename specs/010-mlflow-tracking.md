@@ -713,7 +713,7 @@ nothing in MLflow had nothing to go on. A lost record is still not a lost run
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.best_effort`)
 - **Proved by:** `tests/unit/test_R010_21__every_lost_record_is_counted.py`, `tests/acceptance/test_R010_21__every_command_says_how_many_records_were_lost.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
