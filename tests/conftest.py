@@ -78,10 +78,11 @@ def clean_env(request, monkeypatch):
 def mlflow_auth_provider(monkeypatch):
     """dossier's request auth provider known to MLflow, and MLflow's selector restored.
 
-    `connect` writes `MLFLOW_TRACKING_AUTH` to the process environment (R10.17).
-    `clean_env` removes a variable that was set, and cannot undo one a test
-    creates, so each test starts by recording the selector as absent and
-    `monkeypatch` puts that back afterwards.
+    `connect` sets MLflow's own `MLFLOW_TRACKING_AUTH` and
+    `MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT` (R10.17, R10.23). `clean_env` removes
+    a variable that was set, and cannot undo one a test creates, so each test
+    starts by recording them as absent and `monkeypatch` puts that back
+    afterwards.
 
     MLflow finds the provider through package metadata, and a checkout whose
     venv was installed before the entry point existed has none -- which
@@ -91,7 +92,11 @@ def mlflow_auth_provider(monkeypatch):
     """
     import os
 
-    for name in ("MLFLOW_TRACKING_AUTH", "MLFLOW_TRACKING_SERVER_CERT_PATH"):
+    for name in (
+        "MLFLOW_TRACKING_AUTH",
+        "MLFLOW_TRACKING_SERVER_CERT_PATH",
+        "MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT",
+    ):
         monkeypatch.setenv(name, os.environ.get(name, ""))
         monkeypatch.delenv(name)
     try:
