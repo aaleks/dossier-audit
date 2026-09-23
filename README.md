@@ -7,13 +7,15 @@ against human-verified answers.
 
 Package and CLI: `dossier`.
 
-**Status: implemented.** 165 rules across 12 specs, all of them `MET` or
-superseded in place, no open acceptance test. The specs came first and the code
-implements them — see "How this is built" below.
+**Status: implemented, with one slice being built.** 219 rules across 15 specs.
+Every rule is `MET` or superseded in place except six, R10.17–R10.22 — MLflow
+behind authentication — which are specified and not yet built. The specs came
+first and the code implements them — see "How this is built" below.
+`pytest tests/architecture` prints the current count; at the time of writing:
 
 ```
-specs: 165 rules across 12 specs | 156 MET, 0 IN PROGRESS, 0 NOT MET, 9 SUPERSEDED
-       162 deterministic, 3 evaluated
+specs: 219 rules across 15 specs | 200 MET, 0 IN PROGRESS, 6 NOT MET, 13 SUPERSEDED
+       216 deterministic, 3 evaluated
 ```
 
 ## Layout
@@ -26,7 +28,7 @@ specs: 165 rules across 12 specs | 156 MET, 0 IN PROGRESS, 0 NOT MET, 9 SUPERSED
 | `docs/dossier-design-deck.pdf` | Background: the proposal this came from |
 | `src/dossier/` | The package: `domain/`, `application/`, `infrastructure/`, `config/`, `cli/` |
 | `tests/` | `architecture/`, `unit/`, `acceptance/`, `integration/`, `evals/` |
-| `playground/` | Eleven hands-on exercises. Ten offline, seconds, zero cost; the eleventh runs a real Jira in Docker. Not part of `dossier`. |
+| `playground/` | Thirteen hands-on exercises. Ten offline, seconds, zero cost; the eleventh runs a real Jira in Docker; the last two need a local MLflow server. Not part of `dossier`. |
 | `KICKOFF.md` | Prompt for the first implementation session |
 | `.claude/` | The spec-driven toolchain: skills, agents, rules, hooks |
 
@@ -59,6 +61,7 @@ dossier calibrate <pipeline> --gold … # measure each judge against its human-s
 dossier eval <pipeline> --gold …     # score against verified answers
 dossier eval <pipeline> --compare a b
 dossier dataset publish <pipeline> --gold …  # the gold set as an MLflow evaluation dataset
+dossier prompts publish <pipeline>   # each step's prompt and each rubric as an MLflow prompt version
 ```
 
 ## What it reads
@@ -92,6 +95,35 @@ to a judge with the document's pages in place of a transcript, and that judge is
 calibrated and gated on its own threshold, separately from the one that reads
 text (R7.20–R7.24).
 
+## What it records
+
+With tracking on (`DOSSIER_MLFLOW_ENABLED=true` and a tracking URI, in the
+environment or `.env`), `sync`, `convert`, `run`, `calibrate` and `eval` each record
+one MLflow run, and each record says what it was made from:
+
+| Record | Links |
+|---|---|
+| `dossier run` | the prompt version each step rendered, and the pipeline version it built (a logged model, spec 013), which links the same prompts |
+| `dossier eval` | the pipeline version it scored, the gold set's dataset when one is published, and the rubric version each judged field was judged with |
+| `dossier calibrate` | the rubric version it measured |
+| `dossier eval --compare` | both pipeline versions, the dataset when one is published, and the one rubric both sides were judged with |
+
+A prompt version is found by the hash the run rendered, never by being the newest,
+so a prompt edited since cannot attach its words to a run that never saw them
+(R14.7). That is what lets a regression in a comparison be followed, link by
+link, to the prompt text that caused it — `playground/13-*` walks exactly that.
+
+MLflow is a place to **read** these, never a place `dossier` reads from. No
+prompt, dataset or score is ever loaded back into a run: the files in the
+workspace are the only source, which is what keeps a run reproducible from a
+checkout (R14.5, R12.4).
+
+Prompt and dataset names are global on a server. When two checkouts share one,
+set `DOSSIER_MLFLOW_NAMESPACE` on each — `sandbox` publishes
+`sandbox.incident-audit.extract` and the dataset `sandbox.incidents` — or the two
+publish into one history (R10.13). The older `DOSSIER_MLFLOW_PROMPT_PREFIX`
+namespaced prompts alone, and is refused by name if it is still set (R10.15).
+
 ## How this is built
 
 Specification-driven, with a double TDD loop. The specs come first and the code
@@ -110,7 +142,7 @@ implements them; a rule that is not in a spec does not get built.
   code. The default suite is green at the end of every cycle.
 
 Rule ids never move. A rule that stops being true is **superseded in place** and
-names its replacement — nine of the 165 are — because test filenames and other
+names its replacement — 13 of the 219 are — because test filenames and other
 rules cite those ids, and rewriting the text under one would leave every test
 citing it claiming to prove something nobody agreed to.
 
@@ -137,12 +169,15 @@ and it checks that every spec rule and every test file still refer to each other
 
 ## Learning it by running it
 
-`playground/` has eleven exercises that build a workspace, sync a folder, define
-a pipeline, ground an answer, calibrate a judge, read the run back in MLflow,
-audit a chart, and sync a real Jira. The first ten run offline against a stub
-model server in `playground/toolkit/`, so the code path is the real one and the
-answers are yours to control. The eleventh brings up a Jira Data Center in
-Docker -- still on the stub model, with only the source real -- because a named
-credential, someone else's version marker and a listing that cannot report a
-deletion have nowhere to show themselves until a source is remote. Start at
+`playground/` has thirteen exercises that build a workspace, sync a folder,
+define a pipeline, ground an answer, calibrate a judge, read the run back in
+MLflow, audit a chart, sync a real Jira, publish a gold set, and follow a
+regression through MLflow to the prompt that caused it. The first ten run offline
+against a stub model server in `playground/toolkit/`, so the code path is the
+real one and the answers are yours to control. The eleventh brings up a Jira Data
+Center in Docker -- still on the stub model, with only the source real -- because
+a named credential, someone else's version marker and a listing that cannot
+report a deletion have nowhere to show themselves until a source is remote. The
+twelfth and thirteenth need a SQL-backed MLflow server on your machine, because
+datasets, prompt versions and logged models live in its tables. Start at
 `playground/README.md`.
