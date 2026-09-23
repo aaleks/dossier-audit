@@ -546,8 +546,8 @@ front of every published name, and the name it cannot go in front of decides.
 
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.main._tracking_for`), over `dossier.domain.tracking.check_namespace`
-- **Proved by:** `tests/acceptance/test_R010_14__a_namespace_mlflow_would_reject_is_refused_before_any_work.py`
-- **Status:** IN PROGRESS
+- **Proved by:** `tests/acceptance/test_R010_14__a_namespace_mlflow_would_reject_is_refused_before_any_work.py`, `tests/unit/test_R010_14__a_namespace_mlflow_would_reject_is_refused_by_name.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

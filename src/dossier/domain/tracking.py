@@ -117,6 +117,37 @@ def namespaced(name: str, namespace: str) -> str:
     return f"{namespace}.{name}" if namespace else name
 
 
+# What MLflow refuses in a prompt name (R14.1). A namespace goes in front of every
+# prompt name, so it may hold neither -- although a dataset name would take both
+# (R10.14: a live spike created and found `team/a.incidents`).
+_REJECTED_IN_A_PROMPT_NAME = ("/", ":")
+
+
+def check_namespace(namespace: str) -> None:
+    """R10.14 — refuse a namespace MLflow would reject, naming the variable to change.
+
+    On its own rather than only inside the names it goes into, because a name is
+    composed only once a command is already at work: `eval` and `calibrate`
+    reached it with their MLflow run open and raised a traceback (R14.10). Checked
+    here, it is refused with the rest of the tracking settings, before anything
+    is fetched, asked or recorded.
+
+    One namespace goes in front of every published name, so the name it cannot go
+    in front of decides -- and a `dataset publish` refuses it as a prompt publish
+    does.
+    """
+    for character in _REJECTED_IN_A_PROMPT_NAME:
+        if character in namespace:
+            # The variable is named as well as the character: the person reading
+            # this never typed the namespace into the command, so the message has
+            # to say which setting to go and change.
+            raise ValueError(
+                f"{NAMESPACE}={namespace!r} cannot be used: MLflow rejects "
+                f"{character!r} in a prompt name, and the namespace goes in front of "
+                "every one. Choose a namespace holding neither '/' nor ':'."
+            )
+
+
 def settings(environ: Mapping[str, str]) -> TrackingSettings | None:
     """This machine's tracking settings, or `None` when tracking is off (R10.1).
 
