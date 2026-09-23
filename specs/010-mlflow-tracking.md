@@ -794,7 +794,7 @@ the close.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow`, `dossier.infrastructure.tracking.best_effort`)
 - **Proved by:** `tests/unit/test_R010_24__a_trace_the_server_does_not_hold_is_lost.py`, `tests/acceptance/test_R010_24__a_run_says_how_many_traces_mlflow_never_received.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
