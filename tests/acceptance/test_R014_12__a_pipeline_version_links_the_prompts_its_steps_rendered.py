@@ -32,8 +32,6 @@ from tests.scoring_example import (
     RoutedModel,
 )
 
-pytestmark = pytest.mark.outer_loop
-
 PROMPT = f"{PIPELINE}.extract"
 RUBRIC = f"{PIPELINE}.judge.root_cause"
 
