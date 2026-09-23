@@ -66,8 +66,10 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. 196 of the 212 rules are MET and 13 superseded; three
-are NOT MET -- R10.13-R10.15, one MLflow namespace for prompts and datasets.
+Currently open: **none**. 196 of the 219 rules are MET and 13 superseded; ten
+are NOT MET -- R10.13-R10.15, one MLflow namespace for prompts and datasets, and
+R10.16-R10.22, MLflow behind authentication: `basic`, `bearer`, or an OIDC
+service account whose token is fetched again before it expires.
 
 Spec 013 is *pipeline versions*; prompt publishing is **014**. Two sessions
 wrote a spec 013 in parallel and the logged-models one merged first, so the

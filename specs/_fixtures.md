@@ -216,6 +216,12 @@ differ.
 | `nightly` | `DOSSIER_MLFLOW_RUN_PREFIX` in the examples; `{prefix}` renders it as `nightly · ` and renders empty when unset |
 | `v2` | the label in the examples: `--label v2`, rendered by `{label}` and tagged `dossier.label` (R10.11) |
 | `a.aleks` | `DOSSIER_MLFLOW_USER`, which MLflow shows as Created by (R10.12). The same name that verifies the gold answers |
+| `https://mlflow.example.internal` | an MLflow server that requires a credential (R10.16 – R10.22) |
+| `dossier-ci` | the service account dossier authenticates to MLflow as: the `basic` username and the `oidc` client id. Deliberately not `a.aleks`, because who a record says ran it (R10.12) and what it logs in as are two variables |
+| `https://sso.example.internal/realms/dossier/protocol/openid-connect/token` | `DOSSIER_MLFLOW_OIDC_TOKEN_URL`: a Keycloak realm's token endpoint (R10.19) |
+| `https://sso.example.internal/realms/dossier/protocol/openid-connect/auth` | the login page a proxy redirects an unauthenticated request to, which a command cannot follow (R10.18 row 4) |
+| `expires_in: 300`, issued `2026-08-06T09:00:00Z` | the access token in R10.19's examples: due again from `09:04:30Z` under the default 30-second margin |
+| `certs/example-internal.pem` | `DOSSIER_MLFLOW_CA_BUNDLE`: the private CA both `example.internal` hosts are signed by (R10.20) |
 
 ## Evaluation datasets (spec 012)
 
