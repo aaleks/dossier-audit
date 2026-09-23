@@ -65,7 +65,7 @@ def connect(uri: str, *, auth: MlflowAuth | None = None) -> Tracker:
             "pip install 'dossier[tracking]' -- or set DOSSIER_MLFLOW_ENABLED=false."
         ) from error
 
-    _authenticate(uri, auth or MlflowAuth())
+    _configure(uri, auth or MlflowAuth())
     if uri.startswith(("http://", "https://")):
         health = uri.rstrip("/") + "/health"
         try:
@@ -86,13 +86,23 @@ def connect(uri: str, *, auth: MlflowAuth | None = None) -> Tracker:
     return MlflowTracker(uri)
 
 
-def _authenticate(uri: str, auth: MlflowAuth) -> None:
-    """Make `auth` what every request to `uri` carries, or refuse before any work (R10.17).
+def _configure(uri: str, auth: MlflowAuth) -> None:
+    """Ready MLflow for the server at `uri`, or refuse before any work.
 
-    A local store is reached by no request, so there is nothing to carry.
+    Two settings, both MLflow's own and both set through its API, as the tracking
+    URI is (R10.9). `auth` becomes what every request carries (R10.17). And MLflow
+    is told to print nothing (R10.23): `set_terminated` writes an emoji to
+    standard output *before* it sends the update that closes a run, and where
+    standard output is `cp1252` -- Windows, redirected -- the print raised, the
+    update was never sent, and the run stayed `RUNNING` behind a clean exit 0.
+
+    A local store is reached by no request and prints no link, so neither applies.
     """
     if not uri.startswith(("http://", "https://")):
         return
+    from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
+
+    MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT.set(True)
     if auth.mode == "oidc":
         raise TrackingUnavailable(
             "DOSSIER_MLFLOW_AUTH is `oidc`, which exchanges a client's credentials for "
@@ -610,7 +620,7 @@ def connect_prompts(
         connect(uri, auth=auth)  # the extra and the server, refused with their own messages
     else:
         # No probe, and still the credential: no request goes out without it (R10.17).
-        _authenticate(uri, auth or MlflowAuth())
+        _configure(uri, auth or MlflowAuth())
 
     if verify and uri.startswith(("http://", "https://")):
         search = uri.rstrip("/") + PROMPTS_ENDPOINT

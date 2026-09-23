@@ -762,7 +762,7 @@ and only when tracking is on.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow`)
 - **Proved by:** `tests/unit/test_R010_23__mlflow_writes_nothing_to_the_terminal.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
