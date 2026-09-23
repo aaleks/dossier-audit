@@ -694,7 +694,7 @@ CA can be trusted, and verification is never skipped.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow`)
 - **Proved by:** `tests/unit/test_R010_20__a_private_ca_is_trusted_on_every_request.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
