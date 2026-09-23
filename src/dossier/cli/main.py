@@ -89,7 +89,7 @@ from dossier.domain.ports import (
     Tracker,
     VersionRegistry,
 )
-from dossier.domain.prompts import PROMPT_PREFIX
+from dossier.domain.prompts import PROMPT_PREFIX, check_prompt_prefix
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
 from dossier.domain.scoring import (
     check_same_documents,
@@ -399,6 +399,10 @@ def _tracking_for(
         # placeholder this command cannot fill is refused here -- before any work
         # (R10.10 row 4), as the experiment's is.
         name_template(kind=kind, environ=environ)
+        # With the rest of this machine's tracking settings, before any work: a
+        # prefix composed into a name only once a command was at work reached
+        # `eval` and `calibrate` as a traceback, with their run open (R14.10).
+        check_prompt_prefix(environ.get(PROMPT_PREFIX, ""))
         return BestEffortTracker(build_tracker(tracking)), experiment
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)

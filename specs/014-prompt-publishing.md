@@ -1,6 +1,6 @@
 # 014 — A pipeline's prompts as MLflow prompt registry versions
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R14.1 – R14.10
 
 ## Purpose
@@ -423,7 +423,7 @@ the ones that would have recorded most.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.main._tracking_for`), over `dossier.domain.prompts.check_prompt_prefix`
 - **Proved by:** `tests/acceptance/test_R014_10__a_prefix_mlflow_would_reject_is_refused_before_any_work.py`, `tests/unit/test_R014_10__a_prefix_mlflow_would_reject_is_refused_by_name.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -67,7 +67,7 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all fifteen specs are
-implemented, and 195 of the 206 rules are MET with the other 11 superseded.
+implemented, and 196 of the 207 rules are MET with the other 11 superseded.
 
 Spec 013 is *pipeline versions*; prompt publishing is **014**. Two sessions
 wrote a spec 013 in parallel and the logged-models one merged first, so the
@@ -198,7 +198,10 @@ never the run. A judge's record links the rubric it judged with the same way:
 `dossier eval` for every field it did not withhold, cached verdicts included,
 and `dossier calibrate` once per field it measured (R14.9). The linked version
 is the rubric a person wrote, not the judge's whole prompt -- R7.19 hashes the
-wrapper too, and only the rubric is published. A prompt name is global and carries its pipeline, which is
+wrapper too, and only the rubric is published. A prefix MLflow would reject is refused
+with the rest of the tracking settings, before any work, by every command that
+records (R14.10) -- `eval` and `calibrate` met it as a traceback with their run
+open, and `run` after its record had opened. A prompt name is global and carries its pipeline, which is
 unique within one workspace and no further -- found live, when a publish from one
 checkout arrived as `v2` of another's prompt -- so `DOSSIER_MLFLOW_PROMPT_PREFIX`
 namespaces every name a publish sends and a run looks up, per machine, and empty
