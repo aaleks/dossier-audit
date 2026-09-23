@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 from tests.acceptance.conftest import GOLD, URI, _cli
 from tests.acceptance.test_R014_9__a_judge_links_the_rubric_version_it_judged_with import (
     VERDICTS,
