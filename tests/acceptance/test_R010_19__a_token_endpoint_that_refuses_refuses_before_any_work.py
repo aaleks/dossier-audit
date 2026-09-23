@@ -22,8 +22,6 @@ from tests.fakes import FakeTracker, NoModelClient, register_connector
 from tests.pipelines import write_pipeline
 from tests.scoring_example import ISSUES, PIPELINE, SOURCE_ID, SOURCE_TYPE, IssueTracker
 
-pytestmark = pytest.mark.outer_loop
-
 URI = "https://mlflow.example.internal"
 TOKEN_URL = "https://sso.example.internal/realms/dossier/protocol/openid-connect/token"
 SECRET = "client-secret-7f3a"
@@ -42,9 +40,12 @@ class Keycloak:
         if self.refuse:
             return httpx.Response(
                 401,
+                # What a live Keycloak 26 answers a wrong secret: not the
+                # `invalid_client` RFC 6749 suggests, and not what this fake first
+                # said. dossier keys on the status, so either passes.
                 json={
-                    "error": "invalid_client",
-                    "error_description": "Invalid client credentials",
+                    "error": "unauthorized_client",
+                    "error_description": "Invalid client or Invalid client credentials",
                 },
             )
         return httpx.Response(
@@ -93,9 +94,8 @@ def held(workspace: Path, monkeypatch) -> Path:
 
 def _oidc(monkeypatch, keycloak, mlflow: Mlflow) -> None:
     """Tracking on at `URI`, as the `dossier-ci` client of the `dossier` realm."""
-    import dossier.infrastructure.tracking.oidc as oidc
-
     import dossier.infrastructure.tracking.mlflow as adapter
+    import dossier.infrastructure.tracking.oidc as oidc
 
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
     monkeypatch.setenv("DOSSIER_MLFLOW_TRACKING_URI", URI)
@@ -141,7 +141,7 @@ class TestATokenEndpointThatRefusesRefusesBeforeAnyWork:
     def test_a_refused_client_refuses_the_run_naming_the_client_and_never_the_secret(
         self, held: Path, monkeypatch
     ):
-        """Example 6: the one where Keycloak answers 401 `invalid_client`."""
+        """Example 6: the one where Keycloak answers 401 `unauthorized_client`."""
         mlflow = Mlflow()
         _oidc(monkeypatch, Keycloak(refuse=True), mlflow)
 

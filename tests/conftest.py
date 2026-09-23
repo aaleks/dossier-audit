@@ -99,6 +99,13 @@ def mlflow_auth_provider(monkeypatch):
     ):
         monkeypatch.setenv(name, os.environ.get(name, ""))
         monkeypatch.delenv(name)
+    # The credential in force is process state, as MLflow's URI is (R10.9). Each
+    # test starts with none, so an `oidc` token one test fetched is not what the
+    # next one's requests carry.
+    from dossier.infrastructure.tracking import auth
+
+    monkeypatch.setattr(auth, "_authorization", lambda: None)
+    monkeypatch.setattr(auth, "_configured", None)
     try:
         from mlflow.tracking.request_auth import registry
     except ImportError:

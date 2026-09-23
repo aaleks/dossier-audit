@@ -115,3 +115,172 @@ class TestTheRefreshMargin:
         )
 
         assert found.auth.mode == "basic"
+
+
+class Clock:
+    """A clock a test moves by hand."""
+
+    def __init__(self, now: datetime) -> None:
+        self.now = now
+
+    def __call__(self) -> datetime:
+        return self.now
+
+
+class Realm:
+    """Keycloak's token endpoint: counts exchanges, and can stop answering."""
+
+    def __init__(self, *, expires_in: int | None = 300) -> None:
+        self.expires_in = expires_in
+        self.forms: list[dict[str, list[str]]] = []
+        self.down = False
+
+    def __call__(self, request):
+        import httpx
+
+        if self.down:
+            raise httpx.ConnectError("connection refused", request=request)
+        from urllib.parse import parse_qs
+
+        self.forms.append(parse_qs(request.content.decode()))
+        body = {"access_token": f"token-{len(self.forms)}", "token_type": "Bearer"}
+        if self.expires_in is not None:
+            body["expires_in"] = self.expires_in
+        return httpx.Response(200, json=body)
+
+
+@pytest.fixture
+def realm(monkeypatch) -> Realm:
+    import httpx
+
+    from dossier.infrastructure.tracking import oidc
+
+    answering = Realm()
+    monkeypatch.setattr(oidc, "TOKEN_TRANSPORT", httpx.MockTransport(answering))
+    return answering
+
+
+def source_for(realm: Realm, clock: Clock, **extra: str):
+    from dossier.infrastructure.tracking.oidc import TokenSource
+
+    return TokenSource(settings(oidc(**extra)).auth, clock=clock)
+
+
+class TestTheExchange:
+    """R10.19 — one exchange when due, and none when not."""
+
+    def test_the_first_request_exchanges_once_with_the_grant_and_the_client(self, realm):
+        """Example 1: the one at `09:00:00`, whose form holds nothing but these three."""
+        clock = Clock(ISSUED)
+
+        assert source_for(realm, clock).authorization() == "Bearer token-1"
+        assert realm.forms == [
+            {
+                "grant_type": ["client_credentials"],
+                "client_id": ["dossier-ci"],
+                "client_secret": ["client-secret-7f3a"],
+            }
+        ]
+
+    def test_a_token_is_kept_until_the_margin_and_fetched_again_at_it(self, realm):
+        """Examples 2 and 3: `09:04:29` keeps token-1, `09:04:30` fetches token-2."""
+        clock = Clock(ISSUED)
+        source = source_for(realm, clock)
+        source.authorization()
+
+        clock.now = at("09:04:29")
+        assert source.authorization() == "Bearer token-1"
+        assert len(realm.forms) == 1
+
+        clock.now = at("09:04:30")
+        assert source.authorization() == "Bearer token-2"
+        assert len(realm.forms) == 2
+
+    def test_a_scope_and_an_audience_are_sent_when_set(self, realm):
+        """Example 5: the one for Entra ID's scope and Auth0's audience."""
+        source_for(
+            realm,
+            Clock(ISSUED),
+            DOSSIER_MLFLOW_OIDC_SCOPE="mlflow",
+            DOSSIER_MLFLOW_OIDC_AUDIENCE="https://mlflow.example.internal",
+        ).authorization()
+
+        assert realm.forms[0]["scope"] == ["mlflow"]
+        assert realm.forms[0]["audience"] == ["https://mlflow.example.internal"]
+
+    def test_a_token_whose_lifetime_nobody_stated_is_fetched_for_every_request(self, realm):
+        """Example 9: the one answered with no `expires_in` -- never reused on a guess."""
+        realm.expires_in = None
+        source = source_for(realm, Clock(ISSUED))
+
+        source.authorization()
+        source.authorization()
+
+        assert len(realm.forms) == 2
+
+    def test_a_refresh_that_fails_mid_run_loses_the_record_not_the_run(self, realm):
+        """Counter-example 10: the one where Keycloak stops answering at `09:04:30`.
+
+        The request MLflow was about to send raises in its auth hook, so it is
+        not sent without a credential. `BestEffortTracker` counts it as a lost
+        record and the run goes on (R10.6).
+        """
+        from dossier.infrastructure.tracking import auth
+        from dossier.infrastructure.tracking.best_effort import BestEffortTracker
+        from dossier.infrastructure.tracking.oidc import TokenRefused
+
+        clock = Clock(ISSUED)
+        source = source_for(realm, clock)
+        source.authorization()
+        auth._authorization = source.authorization
+        realm.down = True
+        clock.now = at("09:04:30")
+
+        class Request:
+            headers: dict[str, str] = {}
+
+        with pytest.raises(TokenRefused):
+            auth.DossierAuthProvider().get_auth()(Request())
+
+        class Recording:
+            def start_run(self, **_):
+                auth.DossierAuthProvider().get_auth()(Request())
+
+        tracker = BestEffortTracker(Recording())
+        tracker.start_run(experiment="dossier-audit/incident-audit/run", name="r", tags={})
+
+    @pytest.mark.parametrize(
+        "mode",
+        [
+            {
+                "DOSSIER_MLFLOW_AUTH": "basic",
+                "DOSSIER_MLFLOW_AUTH_USERNAME": "dossier-ci",
+                "DOSSIER_MLFLOW_AUTH_PASSWORD": "correct-horse-battery-staple",
+            },
+            {"DOSSIER_MLFLOW_AUTH": "bearer", "DOSSIER_MLFLOW_AUTH_TOKEN": "mlf-token-2b9c"},
+        ],
+        ids=["basic", "bearer"],
+    )
+    def test_basic_and_bearer_make_no_exchange(self, realm, monkeypatch, mode):
+        """Counter-example 11: the one where no identity provider is involved."""
+        import httpx
+
+        from dossier.infrastructure.tracking import mlflow as adapter
+
+        monkeypatch.setattr(
+            adapter, "HEALTH_TRANSPORT", httpx.MockTransport(lambda r: httpx.Response(200))
+        )
+        import mlflow
+
+        monkeypatch.setattr(mlflow, "set_tracking_uri", lambda uri: None)
+        found = settings(
+            {
+                "DOSSIER_MLFLOW_ENABLED": "true",
+                "DOSSIER_MLFLOW_TRACKING_URI": "https://mlflow.example.internal",
+                **mode,
+            }
+        )
+
+        adapter.connect(found.uri, auth=found.auth)
+
+        assert realm.forms == []
