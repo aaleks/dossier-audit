@@ -2,9 +2,10 @@
 
     python links.py http://127.0.0.1:5113
 
-Three sections, each read straight off the server:
+Four sections, each read straight off the server:
 
   prompt   every version of every prompt, with the hash `dossier` tagged it with
+  dataset  every evaluation dataset -- a published gold set (spec 012)
   run      every run in every experiment, and the prompt versions it links
   version  every logged model -- a pipeline version (spec 013) -- and its prompts
 
@@ -20,6 +21,7 @@ from __future__ import annotations
 import json
 import sys
 
+import mlflow
 from mlflow import MlflowClient
 
 
@@ -36,6 +38,13 @@ def main(uri: str) -> None:
         for version in sorted(versions, key=lambda v: int(v.version)):
             digest = (version.tags or {}).get("dossier.prompt_hash", "")
             print(f"prompt   {version.name:<42} v{version.version}  {digest[:8]}")
+
+    # The datasets API reads the tracking URI MLflow was pointed at, not a client's.
+    mlflow.set_tracking_uri(uri)
+    from mlflow.genai.datasets import search_datasets
+
+    for dataset in sorted(search_datasets(), key=lambda d: d.name):
+        print(f"dataset  {dataset.name}")
 
     experiments = sorted(client.search_experiments(), key=lambda e: e.name)
     for experiment in experiments:

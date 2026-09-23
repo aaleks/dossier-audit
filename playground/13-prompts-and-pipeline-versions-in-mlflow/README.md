@@ -40,7 +40,7 @@ exactly that half of it.
 
 This exercise gets a server of its own, so a registry that exercise 12 or your own
 work has already published into cannot shift the version numbers you see. A prompt
-name is global within a server (R14.8), and `incident-audit.extract` is a name
+name is global within a server (R10.13), and `incident-audit.extract` is a name
 every earlier workspace would share.
 
 ```bash
@@ -232,31 +232,44 @@ Open the comparison's run.
 ## Task 6 — two namespaces, one refused, and a registry taken away
 
 A second checkout on another machine would publish `incident-audit.extract` into
-the same history as yours. A prefix keeps them apart:
+the same history as yours, and its `gold/incidents` into the same dataset. One
+namespace keeps both apart:
 
 ```bash
-DOSSIER_MLFLOW_PROMPT_PREFIX=sandbox dossier prompts publish incident-audit
-DOSSIER_MLFLOW_PROMPT_PREFIX=sandbox dossier run incident-audit
+DOSSIER_MLFLOW_NAMESPACE=sandbox dossier prompts publish incident-audit
+DOSSIER_MLFLOW_NAMESPACE=sandbox dossier dataset publish incident-audit --gold gold/incidents
+DOSSIER_MLFLOW_NAMESPACE=sandbox dossier run incident-audit
 ```
 
 **Checkpoint.** `sandbox.incident-audit.extract` and
-`sandbox.incident-audit.judge.root_cause`, each at v1, and the run links
+`sandbox.incident-audit.judge.root_cause`, each at v1; a dataset
+`sandbox.incidents` of 5 records; and the run links
 `sandbox.incident-audit.extract` v1.
 
+- Why one variable for prompts *and* datasets, rather than one for each? What
+  would a machine that set only the prompt one have done to a dataset? (R10.13.)
+- The dataset joined `dossier-audit/incident-audit/eval/incidents`, no namespace
+  in it. Why is the experiment left alone? (R10.13 row 6, R10.2.)
 - The pipeline version the run found now links **two** prompts:
   `incident-audit.extract` v1 and `sandbox.incident-audit.extract` v1. Is that a
   mistake? What do those two have in common, and what is a version identified by?
-  (R13.1, R14.8.)
+  (R13.1, R10.13.)
 
-Then try a prefix MLflow cannot hold:
+Then try a namespace MLflow cannot hold, and the variable this one replaced:
 
 ```bash
-DOSSIER_MLFLOW_PROMPT_PREFIX=team/a dossier run incident-audit
+DOSSIER_MLFLOW_NAMESPACE=team/a dossier run incident-audit
+DOSSIER_MLFLOW_PROMPT_PREFIX=sandbox dossier run incident-audit
 ```
 
-**Checkpoint.** Exit 2 naming the variable, no model call, and no new directory
-under `runs/`. Why is this refused before the run does anything, rather than when
-the name is first needed? (R14.10.)
+**Checkpoint.** Exit 2 both times, each naming the variable to change, no model
+call, and no new directory under `runs/`.
+
+- Why is `team/a` refused before the run does anything, rather than when a name is
+  first needed? A dataset name would have taken the `/` — so why is `dataset
+  publish` refused too? (R10.14.)
+- `DOSSIER_MLFLOW_PROMPT_PREFIX` used to work. What would have happened to your
+  next publish if it were now ignored instead of refused? (R10.15.)
 
 Last: delete every prompt from this server — the UI's delete, or
 `MlflowClient.delete_prompt` — then run `dossier run incident-audit --plan` and a
@@ -278,6 +291,7 @@ not change a single key or answer? (R14.5.)
   prompt it was made with — and a run made before publishing that links nothing;
 - a reverted prompt whose run links v1 and not the newest;
 - a regression in a comparison you followed to the prompt text that caused it;
+- one namespace for prompts and datasets, and two settings refused by name;
 - a registry emptied, and a run that did not notice.
 
 **Back to:** [the playground index](../README.md).
