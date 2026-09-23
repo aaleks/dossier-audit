@@ -66,8 +66,8 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. 197 of the 209 rules are MET and 11 superseded; one is
-NOT MET -- R14.12, a pipeline version linking its prompts, next to be accepted.
+Currently open: **none**, and nothing is outstanding: all fifteen specs are
+implemented, and 198 of the 209 rules are MET with the other 11 superseded.
 
 Spec 013 is *pipeline versions*; prompt publishing is **014**. Two sessions
 wrote a spec 013 in parallel and the logged-models one merged first, so the
@@ -204,7 +204,12 @@ records (R14.10) -- `eval` and `calibrate` met it as a traceback with their run
 open, and `run` after its record had opened. A comparison links the rubric both its sides
 were judged with, once, because both are judged with the checkout's (R14.11);
 R14.9's row 8, which said a comparison links nothing, was replaced in place by a
-counter-example that is still true, as R11.7's row 5 was. A prompt name is global and carries its pipeline, which is
+counter-example that is still true, as R11.7's row 5 was. And a pipeline version links the
+prompt version each of its steps rendered, so the Models tab says what a version
+is made of (R14.12): `dossier run` links them, because it built the version,
+from the lookups R14.7 already makes -- one answer, linked to the run and to the
+version. MLflow keeps a model's linked prompts as one set (checked live), so a
+later run of the same version changes nothing, or adds a prompt published since. A prompt name is global and carries its pipeline, which is
 unique within one workspace and no further -- found live, when a publish from one
 checkout arrived as `v2` of another's prompt -- so `DOSSIER_MLFLOW_PROMPT_PREFIX`
 namespaces every name a publish sends and a run looks up, per machine, and empty

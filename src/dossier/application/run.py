@@ -309,12 +309,14 @@ def execute(
         # linked as one of this run's outputs (R13.1, R13.2). The registry
         # is best-effort and answers `None` when the server cannot hold a
         # logged model, which costs the record and never the run (R13.5).
+        built: str | None = None
         if versions is not None:
             registered = versions.register(
                 record=version_record(plan), experiment=version_experiment
             )
             if registered is not None:
                 tracker.produced_version(registered.version_id)
+                built = registered.version_id
 
         # The prompt version each step rendered, found by the hash the plan
         # already holds rather than by recency: a prompt edited and republished
@@ -323,6 +325,11 @@ def execute(
         # never published finds nothing and links nothing -- a run must not
         # fail, or even differ, because someone has not run `prompts publish`
         # (R10.4).
+        #
+        # The version this run built is made of exactly these prompts -- its
+        # hash is taken over theirs (R13.1) -- so each one found is linked to
+        # it as well, from the same lookup (R14.12). This command, and not an
+        # eval, because it is the one that made the version (R13.2).
         if prompt_registry is not None:
             link_published(
                 tracker,
@@ -334,6 +341,7 @@ def execute(
                     )
                     for step in plan.steps
                 ],
+                version_id=built,
             )
 
     try:

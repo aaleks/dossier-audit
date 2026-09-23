@@ -67,9 +67,17 @@ def publish_prompts(
 
 
 def link_published(
-    tracker: Tracker, registry: PromptRegistry, wanted: Iterable[tuple[str, str]]
+    tracker: Tracker,
+    registry: PromptRegistry,
+    wanted: Iterable[tuple[str, str]],
+    *,
+    version_id: str | None = None,
 ) -> None:
     """Link each (name, hash) in `wanted` to the version carrying that hash (R14.7, R14.9).
+
+    With `version_id`, each version found is linked to that pipeline version as
+    well (R14.12): the prompts a run rendered are the prompts the version it
+    built is made of, so one answer serves both and the registry is asked once.
 
     Found by hash, never by recency: a prompt edited and republished since
     would otherwise attach its newest words to a record that never used them.
@@ -89,6 +97,10 @@ def link_published(
             break
         if found is not None:
             tracker.rendered_prompt(name=found.name, version=found.version)
+            if version_id is not None:
+                tracker.version_prompt(
+                    version_id=version_id, name=found.name, version=found.version
+                )
 
 
 def _paths(
