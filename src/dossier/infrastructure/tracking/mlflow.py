@@ -25,7 +25,7 @@ from dossier.domain.ports import (
     VersionRegistry,
 )
 from dossier.domain.prompts import PublishedPrompt
-from dossier.domain.tracking import MlflowAuth
+from dossier.domain.tracking import MlflowAuth, refused_credential
 from dossier.domain.versions import (
     HASH_TAG,
     MODEL_TYPE,
@@ -42,6 +42,13 @@ HEALTH_TRANSPORT: httpx.BaseTransport | None = None
 # that a wrong URI is reported before anyone wonders why nothing happened.
 HEALTH_TIMEOUT_SECONDS = 5.0
 
+# The one read the startup check makes with the credential (R10.18). MLflow's
+# own basic auth leaves `/health` open -- a live server answered 200 there and
+# 401 here to the same anonymous client -- so `/health` alone passed a credential
+# every later record would be refused. A read, because a check that wrote would
+# leave something behind; and so it cannot prove write access, which R10.22 is for.
+CREDENTIAL_ENDPOINT = "/api/2.0/mlflow/experiments/search"
+
 
 class TrackingUnavailable(RuntimeError):
     """Tracking is switched on, and nothing can be recorded -- said before any work."""
@@ -50,11 +57,12 @@ class TrackingUnavailable(RuntimeError):
 def connect(uri: str, *, auth: MlflowAuth | None = None) -> Tracker:
     """A tracker recording to `uri`, or `TrackingUnavailable` saying why not (R10.5).
 
-    Two checks, in the order a person would fix them: the `tracking` extra is
-    installed, and a server answers at an `http(s)` URI. A local store such as
-    `sqlite:///mlflow.db` has no server to ask, so it is not asked.
+    Three checks, in the order a person would fix them: the `tracking` extra is
+    installed, a server answers at an `http(s)` URI, and it accepts the
+    credential (R10.18). A local store such as `sqlite:///mlflow.db` has no
+    server to ask, so it is not asked.
 
-    Before either request, `auth` is made the credential every request to the
+    Before any request, `auth` is made the credential every request to the
     server carries -- this check's, and every one MLflow sends after it (R10.17).
     """
     try:
@@ -65,25 +73,53 @@ def connect(uri: str, *, auth: MlflowAuth | None = None) -> Tracker:
             "pip install 'dossier[tracking]' -- or set DOSSIER_MLFLOW_ENABLED=false."
         ) from error
 
-    _configure(uri, auth or MlflowAuth())
+    auth = auth or MlflowAuth()
+    _configure(uri, auth)
     if uri.startswith(("http://", "https://")):
         health = uri.rstrip("/") + "/health"
+        read = uri.rstrip("/") + CREDENTIAL_ENDPOINT
         try:
             with httpx.Client(
                 transport=HEALTH_TRANSPORT, timeout=HEALTH_TIMEOUT_SECONDS
             ) as http:
-                answered = http.get(health, headers=headers())
+                for asked, params in ((health, None), (read, {"max_results": 1})):
+                    _accepted(
+                        uri, asked, http.get(asked, params=params, headers=headers()), auth
+                    )
         except httpx.HTTPError as error:
             raise TrackingUnavailable(
                 f"tracking is enabled and no MLflow server answers at {uri} ({error}). "
                 "Start it, or set DOSSIER_MLFLOW_ENABLED=false."
             ) from None
-        if not answered.is_success:
-            raise TrackingUnavailable(
-                f"tracking is enabled and the MLflow server at {uri} answered "
-                f"{answered.status_code} {answered.reason_phrase} to {health}."
-            )
     return MlflowTracker(uri)
+
+
+def _accepted(uri: str, asked: str, answered: httpx.Response, auth: MlflowAuth) -> None:
+    """Refuse, before any work, an answer that is not a success -- saying which kind (R10.18).
+
+    A refusal and a redirect are about the credential, and say so: a proxy in
+    front of MLflow answers an unauthenticated request with its identity
+    provider's login page, which a command cannot follow. Neither is "no server
+    answers", which would send a person to restart a server that is running.
+    """
+    status = f"{answered.status_code} {answered.reason_phrase}"
+    if answered.status_code in (401, 403):
+        raise TrackingUnavailable(
+            f"tracking is enabled and the MLflow server at {uri} answered {status} to "
+            f"{asked}: {refused_credential(auth)}."
+        )
+    if answered.is_redirect:
+        location = answered.headers.get("Location", "an address it did not give")
+        raise TrackingUnavailable(
+            f"tracking is enabled and the MLflow server at {uri} answered {status} to "
+            f"{asked}, redirecting to {location} -- a login page a command cannot "
+            f"follow: {refused_credential(auth)}. Behind a proxy, the proxy has to "
+            "accept the credential itself (oauth2-proxy: --skip-jwt-bearer-tokens)."
+        )
+    if not answered.is_success:
+        raise TrackingUnavailable(
+            f"tracking is enabled and the MLflow server at {uri} answered {status} to {asked}."
+        )
 
 
 def _configure(uri: str, auth: MlflowAuth) -> None:

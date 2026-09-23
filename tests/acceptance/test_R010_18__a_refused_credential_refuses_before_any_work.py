@@ -29,8 +29,6 @@ from tests.fakes import (
 from tests.pipelines import write_pipeline
 from tests.scoring_example import ISSUES, PIPELINE, SOURCE_ID, SOURCE_TYPE, IssueTracker
 
-pytestmark = pytest.mark.outer_loop
-
 URI = "https://mlflow.example.internal"
 LOGIN = "https://sso.example.internal/realms/dossier/protocol/openid-connect/auth"
 PASSWORD = "correct-horse-battery-staple"
