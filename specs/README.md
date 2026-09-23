@@ -22,7 +22,7 @@ spec assumes.
 | `011-tracking-records.md` | What each command records to MLflow: runs, traces, spans and metrics | R11.1 – R11.19 | Implemented |
 | `012-evaluation-datasets.md` | Publishing a gold set as an MLflow evaluation dataset, and the eval run that links to it | R12.1 – R12.6 | Implemented |
 | `013-pipeline-versions.md` | Publishing a pipeline version as an MLflow logged model, and the accuracy recorded against it | R13.1 – R13.5 | Implemented |
-| `014-prompt-publishing.md` | Publishing a pipeline's prompts and rubrics as MLflow prompt versions, and the half of that registry dossier declines to use | R14.1 – R14.10 | Partially implemented |
+| `014-prompt-publishing.md` | Publishing a pipeline's prompts and rubrics as MLflow prompt versions, and the half of that registry dossier declines to use | R14.1 – R14.10 | Implemented |
 
 Supporting files:
 
