@@ -1,6 +1,6 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R10.1 – R10.23
 
 ## Purpose
@@ -733,7 +733,7 @@ the outcome (R10.6).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.best_effort`)
 - **Proved by:** `tests/unit/test_R010_22__a_refused_record_is_reported_as_it_is_refused.py`, `tests/acceptance/test_R010_22__a_refused_write_is_reported_before_the_work.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

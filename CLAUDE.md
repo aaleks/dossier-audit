@@ -66,9 +66,37 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. 200 of the 219 rules are MET and 13 superseded; six
-are NOT MET -- R10.17-R10.22, MLflow behind authentication: `basic`, `bearer`, or an OIDC
-service account whose token is fetched again before it expires.
+Currently open: **none**, and nothing is outstanding: all fifteen specs are
+implemented, and 207 of the 220 rules are MET with the other 13 superseded.
+
+MLflow can sit behind authentication. `DOSSIER_MLFLOW_AUTH` names the mode --
+`none`, `basic`, `bearer` or `oidc` -- chosen, never inferred from which
+variables are set, and `DOSSIER_MLFLOW_USER` (Created by) is never a login
+(R10.16). One MLflow request auth provider, registered by entry point, puts the
+credential on every request: runs, traces from the async exporter, the
+registries and dossier's own startup check, so the header checked is the header
+sent; MLflow's own `MLFLOW_TRACKING_TOKEN` in a shell decides nothing (R10.17).
+The startup check makes one read that needs the credential, because MLflow's
+basic auth leaves `/health` open, and a 401, 403 or redirect to a login page
+stops the command before any work (R10.18). An `oidc` client-credentials token
+is fetched before any work and again once no more than
+`DOSSIER_MLFLOW_OIDC_REFRESH_SECONDS` (30) remain -- verified against Keycloak
+with 60-second tokens and a 93-second run, 0 records refused (R10.19). A private
+CA is `DOSSIER_MLFLOW_CA_BUNDLE`, trusted on all three connections (R10.20).
+Every command says how many records it lost (R10.21), and the first 401 or 403
+is said as it happens -- a warning, never a refusal (R10.22). The only secret
+never touches the environment; what is written there is MLflow's own provider
+name and cert path. After pulling, reinstall (`uv sync`) so MLflow finds the
+entry point; a stale install is refused by name.
+
+Known gap: a trace MLflow's background exporter fails to send -- a 403 on
+`/api/3.0/mlflow/traces` -- raises in no call dossier makes, so it is in no
+count. R10.22 still warns, from the run's own refused writes, but the number is
+an undercount.
+
+MLflow printed `🏃 View run` to stdout *before* sending the update that closes
+a run; on a Windows pipe (cp1252) that raised, and every run stayed `RUNNING`
+behind exit 0. The tracker now tells MLflow to print nothing (R10.23).
 
 Spec 013 is *pipeline versions*; prompt publishing is **014**. Two sessions
 wrote a spec 013 in parallel and the logged-models one merged first, so the
