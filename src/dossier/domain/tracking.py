@@ -220,6 +220,23 @@ def authorization(auth: MlflowAuth) -> str | None:
     return None
 
 
+def refused_credential(auth: MlflowAuth) -> str:
+    """What a server's refusal says about the credential, naming its variables (R10.18).
+
+    Variables, never values (R10.7). With no mode chosen, the thing to fix is
+    that none was: a server asking for a credential was sent none.
+    """
+    if auth.mode == "none":
+        return (
+            f"it wants a credential, and {AUTH} is not set. Set it to `basic`, `bearer` "
+            "or `oidc`, with that mode's variables"
+        )
+    named = " and ".join(
+        variable for _, variable in _AUTH_NEEDS[auth.mode] if variable != OIDC_TOKEN_URL
+    )
+    return f"it did not accept the `{auth.mode}` credential in {named}"
+
+
 def _auth(environ: Mapping[str, str]) -> MlflowAuth:
     """The credential `DOSSIER_MLFLOW_AUTH` names, from that mode's variables alone (R10.16).
 

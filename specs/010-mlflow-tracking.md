@@ -641,7 +641,7 @@ reported as "no MLflow server answers here".
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.main`)
 - **Proved by:** `tests/acceptance/test_R010_18__a_refused_credential_refuses_before_any_work.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
