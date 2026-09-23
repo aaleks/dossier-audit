@@ -438,7 +438,7 @@ because it *is* the same version.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.namespaced`)
 - **Proved by:** `tests/acceptance/test_R010_13__a_namespace_goes_in_front_of_every_published_name.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
