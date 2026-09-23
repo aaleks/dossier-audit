@@ -406,9 +406,13 @@ def _tracking_for(
         # `eval` and `calibrate` as a traceback, with their run open (R14.10).
         namespace(environ)
         # A loss is said in the command's own terminal, once, as its record closes
-        # (R10.21) -- by every command that records, because every one builds
-        # its tracker here.
-        return BestEffortTracker(build_tracker(tracking), warn=_warn), experiment
+        # (R10.21), and the first refusal as it happens, naming the credential's
+        # variable (R10.22) -- by every command that records, because every one
+        # builds its tracker here.
+        return (
+            BestEffortTracker(build_tracker(tracking), warn=_warn, auth=tracking.auth),
+            experiment,
+        )
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
