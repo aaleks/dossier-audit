@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from dossier.domain.judges import Calibration
 from dossier.domain.resolution import ResolvedPlan
@@ -31,6 +32,31 @@ USER = "DOSSIER_MLFLOW_USER"
 # MLflow's global namespace -- a prompt's and a dataset's (R10.13).
 NAMESPACE = "DOSSIER_MLFLOW_NAMESPACE"
 
+AUTH = "DOSSIER_MLFLOW_AUTH"
+AUTH_USERNAME = "DOSSIER_MLFLOW_AUTH_USERNAME"
+AUTH_PASSWORD = "DOSSIER_MLFLOW_AUTH_PASSWORD"
+AUTH_TOKEN = "DOSSIER_MLFLOW_AUTH_TOKEN"
+OIDC_TOKEN_URL = "DOSSIER_MLFLOW_OIDC_TOKEN_URL"
+OIDC_CLIENT_ID = "DOSSIER_MLFLOW_OIDC_CLIENT_ID"
+OIDC_CLIENT_SECRET = "DOSSIER_MLFLOW_OIDC_CLIENT_SECRET"
+OIDC_SCOPE = "DOSSIER_MLFLOW_OIDC_SCOPE"
+OIDC_AUDIENCE = "DOSSIER_MLFLOW_OIDC_AUDIENCE"
+
+# The ways dossier can authenticate to MLflow (R10.16), and what each one needs.
+# Chosen by name rather than inferred from which variables are set: a guess that
+# picked the wrong mode would be found only after the run it should have recorded.
+_AUTH_MODES = ("none", "basic", "bearer", "oidc")
+_AUTH_NEEDS: dict[str, tuple[tuple[str, str], ...]] = {
+    "none": (),
+    "basic": (("username", AUTH_USERNAME), ("password", AUTH_PASSWORD)),
+    "bearer": (("token", AUTH_TOKEN),),
+    "oidc": (
+        ("token_url", OIDC_TOKEN_URL),
+        ("client_id", OIDC_CLIENT_ID),
+        ("client_secret", OIDC_CLIENT_SECRET),
+    ),
+}
+
 # What a span may carry: the text a stage read and wrote, or only its hashes.
 _CAPTURES = ("full", "hashes")
 
@@ -45,12 +71,34 @@ _PLACEHOLDERS = ("pipeline", "kind", "gold")
 _PLACEHOLDER = re.compile(r"\{([^{}]*)\}")
 
 
+class MlflowAuth(BaseModel):
+    """How this machine authenticates to its MLflow server (R10.16).
+
+    Every secret is kept out of `repr`, as `Credential.value` and
+    `Endpoint.api_key` are (R9.8): a settings object printed into a refusal or
+    a log line discloses nothing (R10.7).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    mode: Literal["none", "basic", "bearer", "oidc"] = "none"
+    username: str | None = None
+    password: str | None = Field(default=None, repr=False)
+    token: str | None = Field(default=None, repr=False)
+    token_url: str | None = None
+    client_id: str | None = None
+    client_secret: str | None = Field(default=None, repr=False)
+    scope: str | None = None
+    audience: str | None = None
+
+
 class TrackingSettings(BaseModel):
     """Where this machine records its runs, when it records them at all."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     uri: str
+    auth: MlflowAuth = MlflowAuth()
 
 
 def namespaced(name: str, namespace: str) -> str:
@@ -95,7 +143,37 @@ def settings(environ: Mapping[str, str]) -> TrackingSettings | None:
             f"{ENABLED} is true, and {TRACKING_URI} is not set. Set it to where MLflow "
             "is served on this machine; `.env.example` names http://localhost:5000."
         )
-    return TrackingSettings(uri=uri)
+    return TrackingSettings(uri=uri, auth=_auth(environ))
+
+
+def _auth(environ: Mapping[str, str]) -> MlflowAuth:
+    """The credential `DOSSIER_MLFLOW_AUTH` names, from that mode's variables alone (R10.16).
+
+    A variable belonging to a mode nobody chose is not read: a token left in
+    `.env` from last week's setup chooses nothing. `DOSSIER_MLFLOW_USER` is who a
+    record says ran it (R10.12) and is never read as a login.
+
+    A refusal names the variable, never a value: an empty one counts as unset,
+    as an empty endpoint does (R9.2), because `.env.example` ships them blank.
+    """
+    mode = environ.get(AUTH, "") or "none"
+    if mode not in _AUTH_MODES:
+        allowed = ", ".join(f"`{name}`" for name in _AUTH_MODES)
+        raise ValueError(f"{AUTH} is {mode!r}; it takes {allowed}.")
+
+    values: dict[str, str] = {}
+    for field, variable in _AUTH_NEEDS[mode]:
+        value = environ.get(variable, "")
+        if not value:
+            raise ValueError(f"{AUTH} is `{mode}`, and {variable} is not set.")
+        values[field] = value
+    if mode == "oidc":
+        # Sent with the exchange only when set: Entra ID wants a scope, Auth0 an
+        # audience, and Keycloak neither (R10.19 row 5).
+        for field, variable in (("scope", OIDC_SCOPE), ("audience", OIDC_AUDIENCE)):
+            if environ.get(variable):
+                values[field] = environ[variable]
+    return MlflowAuth(mode=mode, **values)
 
 
 def experiment_name(
