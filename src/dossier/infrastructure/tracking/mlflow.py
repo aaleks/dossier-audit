@@ -242,6 +242,14 @@ class MlflowTracker:
         self._root_span_id: str | None = None
         # Verdicts waiting for their trace to reach the server. See `assess`.
         self._pending: list[dict[str, str | bool]] = []
+        # Every trace this run opened, in order, so each can be looked for on the
+        # server as the record closes (R10.24).
+        self._opened: list[str] = []
+        # The places, among `_opened`, of the traces the server turned out not to
+        # hold. Places rather than ids: the port reads no id back from a server,
+        # so nothing MLflow holds can become an input (R0.10). Read by
+        # `BestEffortTracker`, which does the counting.
+        self.unrecorded_traces: frozenset[int] = frozenset()
 
     def start_run(self, *, experiment: str, name: str, tags: Mapping[str, str]) -> None:
         found = self._client.get_experiment_by_name(experiment)
@@ -385,6 +393,7 @@ class MlflowTracker:
             run_id=self._run_id,
         )
         self._trace_id, self._root_span_id = root.trace_id, root.span_id
+        self._opened.append(root.trace_id)
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None:
         child = self._client.start_span(
@@ -446,7 +455,37 @@ class MlflowTracker:
         self._trace_id = self._root_span_id = None
 
     def end_run(self, *, status: str) -> None:
+        """Look for every trace the run opened, then close it (R10.24).
+
+        No trace call reaches the server: MLflow's exporter sends a trace after it
+        ends, on a thread of its own, so a trace the server refused raises
+        nowhere dossier could see and R10.6 counted none. Found live, with a
+        READ-only account whose run said nothing while the server logged
+        `POST /api/3.0/mlflow/traces 403`. So the exporter is flushed, and the
+        run's traces are looked up by the run they belong to, without their
+        spans: one request per hundred traces, not one per trace.
+        """
+        if self._opened:
+            self.unrecorded_traces = self._unheld()
         self._client.set_terminated(self._run_id, status=status)
+
+    def _unheld(self) -> frozenset[int]:
+        """The places of the traces this run opened that the server does not hold."""
+        import mlflow
+
+        mlflow.flush_trace_async_logging()
+        held = {
+            trace.info.trace_id
+            for trace in self._client.search_traces(
+                locations=[self._experiment_id],
+                run_id=self._run_id,
+                include_spans=False,
+                max_results=len(self._opened),
+            )
+        }
+        return frozenset(
+            place for place, trace_id in enumerate(self._opened) if trace_id not in held
+        )
 
 
 # What a FileStore-backed server has no endpoint for. Evaluation datasets live in
