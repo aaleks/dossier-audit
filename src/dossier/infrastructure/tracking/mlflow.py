@@ -12,8 +12,10 @@ sends and returns nothing (R0.10); the ids MLflow assigns stay inside it.
 
 from __future__ import annotations
 
+import ssl
 import time
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 import httpx
 
@@ -25,7 +27,7 @@ from dossier.domain.ports import (
     VersionRegistry,
 )
 from dossier.domain.prompts import PublishedPrompt
-from dossier.domain.tracking import MlflowAuth, refused_credential
+from dossier.domain.tracking import CA_BUNDLE, MlflowAuth, refused_credential
 from dossier.domain.versions import (
     HASH_TAG,
     MODEL_TYPE,
@@ -33,7 +35,7 @@ from dossier.domain.versions import (
     VersionRecord,
 )
 from dossier.infrastructure.tracking.auth import PROVIDER, configure, configured, headers
-from dossier.infrastructure.tracking.oidc import TokenRefused, TokenSource
+from dossier.infrastructure.tracking.oidc import TokenRefused, TokenSource, unverified
 
 # How the startup check reaches the server. `None` is a real connection; a test
 # answers with an `httpx.MockTransport`, so no socket is opened (R0.10).
@@ -55,7 +57,9 @@ class TrackingUnavailable(RuntimeError):
     """Tracking is switched on, and nothing can be recorded -- said before any work."""
 
 
-def connect(uri: str, *, auth: MlflowAuth | None = None) -> Tracker:
+def connect(
+    uri: str, *, auth: MlflowAuth | None = None, ca_bundle: str | None = None
+) -> Tracker:
     """A tracker recording to `uri`, or `TrackingUnavailable` saying why not (R10.5).
 
     Three checks, in the order a person would fix them: the `tracking` extra is
@@ -75,24 +79,64 @@ def connect(uri: str, *, auth: MlflowAuth | None = None) -> Tracker:
         ) from error
 
     auth = auth or MlflowAuth()
-    _configure(uri, auth)
+    verify = _trust(uri, auth, ca_bundle)
+    _configure(uri, auth, verify)
     if uri.startswith(("http://", "https://")):
         health = uri.rstrip("/") + "/health"
         read = uri.rstrip("/") + CREDENTIAL_ENDPOINT
         try:
             with httpx.Client(
-                transport=HEALTH_TRANSPORT, timeout=HEALTH_TIMEOUT_SECONDS
+                transport=HEALTH_TRANSPORT, timeout=HEALTH_TIMEOUT_SECONDS, verify=verify
             ) as http:
                 for asked, params in ((health, None), (read, {"max_results": 1})):
                     _accepted(
                         uri, asked, http.get(asked, params=params, headers=headers()), auth
                     )
         except httpx.HTTPError as error:
+            if unverified(error):
+                # A server that answered with a certificate nobody here trusts is
+                # running; sending a person to start it would be the wrong fix.
+                raise TrackingUnavailable(
+                    f"tracking is enabled and the certificate of the MLflow server at "
+                    f"{uri} could not be verified ({error}). A server signed by a "
+                    f"private CA is trusted by naming that CA in {CA_BUNDLE}."
+                ) from None
             raise TrackingUnavailable(
                 f"tracking is enabled and no MLflow server answers at {uri} ({error}). "
                 "Start it, or set DOSSIER_MLFLOW_ENABLED=false."
             ) from None
     return MlflowTracker(uri)
+
+
+def _trust(uri: str, auth: MlflowAuth, ca_bundle: str | None) -> ssl.SSLContext | bool:
+    """What every TLS connection to MLflow and its identity provider trusts (R10.20).
+
+    The system's store unless `ca_bundle` names a CA, in which case that CA and
+    nothing else: the startup check and the token exchange are handed it, and
+    MLflow is told its path through its own setting. A connection with no TLS
+    reads no bundle, so a wrong path on a laptop's `http://localhost:5000` is
+    not refused. A relative path is resolved against the working directory, as
+    `.env` is. There is no setting that turns verification off.
+    """
+    tls = uri.startswith("https://") or (auth.token_url or "").startswith("https://")
+    if ca_bundle is None or not tls:
+        return True
+    path = Path(ca_bundle).resolve()
+    if not path.is_file():
+        raise TrackingUnavailable(
+            f"{CA_BUNDLE} is {ca_bundle!r}, and there is no file at {path}."
+        )
+    try:
+        context = ssl.create_default_context(cafile=str(path))
+    except (ssl.SSLError, ValueError) as error:
+        raise TrackingUnavailable(
+            f"{CA_BUNDLE} is {ca_bundle!r}, which is not a PEM-encoded CA certificate "
+            f"({error})."
+        ) from None
+    from mlflow.environment_variables import MLFLOW_TRACKING_SERVER_CERT_PATH
+
+    MLFLOW_TRACKING_SERVER_CERT_PATH.set(str(path))
+    return context
 
 
 def _accepted(uri: str, asked: str, answered: httpx.Response, auth: MlflowAuth) -> None:
@@ -123,7 +167,7 @@ def _accepted(uri: str, asked: str, answered: httpx.Response, auth: MlflowAuth) 
         )
 
 
-def _configure(uri: str, auth: MlflowAuth) -> None:
+def _configure(uri: str, auth: MlflowAuth, verify: ssl.SSLContext | bool = True) -> None:
     """Ready MLflow for the server at `uri`, or refuse before any work.
 
     Two settings, both MLflow's own and both set through its API, as the tracking
@@ -158,7 +202,7 @@ def _configure(uri: str, auth: MlflowAuth) -> None:
         # The first exchange, before the startup check and before any work
         # (R10.19): an identity provider that refuses the client, or is not
         # there, stops the command here, with MLflow asked nothing.
-        source = TokenSource(auth)
+        source = TokenSource(auth, verify=verify)
         try:
             source.authorization()
         except TokenRefused as error:
@@ -411,7 +455,9 @@ class MlflowTracker:
 DATASETS_ENDPOINT = "/api/3.0/mlflow/datasets/search"
 
 
-def connect_datasets(uri: str, *, auth: MlflowAuth | None = None) -> DatasetRegistry:
+def connect_datasets(
+    uri: str, *, auth: MlflowAuth | None = None, ca_bundle: str | None = None
+) -> DatasetRegistry:
     """A dataset registry recording to `uri`, or `TrackingUnavailable` saying why not.
 
     Three checks, in the order a person would fix them: the `tracking` extra, a
@@ -421,13 +467,16 @@ def connect_datasets(uri: str, *, auth: MlflowAuth | None = None) -> DatasetRegi
     does not, so a person publishing to one is told which server setting to
     change rather than handed an MLflow traceback.
     """
-    connect(uri, auth=auth)  # the extra and the server, refused with their own messages
+    # The extra, the server and the credential, refused with their own messages.
+    connect(uri, auth=auth, ca_bundle=ca_bundle)
 
     if uri.startswith(("http://", "https://")):
         search = uri.rstrip("/") + DATASETS_ENDPOINT
         try:
             with httpx.Client(
-                transport=HEALTH_TRANSPORT, timeout=HEALTH_TIMEOUT_SECONDS
+                transport=HEALTH_TRANSPORT,
+                timeout=HEALTH_TIMEOUT_SECONDS,
+                verify=_trust(uri, auth or MlflowAuth(), ca_bundle),
             ) as http:
                 answered = http.post(search, json={"max_results": 1}, headers=headers())
         except httpx.HTTPError as error:
@@ -644,7 +693,11 @@ PROMPTS_ENDPOINT = "/api/2.0/mlflow/registered-models/search"
 
 
 def connect_prompts(
-    uri: str, *, auth: MlflowAuth | None = None, verify: bool = True
+    uri: str,
+    *,
+    auth: MlflowAuth | None = None,
+    ca_bundle: str | None = None,
+    verify: bool = True,
 ) -> PromptRegistry:
     """A prompt registry recording to `uri`, or `TrackingUnavailable` saying why not.
 
@@ -660,17 +713,22 @@ def connect_prompts(
     # connected to this same server, so a second probe buys nothing and
     # costs a round-trip on a command that never made one. R10.4 is that
     # tracking changes nothing about a run, and a startup probe is a change.
+    auth = auth or MlflowAuth()
     if verify:
-        connect(uri, auth=auth)  # the extra and the server, refused with their own messages
+        # The extra, the server and the credential, refused with their own messages.
+        connect(uri, auth=auth, ca_bundle=ca_bundle)
     else:
-        # No probe, and still the credential: no request goes out without it (R10.17).
-        _configure(uri, auth or MlflowAuth())
+        # No probe, and still the credential and the trust: no request goes out
+        # without them (R10.17, R10.20).
+        _configure(uri, auth, _trust(uri, auth, ca_bundle))
 
     if verify and uri.startswith(("http://", "https://")):
         search = uri.rstrip("/") + PROMPTS_ENDPOINT
         try:
             with httpx.Client(
-                transport=HEALTH_TRANSPORT, timeout=HEALTH_TIMEOUT_SECONDS
+                transport=HEALTH_TRANSPORT,
+                timeout=HEALTH_TIMEOUT_SECONDS,
+                verify=_trust(uri, auth, ca_bundle),
             ) as http:
                 answered = http.get(search, params={"max_results": 1}, headers=headers())
         except httpx.HTTPError as error:
@@ -708,7 +766,9 @@ def _record_count(dataset) -> int:
     return int((profile or {}).get("num_records", 0))
 
 
-def connect_versions(uri: str, *, auth: MlflowAuth | None = None) -> VersionRegistry:
+def connect_versions(
+    uri: str, *, auth: MlflowAuth | None = None, ca_bundle: str | None = None
+) -> VersionRegistry:
     """A version registry recording to `uri` (spec 013).
 
     Only `connect`'s checks -- the extra and a server that answers. No check
@@ -718,7 +778,7 @@ def connect_versions(uri: str, *, auth: MlflowAuth | None = None) -> VersionRegi
     either way. A store that cannot hold one fails at `register` and is swallowed
     by the best-effort wrapper, which says so at the end (R13.5).
     """
-    connect(uri, auth=auth)
+    connect(uri, auth=auth, ca_bundle=ca_bundle)
     return MlflowVersionRegistry(uri)
 
 

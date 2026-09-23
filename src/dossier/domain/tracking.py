@@ -47,6 +47,7 @@ OIDC_CLIENT_SECRET = "DOSSIER_MLFLOW_OIDC_CLIENT_SECRET"
 OIDC_SCOPE = "DOSSIER_MLFLOW_OIDC_SCOPE"
 OIDC_AUDIENCE = "DOSSIER_MLFLOW_OIDC_AUDIENCE"
 OIDC_REFRESH_SECONDS = "DOSSIER_MLFLOW_OIDC_REFRESH_SECONDS"
+CA_BUNDLE = "DOSSIER_MLFLOW_CA_BUNDLE"
 
 # How close to its expiry an access token is fetched again (R10.19): thirty
 # seconds, agreed 2026-09-23, and set per machine by the variable above.
@@ -110,6 +111,10 @@ class TrackingSettings(BaseModel):
 
     uri: str
     auth: MlflowAuth = MlflowAuth()
+    # A PEM-encoded CA certificate every connection to MLflow and its identity
+    # provider is verified against, or `None` for the system's store (R10.20).
+    # The path as given; the adapter resolves it against the working directory.
+    ca_bundle: str | None = None
 
 
 def namespaced(name: str, namespace: str) -> str:
@@ -206,7 +211,9 @@ def settings(environ: Mapping[str, str]) -> TrackingSettings | None:
             f"{ENABLED} is true, and {TRACKING_URI} is not set. Set it to where MLflow "
             "is served on this machine; `.env.example` names http://localhost:5000."
         )
-    return TrackingSettings(uri=uri, auth=_auth(environ))
+    return TrackingSettings(
+        uri=uri, auth=_auth(environ), ca_bundle=environ.get(CA_BUNDLE) or None
+    )
 
 
 def authorization(auth: MlflowAuth) -> str | None:

@@ -42,7 +42,7 @@ records its runs is not a property of the pipeline.
 | `DOSSIER_MLFLOW_OIDC_TOKEN_URL`, `_CLIENT_ID`, `_CLIENT_SECRET` | the client `oidc` exchanges for a token | none |
 | `DOSSIER_MLFLOW_OIDC_SCOPE`, `DOSSIER_MLFLOW_OIDC_AUDIENCE` | sent with the exchange when set | not sent |
 | `DOSSIER_MLFLOW_OIDC_REFRESH_SECONDS` | a whole number of seconds | `30` (R10.19) |
-| `DOSSIER_MLFLOW_CA_BUNDLE` | a PEM file | the system's trust store (R10.20) |
+| `DOSSIER_MLFLOW_CA_BUNDLE` | a PEM-encoded CA certificate file | the system's trust store (R10.20) |
 
 The tracking URI has no default in code, for the reason the project's default
 model has none (spec 009): a default is a value written into `.env.example`,
@@ -694,13 +694,13 @@ CA can be trusted, and verification is never skipped.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow`)
 - **Proved by:** `tests/unit/test_R010_20__a_private_ca_is_trusted_on_every_request.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `DOSSIER_MLFLOW_CA_BUNDLE=certs/example-internal.pem`, `https://mlflow.example.internal` signed by that CA | the startup check, the token exchange and MLflow (through `MLFLOW_TRACKING_SERVER_CERT_PATH`) all verify against it; the command proceeds |
+| 1 | `DOSSIER_MLFLOW_CA_BUNDLE=certs/example-internal.crt`, `https://mlflow.example.internal` signed by that CA | the startup check, the token exchange and MLflow (through `MLFLOW_TRACKING_SERVER_CERT_PATH`) all verify against it; the command proceeds |
 | 2 | unset, the same server | exit 2 naming the URI and the verification failure, and naming `DOSSIER_MLFLOW_CA_BUNDLE` as the setting that trusts a private CA |
-| 3 | `DOSSIER_MLFLOW_CA_BUNDLE=certs/missing.pem` | refused before any work, naming the variable and the path |
+| 3 | `DOSSIER_MLFLOW_CA_BUNDLE=certs/missing.crt` | refused before any work, naming the variable and the path |
 | 4 | *counter-example* — `http://localhost:5000` | no TLS, and the bundle is not read |
 
 ### R10.21 — every command that records says how many of its records were lost

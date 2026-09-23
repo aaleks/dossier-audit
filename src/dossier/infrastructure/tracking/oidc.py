@@ -18,6 +18,7 @@ under a lock: two requests due at once make one exchange, not two.
 
 from __future__ import annotations
 
+import ssl
 import threading
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -25,6 +26,7 @@ from datetime import UTC, datetime
 import httpx
 
 from dossier.domain.tracking import (
+    CA_BUNDLE,
     OIDC_CLIENT_ID,
     OIDC_CLIENT_SECRET,
     OIDC_TOKEN_URL,
@@ -54,9 +56,17 @@ def _now() -> datetime:
 class TokenSource:
     """The access token a request carries, exchanged when none is held or it is due."""
 
-    def __init__(self, auth: MlflowAuth, *, clock: Callable[[], datetime] = _now) -> None:
+    def __init__(
+        self,
+        auth: MlflowAuth,
+        *,
+        clock: Callable[[], datetime] = _now,
+        verify: ssl.SSLContext | bool = True,
+    ) -> None:
         self._auth = auth
         self._clock = clock
+        # The same trust the startup check and MLflow use (R10.20).
+        self._verify = verify
         self._lock = threading.Lock()
         self._token: str | None = None
         self._expires_at: datetime | None = None
@@ -87,9 +97,16 @@ class TokenSource:
             form["audience"] = self._auth.audience
         url = self._auth.token_url
         try:
-            with httpx.Client(transport=TOKEN_TRANSPORT, timeout=TOKEN_TIMEOUT_SECONDS) as http:
+            with httpx.Client(
+                transport=TOKEN_TRANSPORT, timeout=TOKEN_TIMEOUT_SECONDS, verify=self._verify
+            ) as http:
                 answered = http.post(url, data=form)
         except httpx.HTTPError as error:
+            if unverified(error):
+                raise TokenRefused(
+                    f"the certificate of the identity provider at {url} could not be "
+                    f"verified ({error}). A private CA is trusted by naming it in {CA_BUNDLE}."
+                ) from None
             raise TokenRefused(
                 f"no identity provider answers at {url} ({error}), the token endpoint "
                 f"{OIDC_TOKEN_URL} names."
@@ -111,6 +128,11 @@ class TokenSource:
         return token, token_expiry(
             issued_at=now, expires_in=int(expires_in) if expires_in is not None else None
         )
+
+
+def unverified(error: httpx.HTTPError) -> bool:
+    """Whether a connection failed on the server's certificate rather than on reaching it."""
+    return "CERTIFICATE_VERIFY_FAILED" in str(error)
 
 
 def _error_code(answered: httpx.Response) -> str | None:

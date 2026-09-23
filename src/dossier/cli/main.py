@@ -372,7 +372,7 @@ def build_tracker(settings: TrackingSettings) -> Tracker:
     is one: it is the seam the composition root hands to a use case, and a test
     replaces it with a `FakeTracker`.
     """
-    return connect(settings.uri, auth=settings.auth)
+    return connect(settings.uri, auth=settings.auth, ca_bundle=settings.ca_bundle)
 
 
 def _tracking_for(
@@ -1856,7 +1856,9 @@ def build_version_registry(settings: TrackingSettings) -> VersionRegistry:
     the call site, because `dossier run` has work to do whether or not MLflow
     can hold a logged model (R13.5).
     """
-    return BestEffortVersionRegistry(connect_versions(settings.uri, auth=settings.auth))
+    return BestEffortVersionRegistry(
+        connect_versions(settings.uri, auth=settings.auth, ca_bundle=settings.ca_bundle)
+    )
 
 
 def build_dataset_registry(settings: TrackingSettings) -> DatasetRegistry:
@@ -1868,7 +1870,7 @@ def build_dataset_registry(settings: TrackingSettings) -> DatasetRegistry:
     different ports -- this one returns what it published, which a `Tracker` may
     never do (R0.10, spec 012).
     """
-    return connect_datasets(settings.uri, auth=settings.auth)
+    return connect_datasets(settings.uri, auth=settings.auth, ca_bundle=settings.ca_bundle)
 
 
 @dataset_app.command("publish")
@@ -1996,7 +1998,9 @@ def build_prompt_registry(settings: TrackingSettings, *, verify: bool = True) ->
     returns what it wrote, which a `Tracker` may never do (R0.10, spec 014). A
     test replaces it with a `FakePromptRegistry`.
     """
-    return connect_prompts(settings.uri, auth=settings.auth, verify=verify)
+    return connect_prompts(
+        settings.uri, auth=settings.auth, ca_bundle=settings.ca_bundle, verify=verify
+    )
 
 
 @prompts_app.command("publish")
