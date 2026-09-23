@@ -19,6 +19,7 @@ from dossier.domain.datasets import PublishedDataset, record_for
 from dossier.domain.gold import GoldDocument, gold_set_hash
 from dossier.domain.hashing import content_hash
 from dossier.domain.ports import DatasetRegistry
+from dossier.domain.tracking import namespaced
 
 GOLD_HASH_TAG = "dossier.gold_hash"
 VERIFIED_BY_TAG = "dossier.verified_by"
@@ -45,8 +46,13 @@ def publish_gold(
     gold: Path,
     experiment: str,
     snapshots: Mapping[str, str] | None = None,
+    namespace: str = "",
 ) -> PublishedDataset:
     """The gold set at `gold`, published as the dataset named after it (R12.1).
+
+    `namespace` goes in front of that name (R10.13): a dataset name is global on
+    a server, and two workspaces each holding `gold/incidents` would otherwise
+    merge their records into one dataset.
 
     `snapshots` maps a document key to the snapshot address it is held at, from
     the ledger. A document missing from it publishes without the tag rather than
@@ -57,6 +63,7 @@ def publish_gold(
     if not files:
         raise EmptyGoldSet(f"{gold}: no verified answers to publish")
 
+    name = namespaced(gold.name, namespace)
     held = snapshots or {}
     documents = _documents(files)
     # The same hash an eval tags its own run with (R11.3 row 2), so the dataset and
@@ -75,13 +82,13 @@ def publish_gold(
     }
     records = (
         []
-        if _already_published(registry, name=gold.name, tags=tags)
+        if _already_published(registry, name=name, tags=tags)
         else [
             record_for(document, snapshot=held.get(key))
             for key, document in sorted(documents.items())
         ]
     )
-    return registry.publish(name=gold.name, experiment=experiment, records=records, tags=tags)
+    return registry.publish(name=name, experiment=experiment, records=records, tags=tags)
 
 
 def _already_published(
