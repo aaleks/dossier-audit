@@ -243,8 +243,9 @@ class MlflowTracker:
         # Verdicts waiting for their trace to reach the server. See `assess`.
         self._pending: list[dict[str, str | bool]] = []
         # Every trace this run opened, in order, so each can be looked for on the
-        # server as the record closes (R10.24).
-        self._opened: list[str] = []
+        # server as the record closes (R10.24). `None` for one MLflow could not
+        # open, which is in no server's holdings.
+        self._opened: list[str | None] = []
         # The places, among `_opened`, of the traces the server turned out not to
         # hold. Places rather than ids: the port reads no id back from a server,
         # so nothing MLflow holds can become an input (R0.10). Read by
@@ -386,6 +387,10 @@ class MlflowTracker:
             self._client.log_metric(run_id, name, value, model_id=version_id)
 
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
+        # The place is taken before MLflow is asked, so a trace it could not open
+        # still has one. `BestEffortTracker` counts places, and one skipped here
+        # would name every later trace by its neighbour's (R10.24 row 4).
+        self._opened.append(None)
         root = self._client.start_trace(
             name=name,
             tags=dict(tags),
@@ -393,7 +398,7 @@ class MlflowTracker:
             run_id=self._run_id,
         )
         self._trace_id, self._root_span_id = root.trace_id, root.span_id
-        self._opened.append(root.trace_id)
+        self._opened[-1] = root.trace_id
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None:
         child = self._client.start_span(
@@ -473,16 +478,25 @@ class MlflowTracker:
         """The places of the traces this run opened that the server does not hold."""
         import mlflow
 
-        mlflow.flush_trace_async_logging()
-        held = {
-            trace.info.trace_id
-            for trace in self._client.search_traces(
+        every = frozenset(range(len(self._opened)))
+        if self._run_id is None:
+            # The server refused the run, so no trace can belong to it and there
+            # is nothing to look under (R10.24 row 2).
+            return every
+        try:
+            mlflow.flush_trace_async_logging()
+            found = self._client.search_traces(
                 locations=[self._experiment_id],
                 run_id=self._run_id,
                 include_spans=False,
                 max_results=len(self._opened),
             )
-        }
+        except Exception:
+            # A server that cannot be asked shows no trace held, so none counts
+            # as recorded (row 5). Passed over here rather than raised to
+            # `BestEffortTracker`, because the close after it must still be sent.
+            return every
+        held = {trace.info.trace_id for trace in found}
         return frozenset(
             place for place, trace_id in enumerate(self._opened) if trace_id not in held
         )
