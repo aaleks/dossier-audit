@@ -37,8 +37,6 @@ from tests.scoring_example import (
     RoutedModel,
 )
 
-pytestmark = pytest.mark.outer_loop
-
 URI = "http://localhost:5000"
 TRACES = re.compile(r"^warning: (\d+) trace\(s\) could not be recorded$", re.MULTILINE)
 RECORDS = re.compile(r"^warning: (\d+) record\(s\) could not be recorded$", re.MULTILINE)

@@ -1,6 +1,6 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R10.1 – R10.24
 
 ## Purpose
@@ -794,7 +794,7 @@ the close.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow`, `dossier.infrastructure.tracking.best_effort`)
 - **Proved by:** `tests/unit/test_R010_24__a_trace_the_server_does_not_hold_is_lost.py`, `tests/acceptance/test_R010_24__a_run_says_how_many_traces_mlflow_never_received.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

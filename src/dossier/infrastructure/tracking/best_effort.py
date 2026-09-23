@@ -27,6 +27,12 @@ class BestEffortTracker:
     -- a trace any of whose calls failed is counted as lost, and the command
     says how many at the end, since a silent gap in MLflow would read as
     documents that were never processed.
+
+    A trace whose every call returned can still be lost: MLflow's exporter sends
+    it later, and the server may refuse it. The tracker it wraps says which, as
+    the record closes, in `unrecorded_traces` -- the places of those traces among
+    the ones the run opened -- and each is counted here once, however many ways
+    it was lost (R10.24).
     """
 
     def __init__(
@@ -44,9 +50,16 @@ class BestEffortTracker:
         self._auth = auth or MlflowAuth()
         self._experiment = ""
         self._refusal_said = False
-        self.lost_traces = 0
         self.lost_records = 0
+        # By place among the traces the run opened, so a trace lost by its own
+        # call and not found on the server either is one trace (R10.24 row 4).
+        self._lost_traces: set[int] = set()
+        self._opened = 0
         self._this_trace_lost = False
+
+    @property
+    def lost_traces(self) -> int:
+        return len(self._lost_traces)
 
     def _sent(self, call, /, *args, **kwargs) -> bool:
         try:
@@ -116,6 +129,7 @@ class BestEffortTracker:
         self._sent(self._inner.log_dataset, name=name, dataset_id=dataset_id, digest=digest)
 
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
+        self._opened += 1
         self._this_trace_lost = not self._sent(self._inner.start_trace, name=name, tags=tags)
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None:
@@ -126,11 +140,19 @@ class BestEffortTracker:
         if not self._sent(self._inner.end_trace, status=status, error=error):
             self._this_trace_lost = True
         if self._this_trace_lost:
-            self.lost_traces += 1
+            self._lost_traces.add(self._opened - 1)
         self._this_trace_lost = False
 
     def end_run(self, *, status: str) -> None:
         self._sent(self._inner.end_run, status=status)
+        # Read whether the close landed or not: the lookup is made before it.
+        # Each trace not already counted is one record more (R10.24, R10.21).
+        # Only a tracker that looks has anything to say, and reading what it says
+        # must not raise where every call beside it is swallowed (R10.6).
+        found = getattr(self._inner, "unrecorded_traces", frozenset())
+        unheld = set(found if isinstance(found, frozenset) else ()) - self._lost_traces
+        self._lost_traces |= unheld
+        self.lost_records += len(unheld)
         # Said here because every command that records closes with this call, so
         # the line is the wrapper's to give and no command can forget it (R10.21).
         # After the close, so a close that was itself lost is in the count.

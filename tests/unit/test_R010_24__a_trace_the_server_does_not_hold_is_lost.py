@@ -19,7 +19,9 @@ from dataclasses import dataclass, field
 from types import SimpleNamespace
 
 import pytest
+from tests.fakes import FakeTracker
 
+from dossier.infrastructure.tracking.best_effort import BestEffortTracker
 from dossier.infrastructure.tracking.mlflow import MlflowTracker
 
 pytest.importorskip("mlflow")
@@ -224,3 +226,72 @@ class TestTheAdapterLooksForEveryTrace:
         a_run(tracker)
 
         assert tracker.unrecorded_traces == frozenset({1})
+
+
+class Unheld(FakeTracker):
+    """Every call lands but an `unopenable` trace's; `unheld` is what the lookup missed."""
+
+    def __init__(self, unheld: frozenset[int] = frozenset(), unopenable: int | None = None):
+        super().__init__()
+        self._unheld = unheld
+        self._unopenable = unopenable
+        self._opened = 0
+        self.unrecorded_traces: frozenset[int] = frozenset()
+
+    def start_trace(self, *, name, tags):
+        place, self._opened = self._opened, self._opened + 1
+        if place == self._unopenable:
+            raise RuntimeError(f"could not open {name}")
+        super().start_trace(name=name, tags=tags)
+
+    def span(self, *, kind, name, attributes):
+        if self.runs[-1].traces and self.runs[-1].traces[-1].status is None:
+            super().span(kind=kind, name=name, attributes=attributes)
+
+    def end_trace(self, *, status, error=None):
+        if self.runs[-1].traces and self.runs[-1].traces[-1].status is None:
+            super().end_trace(status=status, error=error)
+
+    def end_run(self, *, status):
+        super().end_run(status=status)
+        self.unrecorded_traces = self._unheld
+
+
+def through(inner: FakeTracker) -> tuple[BestEffortTracker, list[str]]:
+    said: list[str] = []
+    tracker = BestEffortTracker(inner, warn=said.append)
+    a_run(tracker)
+    return tracker, said
+
+
+class TestTheWrapperCountsEachLostTraceOnce:
+    """R10.24, on `BestEffortTracker`: what the adapter found missing, counted and said."""
+
+    def test_two_traces_the_server_does_not_hold_are_lost_traces_and_lost_records(self):
+        """Example 1: the one where every call returned and two traces never arrived.
+
+        R10.6 alone counts nothing here. Both counts take the two, and R10.21's
+        line says them as the record closes.
+        """
+        tracker, said = through(Unheld(unheld=frozenset({1, 2})))
+
+        assert (tracker.lost_traces, tracker.lost_records) == (2, 2)
+        assert said == ["warning: 2 record(s) could not be recorded"]
+
+    def test_a_trace_already_lost_by_its_own_call_is_counted_once(self):
+        """Example 4: the one where the second trace was never opened, and is not held.
+
+        One trace, one count: the failed call is R10.6's record, and the lookup
+        finding it missing adds nothing to either count.
+        """
+        tracker, said = through(Unheld(unheld=frozenset({1}), unopenable=1))
+
+        assert (tracker.lost_traces, tracker.lost_records) == (1, 1)
+        assert said == ["warning: 1 record(s) could not be recorded"]
+
+    def test_a_server_that_holds_every_trace_counts_nothing(self):
+        """Counter-example 6: the one where all four arrived."""
+        tracker, said = through(Unheld())
+
+        assert (tracker.lost_traces, tracker.lost_records) == (0, 0)
+        assert said == []

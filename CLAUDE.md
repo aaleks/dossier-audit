@@ -67,7 +67,7 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 marker comes off, the rule becomes `MET`, and the slice is done.
 
 Currently open: **none**, and nothing is outstanding: all fifteen specs are
-implemented, and 207 of the 220 rules are MET with the other 13 superseded.
+implemented, and 208 of the 221 rules are MET with the other 13 superseded.
 
 MLflow can sit behind authentication. `DOSSIER_MLFLOW_AUTH` names the mode --
 `none`, `basic`, `bearer` or `oidc` -- chosen, never inferred from which
@@ -89,10 +89,14 @@ never touches the environment; what is written there is MLflow's own provider
 name and cert path. After pulling, reinstall (`uv sync`) so MLflow finds the
 entry point; a stale install is refused by name.
 
-Known gap: a trace MLflow's background exporter fails to send -- a 403 on
-`/api/3.0/mlflow/traces` -- raises in no call dossier makes, so it is in no
-count. R10.22 still warns, from the run's own refused writes, but the number is
-an undercount.
+A trace counts as recorded once the server is seen to hold it. No trace call
+reaches MLflow's server -- its exporter sends a trace after it ends, on a thread
+of its own -- so a trace refused there raised nowhere and R10.6 counted none.
+As a record closes the exporter is flushed and the run's traces are looked up
+by run without their spans, one request per hundred; each one missing is
+counted once, as a trace and as a record. The adapter names them by place, not
+id, so nothing read back reaches a run. Verified live through a proxy refusing
+two of four trace uploads: `2 trace(s)`, and two held on the server (R10.24).
 
 MLflow printed `🏃 View run` to stdout *before* sending the update that closes
 a run; on a Windows pipe (cp1252) that raised, and every run stayed `RUNNING`
