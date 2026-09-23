@@ -570,7 +570,7 @@ change to make.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.check_namespace`)
 - **Proved by:** `tests/acceptance/test_R010_15__the_retired_prompt_prefix_is_refused_by_name.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
