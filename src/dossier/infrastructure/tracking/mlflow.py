@@ -32,7 +32,8 @@ from dossier.domain.versions import (
     PublishedVersion,
     VersionRecord,
 )
-from dossier.infrastructure.tracking.auth import PROVIDER, configure, headers
+from dossier.infrastructure.tracking.auth import PROVIDER, configure, configured, headers
+from dossier.infrastructure.tracking.oidc import TokenRefused, TokenSource
 
 # How the startup check reaches the server. `None` is a real connection; a test
 # answers with an `httpx.MockTransport`, so no socket is opened (R0.10).
@@ -139,12 +140,6 @@ def _configure(uri: str, auth: MlflowAuth) -> None:
     from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
 
     MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT.set(True)
-    if auth.mode == "oidc":
-        raise TrackingUnavailable(
-            "DOSSIER_MLFLOW_AUTH is `oidc`, which exchanges a client's credentials for "
-            "an access token (R10.19), and this version of dossier does not make that "
-            "exchange yet. Use `basic` or `bearer`, or set DOSSIER_MLFLOW_ENABLED=false."
-        )
     from mlflow.tracking.request_auth.registry import fetch_auth
 
     # MLflow finds providers through package metadata. An install older than the
@@ -156,7 +151,20 @@ def _configure(uri: str, auth: MlflowAuth) -> None:
             "reach the server. The installed metadata predates it: reinstall dossier "
             "(pip install -e '.[tracking]', or uv sync) so its entry points are registered."
         )
-    configure(auth)
+    if configured(auth):
+        return
+    token = None
+    if auth.mode == "oidc":
+        # The first exchange, before the startup check and before any work
+        # (R10.19): an identity provider that refuses the client, or is not
+        # there, stops the command here, with MLflow asked nothing.
+        source = TokenSource(auth)
+        try:
+            source.authorization()
+        except TokenRefused as error:
+            raise TrackingUnavailable(f"tracking is enabled and {error}") from None
+        token = source.authorization
+    configure(auth, token=token)
 
 
 class MlflowTracker:

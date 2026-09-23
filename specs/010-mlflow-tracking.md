@@ -667,7 +667,7 @@ read from the token endpoint reaches a key, a manifest or a score (R0.10).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.token_due`)
 - **Proved by:** `tests/unit/test_R010_19__an_oidc_token_is_fetched_again_before_it_expires.py`, `tests/acceptance/test_R010_19__a_token_endpoint_that_refuses_refuses_before_any_work.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -676,7 +676,7 @@ read from the token endpoint reaches a key, a manifest or a score (R0.10).
 | 3 | a record sent at `09:04:30Z` | a new token first; 2 token requests. Exactly 30 seconds left is due, because the margin is *no more than*, and this row is the one that pins it |
 | 4 | `DOSSIER_MLFLOW_OIDC_REFRESH_SECONDS=60` | due from `09:04:00Z`; the margin is read, not hard-coded |
 | 5 | `DOSSIER_MLFLOW_OIDC_SCOPE=mlflow`, `DOSSIER_MLFLOW_OIDC_AUDIENCE=https://mlflow.example.internal` | the form also holds `scope=mlflow` and that `audience` |
-| 6 | the token endpoint answers 401 `invalid_client` | exit 2 before any work, naming the token URL, `DOSSIER_MLFLOW_OIDC_CLIENT_ID` and `DOSSIER_MLFLOW_OIDC_CLIENT_SECRET`; the secret's value in no message; 0 model calls |
+| 6 | the token endpoint answers 401 `unauthorized_client`, as Keycloak 26 answers a wrong secret | exit 2 before any work, naming the token URL, `DOSSIER_MLFLOW_OIDC_CLIENT_ID` and `DOSSIER_MLFLOW_OIDC_CLIENT_SECRET`; the secret's value in no message; 0 model calls |
 | 7 | nothing answers at the token URL | exit 2, naming `DOSSIER_MLFLOW_OIDC_TOKEN_URL` |
 | 8 | `DOSSIER_MLFLOW_OIDC_REFRESH_SECONDS=soon`, or `-5` | refused before any work, naming the variable |
 | 9 | an answer of `expires_in: 20`, or none at all, under the default margin | a new token for every request. A margin longer than a token's life costs a token request, never a record, and a token whose lifetime is unknown is not reused on a guess |
