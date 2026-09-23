@@ -194,13 +194,11 @@ the same ones (R14.12), and an eval, a calibration and a comparison their rubric
 (`link_prompt_versions_to_trace`), and that is a rule nobody has written yet rather
 than one this spec implies.
 
-A gold set's dataset has the same property and is not namespaced here: it is
-named after its directory (R12.1), globally, so two workspaces each holding
-`gold/incidents` merge their records into one dataset, keyed by a document key
-the two may share. That is spec 012's name and spec 012's decision. It is
-recorded rather than folded in because the prefix below was agreed for prompts,
-and widening it to a second command's records is a change a person should see
-proposed rather than find done.
+A gold set's dataset had the same property, and is namespaced now by the same
+setting: R10.13 retired R14.8's prompt-only prefix for one namespace that goes in
+front of every name `dossier` publishes -- a prompt's and a dataset's -- because a
+second variable would be a second thing to forget, and forgetting it is the silent
+merge the first was written to prevent.
 
 ## Must hold
 
@@ -362,7 +360,7 @@ run looks up, so the two can only agree.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.prompt_name`)
 - **Proved by:** `tests/acceptance/test_R014_8__a_prompt_prefix_namespaces_every_name.py`, `tests/unit/test_R014_8__a_prefix_goes_in_front_of_every_prompt_name.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R10.13
 
 | # | Given | Then |
 |---|-------|------|
@@ -434,7 +432,7 @@ the ones that would have recorded most.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.main._tracking_for`), over `dossier.domain.prompts.check_prompt_prefix`
 - **Proved by:** `tests/acceptance/test_R014_10__a_prefix_mlflow_would_reject_is_refused_before_any_work.py`, `tests/unit/test_R014_10__a_prefix_mlflow_would_reject_is_refused_by_name.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R10.14
 
 | # | Given | Then |
 |---|-------|------|

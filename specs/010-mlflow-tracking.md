@@ -1,7 +1,7 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
-**Status:** Implemented
-**Rules:** R10.1 – R10.12
+**Status:** Partially implemented
+**Rules:** R10.1 – R10.15
 
 ## Purpose
 
@@ -33,7 +33,7 @@ records its runs is not a property of the pipeline.
 | `DOSSIER_MLFLOW_CAPTURE` | `full` / `hashes` | `full` |
 | `DOSSIER_MLFLOW_RUN_NAME_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE`, `_COMPARE` | a template | the default for that kind (R10.10) |
 | `DOSSIER_MLFLOW_RUN_PREFIX` | a name | none; `{prefix}` renders empty |
-| `DOSSIER_MLFLOW_PROMPT_PREFIX` | a name | none; every prompt name is exactly what R14.1 and R14.2 compose (R14.8) |
+| `DOSSIER_MLFLOW_NAMESPACE` | a name | none; every prompt and dataset name is exactly what R14.1, R14.2 and R12.1 compose (R10.13) |
 | `DOSSIER_MLFLOW_RUN_LABEL` | a name | none; `--label` wins over it (R10.11) |
 | `DOSSIER_MLFLOW_USER` | a name | the account the command ran under (R10.12) |
 
@@ -410,3 +410,89 @@ variable reaches a record.
 | 4 | a `dossier eval` with a description (R11.12) | `mlflow.note.content` holds it, and the Description box is no longer empty |
 | 5 | *counter-example* — `mlflow.runName`, `mlflow.parentRunId`, `mlflow.log-model.history` | not written. The name goes through `run_name` (R10.10), and the other two are MLflow's own bookkeeping about a shape dossier does not use |
 | 6 | *counter-example* — `DOSSIER_JIRA_TOKEN` set | its value is in no tag, `mlflow.` prefixed or otherwise (R10.7) |
+
+### R10.13 — a configured `DOSSIER_MLFLOW_NAMESPACE` goes in front of every name dossier publishes into MLflow's global namespace, and an unset one changes none
+
+Two kinds of name `dossier` publishes are global on a server: a prompt's (R14.1,
+R14.2) and a gold set's dataset's (R12.1). Each is unique within one workspace and
+no further, so two checkouts sharing a server publish into one history -- which was
+found live for prompts, when one checkout's publish arrived as `v2` of another's
+(R14.8), and holds for datasets in a worse form: two workspaces each holding
+`gold/incidents` merge their records into one dataset, keyed by document keys they
+may share, and the stale check on each eval (R11.7) flips with whichever published
+last.
+
+One namespace per machine for both, rather than one variable per kind: what a
+person means is "keep this checkout's records apart", and two variables are two
+chances to set one and forget the other, which is the silent merge again. Read
+with the rest of the tracking settings and never from committed files, because
+which namespace a checkout publishes into is a fact about where it runs (R10.1).
+Applied to every name a publish sends and every name a command looks up, so the
+two can only agree.
+
+Nothing else is namespaced. An experiment is named by a template this machine
+already controls (R10.2), and a pipeline version is found by its content rather
+than its name (R13.1), so two machines running the same pipeline share a version
+because it *is* the same version.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.namespaced`)
+- **Proved by:** `tests/acceptance/test_R010_13__a_namespace_goes_in_front_of_every_published_name.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `DOSSIER_MLFLOW_NAMESPACE=sandbox`, `dossier prompts publish incident-audit` | `sandbox.incident-audit.extract`, `sandbox.incident-audit.verify`, `sandbox.incident-audit.report` and `sandbox.incident-audit.judge.root_cause`, each at version 1 |
+| 2 | the same namespace, `dossier dataset publish incident-audit --gold gold/incidents` | 1 dataset `sandbox.incidents`, 4 records, in `dossier-audit/incident-audit/eval/incidents` |
+| 3 | two workspaces each holding `gold/incidents`, one publishing with `sandbox` and one with no namespace | two datasets, `sandbox.incidents` and `incidents`, 4 records each. Without the namespace the second publish would have merged its records onto the first's, which is the failure this rule exists for |
+| 4 | published under `sandbox`, then `dossier eval incident-audit --gold gold/incidents` and `dossier run incident-audit` on the same machine | the eval links dataset `sandbox.incidents` (R11.7) and rubric `sandbox.incident-audit.judge.root_cause` (R14.9); the run links `sandbox.incident-audit.extract` (R14.7). Every lookup is under the name a publish would have sent |
+| 5 | *counter-example* — unset, or set to the empty string | every name byte-identical to what R14.1, R14.2 and R12.1 compose: `incident-audit.extract`, `incidents`. A prompt or dataset published before this rule is found, compared and not sent again (R14.4, R12.3) |
+| 6 | *counter-example* — the experiment a namespaced dataset is published into | `dossier-audit/incident-audit/eval/incidents`, unchanged: `{gold}` renders the gold directory, not the namespaced dataset, and an experiment's name is already this machine's to template (R10.2) |
+
+### R10.14 — a `DOSSIER_MLFLOW_NAMESPACE` MLflow would reject is refused before any work by every command that records, and by none while tracking is off
+
+R14.10's rule, for the variable that replaced R14.8's. A namespace goes in front of
+every prompt name, and MLflow rejects `/` and `:` in one, so a namespace holding
+either can name nothing a publish would send. It is refused where the rest of this
+machine's tracking settings are refused: before anything is fetched, asked or
+recorded, with exit 2 naming the variable (R10.1, R10.5).
+
+A dataset name would take either character -- a live spike on 2026-09-23 created
+and found `team/a.incidents`, `team:a.incidents` and `a b.incidents` -- and the
+namespace is refused for `dataset publish` all the same. It is one namespace in
+front of every published name, and the name it cannot go in front of decides.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.main._tracking_for`), over `dossier.domain.tracking.check_namespace`
+- **Proved by:** `tests/acceptance/test_R010_14__a_namespace_mlflow_would_reject_is_refused_before_any_work.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `DOSSIER_MLFLOW_NAMESPACE=team/a`, tracking on, `dossier eval incident-audit --gold gold/incidents` | exit 2 naming `/` and `DOSSIER_MLFLOW_NAMESPACE`; 0 judge calls and 0 MLflow runs opened |
+| 2 | the same namespace, `dossier calibrate incident-audit --gold gold/incidents` | exit 2 naming the variable; 0 judge calls and 0 MLflow runs opened |
+| 3 | the same namespace, `dossier run incident-audit` | exit 2 naming the variable; 0 model calls and 0 MLflow runs opened |
+| 4 | the same namespace, `dossier sync incident-audit` | exit 2 naming the variable; 0 items fetched |
+| 5 | the same namespace, `dossier dataset publish incident-audit --gold gold/incidents` | exit 2 naming the variable; 0 datasets created, although a dataset name alone could have held `/` |
+| 6 | *counter-example* — `team/a`, `DOSSIER_MLFLOW_ENABLED=false`, `dossier run incident-audit` | exit 0, as the run would have. Nothing is recorded or looked up, so nothing reads the namespace |
+| 7 | *counter-example* — `DOSSIER_MLFLOW_NAMESPACE=sandbox` | nothing refused; every command records as R10.13 row 1 names |
+
+### R10.15 — `DOSSIER_MLFLOW_PROMPT_PREFIX`, set to a value, is refused by name before any work, naming `DOSSIER_MLFLOW_NAMESPACE`
+
+The variable R14.8 read, retired by R10.13. Ignored rather than refused, a machine
+that still sets it would stop being namespaced without a word, and its next publish
+would land in the history it had been set to keep apart from -- the silent merge,
+arrived at by an upgrade instead of by an omission. Refused, it names the one
+change to make.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.check_namespace`)
+- **Proved by:** `tests/acceptance/test_R010_15__the_retired_prompt_prefix_is_refused_by_name.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `.env` holding `DOSSIER_MLFLOW_PROMPT_PREFIX=sandbox`, tracking on, `dossier prompts publish incident-audit` | exit 2 naming `DOSSIER_MLFLOW_PROMPT_PREFIX` and `DOSSIER_MLFLOW_NAMESPACE`; 0 prompts sent |
+| 2 | the same, `dossier run incident-audit` | exit 2 naming both variables; 0 model calls and 0 MLflow runs opened |
+| 3 | *counter-example* — `DOSSIER_MLFLOW_PROMPT_PREFIX=`, blank | not refused. Blank is not a decision, as a blank switch is not (R10.1): a `.env` copied from an old `.env.example` ships it that way |
+| 4 | *counter-example* — `DOSSIER_MLFLOW_PROMPT_PREFIX=sandbox`, `DOSSIER_MLFLOW_ENABLED=false`, `dossier run incident-audit` | exit 0. Nothing is published or looked up, so nothing reads it |
