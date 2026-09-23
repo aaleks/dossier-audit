@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import re
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timedelta
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -45,6 +46,11 @@ OIDC_CLIENT_ID = "DOSSIER_MLFLOW_OIDC_CLIENT_ID"
 OIDC_CLIENT_SECRET = "DOSSIER_MLFLOW_OIDC_CLIENT_SECRET"
 OIDC_SCOPE = "DOSSIER_MLFLOW_OIDC_SCOPE"
 OIDC_AUDIENCE = "DOSSIER_MLFLOW_OIDC_AUDIENCE"
+OIDC_REFRESH_SECONDS = "DOSSIER_MLFLOW_OIDC_REFRESH_SECONDS"
+
+# How close to its expiry an access token is fetched again (R10.19): thirty
+# seconds, agreed 2026-09-23, and set per machine by the variable above.
+DEFAULT_REFRESH_SECONDS = 30
 
 # The ways dossier can authenticate to MLflow (R10.16), and what each one needs.
 # Chosen by name rather than inferred from which variables are set: a guess that
@@ -94,6 +100,7 @@ class MlflowAuth(BaseModel):
     client_secret: str | None = Field(default=None, repr=False)
     scope: str | None = None
     audience: str | None = None
+    refresh_seconds: int = DEFAULT_REFRESH_SECONDS
 
 
 class TrackingSettings(BaseModel):
@@ -264,7 +271,38 @@ def _auth(environ: Mapping[str, str]) -> MlflowAuth:
         for field, variable in (("scope", OIDC_SCOPE), ("audience", OIDC_AUDIENCE)):
             if environ.get(variable):
                 values[field] = environ[variable]
+        margin = environ.get(OIDC_REFRESH_SECONDS, "")
+        if margin:
+            # A whole number of seconds, zero or more. `-5` and `soon` are refused
+            # rather than read as the default: a margin someone meant to set and
+            # did not is found only when a long run starts losing records.
+            if not margin.isdigit():
+                raise ValueError(
+                    f"{OIDC_REFRESH_SECONDS} is {margin!r}; it takes a whole number of "
+                    f"seconds, and is {DEFAULT_REFRESH_SECONDS} when unset."
+                )
+            values["refresh_seconds"] = int(margin)
     return MlflowAuth(mode=mode, **values)
+
+
+def token_expiry(*, issued_at: datetime, expires_in: int | None) -> datetime | None:
+    """When a token issued at `issued_at` stops being accepted, or `None` if nobody said."""
+    return None if expires_in is None else issued_at + timedelta(seconds=expires_in)
+
+
+def token_due(*, expires_at: datetime | None, now: datetime, margin_seconds: int) -> bool:
+    """Whether the token in hand is fetched again before this request (R10.19).
+
+    Due once *no more than* the margin remains: exactly thirty seconds left is
+    due, because a request carrying a token with thirty seconds to live may take
+    longer than that to arrive. A token whose lifetime nobody stated is always
+    due -- fetched per request rather than reused on a guess. A margin longer
+    than a token lives makes every request fetch one, which costs a token
+    request and never a record.
+    """
+    if expires_at is None:
+        return True
+    return (expires_at - now).total_seconds() <= margin_seconds
 
 
 def experiment_name(

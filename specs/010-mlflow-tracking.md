@@ -667,7 +667,7 @@ read from the token endpoint reaches a key, a manifest or a score (R0.10).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.token_due`)
 - **Proved by:** `tests/unit/test_R010_19__an_oidc_token_is_fetched_again_before_it_expires.py`, `tests/acceptance/test_R010_19__a_token_endpoint_that_refuses_refuses_before_any_work.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
