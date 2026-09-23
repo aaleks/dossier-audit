@@ -149,6 +149,9 @@ class FakeTracker:
         # A list rather than a set: R14.7 is a claim about which versions
         # were linked, and a duplicate would be a defect worth seeing.
         self.links: list[tuple[str, int]] = []
+        # (version id, prompt name, prompt version): what a pipeline version is
+        # made of, kept on the tracker because MLflow keeps it on the model (R14.12).
+        self.version_links: list[tuple[str, str, int]] = []
 
     @property
     def traces(self) -> list[FakeTrace]:
@@ -181,6 +184,12 @@ class FakeTracker:
 
     def scored_version(self, version_id: str) -> None:
         self._run.scored.append(version_id)
+
+    def version_prompt(self, *, version_id: str, name: str, version: int) -> None:
+        # Only from inside a run, as a real one is sent: the tracker's client
+        # exists once a run is open (FakeTrackerError otherwise).
+        _ = self._run
+        self.version_links.append((version_id, name, version))
 
     def log_version_metrics(self, *, version_id: str, metrics: Mapping[str, float]) -> None:
         self._run.version_metrics.setdefault(version_id, {}).update(metrics)

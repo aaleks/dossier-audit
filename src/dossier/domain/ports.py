@@ -253,6 +253,17 @@ class Tracker(Protocol):
         """
         ...
 
+    def version_prompt(self, *, version_id: str, name: str, version: int) -> None:
+        """Record that pipeline version `version_id` is made of that prompt version (R14.12).
+
+        The version a run built, by the id the version registry returned, and a
+        prompt version found by the hash the run rendered -- so the link is a
+        statement about what the version is made of. Sends and returns nothing,
+        like `log_version_metrics`: the id arrives from `VersionRegistry`, the
+        port allowed to return one (R0.10).
+        """
+        ...
+
     def log_version_metrics(self, *, version_id: str, metrics: Mapping[str, float]) -> None:
         """Record this run's figures against that version too (R13.3).
 
