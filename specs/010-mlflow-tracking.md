@@ -1,7 +1,7 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
 **Status:** Partially implemented
-**Rules:** R10.1 – R10.22
+**Rules:** R10.1 – R10.23
 
 ## Purpose
 
@@ -742,3 +742,31 @@ the outcome (R10.6).
 | 3 | the same account, `dossier sync incident-audit` | printed when the sync opens its record, which is after the work: a sync records what it did once it has done it (R11.4); exit 0 |
 | 4 | *counter-example* — the server answers 503, or stops answering | no warning as it happens, only R10.21's count. A server that has gone away tells a person nothing they can fix from the terminal |
 | 5 | *counter-example* — the warning, in any mode | holds no password, token or client secret's value (R10.7) |
+
+### R10.23 — MLflow writes nothing to a command's terminal, and never before the record it is closing
+
+What a command prints is dossier's (R10.4 row 3). `MlflowClient.set_terminated`
+prints `🏃 View run … at: …` and `🧪 View experiment at: …` to standard output,
+and it does so *before* sending the update that closes the run. Where standard
+output cannot encode the emoji -- a Windows console redirected to a file or a
+pipe, which is `cp1252` -- the print raises, the update is never sent, and
+`BestEffortTracker` swallows the error as a lost record (R10.6). Every run
+recorded that way stayed `RUNNING` for ever, and the command exited 0 on a clean
+terminal. It was found during R10.17's live check, and it was on `main` before
+any authentication existed.
+
+MLflow's own `MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT` skips the print. The tracker
+sets it through MLflow's API wherever it configures the library (R10.9, R10.17),
+and only when tracking is on.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow`)
+- **Proved by:** `tests/unit/test_R010_23__mlflow_writes_nothing_to_the_terminal.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier sync incident-audit` with standard output piped on Windows (`cp1252`) | the run closes `FINISHED`; the update is sent, and nothing is written before it |
+| 2 | `dossier run incident-audit`, recorded | no `🏃 View run` or `🧪 View experiment` line on standard output |
+| 3 | *counter-example* — `recorded to MLflow: dossier-audit/incident-audit/run · run 20260806T142203Z-4f1a` | printed. That line is dossier's own, from the figures it holds, not MLflow's (R10.4 row 3) |
+| 4 | *counter-example* — tracking off | nothing configured; MLflow's setting is left as it was (R10.9 row 4) |
