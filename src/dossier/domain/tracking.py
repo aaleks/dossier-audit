@@ -27,6 +27,9 @@ RUN_PREFIX = "DOSSIER_MLFLOW_RUN_PREFIX"
 RUN_NAME = "DOSSIER_MLFLOW_RUN_NAME"
 RUN_LABEL = "DOSSIER_MLFLOW_RUN_LABEL"
 USER = "DOSSIER_MLFLOW_USER"
+# The per-machine namespace in front of every name dossier publishes into
+# MLflow's global namespace -- a prompt's and a dataset's (R10.13).
+NAMESPACE = "DOSSIER_MLFLOW_NAMESPACE"
 
 # What a span may carry: the text a stage read and wrote, or only its hashes.
 _CAPTURES = ("full", "hashes")
@@ -48,6 +51,22 @@ class TrackingSettings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     uri: str
+
+
+def namespaced(name: str, namespace: str) -> str:
+    """R10.13 — `name` with this machine's namespace in front of it, or `name` itself.
+
+    One function for a prompt's name and a dataset's, because both are global on
+    a server and unique within one workspace and no further: two checkouts
+    sharing a server would otherwise publish into one history. Two ways of
+    namespacing them would be two ways for the pair to disagree about what a
+    machine published.
+
+    Empty is nothing, so a person who never sets the variable sees every name
+    exactly as it was composed before the namespace existed -- which is what
+    lets a prompt or a dataset published before it be found and not sent again.
+    """
+    return f"{namespace}.{name}" if namespace else name
 
 
 def settings(environ: Mapping[str, str]) -> TrackingSettings | None:

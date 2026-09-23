@@ -25,6 +25,7 @@ from dataclasses import dataclass
 
 from dossier.domain.hashing import content_hash, normalised_text
 from dossier.domain.pipeline import PipelineConfig
+from dossier.domain.tracking import namespaced
 
 # `{{ name }}` with optional inner whitespace. Rejecting the spaced form would be
 # defensible and would waste an afternoon; it is unambiguously the same thing.
@@ -158,7 +159,7 @@ def prompt_name(pipeline: str, step: str, *, prefix: str = "") -> str:
                 "holds neither '/' nor ':'."
             )
     check_prompt_prefix(prefix)
-    return f"{prefix}.{pipeline}.{step}" if prefix else f"{pipeline}.{step}"
+    return namespaced(f"{pipeline}.{step}", prefix)
 
 
 def check_prompt_prefix(prefix: str) -> None:
