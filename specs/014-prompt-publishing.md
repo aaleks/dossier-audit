@@ -1,7 +1,7 @@
 # 014 — A pipeline's prompts as MLflow prompt registry versions
 
-**Status:** Implemented
-**Rules:** R14.1 – R14.10
+**Status:** Partially implemented
+**Rules:** R14.1 – R14.12
 
 ## Purpose
 
@@ -411,7 +411,7 @@ rubric edited since its calibration -- the commonest reason for withholding
 | 5 | *counter-example* — `root_cause` withheld as stale, its rubric edited since calibration | no registry read for `root_cause` and no link; the eval prints, records and exits exactly as it would have |
 | 6 | *counter-example* — `incident-audit.judge.root_cause` never published | links nothing; the eval and the calibration record and exit exactly as they would have (R10.4, R14.7 row 2) |
 | 7 | *counter-example* — `DOSSIER_MLFLOW_ENABLED=false` | no registry read and no link, on `eval` and on `calibrate` |
-| 8 | *counter-example* — `dossier eval --compare 20260806T142203Z-4f1a 20260907T090000Z-bbbb` | no registry read and no link. A comparison's record holds a delta, and the change behind it is named by R11.13, not by a link to either side's rubric |
+| 8 | *counter-example* — `dossier run incident-audit`, the rubric published | no rubric linked to the run. A run judges nothing; what it links is the prompts it rendered (R14.7). A comparison does judge, both sides with one rubric, and links it -- which is R14.11 |
 
 ### R14.10 — a prefix MLflow would reject is refused before any work by every command that records, and by none while tracking is off
 
@@ -442,3 +442,64 @@ the ones that would have recorded most.
 | 4 | the same prefix, `dossier sync incident-audit` | exit 2 naming the variable; 0 items fetched. The setting is refused where it is read, not where it would first have mattered |
 | 5 | *counter-example* — `team/a`, `DOSSIER_MLFLOW_ENABLED=false`, `dossier run incident-audit` | exit 0, as the run would have. Nothing is recorded or looked up, so nothing reads the prefix (R14.7 row 3) |
 | 6 | *counter-example* — `DOSSIER_MLFLOW_PROMPT_PREFIX=sandbox` | nothing refused; every command records as R14.8 row 1 names |
+
+### R14.11 — a comparison's MLflow record links the rubric version both its sides were judged with
+
+R14.9 for the other command that judges. A comparison reproduces two runs and
+puts both through the judge (R7.17 row 7), and its record holds the delta the
+change gate exists to produce (R11.8) -- the figure a person is most likely to
+quote, and so the one whose standard they most need to be able to open.
+
+One rubric per field, not one per side. Both runs are judged with the rubric in
+the checkout, never with the one each was evaluated under when it ran, and a
+verdict's key holds that rubric's hash (R7.18, R7.19): a comparison is two
+measurements under one standard, which is what makes the delta a delta. Gated
+as an eval is, so a withheld field links nothing, for R14.9's reason.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.record_comparison`)
+- **Proved by:** `tests/acceptance/test_R014_11__a_comparison_links_the_rubric_it_judged_with.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier eval incident-audit --gold gold/incidents --compare 20260806T142203Z-4f1a 20260907T090000Z-bbbb`, `root_cause` calibrated against rubric `f7a2d9c4` at version 1; a draft published as version 2 and reverted in the checkout since | version 1 linked to the comparison's MLflow run, once, not version 2 and not once per side |
+| 2 | *counter-example* — `root_cause` withheld as stale | no registry read for `root_cause` and no link; the comparison prints the reason on both sides and records exactly as it would have |
+| 3 | *counter-example* — `incident-audit.judge.root_cause` never published | links nothing; the comparison records and exits exactly as it would have (R10.4) |
+| 4 | *counter-example* — `DOSSIER_MLFLOW_ENABLED=false` | no registry read and no link |
+| 5 | *counter-example* — the two runs cover different documents | refused before any record, as R11.8 row 4 refuses it: no MLflow run, so no registry read and no link |
+
+### R14.12 — a pipeline version links the prompt version each of its steps rendered
+
+R14.7 links a run to the prompts it rendered. The pipeline version that run
+built (spec 013) is made of exactly those prompts -- its version hash is taken
+over their hashes (R13.1) -- and the Models tab, where two versions are
+compared, showed neither. MLflow links a prompt version to a logged model as it
+does to a run, so the version says what it is made of on its own page.
+
+Linked by `dossier run`, the command that builds the version (R13.2), from the
+same lookups R14.7 makes: each step's prompt is found once, by its hash, and
+the version found is linked to both. A step whose prompt was published after
+the run links at the next run of that version -- one whose every stage is a
+cache hit, asking no model -- because the link is to the version rather than to
+a run. MLflow holds a model's linked prompts as one set, so linking one twice
+changes nothing.
+
+A rubric is not linked to a version. The version hash covers what produced the
+answers and a rubric scores them (R13.1); a rubric linked here would put a
+judge's standard on a version it does not describe.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/acceptance/test_R014_12__a_pipeline_version_links_the_prompts_its_steps_rendered.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier run incident-audit`, tracking on, `extract`, `verify` and `report` published at the hashes the run rendered | the pipeline version the run registered links `incident-audit.extract`, `incident-audit.verify` and `incident-audit.report`, each at the version carrying that hash; the run links the same three (R14.7) |
+| 2 | `verify` published at version 1 as `0e52dd18` and at version 2 as `35d1a8ef`; the run renders `0e52dd18` | the version links `verify` at version 1, not version 2 |
+| 3 | `extract` never published before the first run; published after it; `dossier run incident-audit` again, every stage a cache hit and 0 model calls | the version now links `extract` as well. The same version, completed by a run that cost nothing |
+| 4 | *counter-example* — `incident-audit.judge.root_cause` published | not linked to the version. A rubric scores the answers, and the version hash does not cover it (R13.1) |
+| 5 | *counter-example* — `dossier eval incident-audit --gold gold/incidents` | no step prompt linked to the version. An eval measures a version it did not make (R13.2 row 2); what it links is its rubric, to its own run (R14.9) |
+| 6 | *counter-example* — the version registry cannot hold a logged model (R13.5) | no version link; the run still links its prompts to itself (R14.7) and exits exactly as it would have |
+| 7 | *counter-example* — `DOSSIER_MLFLOW_ENABLED=false` | no registry read and no link |
