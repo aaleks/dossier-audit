@@ -405,10 +405,18 @@ def _tracking_for(
         # prefix composed into a name only once a command was at work reached
         # `eval` and `calibrate` as a traceback, with their run open (R14.10).
         namespace(environ)
-        return BestEffortTracker(build_tracker(tracking)), experiment
+        # A loss is said in the command's own terminal, once, as its record closes
+        # (R10.21) -- by every command that records, because every one builds
+        # its tracker here.
+        return BestEffortTracker(build_tracker(tracking), warn=_warn), experiment
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
+
+
+def _warn(line: str) -> None:
+    """A tracking warning, on standard error with every other warning dossier gives."""
+    typer.echo(line, err=True)
 
 
 def _version_experiment(workspace: Path, pipeline: str) -> str:
