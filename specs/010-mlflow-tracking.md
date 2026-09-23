@@ -615,7 +615,7 @@ sent. It was set for some server, and nothing says that server is this one.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.auth`)
 - **Proved by:** `tests/unit/test_R010_17__every_request_carries_the_configured_credential.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -626,6 +626,7 @@ sent. It was set for some server, and nothing says that server is this one.
 | 5 | any mode, after startup | the process environment holds `MLFLOW_TRACKING_AUTH=dossier`, and the value of no `DOSSIER_MLFLOW_AUTH_*` or `DOSSIER_MLFLOW_OIDC_*` variable |
 | 6 | a run recorded against a live `mlflow server --app-name basic-auth` | its traces are readable on that server beside its metrics (R10.9 row 3) |
 | 7 | *counter-example* — tracking off | no provider is named, and `MLFLOW_TRACKING_AUTH` is left exactly as it was (R10.9 row 4) |
+| 8 | dossier installed from metadata older than the provider's entry point, so MLflow cannot find it | refused before any work, saying to reinstall dossier. MLflow would send no credential while the startup check, which takes its header from dossier directly, passed |
 
 ### R10.18 — a server that refuses the credential refuses the command before any work
 

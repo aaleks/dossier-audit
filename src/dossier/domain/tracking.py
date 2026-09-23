@@ -10,6 +10,7 @@ here enters a key, a manifest or a score.
 
 from __future__ import annotations
 
+import base64
 import re
 from collections.abc import Mapping, Sequence
 from typing import Literal
@@ -199,6 +200,24 @@ def settings(environ: Mapping[str, str]) -> TrackingSettings | None:
             "is served on this machine; `.env.example` names http://localhost:5000."
         )
     return TrackingSettings(uri=uri, auth=_auth(environ))
+
+
+def authorization(auth: MlflowAuth) -> str | None:
+    """The `Authorization` value a request to MLflow carries, or `None` for no header (R10.17).
+
+    One function, read by the startup check and by the provider MLflow asks on
+    every request, so the header checked is the header sent. `oidc` carries a
+    token exchanged at run time, which is not a decision this layer can take
+    from settings alone (R10.19).
+    """
+    if auth.mode == "basic":
+        pair = f"{auth.username}:{auth.password}".encode()
+        return "Basic " + base64.b64encode(pair).decode("ascii")
+    if auth.mode == "bearer":
+        return f"Bearer {auth.token}"
+    if auth.mode == "oidc":
+        raise ValueError("an `oidc` header carries an exchanged access token (R10.19)")
+    return None
 
 
 def _auth(environ: Mapping[str, str]) -> MlflowAuth:

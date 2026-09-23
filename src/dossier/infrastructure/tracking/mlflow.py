@@ -25,12 +25,14 @@ from dossier.domain.ports import (
     VersionRegistry,
 )
 from dossier.domain.prompts import PublishedPrompt
+from dossier.domain.tracking import MlflowAuth
 from dossier.domain.versions import (
     HASH_TAG,
     MODEL_TYPE,
     PublishedVersion,
     VersionRecord,
 )
+from dossier.infrastructure.tracking.auth import PROVIDER, configure, headers
 
 # How the startup check reaches the server. `None` is a real connection; a test
 # answers with an `httpx.MockTransport`, so no socket is opened (R0.10).
@@ -45,12 +47,15 @@ class TrackingUnavailable(RuntimeError):
     """Tracking is switched on, and nothing can be recorded -- said before any work."""
 
 
-def connect(uri: str) -> Tracker:
+def connect(uri: str, *, auth: MlflowAuth | None = None) -> Tracker:
     """A tracker recording to `uri`, or `TrackingUnavailable` saying why not (R10.5).
 
     Two checks, in the order a person would fix them: the `tracking` extra is
     installed, and a server answers at an `http(s)` URI. A local store such as
     `sqlite:///mlflow.db` has no server to ask, so it is not asked.
+
+    Before either request, `auth` is made the credential every request to the
+    server carries -- this check's, and every one MLflow sends after it (R10.17).
     """
     try:
         import mlflow  # noqa: F401 -- the extra is what is being checked for
@@ -60,13 +65,14 @@ def connect(uri: str) -> Tracker:
             "pip install 'dossier[tracking]' -- or set DOSSIER_MLFLOW_ENABLED=false."
         ) from error
 
+    _authenticate(uri, auth or MlflowAuth())
     if uri.startswith(("http://", "https://")):
         health = uri.rstrip("/") + "/health"
         try:
             with httpx.Client(
                 transport=HEALTH_TRANSPORT, timeout=HEALTH_TIMEOUT_SECONDS
             ) as http:
-                answered = http.get(health)
+                answered = http.get(health, headers=headers())
         except httpx.HTTPError as error:
             raise TrackingUnavailable(
                 f"tracking is enabled and no MLflow server answers at {uri} ({error}). "
@@ -78,6 +84,33 @@ def connect(uri: str) -> Tracker:
                 f"{answered.status_code} {answered.reason_phrase} to {health}."
             )
     return MlflowTracker(uri)
+
+
+def _authenticate(uri: str, auth: MlflowAuth) -> None:
+    """Make `auth` what every request to `uri` carries, or refuse before any work (R10.17).
+
+    A local store is reached by no request, so there is nothing to carry.
+    """
+    if not uri.startswith(("http://", "https://")):
+        return
+    if auth.mode == "oidc":
+        raise TrackingUnavailable(
+            "DOSSIER_MLFLOW_AUTH is `oidc`, which exchanges a client's credentials for "
+            "an access token (R10.19), and this version of dossier does not make that "
+            "exchange yet. Use `basic` or `bearer`, or set DOSSIER_MLFLOW_ENABLED=false."
+        )
+    from mlflow.tracking.request_auth.registry import fetch_auth
+
+    # MLflow finds providers through package metadata. An install older than the
+    # entry point would leave every request with no credential while the startup
+    # check below -- which takes its header from dossier directly -- passed.
+    if fetch_auth(PROVIDER) is None:
+        raise TrackingUnavailable(
+            "MLflow cannot find dossier's request auth provider, so no credential would "
+            "reach the server. The installed metadata predates it: reinstall dossier "
+            "(pip install -e '.[tracking]', or uv sync) so its entry points are registered."
+        )
+    configure(auth)
 
 
 class MlflowTracker:
@@ -324,7 +357,7 @@ class MlflowTracker:
 DATASETS_ENDPOINT = "/api/3.0/mlflow/datasets/search"
 
 
-def connect_datasets(uri: str) -> DatasetRegistry:
+def connect_datasets(uri: str, *, auth: MlflowAuth | None = None) -> DatasetRegistry:
     """A dataset registry recording to `uri`, or `TrackingUnavailable` saying why not.
 
     Three checks, in the order a person would fix them: the `tracking` extra, a
@@ -334,7 +367,7 @@ def connect_datasets(uri: str) -> DatasetRegistry:
     does not, so a person publishing to one is told which server setting to
     change rather than handed an MLflow traceback.
     """
-    connect(uri)  # the extra and the server, refused with their own messages
+    connect(uri, auth=auth)  # the extra and the server, refused with their own messages
 
     if uri.startswith(("http://", "https://")):
         search = uri.rstrip("/") + DATASETS_ENDPOINT
@@ -342,7 +375,7 @@ def connect_datasets(uri: str) -> DatasetRegistry:
             with httpx.Client(
                 transport=HEALTH_TRANSPORT, timeout=HEALTH_TIMEOUT_SECONDS
             ) as http:
-                answered = http.post(search, json={"max_results": 1})
+                answered = http.post(search, json={"max_results": 1}, headers=headers())
         except httpx.HTTPError as error:
             raise TrackingUnavailable(
                 f"tracking is enabled and no MLflow server answers at {uri} ({error}). "
@@ -556,7 +589,9 @@ class MlflowPromptRegistry:
 PROMPTS_ENDPOINT = "/api/2.0/mlflow/registered-models/search"
 
 
-def connect_prompts(uri: str, *, verify: bool = True) -> PromptRegistry:
+def connect_prompts(
+    uri: str, *, auth: MlflowAuth | None = None, verify: bool = True
+) -> PromptRegistry:
     """A prompt registry recording to `uri`, or `TrackingUnavailable` saying why not.
 
     Three checks, in the order a person would fix them: the `tracking` extra, a
@@ -572,7 +607,10 @@ def connect_prompts(uri: str, *, verify: bool = True) -> PromptRegistry:
     # costs a round-trip on a command that never made one. R10.4 is that
     # tracking changes nothing about a run, and a startup probe is a change.
     if verify:
-        connect(uri)  # the extra and the server, refused with their own messages
+        connect(uri, auth=auth)  # the extra and the server, refused with their own messages
+    else:
+        # No probe, and still the credential: no request goes out without it (R10.17).
+        _authenticate(uri, auth or MlflowAuth())
 
     if verify and uri.startswith(("http://", "https://")):
         search = uri.rstrip("/") + PROMPTS_ENDPOINT
@@ -580,7 +618,7 @@ def connect_prompts(uri: str, *, verify: bool = True) -> PromptRegistry:
             with httpx.Client(
                 transport=HEALTH_TRANSPORT, timeout=HEALTH_TIMEOUT_SECONDS
             ) as http:
-                answered = http.get(search, params={"max_results": 1})
+                answered = http.get(search, params={"max_results": 1}, headers=headers())
         except httpx.HTTPError as error:
             raise TrackingUnavailable(
                 f"tracking is enabled and no MLflow server answers at {uri} ({error}). "
@@ -616,7 +654,7 @@ def _record_count(dataset) -> int:
     return int((profile or {}).get("num_records", 0))
 
 
-def connect_versions(uri: str) -> VersionRegistry:
+def connect_versions(uri: str, *, auth: MlflowAuth | None = None) -> VersionRegistry:
     """A version registry recording to `uri` (spec 013).
 
     Only `connect`'s checks -- the extra and a server that answers. No check
@@ -626,7 +664,7 @@ def connect_versions(uri: str) -> VersionRegistry:
     either way. A store that cannot hold one fails at `register` and is swallowed
     by the best-effort wrapper, which says so at the end (R13.5).
     """
-    connect(uri)
+    connect(uri, auth=auth)
     return MlflowVersionRegistry(uri)
 
 
