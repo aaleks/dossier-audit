@@ -407,7 +407,7 @@ rubric edited since its calibration -- the commonest reason for withholding
 | 1 | `dossier eval incident-audit` of run `20260806T142203Z-4f1a`, tracking on, `root_cause` calibrated against rubric `f7a2d9c4`, published at version 1; a draft rubric published as version 2 and reverted in the checkout since | version 1 linked to the eval's MLflow run, not version 2. The eval judged with `f7a2d9c4`'s words and the link says so |
 | 2 | `dossier calibrate incident-audit --gold gold/incidents`, the same rubric at version 1 | version 1 linked to the calibration's MLflow run, once, although both the grounded and the described judge were measured against it (R7.22) |
 | 3 | the eval of row 1 run a second time, every verdict served from the `judge` cache and 0 judge calls | version 1 linked all the same. The verdicts were reached under that rubric; where they were read from is not what the link is about |
-| 4 | `DOSSIER_MLFLOW_PROMPT_PREFIX=sandbox`, the rubric published under it | the eval looks up and links `sandbox.incident-audit.judge.root_cause` (R14.8) |
+| 4 | `DOSSIER_MLFLOW_NAMESPACE=sandbox`, the rubric published under it | the eval looks up and links `sandbox.incident-audit.judge.root_cause` (R10.13) |
 | 5 | *counter-example* — `root_cause` withheld as stale, its rubric edited since calibration | no registry read for `root_cause` and no link; the eval prints, records and exits exactly as it would have |
 | 6 | *counter-example* — `incident-audit.judge.root_cause` never published | links nothing; the eval and the calibration record and exit exactly as they would have (R10.4, R14.7 row 2) |
 | 7 | *counter-example* — `DOSSIER_MLFLOW_ENABLED=false` | no registry read and no link, on `eval` and on `calibrate` |

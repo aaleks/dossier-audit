@@ -519,8 +519,8 @@ because it *is* the same version.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.namespaced`)
-- **Proved by:** `tests/acceptance/test_R010_13__a_namespace_goes_in_front_of_every_published_name.py`, `tests/unit/test_R010_13__a_namespace_goes_in_front_of_a_name.py`
-- **Status:** IN PROGRESS
+- **Proved by:** `tests/acceptance/test_R010_13__a_namespace_goes_in_front_of_every_published_name.py`, `tests/unit/test_R010_13__a_namespace_goes_in_front_of_a_name.py`, `tests/unit/test_R010_13__a_gold_set_publishes_under_the_namespace.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

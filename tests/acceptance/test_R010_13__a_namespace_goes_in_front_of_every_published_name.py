@@ -25,8 +25,6 @@ from tests.fakes import FakeDatasetRegistry, FakePromptRegistry, FakeTracker
 from tests.pipelines import write_pipeline
 from tests.scoring_example import PIPELINE
 
-pytestmark = pytest.mark.outer_loop
-
 NAMESPACE = "DOSSIER_MLFLOW_NAMESPACE"
 STEPS = ["extract", "verify", "report"]
 EXPERIMENT = "dossier-audit/incident-audit/eval/incidents"

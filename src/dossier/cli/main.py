@@ -101,6 +101,7 @@ from dossier.domain.scoring import (
 from dossier.domain.store import replay_path
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.domain.tracking import (
+    NAMESPACE,
     TrackingSettings,
     comparison_description,
     convert_description,
@@ -110,6 +111,7 @@ from dossier.domain.tracking import (
     judge_line,
     label_for,
     name_template,
+    namespaced,
     run_name,
     step_line,
     sync_description,
@@ -990,7 +992,7 @@ def _execute(workspace: Path, pipeline: str, *, label: str = "") -> None:
             prompt_registry=prompt_registry,
             # The same variable a publish reads, so a run asks for the name it
             # would have published under (R14.8 row 3).
-            prompt_prefix=environment(workspace).get(PROMPT_PREFIX, ""),
+            prompt_prefix=environment(workspace).get(NAMESPACE, ""),
             version_experiment=experiment or "",
             run_id=this_run,
             started_at=started_at,
@@ -1250,7 +1252,7 @@ def calibrate(
             # Best-effort, as the eval's is (R14.9): a server with no prompt
             # store costs the link and never the measurement.
             prompt_registry=_prompt_registry_for(workspace) if tracker is not None else None,
-            prompt_prefix=environment(workspace).get(PROMPT_PREFIX, ""),
+            prompt_prefix=environment(workspace).get(NAMESPACE, ""),
             # As bytes, as `record_eval` reads them: the hash has to move when
             # any answer moves (R11.3 row 2).
             gold_files={
@@ -1449,7 +1451,7 @@ def eval_(
                 field: text_hash(path.parent / named)
                 for field, named in load_judge_rubrics(path.parent / step.output).items()
             },
-            prompt_prefix=environment(workspace).get(PROMPT_PREFIX, ""),
+            prompt_prefix=environment(workspace).get(NAMESPACE, ""),
         )
         if published is not None:
             tracker.log_dataset(
@@ -1703,7 +1705,7 @@ def _compare_runs(
                 for field, named in load_judge_rubrics(declaration).items()
             },
             withheld=withheld,
-            prompt_prefix=environment(workspace).get(PROMPT_PREFIX, ""),
+            prompt_prefix=environment(workspace).get(NAMESPACE, ""),
         )
         if published is not None:
             # The same link an eval makes, on the other command that scores
@@ -1829,7 +1831,9 @@ def _published_dataset(workspace: Path, *, gold: str) -> PublishedDataset | None
         tracking = tracking_settings(environment(workspace))
         if tracking is None:
             return None
-        return build_dataset_registry(tracking).find(Path(gold).name)
+        # Under the name a publish would have sent (R10.13).
+        namespace = environment(workspace).get(NAMESPACE, "")
+        return build_dataset_registry(tracking).find(namespaced(Path(gold).name, namespace))
     except Exception:
         # `TrackingUnavailable` included: an eval needs no dataset, so a server
         # that cannot hold one is no reason to refuse the command (R12.5 row 5).
@@ -1921,6 +1925,7 @@ def dataset_publish(
             gold=directory,
             experiment=experiment,
             snapshots=_held_snapshots(workspace),
+            namespace=environ.get(NAMESPACE, ""),
         )
     except EmptyGoldSet as error:
         # Named as the person typed it. `EmptyGoldSet` carries the resolved path,
@@ -2040,7 +2045,7 @@ def prompts_publish(
             config=config,
             directory=directory,
             rubrics=rubrics,
-            prefix=environ.get(PROMPT_PREFIX, ""),
+            prefix=environ.get(NAMESPACE, ""),
         )
     except (ConfigError, ValueError) as error:
         # The illegal pipeline name lands here (R14.1 row 5): composed, refused,

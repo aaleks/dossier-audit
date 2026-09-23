@@ -161,10 +161,10 @@ class TestAJudgeLinksTheRubricVersionItJudgedWith:
     def test_a_prefixed_rubric_is_looked_up_under_its_prefix(
         self, judged_run, monkeypatch, wired
     ):
-        """Row 4: the one where the eval asks under the name it would publish under (R14.8)."""
+        """Row 4: the one where the eval asks under the name it would publish under (R10.13)."""
         workspace, _ = judged_run
         _, tracker = wired
-        monkeypatch.setenv("DOSSIER_MLFLOW_PROMPT_PREFIX", "sandbox")
+        monkeypatch.setenv("DOSSIER_MLFLOW_NAMESPACE", "sandbox")
         _publish(workspace, monkeypatch)
 
         result = _cli(workspace, monkeypatch, "eval", PIPELINE, "--gold", GOLD)
