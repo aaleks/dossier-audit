@@ -568,9 +568,9 @@ arrived at by an upgrade instead of by an omission. Refused, it names the one
 change to make.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.tracking.check_namespace`)
-- **Proved by:** `tests/acceptance/test_R010_15__the_retired_prompt_prefix_is_refused_by_name.py`
-- **Status:** IN PROGRESS
+- **Layer:** domain (`dossier.domain.tracking.namespace`)
+- **Proved by:** `tests/acceptance/test_R010_15__the_retired_prompt_prefix_is_refused_by_name.py`, `tests/unit/test_R010_15__the_namespace_is_read_and_the_retired_variable_refused.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
