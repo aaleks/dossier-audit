@@ -615,7 +615,7 @@ sent. It was set for some server, and nothing says that server is this one.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.auth`)
 - **Proved by:** `tests/unit/test_R010_17__every_request_carries_the_configured_credential.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

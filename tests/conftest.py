@@ -74,6 +74,39 @@ def clean_env(request, monkeypatch):
             monkeypatch.delenv(name, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def mlflow_auth_provider(monkeypatch):
+    """dossier's request auth provider known to MLflow, and MLflow's selector restored.
+
+    `connect` writes `MLFLOW_TRACKING_AUTH` to the process environment (R10.17).
+    `clean_env` removes a variable that was set, and cannot undo one a test
+    creates, so each test starts by recording the selector as absent and
+    `monkeypatch` puts that back afterwards.
+
+    MLflow finds the provider through package metadata, and a checkout whose
+    venv was installed before the entry point existed has none -- which
+    `connect` refuses, correctly, in production. The suite proves the entry
+    point is declared (R10.17); it does not depend on how recently the venv was
+    reinstalled.
+    """
+    import os
+
+    for name in ("MLFLOW_TRACKING_AUTH", "MLFLOW_TRACKING_SERVER_CERT_PATH"):
+        monkeypatch.setenv(name, os.environ.get(name, ""))
+        monkeypatch.delenv(name)
+    try:
+        from mlflow.tracking.request_auth import registry
+    except ImportError:
+        return
+    from dossier.infrastructure.tracking.auth import PROVIDER, DossierAuthProvider
+
+    providers = registry._request_auth_provider_registry
+    if not any(provider.get_name() == PROVIDER for provider in providers):
+        monkeypatch.setattr(
+            providers, "_registry", [*providers._registry, DossierAuthProvider()]
+        )
+
+
 @pytest.fixture
 def fake_model():
     """A model client returning canned responses and counting calls."""

@@ -52,6 +52,11 @@ dev = [
 [project.scripts]
 dossier = "dossier.cli.main:app"
 
+# MLflow asks request auth providers for a credential on every request, and
+# loads them from this entry point at its own import (R10.17).
+[project.entry-points."mlflow.request_auth_provider"]
+dossier = "dossier.infrastructure.tracking.auth:DossierAuthProvider"
+
 # A new source type is a package that declares an entry point in this group.
 # It is never added to a match statement inside dossier (spec 001 R1.7).
 [project.entry-points."dossier.connectors"]
