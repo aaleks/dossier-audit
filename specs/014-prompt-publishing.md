@@ -291,6 +291,15 @@ check and would have banned the comparison that stops a redundant version
 (R14.4) and the lookup that links a run to what it rendered (R14.7) -- neither of
 which puts a word of anyone's prompt into a run.
 
+One read happens inside MLflow rather than in dossier, and is named here so it
+is not mistaken for a breach. `MlflowClient.link_prompt_version_to_run` given a
+`prompts:/<name>/<version>` URI resolves it with `load_prompt` before linking,
+so the link R14.7 and R14.9 make fetches the version it links to. The template
+goes nowhere: `rendered_prompt` returns `None`, the port has no field to carry
+text, and no `load_prompt` appears under `src/`. Avoiding the fetch would mean
+MLflow's private registry client, or a `PromptVersion` built around a template
+dossier does not hold -- both worse than a read that decides nothing.
+
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R014_5__a_prompt_version_is_never_read_back_into_a_run.py`
