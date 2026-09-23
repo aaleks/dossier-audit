@@ -157,6 +157,20 @@ def prompt_name(pipeline: str, step: str, *, prefix: str = "") -> str:
                 "step. Rename the pipeline directory, or publish a pipeline whose name "
                 "holds neither '/' nor ':'."
             )
+    check_prompt_prefix(prefix)
+    return f"{prefix}.{pipeline}.{step}" if prefix else f"{pipeline}.{step}"
+
+
+def check_prompt_prefix(prefix: str) -> None:
+    """R14.10 — refuse a prefix MLflow would reject, naming the variable to change.
+
+    On its own rather than only inside `prompt_name`, because a name is
+    composed only once a command is already at work: `eval` and `calibrate`
+    reached it with their MLflow run open and raised a traceback. Checked here,
+    it can be refused with the rest of the tracking settings, before anything
+    is fetched, asked or recorded.
+    """
+    for character in _REJECTED_BY_MLFLOW:
         if character in prefix:
             # The variable is named as well as the character: the person reading
             # this never typed the prefix into the command, so the message has to
@@ -166,7 +180,6 @@ def prompt_name(pipeline: str, step: str, *, prefix: str = "") -> str:
                 f"{character!r} in a prompt name, and the prefix goes in front of every "
                 "one. Choose a prefix holding neither '/' nor ':'."
             )
-    return f"{prefix}.{pipeline}.{step}" if prefix else f"{pipeline}.{step}"
 
 
 @dataclass(frozen=True)
