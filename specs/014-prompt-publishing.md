@@ -459,7 +459,7 @@ as an eval is, so a withheld field links nothing, for R14.9's reason.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.record_comparison`)
 - **Proved by:** `tests/acceptance/test_R014_11__a_comparison_links_the_rubric_it_judged_with.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
