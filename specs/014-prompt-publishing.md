@@ -491,7 +491,7 @@ judge's standard on a version it does not describe.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
-- **Proved by:** `tests/acceptance/test_R014_12__a_pipeline_version_links_the_prompts_its_steps_rendered.py`
+- **Proved by:** `tests/acceptance/test_R014_12__a_pipeline_version_links_the_prompts_its_steps_rendered.py`, `tests/unit/test_R014_12__a_version_link_that_fails_costs_the_link_only.py`
 - **Status:** IN PROGRESS
 
 | # | Given | Then |

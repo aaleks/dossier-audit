@@ -66,6 +66,11 @@ class BestEffortTracker:
     def scored_version(self, version_id: str) -> None:
         self._sent(self._inner.scored_version, version_id)
 
+    def version_prompt(self, *, version_id: str, name: str, version: int) -> None:
+        self._sent(
+            self._inner.version_prompt, version_id=version_id, name=name, version=version
+        )
+
     def log_version_metrics(self, *, version_id: str, metrics: Mapping[str, float]) -> None:
         self._sent(self._inner.log_version_metrics, version_id=version_id, metrics=metrics)
 

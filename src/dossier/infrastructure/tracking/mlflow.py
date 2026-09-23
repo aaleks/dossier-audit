@@ -219,6 +219,21 @@ class MlflowTracker:
 
         self._client.log_inputs(self._run_id, models=[LoggedModelInput(version_id)])
 
+    def version_prompt(self, *, version_id: str, name: str, version: int) -> None:
+        """Link the pipeline version to a prompt version it is made of (R14.12).
+
+        `link_prompt_version_to_model` keeps a logged model's prompts in one
+        `mlflow.linkedPrompts` tag, and a live spike confirmed a second link of
+        the same version leaves one entry -- so a run of a version already
+        linked sends a link that changes nothing, and a run completing one
+        after a late publish adds only what is new. A model the server cannot
+        find raises RESOURCE_DOES_NOT_EXIST, which `BestEffortTracker` turns
+        into a lost link rather than a lost run.
+        """
+        self._client.link_prompt_version_to_model(
+            name=name, version=str(version), model_id=version_id
+        )
+
     def log_version_metrics(self, *, version_id: str, metrics: Mapping[str, float]) -> None:
         """Record figures against the version as well as against this run (R13.3).
 
