@@ -25,7 +25,7 @@ from dataclasses import dataclass
 
 from dossier.domain.hashing import content_hash, normalised_text
 from dossier.domain.pipeline import PipelineConfig
-from dossier.domain.tracking import namespaced
+from dossier.domain.tracking import check_namespace, namespaced
 
 # `{{ name }}` with optional inner whitespace. Rejecting the spaced form would be
 # defensible and would waste an afternoon; it is unambiguously the same thing.
@@ -47,13 +47,6 @@ _FENCED = re.compile(r"^(?P<fence>```|~~~).*?^(?P=fence)", re.MULTILINE | re.DOT
 # request rather than partway through a publish (R14.1 row 5).
 _REJECTED_BY_MLFLOW = ("/", ":")
 
-# The namespace a prompt name carries in front of it, per machine (R14.8). Kept
-# here rather than beside the other `DOSSIER_MLFLOW_` names in `tracking.py`
-# because this is the module that composes the name and must name the variable
-# when it refuses one, and importing `tracking.py` for a string would pull in
-# scoring and resolution to spell it. Spec 010's configuration table lists it
-# with the others, which is where a person looks.
-PROMPT_PREFIX = "DOSSIER_MLFLOW_PROMPT_PREFIX"
 
 # The tag that ties a version to the provenance record of the run that rendered
 # it. Named once, because the publish that writes it and the compare that reads
@@ -158,29 +151,8 @@ def prompt_name(pipeline: str, step: str, *, prefix: str = "") -> str:
                 "step. Rename the pipeline directory, or publish a pipeline whose name "
                 "holds neither '/' nor ':'."
             )
-    check_prompt_prefix(prefix)
+    check_namespace(prefix)
     return namespaced(f"{pipeline}.{step}", prefix)
-
-
-def check_prompt_prefix(prefix: str) -> None:
-    """R14.10 — refuse a prefix MLflow would reject, naming the variable to change.
-
-    On its own rather than only inside `prompt_name`, because a name is
-    composed only once a command is already at work: `eval` and `calibrate`
-    reached it with their MLflow run open and raised a traceback. Checked here,
-    it can be refused with the rest of the tracking settings, before anything
-    is fetched, asked or recorded.
-    """
-    for character in _REJECTED_BY_MLFLOW:
-        if character in prefix:
-            # The variable is named as well as the character: the person reading
-            # this never typed the prefix into the command, so the message has to
-            # say which setting to go and change (R14.8 row 5).
-            raise ValueError(
-                f"{PROMPT_PREFIX}={prefix!r} cannot be published: MLflow rejects "
-                f"{character!r} in a prompt name, and the prefix goes in front of every "
-                "one. Choose a prefix holding neither '/' nor ':'."
-            )
 
 
 @dataclass(frozen=True)

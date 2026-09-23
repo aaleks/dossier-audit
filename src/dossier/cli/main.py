@@ -89,7 +89,6 @@ from dossier.domain.ports import (
     Tracker,
     VersionRegistry,
 )
-from dossier.domain.prompts import PROMPT_PREFIX, check_prompt_prefix
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
 from dossier.domain.scoring import (
     check_same_documents,
@@ -103,6 +102,7 @@ from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.domain.tracking import (
     NAMESPACE,
     TrackingSettings,
+    check_namespace,
     comparison_description,
     convert_description,
     count_metrics,
@@ -404,7 +404,7 @@ def _tracking_for(
         # With the rest of this machine's tracking settings, before any work: a
         # prefix composed into a name only once a command was at work reached
         # `eval` and `calibrate` as a traceback, with their run open (R14.10).
-        check_prompt_prefix(environ.get(PROMPT_PREFIX, ""))
+        check_namespace(environ.get(NAMESPACE, ""))
         return BestEffortTracker(build_tracker(tracking)), experiment
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)
@@ -1904,6 +1904,9 @@ def dataset_publish(
                 "nowhere else"
             )
         experiment = experiment_name(kind="eval", pipeline=pipeline, gold=gold, environ=environ)
+        # Before anything is sent, and although a dataset name alone would take a
+        # `/`: one namespace goes in front of every published name (R10.14 row 5).
+        check_namespace(environ.get(NAMESPACE, ""))
         registry = build_dataset_registry(tracking)
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)
