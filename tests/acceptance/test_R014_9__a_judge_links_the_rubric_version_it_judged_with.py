@@ -229,24 +229,20 @@ class TestAJudgeLinksTheRubricVersionItJudgedWith:
         assert result.exit_code == 0, result.output
         assert registry.reads == [], "tracking off asks the registry nothing"
 
-    def test_a_comparison_asks_the_registry_nothing(self, two_runs, monkeypatch):
-        """Counter-example (row 8): the one whose record holds a delta.
+    def test_a_run_links_no_rubric(self, judged_run, monkeypatch, wired):
+        """Counter-example (row 8): the one that judges nothing.
 
-        What changed between two runs is named by R11.13, not by a link to
-        either side's rubric, so a comparison looks nothing up.
+        A run links the prompts it rendered (R14.7) and no rubric: nothing in it
+        was judged. A comparison does judge, and links its rubric -- R14.11.
         """
-        workspace, first, second = two_runs
-        registry, tracker = _wire(monkeypatch)
+        workspace, _ = judged_run
+        _, tracker = wired
         _publish(workspace, monkeypatch)
-        registry.reads.clear()
 
-        result = _cli(
-            workspace, monkeypatch, "eval", PIPELINE, "--gold", GOLD, "--compare", first, second
-        )
+        result = _cli(workspace, monkeypatch, "run", PIPELINE)
 
         assert result.exit_code == 0, result.output
-        assert registry.reads == []
-        assert tracker.links == []
+        assert _rubric_links(tracker) == []
 
 
 # Twenty human-scored cases, twelve supported to eight, as R7.11's sample was.
