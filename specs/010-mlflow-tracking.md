@@ -1,7 +1,7 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
-**Status:** Implemented
-**Rules:** R10.1 – R10.23
+**Status:** Partially implemented
+**Rules:** R10.1 – R10.24
 
 ## Purpose
 
@@ -770,3 +770,38 @@ and only when tracking is on.
 | 2 | `dossier run incident-audit`, recorded | no `🏃 View run` or `🧪 View experiment` line on standard output |
 | 3 | *counter-example* — `recorded to MLflow: dossier-audit/incident-audit/run · run 20260806T142203Z-4f1a` | printed. That line is dossier's own, from the figures it holds, not MLflow's (R10.4 row 3) |
 | 4 | *counter-example* — tracking off | nothing configured; MLflow's setting is left as it was (R10.9 row 4) |
+
+### R10.24 — every trace a command opened is looked for on the server as its record closes, and one the server does not hold is lost
+
+R10.6 counts a trace as lost when one of the calls that make it fails. Against
+MLflow none of those calls reach the server: a trace is held in memory until it
+ends, and MLflow's exporter sends it afterwards, on a thread of its own. A trace
+the server refused failed nowhere dossier could see, so R10.6's count was zero on
+every live run, whatever the server did with the traces. It was found during
+R10.22's live check: a READ-only account's run said nothing about traces while
+the server logged `POST /api/3.0/mlflow/traces 403`.
+
+So a trace counts as recorded only once the server is seen to hold it. As a
+record closes, the exporter is flushed and the traces are looked up by the run
+they belong to, without their spans -- one request per hundred traces rather than
+one per trace. A trace dossier opened that the lookup does not return is lost.
+It is counted once, however it was lost, in R10.6's trace count and in R10.21's
+record count, and it changes nothing about the command's outcome (R10.6).
+
+The lookup is made before the close is sent, and a lookup that fails never stops
+the close.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow`, `dossier.infrastructure.tracking.best_effort`)
+- **Proved by:** `tests/unit/test_R010_24__a_trace_the_server_does_not_hold_is_lost.py`, `tests/acceptance/test_R010_24__a_run_says_how_many_traces_mlflow_never_received.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a run's four traces; the exporter's `POST /api/3.0/mlflow/traces` is refused for the second and third, and the server holds the first and fourth | `warning: 2 trace(s) could not be recorded`, and R10.21's record count includes the two; exit 0 |
+| 2 | `dossier-ci` holds READ on `dossier-audit/incident-audit/run` (R10.22 row 1): `create_run` is refused, so there is no run for a trace to belong to | all four traces counted. Nothing is looked up, because there is no run to look under |
+| 3 | the fourth trace ends while the exporter is still sending the third | both found. The exporter is flushed before anything is looked up, so a trace still on its way is not counted lost |
+| 4 | a trace one of whose own calls failed (R10.6), which the server does not hold either | counted once: `1 trace(s)` |
+| 5 | the server stops answering after the second of four traces, and does not answer the lookup | `4 trace(s)`: none is seen held, so none counts as recorded, and the close is still sent. R10.6 row 1's `2` is the count for a tracker whose own calls reach the server; MLflow's do not |
+| 6 | *counter-example* — the server holds all four | no trace line; nothing counted |
+| 7 | *counter-example* — `dossier sync incident-audit`, which opens no trace | no flush and no lookup: not one request more than before |
