@@ -27,8 +27,6 @@ from tests.scoring_example import (
     RoutedModel,
 )
 
-pytestmark = pytest.mark.outer_loop
-
 RETIRED = "DOSSIER_MLFLOW_PROMPT_PREFIX"
 NAMESPACE = "DOSSIER_MLFLOW_NAMESPACE"
 

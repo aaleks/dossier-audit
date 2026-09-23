@@ -66,9 +66,8 @@ minimum code, then stop. The default suite is green at the end of every cycle.
 `outer_loop` marker sits on precisely that rule's test. When it goes green, the
 marker comes off, the rule becomes `MET`, and the slice is done.
 
-Currently open: **none**. 199 of the 219 rules are MET and 13 superseded; seven
-are NOT MET -- R10.15, the last of one MLflow namespace for prompts and datasets
-(R10.13 and R10.14 landed), and R10.17-R10.22, MLflow behind authentication: `basic`, `bearer`, or an OIDC
+Currently open: **none**. 200 of the 219 rules are MET and 13 superseded; six
+are NOT MET -- R10.17-R10.22, MLflow behind authentication: `basic`, `bearer`, or an OIDC
 service account whose token is fetched again before it expires.
 
 Spec 013 is *pipeline versions*; prompt publishing is **014**. Two sessions
@@ -203,7 +202,16 @@ is the rubric a person wrote, not the judge's whole prompt -- R7.19 hashes the
 wrapper too, and only the rubric is published. A prefix MLflow would reject is refused
 with the rest of the tracking settings, before any work, by every command that
 records (R14.10) -- `eval` and `calibrate` met it as a traceback with their run
-open, and `run` after its record had opened. A comparison links the rubric both its sides
+open, and `run` after its record had opened. The prefix itself became a namespace:
+`DOSSIER_MLFLOW_NAMESPACE` goes in front of every name dossier publishes into
+MLflow's global namespace -- a prompt's and a gold set's dataset's -- because two
+workspaces each holding `gold/incidents` merged their records into one dataset,
+R14.8's failure in a worse form (R10.13). It supersedes R14.8's prompt-only
+prefix and R14.10's refusal (R10.14), and the retired
+`DOSSIER_MLFLOW_PROMPT_PREFIX` is refused by name rather than ignored, since
+ignored it would stop namespacing a machine without a word (R10.15). A dataset
+name would take `/` -- checked live -- but one namespace goes in front of every
+published name, and prompt names decide. A comparison links the rubric both its sides
 were judged with, once, because both are judged with the checkout's (R14.11);
 R14.9's row 8, which said a comparison links nothing, was replaced in place by a
 counter-example that is still true, as R11.7's row 5 was. And a pipeline version links the
@@ -213,9 +221,9 @@ from the lookups R14.7 already makes -- one answer, linked to the run and to the
 version. MLflow keeps a model's linked prompts as one set (checked live), so a
 later run of the same version changes nothing, or adds a prompt published since. A prompt name is global and carries its pipeline, which is
 unique within one workspace and no further -- found live, when a publish from one
-checkout arrived as `v2` of another's prompt -- so `DOSSIER_MLFLOW_PROMPT_PREFIX`
-namespaces every name a publish sends and a run looks up, per machine, and empty
-it changes none (R14.8). A prompt fetched at run
+checkout arrived as `v2` of another's prompt -- so a per-machine prefix went in
+front of every prompt name (R14.8), since widened to the namespace below
+(R10.13). A prompt fetched at run
 time would be an input to a key no checkout can reproduce, a route into a run no
 review passed through, and a network read on the replay path.
 

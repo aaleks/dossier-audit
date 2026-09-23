@@ -102,7 +102,6 @@ from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.domain.tracking import (
     NAMESPACE,
     TrackingSettings,
-    check_namespace,
     comparison_description,
     convert_description,
     count_metrics,
@@ -111,6 +110,7 @@ from dossier.domain.tracking import (
     judge_line,
     label_for,
     name_template,
+    namespace,
     namespaced,
     run_name,
     step_line,
@@ -404,7 +404,7 @@ def _tracking_for(
         # With the rest of this machine's tracking settings, before any work: a
         # prefix composed into a name only once a command was at work reached
         # `eval` and `calibrate` as a traceback, with their run open (R14.10).
-        check_namespace(environ.get(NAMESPACE, ""))
+        namespace(environ)
         return BestEffortTracker(build_tracker(tracking)), experiment
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)
@@ -1906,7 +1906,7 @@ def dataset_publish(
         experiment = experiment_name(kind="eval", pipeline=pipeline, gold=gold, environ=environ)
         # Before anything is sent, and although a dataset name alone would take a
         # `/`: one namespace goes in front of every published name (R10.14 row 5).
-        check_namespace(environ.get(NAMESPACE, ""))
+        namespace(environ)
         registry = build_dataset_registry(tracking)
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)
@@ -2031,6 +2031,10 @@ def prompts_publish(
                 "and DOSSIER_MLFLOW_TRACKING_URI. A prompt version is published to "
                 "MLflow and nowhere else"
             )
+        # Before the registry is built, which probes the server: a namespace that
+        # is retired or that MLflow would reject is refused before any work
+        # (R10.14, R10.15).
+        chosen = namespace(environ)
         registry = build_prompt_registry(tracking)
     except (ValueError, TrackingUnavailable) as error:
         typer.echo(f"{pipeline}: {error}", err=True)
@@ -2048,7 +2052,7 @@ def prompts_publish(
             config=config,
             directory=directory,
             rubrics=rubrics,
-            prefix=environ.get(NAMESPACE, ""),
+            prefix=chosen,
         )
     except (ConfigError, ValueError) as error:
         # The illegal pipeline name lands here (R14.1 row 5): composed, refused,

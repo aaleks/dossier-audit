@@ -31,6 +31,9 @@ USER = "DOSSIER_MLFLOW_USER"
 # The per-machine namespace in front of every name dossier publishes into
 # MLflow's global namespace -- a prompt's and a dataset's (R10.13).
 NAMESPACE = "DOSSIER_MLFLOW_NAMESPACE"
+# The variable NAMESPACE replaced, which namespaced prompts alone (R14.8). Named
+# so it can be refused by name rather than ignored (R10.15).
+RETIRED_PROMPT_PREFIX = "DOSSIER_MLFLOW_PROMPT_PREFIX"
 
 AUTH = "DOSSIER_MLFLOW_AUTH"
 AUTH_USERNAME = "DOSSIER_MLFLOW_AUTH_USERNAME"
@@ -146,6 +149,27 @@ def check_namespace(namespace: str) -> None:
                 f"{character!r} in a prompt name, and the namespace goes in front of "
                 "every one. Choose a namespace holding neither '/' nor ':'."
             )
+
+
+def namespace(environ: Mapping[str, str]) -> str:
+    """This machine's namespace (R10.13), checked (R10.14), its predecessor refused (R10.15).
+
+    The one reader of the namespace, so every command that publishes or looks up
+    a name reads it the same way. The retired variable is refused rather than
+    ignored: a machine that still sets it would otherwise stop being namespaced
+    without a word, and publish into the history it was set to keep apart from.
+    Blank is not a decision, as a blank switch is not (R10.1).
+    """
+    retired = environ.get(RETIRED_PROMPT_PREFIX, "")
+    if retired:
+        raise ValueError(
+            f"{RETIRED_PROMPT_PREFIX} is retired: set {NAMESPACE}={retired} instead. "
+            "One namespace now goes in front of every name dossier publishes -- a "
+            "dataset's as well as a prompt's -- and the old variable is no longer read."
+        )
+    value = environ.get(NAMESPACE, "")
+    check_namespace(value)
+    return value
 
 
 def settings(environ: Mapping[str, str]) -> TrackingSettings | None:
