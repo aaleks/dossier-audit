@@ -1,7 +1,7 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
 **Status:** Partially implemented
-**Rules:** R10.1 – R10.15
+**Rules:** R10.1 – R10.22
 
 ## Purpose
 
@@ -36,6 +36,13 @@ records its runs is not a property of the pipeline.
 | `DOSSIER_MLFLOW_NAMESPACE` | a name | none; every prompt and dataset name is exactly what R14.1, R14.2 and R12.1 compose (R10.13) |
 | `DOSSIER_MLFLOW_RUN_LABEL` | a name | none; `--label` wins over it (R10.11) |
 | `DOSSIER_MLFLOW_USER` | a name | the account the command ran under (R10.12) |
+| `DOSSIER_MLFLOW_AUTH` | `none` / `basic` / `bearer` / `oidc` | `none`: no credential is sent (R10.16) |
+| `DOSSIER_MLFLOW_AUTH_USERNAME`, `DOSSIER_MLFLOW_AUTH_PASSWORD` | the pair `basic` sends | none |
+| `DOSSIER_MLFLOW_AUTH_TOKEN` | the token `bearer` sends | none |
+| `DOSSIER_MLFLOW_OIDC_TOKEN_URL`, `_CLIENT_ID`, `_CLIENT_SECRET` | the client `oidc` exchanges for a token | none |
+| `DOSSIER_MLFLOW_OIDC_SCOPE`, `DOSSIER_MLFLOW_OIDC_AUDIENCE` | sent with the exchange when set | not sent |
+| `DOSSIER_MLFLOW_OIDC_REFRESH_SECONDS` | a whole number of seconds | `30` (R10.19) |
+| `DOSSIER_MLFLOW_CA_BUNDLE` | a PEM file | the system's trust store (R10.20) |
 
 The tracking URI has no default in code, for the reason the project's default
 model has none (spec 009): a default is a value written into `.env.example`,
@@ -44,6 +51,81 @@ where it can be read, not a fallback nobody sees.
 MLflow's own variables -- `MLFLOW_TRACKING_URI`, `MLFLOW_EXPERIMENT_NAME` -- are
 not read. R9.11 reads only `DOSSIER_` variables, and a shell left over from
 another project must not switch this one's tracking on.
+
+`DOSSIER_MLFLOW_USER` is who a record says ran it (R10.12), and it is not a
+login. The account dossier authenticates as is `DOSSIER_MLFLOW_AUTH_USERNAME`,
+and the two are separate on purpose: a person's name on a record and the service
+account a pipeline writes through are different facts, and one variable holding
+both would send a display name as a credential.
+
+## Authentication
+
+A tracking server that anyone on a network can write to is the exception rather
+than the rule. MLflow's own basic auth, a bearer token issued by a gateway, and a
+server behind an OIDC identity provider such as Keycloak are all common setups, and
+until R10.16 dossier could reach none of them. It sent no credential. A credential
+exported in the shell as `MLFLOW_TRACKING_TOKEN` did reach MLflow, but only because
+the library reads it for itself. That is the same accident R10.9 exists to
+prevent, one variable further along.
+
+`DOSSIER_MLFLOW_AUTH` names the mode. It is chosen, not inferred from which
+variables happen to be set, for the reason `DOSSIER_MLFLOW_ENABLED` refuses a
+typo (R10.1): a guess that picked the wrong mode would be found only after the
+run it should have recorded.
+
+| Mode | Sends | Suits |
+|---|---|---|
+| `none` | no `Authorization` header | a server on `localhost`, or one nothing guards |
+| `basic` | `Basic` over the username and password | MLflow's own `--app-name basic-auth` |
+| `bearer` | `Bearer` and the token as given | a personal access token, a gateway's API token, a long-lived JWT |
+| `oidc` | `Bearer` and an access token exchanged for the client's credentials | Keycloak, Entra ID, Okta or Auth0 in front of MLflow, whether a proxy checks the token or MLflow does |
+
+`oidc` is the OAuth 2.0 client-credentials grant: a service account, not a
+person, which is the principal an unattended pipeline should run as. Its token
+expires, typically in five minutes, and a `dossier run` over a real corpus does not
+finish in five minutes. A static token pasted into `bearer` would record the
+first documents and be refused for every record after it. R10.19 is the rule that
+closes this.
+
+MLflow resolves a credential per request, and it asks registered *request auth
+providers* for one. `dossier` registers one, named `dossier`, through the
+`mlflow.request_auth_provider` entry point, and names it in the process
+environment as `MLFLOW_TRACKING_AUTH=dossier`. It is the one path every request
+takes: a run's records, the traces MLflow's asynchronous exporter sends from a
+thread of its own, and the dataset, model and prompt registries (R10.17). It is
+the same function dossier's own startup check takes its header from. The header
+checked at startup is therefore the header every later request sends, because
+both come from one function.
+
+The provider is also why no secret is written to the process environment. The
+only values written there are the provider's name and, when
+`DOSSIER_MLFLOW_CA_BUNDLE` is set, its path as `MLFLOW_TRACKING_SERVER_CERT_PATH`.
+Neither is a secret. Both are written by `dossier.infrastructure.tracking`, and
+only when tracking is on. `dossier.config` still reads the environment and never
+writes it (R9.11).
+
+The token exchange reads a response, which a package that "only sends" (R0.10)
+might seem to forbid. It does not. The token is held inside
+`dossier.infrastructure.tracking` and handed to nothing outside it. The `Tracker`
+port still declares no method that returns anything read from a server, so no key,
+manifest or score can depend on it.
+
+What this does not cover, deliberately and for now:
+
+- **A person logging in interactively** through a device-code or browser flow. A
+  service account is what an unattended pipeline should run as, and a person
+  can mint a token and use `bearer`.
+- **A credential in a header other than `Authorization`**, such as Cloudflare
+  Access's pair or an `X-API-Key` gateway.
+- **The client secret sent as HTTP Basic** at the token endpoint. `oidc` sends it
+  in the form body (`client_secret_post`), which Keycloak, Entra ID and Auth0
+  accept by default and an Okta client can be set to.
+- **Client certificates (mTLS)**, and **AWS SigV4**. MLflow's
+  `MLFLOW_TRACKING_AWS_SIGV4` overrides a request auth provider, so a shell that
+  sets it is outside what R10.17 can promise.
+- **An artifact root that is not the tracking server.** An `s3://` or `gs://`
+  root is authenticated by that store, not by MLflow. `changes.json` (R11.6) and
+  every other artifact go there directly.
 
 ## Where records go
 
@@ -496,3 +578,166 @@ change to make.
 | 2 | the same, `dossier run incident-audit` | exit 2 naming both variables; 0 model calls and 0 MLflow runs opened |
 | 3 | *counter-example* — `DOSSIER_MLFLOW_PROMPT_PREFIX=`, blank | not refused. Blank is not a decision, as a blank switch is not (R10.1): a `.env` copied from an old `.env.example` ships it that way |
 | 4 | *counter-example* — `DOSSIER_MLFLOW_PROMPT_PREFIX=sandbox`, `DOSSIER_MLFLOW_ENABLED=false`, `dossier run incident-audit` | exit 0. Nothing is published or looked up, so nothing reads it |
+
+### R10.16 — `DOSSIER_MLFLOW_AUTH` decides which credential dossier sends, from that mode's variables alone
+
+A mode missing a variable it needs is refused before any work, naming the
+variable. An empty value counts as unset, as an empty endpoint does (R9.2):
+`.env.example` ships its variables blank, and blank is not a decision.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.settings`)
+- **Proved by:** `tests/unit/test_R010_16__the_auth_mode_decides_the_credential.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `DOSSIER_MLFLOW_AUTH` unset, or `none` | no credential |
+| 2 | `DOSSIER_MLFLOW_AUTH=basic`, `DOSSIER_MLFLOW_AUTH_USERNAME=dossier-ci`, `DOSSIER_MLFLOW_AUTH_PASSWORD` set | `Basic` over `dossier-ci` and that password |
+| 3 | `DOSSIER_MLFLOW_AUTH=bearer`, `DOSSIER_MLFLOW_AUTH_TOKEN` set | `Bearer` and that token, as given |
+| 4 | `DOSSIER_MLFLOW_AUTH=oidc`, `DOSSIER_MLFLOW_OIDC_TOKEN_URL=https://sso.example.internal/realms/dossier/protocol/openid-connect/token`, `_CLIENT_ID=dossier-ci`, `_CLIENT_SECRET` set | `Bearer` and an access token exchanged at that URL (R10.19) |
+| 5 | `DOSSIER_MLFLOW_AUTH=basic`, `DOSSIER_MLFLOW_AUTH_USERNAME=dossier-ci`, no password | refused before any work, naming `DOSSIER_MLFLOW_AUTH_PASSWORD` |
+| 6 | `DOSSIER_MLFLOW_AUTH=oidc`, `DOSSIER_MLFLOW_OIDC_CLIENT_SECRET=` in `.env` | refused, naming `DOSSIER_MLFLOW_OIDC_CLIENT_SECRET`; set and empty is unset |
+| 7 | `DOSSIER_MLFLOW_AUTH=keycloak` | refused before any work, naming the variable and the four values it takes: `none`, `basic`, `bearer`, `oidc` |
+| 8 | *counter-example* — `DOSSIER_MLFLOW_AUTH_TOKEN` set, `DOSSIER_MLFLOW_AUTH` unset | no credential; a variable for a mode nobody chose chooses nothing |
+| 9 | *counter-example* — `DOSSIER_MLFLOW_USER=a.aleks`, `DOSSIER_MLFLOW_AUTH=basic`, no `DOSSIER_MLFLOW_AUTH_USERNAME` | refused, naming `DOSSIER_MLFLOW_AUTH_USERNAME`; who a record says ran it (R10.12) is never a login |
+| 10 | *counter-example* — `DOSSIER_MLFLOW_ENABLED` unset, `DOSSIER_MLFLOW_AUTH=keycloak` | off, and not refused; nothing reads a credential for a server nothing records to (R10.1) |
+
+### R10.17 — every request dossier makes to MLflow carries the credential R10.16 decided, and no other
+
+R10.9 said everything goes to one server, and this rule is the matching claim
+about the credential. A run's records and a trace take different paths through
+MLflow. If the credential reached only one of them, the run would record and its
+traces would be refused. A credential MLflow finds for itself in the shell, or in
+`~/.mlflow/credentials`, decides nothing: in mode `none` it is removed rather than
+sent. It was set for some server, and nothing says that server is this one.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.tracking.auth`)
+- **Proved by:** `tests/unit/test_R010_17__every_request_carries_the_configured_credential.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `basic` as `dossier-ci`, `dossier run incident-audit` | the startup check, `create_run`, every `log_batch` and every trace MLflow's exporter sends carry the same `Basic` header |
+| 2 | `bearer`, `dossier prompts publish incident-audit` | the prompt registry's requests carry `Bearer` and the token; `dossier dataset publish` and a pipeline version's registration likewise |
+| 3 | `MLFLOW_TRACKING_TOKEN` set in the shell, `DOSSIER_MLFLOW_AUTH=basic` | `Basic`; MLflow's own variable decides nothing (R10.9 row 2) |
+| 4 | `MLFLOW_TRACKING_USERNAME` and `MLFLOW_TRACKING_PASSWORD` set in the shell, `DOSSIER_MLFLOW_AUTH` unset | no `Authorization` header on any request. A credential left in a shell for another server is not sent to this one |
+| 5 | any mode, after startup | the process environment holds `MLFLOW_TRACKING_AUTH=dossier`, and the value of no `DOSSIER_MLFLOW_AUTH_*` or `DOSSIER_MLFLOW_OIDC_*` variable |
+| 6 | a run recorded against a live `mlflow server --app-name basic-auth` | its traces are readable on that server beside its metrics (R10.9 row 3) |
+| 7 | *counter-example* — tracking off | no provider is named, and `MLFLOW_TRACKING_AUTH` is left exactly as it was (R10.9 row 4) |
+
+### R10.18 — a server that refuses the credential refuses the command before any work
+
+This extends R10.5. MLflow's own basic auth leaves `/health` unauthenticated, so a
+check that asks only `/health` passes with a credential that every later record
+will fail. The startup check therefore makes one read that needs the credential,
+with the credential. A `401` or `403` is reported as a refused credential. A
+redirect is reported with the location it points to: behind a proxy, that is an
+identity provider's login page, which a command cannot follow. Neither is
+reported as "no MLflow server answers here".
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.main`)
+- **Proved by:** `tests/acceptance/test_R010_18__a_refused_credential_refuses_before_any_work.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `basic` as `dossier-ci` with the right password, `https://mlflow.example.internal` | `/health` and the read both answer 200; the command proceeds |
+| 2 | the wrong password: `/health` answers 200, the read answers 401 | `dossier run incident-audit` exits 2 naming the URI, the 401, `DOSSIER_MLFLOW_AUTH_USERNAME` and `DOSSIER_MLFLOW_AUTH_PASSWORD`; 0 model calls, no run directory, and the password's value in no message |
+| 3 | `DOSSIER_MLFLOW_AUTH` unset, the read answers 401 | exit 2, saying the server wants a credential and `DOSSIER_MLFLOW_AUTH` is not set |
+| 4 | behind a proxy, either request answers 302 to `https://sso.example.internal/realms/dossier/protocol/openid-connect/auth` | exit 2 naming that location, as a credential the server did not accept; not "no MLflow server answers" |
+| 5 | the same wrong password, `dossier dataset publish` or `dossier prompts publish` | the same exit and the same message; every command that connects makes the same check |
+| 6 | *counter-example* — the read answers 200, and `dossier-ci` holds only READ on `dossier-audit/incident-audit/run` | the command proceeds. A read cannot prove write access; the first refused write is R10.22 |
+| 7 | *counter-example* — `DOSSIER_MLFLOW_TRACKING_URI=sqlite:///mlflow.db` | no server, so no check, as under R10.5 |
+
+### R10.19 — an OIDC access token is fetched before any work, and fetched again once no more than the refresh margin remains
+
+The margin is `DOSSIER_MLFLOW_OIDC_REFRESH_SECONDS`, 30 seconds unless set. The
+decision is taken per request against a clock passed in as an argument, because a
+`dossier run` keeps its client open for longer than any one token lives. The
+exchange is the client-credentials grant, with the secret in the form body.
+
+A refresh that fails after the startup check loses a record and not the run
+(R10.6). The token never leaves `dossier.infrastructure.tracking`, and nothing
+read from the token endpoint reaches a key, a manifest or a score (R0.10).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.token_due`)
+- **Proved by:** `tests/unit/test_R010_19__an_oidc_token_is_fetched_again_before_it_expires.py`, `tests/acceptance/test_R010_19__a_token_endpoint_that_refuses_refuses_before_any_work.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `oidc`, the token endpoint answering `expires_in: 300` at `2026-08-06T09:00:00Z` | 1 token request, before the startup check. The form holds `grant_type=client_credentials`, `client_id=dossier-ci`, `client_secret`, and nothing else |
+| 2 | a record sent at `09:04:29Z` | the same token; 1 token request in total |
+| 3 | a record sent at `09:04:30Z` | a new token first; 2 token requests. Exactly 30 seconds left is due, because the margin is *no more than*, and this row is the one that pins it |
+| 4 | `DOSSIER_MLFLOW_OIDC_REFRESH_SECONDS=60` | due from `09:04:00Z`; the margin is read, not hard-coded |
+| 5 | `DOSSIER_MLFLOW_OIDC_SCOPE=mlflow`, `DOSSIER_MLFLOW_OIDC_AUDIENCE=https://mlflow.example.internal` | the form also holds `scope=mlflow` and that `audience` |
+| 6 | the token endpoint answers 401 `invalid_client` | exit 2 before any work, naming the token URL, `DOSSIER_MLFLOW_OIDC_CLIENT_ID` and `DOSSIER_MLFLOW_OIDC_CLIENT_SECRET`; the secret's value in no message; 0 model calls |
+| 7 | nothing answers at the token URL | exit 2, naming `DOSSIER_MLFLOW_OIDC_TOKEN_URL` |
+| 8 | `DOSSIER_MLFLOW_OIDC_REFRESH_SECONDS=soon`, or `-5` | refused before any work, naming the variable |
+| 9 | an answer of `expires_in: 20`, or none at all, under the default margin | a new token for every request. A margin longer than a token's life costs a token request, never a record, and a token whose lifetime is unknown is not reused on a guess |
+| 10 | *counter-example* — the token endpoint stops answering at `09:04:30Z`, mid-run | that record is lost and counted (R10.21); the run completes with the exit it would have had untracked (R10.6) |
+| 11 | *counter-example* — `basic` or `bearer` | 0 token requests |
+
+### R10.20 — `DOSSIER_MLFLOW_CA_BUNDLE`, when set, is what every request to MLflow and to its token endpoint is verified against
+
+A server signed by a private CA is a common setup, and dossier has to trust that
+CA on every connection it makes: the startup check, the token exchange, and
+MLflow's own requests. A relative path is resolved against the working
+directory, as `.env` is. No `DOSSIER_` variable turns verification off. A private
+CA can be trusted, and verification is never skipped.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow`)
+- **Proved by:** `tests/unit/test_R010_20__a_private_ca_is_trusted_on_every_request.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `DOSSIER_MLFLOW_CA_BUNDLE=certs/example-internal.pem`, `https://mlflow.example.internal` signed by that CA | the startup check, the token exchange and MLflow (through `MLFLOW_TRACKING_SERVER_CERT_PATH`) all verify against it; the command proceeds |
+| 2 | unset, the same server | exit 2 naming the URI and the verification failure, and naming `DOSSIER_MLFLOW_CA_BUNDLE` as the setting that trusts a private CA |
+| 3 | `DOSSIER_MLFLOW_CA_BUNDLE=certs/missing.pem` | refused before any work, naming the variable and the path |
+| 4 | *counter-example* — `http://localhost:5000` | no TLS, and the bundle is not read |
+
+### R10.21 — every command that records says how many of its records were lost
+
+R10.6 counted lost traces, and only `dossier run` has traces. A sync whose records
+were all lost printed a clean terminal and exited 0, and a person who then found
+nothing in MLflow had nothing to go on. A lost record is still not a lost run
+(R10.6). This rule only makes the loss visible.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.tracking.best_effort`)
+- **Proved by:** `tests/unit/test_R010_21__every_lost_record_is_counted.py`, `tests/acceptance/test_R010_21__every_command_says_how_many_records_were_lost.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the server stops answering after the startup check, `dossier sync incident-audit` | the sync completes and the ledger is updated as it would be untracked; `warning: 6 record(s) could not be recorded`; exit 0 |
+| 2 | the same, `dossier run incident-audit` | the record count, and R10.6 row 1's trace count beside it |
+| 3 | the same, `dossier convert`, `dossier eval`, `dossier eval --compare` or `dossier calibrate` | the same line |
+| 4 | *counter-example* — nothing lost | no line at all; `0 record(s)` is not printed |
+| 5 | *counter-example* — the server down before the command starts | not this rule; refused by R10.5 |
+
+### R10.22 — the first record a server refuses is reported as it is refused
+
+A 401 or a 403 is not a server going away. It is configuration a person can fix,
+and on `dossier run` the report comes before the first model call. It is printed
+once. Every refusal after it goes into R10.21's count, and none of them changes
+the outcome (R10.6).
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.tracking.best_effort`)
+- **Proved by:** `tests/unit/test_R010_22__a_refused_record_is_reported_as_it_is_refused.py`, `tests/acceptance/test_R010_22__a_refused_write_is_reported_before_the_work.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier-ci` holds READ on `dossier-audit/incident-audit/run` (MLflow's `default_permission = READ`), `dossier run incident-audit` | `create_run` answers 403, and a warning naming the 403, the experiment and `DOSSIER_MLFLOW_AUTH_USERNAME` is printed before the first model call; the run completes; exit 0 |
+| 2 | every record after it refused as well | the warning once, not once per record; R10.21's count says how many |
+| 3 | the same account, `dossier sync incident-audit` | printed when the sync opens its record, which is after the work: a sync records what it did once it has done it (R11.4); exit 0 |
+| 4 | *counter-example* — the server answers 503, or stops answering | no warning as it happens, only R10.21's count. A server that has gone away tells a person nothing they can fix from the terminal |
+| 5 | *counter-example* — the warning, in any mode | holds no password, token or client secret's value (R10.7) |
