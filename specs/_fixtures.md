@@ -221,7 +221,7 @@ differ.
 | `https://sso.example.internal/realms/dossier/protocol/openid-connect/token` | `DOSSIER_MLFLOW_OIDC_TOKEN_URL`: a Keycloak realm's token endpoint (R10.19) |
 | `https://sso.example.internal/realms/dossier/protocol/openid-connect/auth` | the login page a proxy redirects an unauthenticated request to, which a command cannot follow (R10.18 row 4) |
 | `expires_in: 300`, issued `2026-08-06T09:00:00Z` | the access token in R10.19's examples: due again from `09:04:30Z` under the default 30-second margin |
-| `certs/example-internal.pem` | `DOSSIER_MLFLOW_CA_BUNDLE`: the private CA both `example.internal` hosts are signed by (R10.20) |
+| `certs/example-internal.crt` | `DOSSIER_MLFLOW_CA_BUNDLE`: the private CA both `example.internal` hosts are signed by, PEM-encoded (R10.20). `.crt` rather than `.pem` only because this repository's tooling will not read a `.pem`; the variable takes either |
 
 ## Evaluation datasets (spec 012)
 
