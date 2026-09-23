@@ -733,7 +733,7 @@ the outcome (R10.6).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.best_effort`)
 - **Proved by:** `tests/unit/test_R010_22__a_refused_record_is_reported_as_it_is_refused.py`, `tests/acceptance/test_R010_22__a_refused_write_is_reported_before_the_work.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|

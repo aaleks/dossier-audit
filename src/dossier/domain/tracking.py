@@ -251,6 +251,34 @@ def refused_credential(auth: MlflowAuth) -> str:
     return f"it did not accept the `{auth.mode}` credential in {named}"
 
 
+# The two answers that are a refusal rather than a server going away (R10.22).
+_REFUSALS = {401: "Unauthorized", 403: "Forbidden"}
+
+
+def refused_record(auth: MlflowAuth, *, status: int, experiment: str) -> str:
+    """What the first record a server refuses says (R10.22): the status, and what to fix.
+
+    A 403 is a credential the server accepted and will not let write; it names
+    who, by variable, and where. A 401 is a credential it did not accept --
+    a password changed while a run was at work -- and says so as the startup
+    check would (R10.18). Variables, never values (R10.7).
+    """
+    if status == 403:
+        who = {
+            "none": f"an anonymous client ({AUTH} is not set)",
+            "basic": f"the account in {AUTH_USERNAME}",
+            "bearer": f"the token in {AUTH_TOKEN}",
+            "oidc": f"the client in {OIDC_CLIENT_ID}",
+        }[auth.mode]
+        detail = f"{who} may not write to {experiment}"
+    else:
+        detail = refused_credential(auth)
+    return (
+        f"MLflow refused a record ({status} {_REFUSALS.get(status, '')}): {detail}. The "
+        "command goes on, and every record it could not make is counted at the end"
+    )
+
+
 def _auth(environ: Mapping[str, str]) -> MlflowAuth:
     """The credential `DOSSIER_MLFLOW_AUTH` names, from that mode's variables alone (R10.16).
 

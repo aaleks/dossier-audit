@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 
 from dossier.domain.ports import Tracker, VersionRegistry
+from dossier.domain.tracking import MlflowAuth, refused_record
 from dossier.domain.versions import PublishedVersion, VersionRecord
 
 __all__ = ["BestEffortTracker", "BestEffortVersionRegistry"]
@@ -28,11 +29,21 @@ class BestEffortTracker:
     documents that were never processed.
     """
 
-    def __init__(self, inner: Tracker, *, warn: Callable[[str], None] | None = None) -> None:
+    def __init__(
+        self,
+        inner: Tracker,
+        *,
+        warn: Callable[[str], None] | None = None,
+        auth: MlflowAuth | None = None,
+    ) -> None:
         self._inner = inner
         # Where a loss is said: the command's terminal, handed in by the
         # composition root. The wrapper decides what was lost; it prints nothing.
         self._warn = warn
+        # The credential in force, so a refusal can name its variable (R10.22).
+        self._auth = auth or MlflowAuth()
+        self._experiment = ""
+        self._refusal_said = False
         self.lost_traces = 0
         self.lost_records = 0
         self._this_trace_lost = False
@@ -40,12 +51,31 @@ class BestEffortTracker:
     def _sent(self, call, /, *args, **kwargs) -> bool:
         try:
             call(*args, **kwargs)
-        except Exception:
+        except Exception as error:
             self.lost_records += 1
+            self._said_if_refused(error)
             return False
         return True
 
+    def _said_if_refused(self, error: Exception) -> None:
+        """The first 401 or 403, said as it happens and once (R10.22).
+
+        A refusal is configuration a person can fix, and on `dossier run` this is
+        before the first model call. A server that has gone away -- no answer, a
+        503 -- tells them nothing they can fix from the terminal, so it is only
+        counted (R10.21). MLflow's exception is recognised by what it answers to,
+        so nothing here imports MLflow.
+        """
+        status = getattr(error, "get_http_status_code", None)
+        status = status() if callable(status) else None
+        if status not in (401, 403) or self._refusal_said or self._warn is None:
+            return
+        self._refusal_said = True
+        said = refused_record(self._auth, status=status, experiment=self._experiment)
+        self._warn(f"warning: {said}")
+
     def start_run(self, *, experiment: str, name: str, tags: Mapping[str, str]) -> None:
+        self._experiment = experiment
         self._sent(self._inner.start_run, experiment=experiment, name=name, tags=tags)
 
     def log_params(self, params: Mapping[str, str]) -> None:
