@@ -78,7 +78,7 @@ from dossier.domain.schemas import StageOutput
 from dossier.domain.store import RESERVED_KEY, output_path, record_path
 from dossier.domain.tracking import run_description, run_name, step_line, version_params
 from dossier.domain.tracking import tags as tracking_tags
-from dossier.domain.usage import total
+from dossier.domain.usage import Tokens, total
 from dossier.domain.versions import version_record
 
 # The `document` an aggregate result is reported under (spec 003). An aggregate
@@ -110,6 +110,20 @@ class StepReport:
     @property
     def failed(self) -> tuple[DocumentResult, ...]:
         return tuple(result for result in self.results if result.failed)
+
+    @property
+    def tokens(self) -> Tokens | None:
+        """What this step's model calls cost in this run, or `None` if it made none (R5.12).
+
+        Only the documents that were asked. One served from cache cost nothing
+        in this run, whatever its provenance record says producing it cost
+        (R5.11) -- that is the figure a cache exists to keep small. A document
+        that failed was asked, twice, and is paid for all the same.
+        """
+        asked = [result for result in self.results if result.attempts > 0]
+        if not asked:
+            return None
+        return total(result.tokens for result in asked)
 
     @property
     def served_from_cache(self) -> tuple[DocumentResult, ...]:
@@ -482,6 +496,7 @@ def execute(
                         failed=len(done.failed),
                         described=done.described,
                         findings=len(done.findings),
+                        tokens=done.tokens,
                     )
                     for done in report.steps
                 ],

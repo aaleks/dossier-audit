@@ -44,3 +44,36 @@ class TestTheStepLineSaysWhatWasSpent:
             "extract: 3 document(s) · 0 from cache · 1 failed · 2 finding(s)"
             " · 4,816 tokens in · 848 out"
         )
+
+
+class TestWhatAStepSpent:
+    """R5.12 — what a step spent is what its asked documents cost; a hit cost nothing."""
+
+    @staticmethod
+    def result(document: str, attempts: int, tokens: Tokens):
+        from dossier.application.extract import DocumentResult
+
+        return DocumentResult(document=document, attempts=attempts, tokens=tokens)
+
+    def test_a_step_spent_what_its_asked_documents_cost(self):
+        """Row 3: the one where one document was asked and two were served."""
+        from dossier.application.run import StepReport
+
+        report = StepReport(
+            step="extract",
+            results=(
+                self.result("INC-4821", 0, Tokens(input=0, output=0)),
+                self.result("INC-4822", 1, Tokens(input=1204, output=212)),
+                self.result("audit-note", 0, Tokens(input=0, output=0)),
+            ),
+        )
+
+        assert report.tokens == Tokens(input=1204, output=212)
+
+    def test_a_step_served_entirely_from_cache_asked_nothing(self):
+        """Row 2: the one where every document was served: no count to give at all."""
+        from dossier.application.run import StepReport
+
+        served = self.result("INC-4821", 0, Tokens(input=0, output=0))
+
+        assert StepReport(step="extract", results=(served,)).tokens is None

@@ -13,6 +13,23 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A run says what it spent. Every provider reports on every answer what it cost
+in tokens -- `usage.prompt_tokens`, Anthropic's `input_tokens`, Ollama's
+`prompt_eval_count` -- and every client threw it away with the rest of the
+body, so the first question asked of "a new audit in an afternoon" had no
+answer. A reply now carries the counts: `Reply` is a `str`, so every reader of
+an answer and all sixty-odd fakes that return plain text stay as they were, and
+a count the provider did not give is `None`, never 0 (R9.18). The provenance
+record holds what producing its artifact cost, summed over its attempts --
+R6.2's refused attempt cost as much as the one that stood -- beside `attempts`
+and outside the key on the same terms (R5.11). And each step's line ends with
+what its calls cost in this run: `extract: 3 document(s) · 0 from cache · 0
+failed · 3,612 tokens in · 636 out`, nothing at all on a re-run served from
+cache, and `tokens not reported` rather than a zero nobody measured (R5.12).
+The line is `step_line`'s, so the MLflow description says it too (R11.17).
+Tokens, not money: a price per model is the user's to declare, and tokens are
+what any price multiplies.
+
 A rate limit is not an answer about the document. One `429` from Gemini behind
 OpenWebUI -- the project's default endpoint -- raised straight out of the model
 client and stopped `dossier run` with exit 2 at the document it hit, which over
