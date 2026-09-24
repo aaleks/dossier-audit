@@ -1,4 +1,4 @@
-"""A Jira issue as the note a person reads (spec 008, R8.16).
+"""A Jira issue as the note a person reads (spec 008, R8.16, R8.18).
 
 An issue payload is mostly machinery: avatar URLs, a `self` link on every nested
 object, permission ids, a hundred custom fields that are empty. The note is what
@@ -101,7 +101,12 @@ def _comments(thread: Mapping[str, object], *, markup: Callable[[str], str]) -> 
     accident.
     """
     comments = _objects(thread.get("comments"))
-    if not comments:
+    total = thread.get("total")
+    # Only a count Jira sent as a number is read as one. `bool` is an `int` to
+    # Python, and `true` is not a number of comments.
+    counted = total if isinstance(total, int) and not isinstance(total, bool) else len(comments)
+    missing = counted - len(comments)
+    if not comments and missing <= 0:
         return []
     written = ["", "## Comments"]
     for comment in comments:
@@ -112,6 +117,11 @@ def _comments(thread: Mapping[str, object], *, markup: Callable[[str], str]) -> 
         created = _text(comment.get("created"))
         heading = f"**{name or NO_AUTHOR}**" + (f" · {created}" if created else "")
         written += ["", heading, "", markup(_text(comment.get("body"))).strip()]
+    if missing > 0:
+        # Said, rather than left for a stage to assume the thread is whole: a
+        # conclusion read from the first half of a thread is a different one
+        # (R8.18).
+        written += ["", f"{missing} of {counted} comments are not in this snapshot."]
     return written
 
 

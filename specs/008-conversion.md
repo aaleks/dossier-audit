@@ -619,7 +619,7 @@ conclusion from its first half.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.jira_issue.note`)
 - **Proved by:** `tests/unit/test_R008_18__a_note_says_when_comments_are_missing.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
