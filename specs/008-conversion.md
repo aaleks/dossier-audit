@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.18
 
 ## Purpose
@@ -583,7 +583,7 @@ found in.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.jira_issue.note`), called by infrastructure (`dossier.infrastructure.converters.jira_issue_markdown`)
 - **Proved by:** `tests/unit/test_R008_16__an_issue_converts_to_a_note_of_what_a_person_reads.py`, `tests/acceptance/test_R008_16__a_jira_issue_is_audited_end_to_end.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -600,7 +600,7 @@ found in.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.jira_issue_markdown`)
 - **Proved by:** `tests/unit/test_R008_17__wiki_markup_is_written_as_markdown.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -34,6 +34,7 @@ from pathlib import Path
 
 import pytest
 
+from dossier.domain.conversion import JIRA_ISSUE
 from dossier.domain.ports import Converter
 from dossier.infrastructure.converters.registry import installed_converters
 
@@ -55,6 +56,16 @@ PAYLOADS = {
     "text/markdown": b"# INC-4821\n\nTotal exposure CHF 48'200 on page 3.\n",
     "text/plain": b"INC-4821\n\nTotal exposure CHF 48'200 on page 3.\n",
     "image/png": ONE_PIXEL_PNG,
+    # A Jira issue as the connector holds it (R1.14): small enough for the
+    # subprocess probe's command line, with wiki markup and a comment, so the
+    # library's work is inside what is checked for purity.
+    JIRA_ISSUE: (
+        b'{"key":"INC-4821","fields":{"summary":"Card payments declined at checkout",'
+        b'"description":"h2. Impact\\r\\n* total exposure CHF 48\'200",'
+        b'"comment":{"comments":[{"author":{"displayName":"m.keller"},'
+        b'"created":"2026-08-05T10:02:00.000+0000","body":"Rolled back at 09:54."}],'
+        b'"total":1}}}'
+    ),
 }
 
 
