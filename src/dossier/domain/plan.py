@@ -90,7 +90,6 @@ def diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan
     # Worked out once rather than per step: both answer for the whole plan, and
     # asking four thousand documents the same question once per step is the sort
     # of thing that makes `--plan` slower than the run it describes.
-    model_moved = previous.model != resolved.model
     converters_moved = _converters_moved(previous, resolved)
     moved_documents = _moved(previous.documents, resolved.documents)
 
@@ -109,9 +108,11 @@ def diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan
             status, was = StepStatus.PROMPT_CHANGED, None
         elif earlier.schema_hash != step.schema_hash:
             status, was = StepStatus.DECLARATION_CHANGED, None
-        elif model_moved:
-            # Every step, whatever it reads: the pinned identifier is in every
-            # stage key (R5.3), so nothing is served from the cache.
+        elif previous.model_of(earlier) != resolved.model_of(step):
+            # Whatever the step reads: the model it is asked with is in its
+            # stage key, so none of its documents is served from the cache. Per
+            # step, because a step may name its own (R3.14): the pipeline's
+            # moving leaves such a step where it was (R5.13).
             status, was = StepStatus.MODEL_CHANGED, None
         elif converters_moved and reads_documents:
             # Only the steps reading a source. A step reading another step's

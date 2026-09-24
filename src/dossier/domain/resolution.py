@@ -18,7 +18,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, SerializerFunctionWrapHandler, model_serializer
 
 from dossier.domain.pipeline import (
     KIND_SEPARATOR,
@@ -57,6 +57,24 @@ class ResolvedStep(BaseModel):
     # Recorded for the same reason as `schema_hash`: it is part of the stage key
     # (R6.12), and a replay has only the manifest to rebuild that key from.
     generated_schema_hash: str | None = None
+    # The model this step is asked with, where it is its own rather than the
+    # pipeline's (R3.14). A replay rebuilds the step's key from it, as from the
+    # hashes above. `None` for a step asked with the pipeline's model, and then
+    # left out of the manifest altogether: see `_without_the_pipelines_model`.
+    model: str | None = None
+
+    @model_serializer(mode="wrap")
+    def _without_the_pipelines_model(self, handler: SerializerFunctionWrapHandler) -> dict:
+        """The step as written, with no `model` where it is the pipeline's (R3.14).
+
+        A `"model": null` on every step would make a new manifest of every
+        pipeline written before a step could name a model, though not one of
+        them changed -- and a manifest is compared byte for byte (R4.8).
+        """
+        written = handler(self)
+        if written.get("model") is None:
+            written.pop("model", None)
+        return written
 
 
 class PinnedDocument(BaseModel):
@@ -116,6 +134,14 @@ class ResolvedPlan(BaseModel):
     steps: list[ResolvedStep]
     documents: list[PinnedDocument]
     converters: list[PinnedConverter] = []
+
+    def model_of(self, step: ResolvedStep) -> str:
+        """The model `step` is asked with: its own if it names one, else the pipeline's (R3.14).
+
+        One answer for the run, the plan and the replay, so the three cannot
+        disagree about which model a step's key holds (R5.13).
+        """
+        return step.model or self.model
 
 
 def previous_count(reference: str) -> int:
