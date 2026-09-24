@@ -269,6 +269,12 @@ def load_pipeline(path: Path, *, providers: Collection[str]) -> PipelineConfig:
         line = _line_of(path.read_text(encoding="utf-8"), "model")
         raise ConfigError(f"{_name(path)}, line {line}: {error}") from error
 
+    # A step's own model is held to what the pipeline's is held to, and named
+    # by the key the loader names every other step key by (R3.14).
+    for place, step in enumerate(pipeline.steps):
+        if step.model is not None:
+            _check_step_model(step.model, place=place, path=path, providers=providers)
+
     # The pure checks live in domain and raise ValueError; this layer is what
     # knows which file the value came out of.
     for check in (validate_step_ids, validate_references, validate_modes):
@@ -282,6 +288,29 @@ def load_pipeline(path: Path, *, providers: Collection[str]) -> PipelineConfig:
     _validate_gold(pipeline, path)
     _validate_judge_thresholds(pipeline, path)
     return pipeline
+
+
+def _check_step_model(
+    model: str, *, place: int, path: Path, providers: Collection[str]
+) -> None:
+    """A step's `model:` refused as the pipeline's would be: unprovided, or unpinned (R3.14).
+
+    The provider first, for the reason it comes first above: whether an id is
+    pinned depends on its provider's form (R9.1, R3.4).
+    """
+    key = f"steps.{place}.model"
+    line = _line_of(path.read_text(encoding="utf-8"), "steps", place, "model")
+    provider = provider_of(model)
+    if provider not in providers:
+        available = ", ".join(sorted(providers)) or "none"
+        raise ConfigError(
+            f"{_name(path)}, line {line}: {key} {model!r} names provider {provider!r}, "
+            f"which no installed package provides. Available: {available}"
+        )
+    try:
+        check_pinned(model)
+    except ValueError as error:
+        raise ConfigError(f"{_name(path)}, line {line}: {key} {error}") from error
 
 
 def load_fields(path: Path) -> dict[str, FieldKind]:

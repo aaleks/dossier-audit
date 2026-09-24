@@ -234,11 +234,16 @@ def execute(
     prompt_registry: PromptRegistry | None = None,
     prompt_prefix: str = "",
     concurrency: int = 1,
+    models: Mapping[str, ModelClient] | None = None,
 ) -> RunReport:
     """Resolve the pipeline, freeze it, then run it.
 
     Raises `ValueError` if resolution fails, having written nothing and called
     nothing. Returns a report if it succeeded, whatever individual documents did.
+
+    `model` asks every step that names no model of its own; `models` holds a
+    client for each model a step does name, by its identifier (R3.14). A step
+    whose model has no client stops the run before anything is written.
 
     `concurrency` is how many of a step's documents are asked about at once
     (R9.19). Steps still run one after another, and every result is put back in
@@ -277,6 +282,10 @@ def execute(
         converters=converters,
         source_configs=source_configs,
     )
+    # Which client asks each step: its own model's, or the pipeline's (R3.14).
+    # Decided before anything is written, so a step whose model has no client
+    # is refused like any other resolution error.
+    clients = _clients(plan, default=model, models=models or {})
 
     # Only now does anything touch the disk. Every check that could refuse this
     # run has already refused it.
@@ -432,7 +441,7 @@ def execute(
                         part=part,
                         schema=None if output is None else output.schema,
                         prompt=prompts[step.id],
-                        model=model,
+                        model=clients[step.id],
                         cache=cache,
                         run_id=run_id,
                         dossier_version=dossier_version,
@@ -539,6 +548,29 @@ def execute(
         )
         tracker.end_run(status="FAILED" if report.failed else "FINISHED")
     return report
+
+
+def _clients(
+    plan: ResolvedPlan, *, default: ModelClient, models: Mapping[str, ModelClient]
+) -> dict[str, ModelClient]:
+    """The client each step is asked with, by step id (R3.14).
+
+    A step that names no model of its own is asked with `default`, the
+    pipeline's. One that does is asked with the client for that model, and a
+    model with none is refused here -- before a manifest is written or a model
+    asked -- rather than at the step's first cache miss, half a run later.
+    """
+    clients: dict[str, ModelClient] = {}
+    for step in plan.steps:
+        if step.model is None:
+            clients[step.id] = default
+        elif step.model in models:
+            clients[step.id] = models[step.model]
+        else:
+            raise ValueError(
+                f"step {step.id!r} is asked with {step.model}, and no client was given for it"
+            )
+    return clients
 
 
 def _in_order[T, R](items: Sequence[T], work: Callable[[T], R], *, concurrency: int) -> list[R]:
@@ -1283,7 +1315,9 @@ def replay(
                     step=step,
                     document=document,
                     documents=keys,
-                    model=plan.model,
+                    # The model this step was asked with, as the run keyed it:
+                    # its own where it named one (R3.14, R4.7).
+                    model=plan.model_of(step),
                     document_text=document_text,
                     produced=produced,
                     cache=cache,
