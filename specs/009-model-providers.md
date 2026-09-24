@@ -1,7 +1,7 @@
 # 009 — Model providers
 
-**Status:** Implemented
-**Rules:** R9.1 – R9.16
+**Status:** Partially implemented
+**Rules:** R9.1 – R9.17
 
 ## Purpose
 
@@ -380,3 +380,52 @@ moves and no provider sees a request shape it did not see yesterday.
 | 3 | `ollama:qwen2.5:7b@sha256:7f3c29a1`, the same part | the message keeps its string `content` and gains an `images` array holding the part, base64, as Ollama's own API takes it (R9.13) |
 | 4 | three parts in page order | three items, in that order, for every provider; a page order the caller chose is not a set |
 | 5 | *counter-example* — a call with no parts | byte-identical to the request the same call made before this rule: no empty `images` key and no content list, so no cache key moves and no provider meets a shape it did not see yesterday |
+
+### R9.17 — a model request answered 408, 409, 429 or 5xx, or not answered at all, is sent again up to twice before it fails
+
+A rate limit is not an answer about the document. Before this rule, a single
+`429` or `503` from a hosted provider, or from an OpenWebUI in front of one,
+raised straight out of the client (R9.12 row 4) and stopped the run at the
+document it happened on. A run over four hundred documents met one sooner or
+later, on the endpoint the project uses by default.
+
+The request is sent again **unchanged**. That makes it a different thing from
+R6.2's retry, which re-asks with the validation error appended and so is a second
+call, counted as one. This one happens inside a single `complete`: the stage sees
+one answer, the fake counts one call (R5.5), and MLflow shows one LLM span
+(R11.2). Nothing about it enters a key or a provenance record. The same bytes
+were asked for, and the answer that came back is the answer.
+
+The policy is the one both official SDKs apply, value for value, rather than one
+invented here: at most **two** retries; a `Retry-After` (or `retry-after-ms`)
+the server sends is waited for when it is above 0 and at most 60 s; otherwise the
+wait is 0.5 s, then 1 s, doubling to at most 8 s, and each is shortened by up to
+a quarter at random so that callers refused together do not come back together.
+The retried statuses are the SDKs' too: `408`, `409`, `429` and every `5xx`,
+Anthropic's `529` "overloaded" among them, and a request no server answered at
+all -- refused, reset or timed out.
+
+Everything else still fails on the first answer. A `401` is a key the server
+refused, and sending it again would only send it twice. A `400` is a request it
+could not read, and it will not read it differently a second time.
+
+Which answers are retried and how long to wait are decisions, and they sit in
+`domain/` with the jitter and the clock handed in. Sending the request again is
+wiring, and sits in the one place every model client already sends through.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.retries`), infrastructure (`dossier.infrastructure.models._http`)
+- **Proved by:** `tests/acceptance/test_R009_17__a_rate_limited_model_request_is_sent_again.py`, `tests/unit/test_R009_17__which_model_requests_are_retried_and_when.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `gemini:gemini-3.5-flash-lite` at `http://localhost:8080/api` answers `429`, then `200` | two identical POSTs to `/chat/completions`; the `200`'s `choices[0].message.content` is returned, and the stage counts one call (R5.5) |
+| 2 | the `429` carries `Retry-After: 3` | the second POST is sent 3 s after the first answer: the server's wait, not the backoff |
+| 3 | `503` with no `Retry-After`, three times | three POSTs, waiting 0.5 s and then 1 s, each shortened by up to a quarter; then the error R9.12 row 4 describes -- the URL and `503`, never the key -- saying 3 attempts were made |
+| 4 | the connection refused, then `200` | the answer, from the second attempt; a request no server answered is retried like a `503` |
+| 5 | `anthropic:claude-sonnet-4-5-20250929` answers `529`, then `200` | the answer; the policy is every provider's, not one client's |
+| 6 | a `429` carrying `Retry-After: 120` | the backoff's 0.5 s rather than two minutes, as both SDKs do; an answer asking for longer than 60 s is not waited for |
+| 7 | *counter-example* — `401` | one POST, and the error at once; a key refused once is refused again |
+| 8 | *counter-example* — `400` | one POST, and the error at once; a request the server could not read is not re-read |
+| 9 | *counter-example* — a `200` whose content fails the stage's schema | not this rule's: the stage re-asks once with the error (R6.2), and that is a second call |
