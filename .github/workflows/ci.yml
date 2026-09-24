@@ -1,0 +1,99 @@
+# The gate every pull request passes, and the outer loop reported beside it.
+#
+# One job, not four: on a private repository each job is billed rounded up to a
+# whole minute, and at ten pull requests a day a lint job and a test job each
+# paying for their own checkout and install is what decides whether this fits
+# the free allowance.
+#
+# The outer loop is a step that always exits 0. It says RED, GREEN or "none
+# open" in the run summary instead of turning the check red, so "every check is
+# green" still means "the default suite is green" while a slice is open -- the
+# same thing CLAUDE.md means by it.
+name: ci
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash # -eo pipefail, so a `| tee` does not hide pytest's exit code
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          # The floor pyproject promises. 3.13 is covered by local development,
+          # so this is the version nothing else would catch.
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install from the lock, every extra
+        # --locked refuses a uv.lock that has fallen behind pyproject.toml.
+        # --all-extras because six acceptance tests importorskip pypdfium2 or
+        # Pillow, and without the extras they would pass by being skipped.
+        run: |
+          uv sync --locked --all-extras
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: No conflict markers
+        # CLAUDE.md once reached main with markers in it and the suite green,
+        # because no test reads it. This reads every tracked file.
+        run: |
+          if git grep -nE '^(<<<<<<<|>>>>>>>)( |$)|^=======$' -- . ; then
+            echo "::error::conflict markers are committed in the files above"
+            exit 1
+          fi
+
+      - name: Lint
+        run: |
+          ruff check --output-format=github .
+          ruff format --check .
+
+      - name: Architecture and spec coverage
+        # First and on its own, so a boundary or rule-format failure is named
+        # as that rather than lost among unit failures.
+        run: pytest tests/architecture | tee architecture.txt
+
+      - name: Default suite
+        run: pytest --ignore=tests/architecture -rs
+
+      - name: Outer loop (reported, never blocks)
+        if: ${{ !cancelled() }}
+        run: |
+          set +e
+          pytest -m outer_loop -rfE --tb=short > outer_loop.txt 2>&1
+          code=$?
+          set -e
+          cat outer_loop.txt
+          case "$code" in
+            5) verdict="No outer loop is open." ;;
+            1) verdict="RED, which is expected while its slice is open." ;;
+            0) verdict="GREEN. The slice is done: take the marker off and mark the rule MET."
+               echo "::notice title=Outer loop is green::$verdict" ;;
+            *) verdict="pytest exited $code, which is neither red nor green. Read the log."
+               echo "::warning title=Outer loop::$verdict" ;;
+          esac
+          {
+            echo "## Outer loop"
+            grep -E '^specs:' architecture.txt 2>/dev/null || true
+            echo
+            echo "$verdict"
+            if [ "$code" != 5 ]; then
+              echo '```'
+              tail -n 40 outer_loop.txt
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

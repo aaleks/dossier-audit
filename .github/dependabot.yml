@@ -1,0 +1,9 @@
+# Keeps the action versions in .github/workflows current. Python dependencies
+# are left to `uv lock --upgrade` by hand: every dependency here is added with
+# its reason recorded (CLAUDE.md), and a bot's PR would not record one.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
