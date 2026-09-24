@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.12
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.15
 
 ## Purpose
 
@@ -101,6 +101,85 @@ Whether a run also materialises readable copies under `runs/<run_id>/converted/`
 is deliberately not decided here. No rule needs it yet; it arrives with reporting
 (spec 007) or with a command for reading an artifact back, and the sensible
 answer depends on a corpus size nobody has measured.
+
+## A page with no text layer
+
+`pdf-markdown` reads a PDF's text layer, and a photocopy has none. `PLAY-2002`
+converts to its anchor and nothing else -- correctly, since the conversion
+succeeded and the emptiness is the finding -- and no field in it can ever be
+`grounded`. A contract that was signed, scanned and filed is that document, and
+it is the ordinary case rather than the odd one.
+
+`docling-markdown` is the converter for it. It runs
+[Docling](https://github.com/docling-project/docling) (MIT) over the document,
+one page at a time: a page with a text layer is read from it, and a page with none
+is read by OCR (R8.14). Either way Docling's layout model finds the headings and
+tables, so a photocopied table arrives as a table. It ships in this package behind
+the `docling` extra and registers through `dossier.converters` like any other
+(R8.7).
+
+**Choosing it.** It claims the pair `pdf-markdown` claims,
+`(application/pdf, markdown)`, and two claims on one pair are refused rather than
+settled by installation order. So it declares itself **opt-in**: it answers only
+in a workspace whose `sources.yaml` names it, and a workspace that names nothing
+converts exactly as it did before (R8.13).
+
+```yaml
+converters: [docling-markdown]
+
+sources:
+  - id: incidents-scanned
+    type: folder
+    path: incidents/scanned
+```
+
+The workspace chooses rather than the source because a manifest pins one
+converter per pair (R8.9) and a replay recomposes every conversion from that pin
+(R4.7). One converter per pair per workspace keeps both true without touching
+either. A per-source choice would need a manifest recording which converter read
+which document, and no corpus has asked for that yet (open question 3).
+
+**Its models are part of it.** R8.1 forbids a converter reading "a font file
+outside its input", because a file that differs between machines makes
+`K_convert` describe something other than what was made. Docling reads two sets of
+weights from Hugging Face -- a layout model and a table model. They are outside the
+input and inside the converter: `docling-markdown`'s version names each by commit,
+and every file it reads is checked against the SHA-256 recorded for that commit
+before a page is converted (R8.15). *Where* the weights are kept is per machine
+(Docling's model folder, `~/.cache/docling/models` by default); *which* weights
+they are is not, so their location cannot reach an artifact. The OCR models ship
+inside the `rapidocr` wheel and are pinned with it, as PDFium is pinned with
+`pypdfium2`.
+
+**It never fetches.** Docling's own default is to download a model from Hugging
+Face the first time it needs one, at revision `main` -- a floating name, which is
+what R0.6 refuses in a model identifier. Conversion is right of the hash boundary
+(R0.10). A converter that downloaded would put the network on the path every
+artifact is made on, and `main` would put into the artifact whatever Hugging Face
+held that day. The weights are fetched once, on purpose, by a person running the
+command a failure names.
+
+**What a spike measured** before this was written (Docling 2.130.0, RapidOCR
+3.9.2, onnxruntime 1.30.0; Windows 11, CPU only):
+
+- `INC-4830`'s postmortem photocopied at 200 dpi read back with its root cause
+  word for word, in about 12 seconds a page. That is slow: a thousand pages is
+  over three hours, and `dossier convert` is the place to pay it once, because a
+  conversion is cached and reused across runs (see above).
+- The same photocopy converted twice, with 1 and with 4 threads, and with
+  RapidOCR's inference on torch and on onnxruntime: one artifact, byte for byte.
+  Whether that holds on another machine was not measured (open question 2).
+- RapidOCR's text-direction classifier turned one line of a clean, upright scan
+  into noise -- `H ed ngu e n ng r y e nr c eng` for "At 06:12 CEST on Tuesday 28
+  July 2026 …". With it off, the line read correctly. It is off, and a page scanned
+  upside down reads worse for it.
+- Docling's automatic OCR on a page with no text layer dropped the spaces between
+  words (`internalbecausetheserver`) that OCR of the whole page kept. A span quoted
+  with its spaces cannot be found in text without them (R6.4), so a page with no
+  text layer is OCR'd whole.
+- Docling's markdown escapes underscores and HTML by default. A model quotes
+  `lb_acq_01`, not `lb\_acq\_01`, so both are off: the artifact is text a span is
+  searched in, not markdown for a renderer.
 
 ## Must hold
 
@@ -332,6 +411,8 @@ that a platform fills in.
 | # | Question | Resolution |
 |---|----------|------------|
 | 1 | What is the default `kind` for each media type, beyond `application/pdf → markdown`? | RESOLVED by R8.10 — the table is declared, `image/*` defaults to `page_images`, and anything absent falls back to `markdown` |
+| 2 | Is `docling-markdown`'s artifact byte-identical on another machine? It was identical across runs, thread counts and two inference backends on one Windows machine | OPEN — needs the photocopy converted on a second machine, Linux, and the two artifact hashes compared. A run stays reproducible either way, because a replay reads the artifact the run cached and never converts again (R4.7) |
+| 3 | Should a source, rather than the workspace, choose the converter for a pair? | OPEN — needs a corpus mixing scans with born-digital PDFs where Docling's cost on the digital ones matters. Until then `docling-markdown` reads a digital page from its text layer anyway (R8.14) |
 
 ### R8.12 — an image converts to `page_images` as a container of one part, and every part is a PNG
 
@@ -365,3 +446,70 @@ only work this converter does.
 | 3 | the same PNG converted twice on two machines | the same artifact bytes; a copy is deterministic, and so is Pillow's PNG encoder on its documented defaults (R8.1 row 2) |
 | 4 | *counter-example* — a PNG from a source declaring `convert: [markdown]` | R8.5 stops the run naming `(image/png, markdown)`; this converter claims one pair and a declared kind is not it (R8.3) |
 | 5 | *counter-example* — a truncated JPEG | that document fails with a reason and the others convert (R8.6); a bad input is not a misconfigured pipeline |
+
+### R8.13 — a pair is answered by the converter `sources.yaml` names for it, and otherwise by the one claimant that is not opt-in
+
+`converters:` in `sources.yaml` names converters by id. A named converter answers
+every pair it claims, in place of any other converter claiming that pair. An
+opt-in converter answers nothing unless it is named. The decision is made once,
+over what is installed, and everything downstream of it -- selection (R8.3), the
+manifest (R8.9), a replay (R4.7) -- still sees one converter per pair.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.conversion.answering`)
+- **Proved by:** `tests/unit/test_R008_13__a_named_converter_answers_the_pairs_it_claims.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `docling-markdown` installed beside `pdf-markdown`, `sources.yaml` naming no converter | `OPS-114` is converted by `pdf-markdown` `1.1.0`; an opt-in converter never answers a workspace that did not ask for it, so R8.3 row 1 reads as it always did |
+| 2 | `converters: [docling-markdown]` | `OPS-114` is converted by `docling-markdown`, and the manifest pins it and not `pdf-markdown` (R8.9) |
+| 3 | the same, `OPS-114`'s source declaring `convert: [markdown, page_images]` | `docling-markdown` and `pdf-images`; a name displaces a converter only on the pairs the named one claims |
+| 4 | `converters: [docling-markdwn]` | the command stops before converting anything, naming `docling-markdwn` and the installed converters (R8.5's shape); a misspelt name would otherwise be silently no choice at all |
+| 5 | two named converters that both claim `(application/pdf, markdown)` | stops, naming the pair and both; either answer would be picking by the order a list was written in |
+| 6 | *counter-example* — two installed converters claiming one pair, neither opt-in, none named | refused as it always was, and the refusal now says that `converters:` in `sources.yaml` settles it |
+
+### R8.14 — `docling-markdown` OCRs a page only when it has no text layer
+
+A page with a text layer is read from it. That text is exact, and OCR is an
+estimate of what a picture says: an estimate replacing an exact answer is a loss
+even when it is a good estimate. A page whose text layer holds no printable
+character is read by OCR, whole. Every page is behind its anchor either way
+(R6.14).
+
+Which pages need OCR is a decision over the pages' text layers and is made in
+`domain`; reading them is the converter's.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.converters.docling_markdown`), deciding through domain (`dossier.domain.conversion.ocr_pages`)
+- **Proved by:** `tests/unit/test_R008_14__a_page_is_ocred_only_when_it_has_no_text_layer.py`, `tests/integration/test_R008_14__a_photocopied_pdf_converts_to_text.py`, `tests/acceptance/test_R008_14__a_photocopied_postmortem_is_grounded.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4830`'s postmortem photocopied: three pages of pictures and no text layer | three pages behind their anchors, and page 2 reads `Certificate renewal and certificate deployment were two separate processes` -- text a span can be found in (R6.4) |
+| 2 | `INC-4830` half-photocopied: page 1 as published, pages 2 and 3 pictures | page 1 read from its text layer, pages 2 and 3 by OCR, three anchors in page order |
+| 3 | the photocopy converted twice, in two processes | byte-identical artifacts (R8.1 row 2) |
+| 4 | the photocopy in a workspace naming `docling-markdown`, and a stage quoting its root cause | `root_cause` is `grounded` on page 2 (R6.4, R6.14), where `pdf-markdown` would have given it nothing to be grounded in |
+| 5 | *counter-example* — `INC-4830` as published | no page is OCR'd; every page has a text layer and is read from it |
+| 6 | *counter-example* — `PLAY-2002`, one page holding a 24-pixel picture and nothing else | its anchor and nothing more, and the document converts; OCR finding no text is a finding, not a failure, as it is for `pdf-markdown` |
+
+### R8.15 — `docling-markdown` never fetches a model: one missing, or not at its pinned commit, fails the document naming the command that fetches it
+
+Checked before a page is converted, against the SHA-256 of every file the
+converter reads from Docling's model folder. The failure is R8.6's, per document:
+the message names the repository, the commit, the file, and the `hf download`
+command that puts the right one where it is looked for.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.converters.docling_markdown`)
+- **Proved by:** `tests/unit/test_R008_15__docling_reads_only_the_models_it_pins.py`, `tests/integration/test_R008_15__docling_converts_with_the_network_blocked.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the layout and table models held at their pinned commits, sockets blocked | `INC-4830` photocopied converts; nothing is fetched |
+| 2 | no `docling-project--docling-layout-heron` in the model folder | that document fails naming `docling-project/docling-layout-heron`, commit `8f39ad3c`, and `hf download docling-project/docling-layout-heron --revision 8f39ad3c0b4c58e9c2d2c84a38465abf757272d8 --local-dir …`; no socket is opened |
+| 3 | `model.safetensors` from a later `main` in that folder | the same failure, naming the file, the SHA-256 it expected and the one it found; the right folder holding the wrong weights is the case nothing else would see |
+| 4 | *counter-example* — the folder also holding the model's `README.md` and a picture | converts; only the files the converter reads are checked |
+| 5 | *counter-example* — a workspace naming `docling-markdown` whose sources hold only markdown | nothing fails and nothing is checked; a model is needed by a PDF converted with it, not by the name |
