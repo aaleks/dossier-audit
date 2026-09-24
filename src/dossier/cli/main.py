@@ -1019,6 +1019,15 @@ def _execute(
             # behind resolution: constructed up front, a pipeline with both a
             # bad reference and an unreachable model reported the model (R4.1).
             model=_BuiltOnFirstCall(config.model),
+            # One for each model a step names instead, each built at its own
+            # step's first miss and never before, so a step served from cache
+            # needs no endpoint for its model either (R3.14, R9.2 row 5).
+            models={
+                own: _BuiltOnFirstCall(own)
+                for own in sorted(
+                    {step.model for step in config.steps if step.model} - {config.model}
+                )
+            },
             cache=ArtifactCache(workspace, namespace="stage"),
             tracker=tracker,
             experiment=experiment,

@@ -104,6 +104,10 @@ class StepConfig(BaseModel):
     input: str | list[str]
     mode: Literal["per_file", "aggregate", "per_part"]
     output: str | None = None
+    # The model this step is asked with instead of the pipeline's (R3.14).
+    # `None` is the pipeline's: most steps name none, and one that names the
+    # pipeline's own model is the same step.
+    model: str | None = None
 
     @property
     def inputs(self) -> list[str]:

@@ -162,8 +162,13 @@ def expand(
     prompt_hashes: Mapping[str, str] | None = None,
     schema_hashes: Mapping[str, str | None] | None = None,
     generated_schema_hashes: Mapping[str, str | None] | None = None,
+    pipeline_model: str | None = None,
 ) -> list[ResolvedStep]:
     """Every step's inputs, with `previous` replaced by the ids it stands for.
+
+    A step's own model is kept where it differs from `pipeline_model`, and a
+    step naming the pipeline's own resolves as one naming none (R3.14): the
+    same model, so the same step, the same key and the same manifest.
 
     Declaration order throughout: the ids a step reaches back to are returned in
     the order they were declared, not the order they were asked for, so two
@@ -187,6 +192,7 @@ def expand(
                 prompt_hash=(prompt_hashes or {}).get(step.id, ""),
                 schema_hash=(schema_hashes or {}).get(step.id),
                 generated_schema_hash=(generated_schema_hashes or {}).get(step.id),
+                model=None if step.model == pipeline_model else step.model,
             )
         )
         declared.append(step.id)
@@ -247,6 +253,7 @@ def resolve(
             prompt_hashes=prompt_hashes,
             schema_hashes=schema_hashes,
             generated_schema_hashes=generated_schema_hashes,
+            pipeline_model=pipeline.model,
         ),
         documents=[
             PinnedDocument(
