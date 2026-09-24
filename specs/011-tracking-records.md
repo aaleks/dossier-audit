@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.20
 
 ## Purpose
@@ -524,7 +524,7 @@ claimed here; a stage's are.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`, `dossier.application.extract`)
 - **Proved by:** `tests/unit/test_R011_20__a_run_records_the_tokens_it_spent.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

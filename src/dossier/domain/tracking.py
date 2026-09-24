@@ -740,6 +740,41 @@ def step_line(
     )
 
 
+# MLflow's own attribute for what one LLM call cost, rather than a `dossier.` one:
+# MLflow 3 adds every span's into its trace's `mlflow.trace.tokenUsage`, so the
+# trace list shows what each (step, document) cost with nothing summed twice
+# (R11.20). A name, not an import -- `domain` imports no MLflow.
+TOKEN_USAGE = "mlflow.chat.tokenUsage"
+
+
+def token_usage(tokens: Tokens) -> dict[str, int] | None:
+    """One call's count, as `mlflow.chat.tokenUsage` holds it; `None` if unreported.
+
+    A count is not content, so it is recorded under every capture setting
+    (R10.8). A side the provider did not give leaves the span without it:
+    missing rather than 0 (R11.20 row 5).
+    """
+    if tokens.input is None or tokens.output is None:
+        return None
+    return {
+        "input_tokens": tokens.input,
+        "output_tokens": tokens.output,
+        "total_tokens": tokens.input + tokens.output,
+    }
+
+
+def token_metrics(tokens: Tokens) -> dict[str, int]:
+    """A run's `tokens_in` and `tokens_out`, or neither when a side went unreported.
+
+    The sums R5.12 prints, handed to the record rather than worked out again
+    (spec 011). A run that asked nothing spent `0`, which is a count; a run with
+    a call its provider did not report records no figure at all (R11.20).
+    """
+    if tokens.input is None or tokens.output is None:
+        return {}
+    return {"tokens_in": tokens.input, "tokens_out": tokens.output}
+
+
 def _spent(tokens: Tokens | None) -> str:
     """The token clause of a step's line, or nothing for a step that asked nothing."""
     if tokens is None:

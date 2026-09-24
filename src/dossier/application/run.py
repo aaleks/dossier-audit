@@ -76,7 +76,13 @@ from dossier.domain.resolution import (
 )
 from dossier.domain.schemas import StageOutput
 from dossier.domain.store import RESERVED_KEY, output_path, record_path
-from dossier.domain.tracking import run_description, run_name, step_line, version_params
+from dossier.domain.tracking import (
+    run_description,
+    run_name,
+    step_line,
+    token_metrics,
+    version_params,
+)
 from dossier.domain.tracking import tags as tracking_tags
 from dossier.domain.usage import Tokens, total
 from dossier.domain.versions import version_record
@@ -476,6 +482,11 @@ def execute(
                     result.attempts for done in report.steps for result in done.results
                 ),
                 "failed": len(report.failed),
+                # What the run spent, from the same sums its step lines print
+                # (R5.12, R11.20); neither, when a provider did not say.
+                **token_metrics(
+                    total(done.tokens for done in report.steps if done.tokens is not None)
+                ),
             }
         )
         tracker.log_artifact(manifest.name, manifest.read_bytes())
