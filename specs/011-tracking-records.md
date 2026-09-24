@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.20
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.21
 
 ## Purpose
 
@@ -533,3 +533,43 @@ claimed here; a stage's are.
 | 3 | `DOSSIER_MLFLOW_CAPTURE=hashes` | the same usage on every span, and still no prompt or reply text (R10.8 row 2) |
 | 4 | *counter-example* — the same run again, every document from cache | no LLM span (R11.2 row 3), and `tokens_in` and `tokens_out` both `0`: nothing was asked |
 | 5 | *counter-example* — a provider that reports nothing (R9.18 row 4) | no `mlflow.chat.tokenUsage` on the span, and no `tokens_in` or `tokens_out` on the run: missing, not `0` |
+
+### R11.21 — a run asking about several documents at once records each one's trace holding only its own spans, and says how many it asked at once
+
+MLflow keeps apart traces opened on different threads. Four documents' traces,
+opened at once, each from its own thread, came back from a real MLflow 3.15.1
+store holding one span each, with durations MLflow measured itself: 473, 373,
+274 and 174 ms for work of 0.4, 0.3, 0.2 and 0.1 s. That was checked before this
+rule was written. `dossier`'s tracker did not keep them apart. It held one
+current trace for the whole process, so at `N > 1` (R9.19) a span went to
+whichever trace had been opened last, and `INC-4821`'s trace could show
+`INC-4822`'s prompt.
+
+So a trace is current in the thread that opened it. That changes what the
+`Tracker` port promises and not what it is called with. The fake tracker keeps
+the same promise, or it could not fail when the real one broke it. Nothing is
+held back and replayed: each trace reaches MLflow while its document is worked
+on, and is timed by MLflow, exactly as at `N = 1`.
+
+Traces reach the server in the order their documents finish. Nothing reads that
+order: MLflow lists traces by the start time it measured, and `dossier` reads
+nothing back (R0.10). A trace lost on one thread is counted once, as on one
+(R10.24).
+
+The run records `concurrency` as a param, so two runs' durations are compared
+knowing that one asked four documents at a time. It is a param of the record and
+nothing else: like every value a record holds, it reaches no key, manifest or
+provenance record (R10.4).
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.tracking`), application (`dossier.application.run`)
+- **Proved by:** `tests/acceptance/test_R011_21__a_run_at_concurrency_records_each_document_apart.py`, `tests/unit/test_R011_21__a_trace_is_current_in_the_thread_that_opened_it.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821`, `INC-4822`, `INC-4901` at `--concurrency 3`, and a model that answers none until all three are asked | three traces, `extract · INC-4821` and the other two; each holds one LLM span, and that span's prompt is about the document its trace is tagged with |
+| 2 | the same, with `INC-4822` valid on its second attempt (R11.2 row 2) | its trace holds both LLM spans, and the other two hold one each |
+| 3 | the run's params | `concurrency` is `3`, and `1` when neither `--concurrency` nor `DOSSIER_CONCURRENCY` is set |
+| 4 | at `--concurrency 3`, one of `INC-4822`'s own tracking calls fails (R10.6), and the server does not hold that trace either | `warning: 1 trace(s) could not be recorded`: counted once, as R10.24 row 4 counts it one at a time, and the other two not at all |
+| 5 | *counter-example* — `--concurrency 3` against `--concurrency 1` over the same snapshots | the same cache keys, artifacts and provenance records apart from `run_id`; `concurrency` is in the record alone (R10.4) |
