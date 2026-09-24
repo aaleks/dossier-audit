@@ -1,7 +1,7 @@
 # 009 — Model providers
 
-**Status:** Implemented
-**Rules:** R9.1 – R9.18
+**Status:** Partially implemented
+**Rules:** R9.1 – R9.19
 
 ## Purpose
 
@@ -469,3 +469,57 @@ Tokens are what an answer cost, not what it was asked, so they enter no key
 | 4 | *counter-example* — the answer has no `usage` at all | both `None`; a count nobody gave is not `0` |
 | 5 | *counter-example* — `usage.prompt_tokens` is `"many"`, `-3` or `true` | that count is `None`; what is not a count of tokens is not recorded as one |
 | 6 | *counter-example* — a client that returns plain `str` | read as reporting nothing: both `None`, and it is still a `ModelClient` |
+
+### R9.19 — `dossier run` asks a model about at most `N` of a step's documents at once, and nothing it writes depends on `N`
+
+A run asked about one document at a time, so a step over four hundred documents
+was four hundred round trips end to end, against a hosted provider that would
+have answered ten at once. R9.17 is what makes asking several at once safe to
+offer: the `429` it provokes is waited out rather than fatal.
+
+`N` is per machine, like where a model is served. A hosted key with a high rate
+limit and a laptop serving a local model want different values, and the same
+pipeline runs on both. So it is `--concurrency N` on `dossier run`, else
+`DOSSIER_CONCURRENCY` from the environment `.env` fills (R9.11), else **1**. It
+is never read from `pipeline.yaml`: `pipeline_hash` is the hash of that file,
+and a setting about speed would move it. It is 1 by default because a local
+model often answers one request at a time. Four sent to it wait in its queue,
+can outlast the client's timeout, and are then sent again by R9.17, which is
+slower than sending one at a time.
+
+No ceiling is imposed. `dossier` does not know a provider's limit, and a number
+made up here would be a threshold nobody agreed.
+
+`N` counts documents within one step. Steps still run in order, because a step
+reads what the one before it produced (R3.3). The parts of one `per_part`
+document are still asked one after another: a (step, document) is the unit of a
+key and of a trace (R11.1), and it is what is handed to a worker whole.
+
+Nothing about `N` reaches a key, the manifest, a provenance record or an
+artifact. Results are collected in document order, whatever order they were
+answered in, so the step lines and `runs/<run_id>/` are what the same run at
+`N = 1` writes.
+
+A run stops as it did: a request that still fails after R9.17's retries stops it
+(R9.12 row 4). With several in flight, a document not yet started when one fails
+is not started. The ones already asked are waited for, and cached if they were
+answered, because an answer already paid for is not thrown away. The error the
+run stops with is the first failing document's, in document order, which is the
+one a run at `N = 1` stops with.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.concurrency`), application (`dossier.application.run`), cli (`dossier.cli.main`)
+- **Proved by:** `tests/acceptance/test_R009_19__a_run_asks_about_several_documents_at_once.py`, `tests/unit/test_R009_19__how_many_documents_are_asked_at_once.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821`, `INC-4822`, `INC-4901`, nothing cached, `dossier run incident-audit --concurrency 3`, and a model that answers none until all three are asked | all three asked before any is answered, and `extract: 3 document(s) · 0 from cache · 0 failed · 3,612 tokens in · 636 out`, the line R5.12 row 1 prints one at a time |
+| 2 | the same three, answered in the order `INC-4901`, `INC-4822`, `INC-4821` | `runs/<run_id>/extract/` holds the same three files, byte for byte, as the same run with no flag; their provenance records differ in `run_id` alone |
+| 3 | `DOSSIER_CONCURRENCY=2` in `.env`, no flag | never more than two asked at once |
+| 4 | `DOSSIER_CONCURRENCY=2` and `--concurrency 3` | three: what is said on the command line wins over what the machine is set to |
+| 5 | neither set | one at a time: the run this rule found |
+| 6 | every request refused, `--concurrency 2` | `INC-4821` and `INC-4822` asked, `INC-4901` never; the run stops with the error R9.12 row 4 describes, as it does one at a time |
+| 7 | *counter-example* — `--concurrency 0`, `-1` or `four`, or `DOSSIER_CONCURRENCY=2.5` | refused before any work, naming where the value came from -- `DOSSIER_CONCURRENCY is '2.5'; it takes a whole number of at least 1.` -- with exit 2 and nothing asked |
+| 8 | *counter-example* — `concurrency: 3` in `pipeline.yaml` | refused at load time as a key the format does not have (R3.1): how fast a pipeline is run is not part of what it is |
+| 9 | *counter-example* — one `per_part` document of four pages, `--concurrency 4` | its four pages asked one after another: `N` counts (step, document) pairs, not parts |
