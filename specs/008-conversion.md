@@ -482,8 +482,8 @@ Which pages need OCR is a decision over the pages' text layers and is made in
 
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.docling_markdown`), deciding through domain (`dossier.domain.conversion.ocr_pages`)
-- **Proved by:** `tests/unit/test_R008_14__a_page_is_ocred_only_when_it_has_no_text_layer.py`, `tests/integration/test_R008_14__a_photocopied_pdf_converts_to_text.py`, `tests/acceptance/test_R008_14__a_photocopied_postmortem_is_grounded.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R008_14__a_page_is_ocred_only_when_it_has_no_text_layer.py`, `tests/acceptance/test_R008_14__a_photocopied_postmortem_is_grounded.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|

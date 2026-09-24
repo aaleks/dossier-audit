@@ -72,7 +72,7 @@ stands, counted from `specs/`, so nothing here has to be kept in step with it.
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost
 pytest -m outer_loop    # the open slice. Red until it lands
-pytest -m live          # the evaluated rules. Real model calls, run deliberately
+pytest -m live          # the evaluated rules, and Docling's models. Run deliberately
 ```
 
 CI runs the first on every pull request, after the architecture tests and ruff,
@@ -129,7 +129,8 @@ Installing, the extras and what each one adds: `README.md`.
 2. **No live model calls in the default test suite.** Tests use
    `FakeModelClient`, which returns canned responses and **counts calls** —
    several rules are claims about how many calls happened. An autouse fixture
-   blocks sockets. The only exception is `tests/evals/`, marked `live`.
+   blocks sockets. The exceptions are marked `live`: `tests/evals/`, and the
+   tests that run Docling's models for real (spec 008, R8.14 and R8.15).
 3. **Snapshots are immutable.** Never overwrite or delete a file under the
    snapshot store. New content means a new content-addressed path (R0.2).
 4. **Determinism is testable.** Given the same snapshots, prompts, schemas and

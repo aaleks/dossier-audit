@@ -45,6 +45,23 @@ def default_kind(media_type: str) -> str:
     return DEFAULT_KINDS.get(media_type, FALLBACK_KIND)
 
 
+def ocr_pages(texts: Sequence[str]) -> list[int]:
+    """The pages to read by OCR: those whose text layer holds no printable character (R8.14).
+
+    `texts` is each page's text layer, in page order; the answer is 1-based, as
+    anchors are (R6.14). A page with a text layer is read from it, because that
+    text is exact and OCR is an estimate of what a picture says. One printable
+    character is enough to keep a layer -- how much text makes a layer worth
+    keeping is a threshold nobody has measured, and none is the only answer that
+    is not invented.
+    """
+    return [
+        number
+        for number, text in enumerate(texts, 1)
+        if not any(character.isprintable() and not character.isspace() for character in text)
+    ]
+
+
 class Converter(BaseModel):
     """One installed converter: what it is, and the pair it claims (R8.2, R8.3).
 
