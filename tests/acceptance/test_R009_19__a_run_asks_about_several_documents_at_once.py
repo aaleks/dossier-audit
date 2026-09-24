@@ -27,7 +27,6 @@ import pytest
 from tests.fakes import Gate, register_provider
 from tests.pipelines import write_pipeline
 
-
 PIPELINE = "incident-audit"
 MODEL = "ollama:qwen2.5:7b@sha256:" + "7f3c29a1" * 8
 FIELDS = ("loss_amount", "resolution_date", "severity", "affected_systems", "root_cause")
