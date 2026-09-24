@@ -81,7 +81,7 @@ Build `playground/work/11/` with a `sources.yaml` declaring one `jira` source:
 values.
 
 Do not look at `solution/workspace/sources.yaml` yet. Write it from
-`jira_connector.md` at the repository root, which is the tour of this connector.
+`docs/jira-connector.md`, which is the tour of this connector.
 
 Two things to get wrong on purpose, before anything works:
 
@@ -153,7 +153,7 @@ PLAY-2 … PLAY-4
 ```
 
 `PLAY-1/postmortem.md` is a document in its own right — its own row, its own
-snapshot, its own version marker (R1.6). Now work out from `jira_connector.md`
+snapshot, its own version marker (R1.6). Now work out from `docs/jira-connector.md`
 what each marker *is*, and confirm it:
 
 ```bash
