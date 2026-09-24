@@ -9,7 +9,7 @@ spec assumes.
 | Spec | Covers | Rules | Status |
 |---|---|---|---|
 | `000-overview.md` | Vocabulary, the hash boundary, hashing, workspace layout, global invariants | R0.1 – R0.14 | Implemented |
-| `001-source-connectors.md` | The connector interface and its registration | R1.1 – R1.14 | Partially implemented |
+| `001-source-connectors.md` | The connector interface and its registration | R1.1 – R1.14 | Implemented |
 | `002-ledger-and-sync.md` | Change detection, incremental fetch, tombstoning, the store | R2.1 – R2.22 | Implemented |
 | `003-pipeline-format.md` | `sources.yaml` and `pipeline.yaml` schemas | R3.1 – R3.14 | Implemented |
 | `004-step-resolution.md` | Reference expansion, the run manifest, plan diffing | R4.1 – R4.14 | Implemented |

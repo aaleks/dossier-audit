@@ -1,6 +1,6 @@
 # 001 — Source connectors
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R1.1 – R1.14
 
 ## Purpose
@@ -385,7 +385,7 @@ an issue carries is still what Jira says that file is (R2.16).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.jira`), naming the type the domain declares (`dossier.domain.conversion.JIRA_ISSUE`)
 - **Proved by:** `tests/unit/test_R001_14__a_jira_issue_is_reported_as_a_jira_issue.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
