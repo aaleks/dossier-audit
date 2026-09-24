@@ -92,9 +92,10 @@ columns were empty on every trace `dossier` wrote: the document was in an LLM
 span's prompt, the answer in its reply, both two clicks down and neither
 labelled. The trace now carries them where MLflow shows them.
 
-The request is the document key and each value the step was handed, under the
-input's name -- `documents`, `extract` -- as the prompt was rendered with them
-(R3.13). The response is the answer as `runs/` holds it (R0.11): the field
+The request is the document key, and beside it each value the step was handed,
+under the input's name -- `documents`, `extract` -- as the prompt was rendered
+with them (R3.13). The values sit under `inputs` of their own, so a step that
+happens to be called `document` cannot stand in for the key. The response is the answer as `runs/` holds it (R0.11): the field
 record, parsed, for a step with an output; the prose, for one without. A
 document served from cache shows the answer it was served, and one that failed
 shows the error it failed with.
@@ -111,12 +112,12 @@ decision about the server, and it is the person running it who makes it.
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `extract · INC-4821`, nothing cached, capture `full` | request `{"document": "INC-4821", "documents": "<document key=\"INC-4821\">…"}`; response the field record `extract/INC-4821.json` holds, as JSON |
-| 2 | `verify · INC-4821`, reading `[documents, extract]` | the request holds both values under their names |
+| 1 | `extract · INC-4821`, nothing cached, capture `full` | request `{"document": "INC-4821", "inputs": {"documents": "<document key=\"INC-4821\">…"}}`; response the field record `extract/INC-4821.json` holds, as JSON |
+| 2 | `verify · INC-4821`, reading `[documents, extract]` | the request's `inputs` holds both values under their names |
 | 3 | the same run again, `extract` served from cache | the same request and the same response: a cached answer is still an answer to review |
 | 4 | `INC-4822` failing validation twice (R6.2) | the response is `{"error": …}`, the error the trace already carries (R11.1 row 4) |
 | 5 | a step with no `output`, `report` in `aggregate` mode | the response is the report's prose |
-| 6 | *counter-example* — capture `hashes` | the request is `{"document": "INC-4821", "documents": "<sha256>"}` and the response `{"artifact": "<sha256>"}`; no text of either (R10.8) |
+| 6 | *counter-example* — capture `hashes` | the request is `{"document": "INC-4821", "inputs": {"documents": "<sha256>"}}` and the response `{"artifact": "<sha256>"}`; no text of either (R10.8) |
 
 ### R15.2 — a run tags the trace of every document it doubts, and names the fields it doubts
 
