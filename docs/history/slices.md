@@ -13,6 +13,23 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A run asks about several documents at once. A step over four hundred documents
+was four hundred round trips end to end, against a hosted provider that would
+have answered ten together; R9.17's backoff is what made offering more safe,
+because the `429` it provokes is waited out. `--concurrency N`, else
+`DOSSIER_CONCURRENCY`, else 1 -- per machine like an endpoint, and never in
+`pipeline.yaml`, whose hash is the pipeline's (R9.19). One at a time stays the
+default because a local model often answers one request at a time, and four
+queued at it outlast the timeout and are sent again. A step's documents go to a
+pool and come back in document order, so the step lines and `runs/` are what
+one at a time writes; documents start in order, so once one fails none after
+it starts and the error is the one a loop would have stopped at. Steps stay in
+order, and a `per_part` document's pages stay one after another: a (step,
+document) is the unit of a key and of a trace. What a run did once it still
+does once -- the client built at the first miss, the Ollama digest and the vLLM
+repository checked before the first call -- behind a lock each, because three
+workers missing together are one first miss.
+
 A run says what it spent. Every provider reports on every answer what it cost
 in tokens -- `usage.prompt_tokens`, Anthropic's `input_tokens`, Ollama's
 `prompt_eval_count` -- and every client threw it away with the rest of the
