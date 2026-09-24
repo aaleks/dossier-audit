@@ -13,6 +13,8 @@ Do not invent a new incident key for a new example. Add to this file instead.
 |---|---|
 | `a.aleks` | Verifies the gold answers and signs off the judge threshold. The name the gold set records in `verified_by` (R7.11, R7.12) |
 | `m.keller` | Incident commander on `INC-4821`. The first comment on the Jira issue is theirs (R8.16 row 3) |
+| `s.brunner` | Reviews the daily run's answers in MLflow, and never runs `dossier` (spec 015) |
+| `j.okafor` | A second reviewer, who overrides or disagrees with `s.brunner`. In MLflow's trace view both are recorded as `User` (spec 015) |
 
 ## Documents
 
