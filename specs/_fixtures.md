@@ -75,6 +75,16 @@ case a PDF converter most needs to be honest about.
 `PLAY-2002` is the PDF half of what `INC-5720` is for images: a document whose
 content is entirely visual. Both are what OCR and a vision step exist to answer.
 
+Two more are made from `INC-4830`'s postmortem rather than committed, by
+`tests/scans.py`, so that what OCR read can be compared word for word with the
+text layer it was photographed from. Each page is rendered at 200 dpi in grey and
+written back as a picture, and nothing else of the page is kept.
+
+| Key | Made as | State |
+|---|---|---|
+| `INC-4830` | *photocopied* | all three pages pictures, no text layer. The root cause is on page 2 |
+| `INC-4830` | *half-photocopied* | page 1 as published, with its text layer; pages 2 and 3 pictures |
+
 **Per-field gold answers are not recorded for the corpus as a whole.** Writing
 expected values nobody verified is inventing a threshold by another name. What is
 recorded is which document is defective and how, which is what the corpus was
