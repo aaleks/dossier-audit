@@ -13,6 +13,16 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+R5.3 is superseded by R5.13. "Changing the model identifier changes every stage
+key" stopped being true the moment a step could keep its own model while the
+pipeline's moved; what survives is that a key holds the model its step is asked
+with, and moving it moves that step's key alone. R5.3's test is reclaimed
+rather than deleted -- each of its rows is still true of a pipeline whose steps
+name no model -- with the per-step rows beside them, every key composed from
+`ResolvedPlan.model_of`. Seen live: a pipeline moved from `extract` on Ollama
+to no step model re-asked `extract` with the pipeline's Gemini, and `verify`,
+whose input came out byte-identical, stayed in the cache.
+
 A pipeline version knows each step's model. `version_params` is the one
 function the run's record, the eval's and the version's are built from, so
 `model/<step>` beside `prompt/<step>`, for a step asked with its own model,

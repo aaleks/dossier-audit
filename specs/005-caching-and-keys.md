@@ -1,6 +1,6 @@
 # 005 — Cache keys, cascade and provenance
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R5.1 – R5.13
 
 ## Purpose
@@ -165,7 +165,7 @@ The cascade in one sentence.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`)
 - **Proved by:** `tests/unit/test_R005_3__model_change_invalidates_every_stage.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R5.13
 
 | # | Given | Then |
 |---|-------|------|
@@ -393,7 +393,7 @@ was written.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys`, `dossier.domain.resolution`)
 - **Proved by:** `tests/unit/test_R005_13__a_stage_key_holds_the_model_its_step_is_asked_with.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

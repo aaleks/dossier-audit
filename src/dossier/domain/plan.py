@@ -7,7 +7,7 @@ over exactly what enters a stage key (spec 005) and over nothing else (R4.12):
 
 - the step's inputs, its prompt's hash and its declaration's hash -- what a
   person edits under `pipelines/`;
-- the pinned model identifier (R5.3);
+- the model each step is asked with, its own or the pipeline's (R5.13);
 - the converted text of every document the step reads, which moves when a
   snapshot moves or when the converter that reads it does (R5.4, R5.7).
 
