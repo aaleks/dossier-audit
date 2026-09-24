@@ -11,12 +11,21 @@ the real one broke the promise.
 
 from __future__ import annotations
 
+import json
+import re
 import threading
+from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from tests.fakes import FakeTracker
+from tests.pipelines import prompt_for
+from tests.scoring_example import ISSUES
 
+from dossier.application.run import execute
+from dossier.domain.fields import OutputSchema
+from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.tracking.best_effort import BestEffortTracker
 from dossier.infrastructure.tracking.mlflow import MlflowTracker
 
@@ -238,3 +247,80 @@ class TestMlflowKeepsEachThreadsTrace:
         tracker.end_run(status="FINISHED")
 
         assert tracker.unrecorded_traces == frozenset({0})
+
+
+class Abstaining:
+    """A model that abstains for whichever document it is asked about (R6.5)."""
+
+    model_id = MODEL
+
+    def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
+        document = re.search(r'<document key="([^"]+)">', prompt).group(1)
+        return json.dumps(
+            {
+                "document": document,
+                "fields": [
+                    {"field": "loss_amount", "value": None, "reason": "not stated in document"}
+                ],
+            }
+        )
+
+
+def _recorded_run(workspace: Path, **options) -> FakeTracker:
+    """One run of `extract` over three incidents, recorded to a fake."""
+    from dossier.infrastructure.cache import ArtifactCache
+
+    tracker = FakeTracker()
+    execute(
+        workspace=workspace,
+        pipeline=PipelineConfig(
+            name="incident-audit",
+            sources=["incidents-jira"],
+            model=MODEL,
+            steps=[
+                StepConfig(
+                    id="extract",
+                    prompt="prompts/extract.md",
+                    input="documents",
+                    mode="per_file",
+                    output="schemas/incident.yaml",
+                )
+            ],
+        ),
+        pipeline_hash="6e0d4b27" * 8,
+        documents={
+            "INC-4821": "a3f9c1e2" * 8,
+            "INC-4822": "77c1b40a" * 8,
+            "INC-4901": "0e52dd18" * 8,
+        },
+        document_text=ISSUES,
+        schemas={
+            "extract": OutputSchema(schema={"type": "object"}, declaration_hash="d24c86e1" * 8)
+        },
+        prompts={"extract": prompt_for(["documents"])},
+        model=Abstaining(),
+        cache=ArtifactCache(workspace, namespace="stage"),
+        run_id="20260806T142203Z-4f1a",
+        started_at=datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC),
+        dossier_version="0.1.0",
+        tracker=tracker,
+        experiment="dossier-audit/incident-audit/run",
+        **options,
+    )
+    return tracker
+
+
+class TestTheRunSaysHowManyItAskedAtOnce:
+    """R11.21 row 3: `concurrency` is a param of the run's record."""
+
+    def test_three_at_once_is_recorded_as_three(self, tmp_path: Path):
+        """Row 3: the one at `--concurrency 3`."""
+        (run,) = _recorded_run(tmp_path, concurrency=3).runs
+
+        assert run.params["concurrency"] == "3"
+
+    def test_one_at_a_time_is_recorded_as_one(self, tmp_path: Path):
+        """Row 3: the one where nothing sets it: `1`, a value rather than an absence."""
+        (run,) = _recorded_run(tmp_path).runs
+
+        assert run.params["concurrency"] == "1"

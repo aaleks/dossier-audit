@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.21
 
 ## Purpose
@@ -564,7 +564,7 @@ provenance record (R10.4).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking`), application (`dossier.application.run`)
 - **Proved by:** `tests/acceptance/test_R011_21__a_run_at_concurrency_records_each_document_apart.py`, `tests/unit/test_R011_21__a_trace_is_current_in_the_thread_that_opened_it.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
