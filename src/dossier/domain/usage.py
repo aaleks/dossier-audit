@@ -11,6 +11,7 @@ a total over the answers that reported would read as the whole (R5.11 row 5).
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 
@@ -39,3 +40,24 @@ def tokens_of(answer: str) -> Tokens:
         input=getattr(answer, "input_tokens", None),
         output=getattr(answer, "output_tokens", None),
     )
+
+
+def total(each: Iterable[Tokens]) -> Tokens:
+    """What several answers cost together: their sums, side by side (R5.11).
+
+    A side any answer did not report is `None` for the whole: a total over the
+    answers that did report would read as the whole, and be smaller than what
+    was spent. No answers at all cost nothing, which is a count -- `0` -- and
+    not an absence of one.
+    """
+    counts = list(each)
+    return Tokens(
+        input=_sum([tokens.input for tokens in counts]),
+        output=_sum([tokens.output for tokens in counts]),
+    )
+
+
+def _sum(counts: list[int | None]) -> int | None:
+    if any(count is None for count in counts):
+        return None
+    return sum(count for count in counts if count is not None)

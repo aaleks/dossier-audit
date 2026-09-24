@@ -78,6 +78,7 @@ from dossier.domain.schemas import StageOutput
 from dossier.domain.store import RESERVED_KEY, output_path, record_path
 from dossier.domain.tracking import run_description, run_name, step_line, version_params
 from dossier.domain.tracking import tags as tracking_tags
+from dossier.domain.usage import total
 from dossier.domain.versions import version_record
 
 # The `document` an aggregate result is reported under (spec 003). An aggregate
@@ -643,6 +644,7 @@ def _run_one(
                 dossier_version=dossier_version,
                 step=step.id,
                 attempts=result.attempts,
+                tokens=result.tokens,
             ),
         )
     # The key travels with the result so the caller can put the same bytes and
@@ -821,6 +823,7 @@ def _joined_parts(results: Sequence[DocumentResult], *, document: str) -> Docume
         records=tuple(record for part in kept for record in part.records),
         checks=tuple(check for part in kept for check in part.checks),
         attempts=sum(result.attempts for result in results),
+        tokens=total(result.tokens for result in results),
         text=body,
         error="; ".join(result.error or "" for result in failed) or None,
     )

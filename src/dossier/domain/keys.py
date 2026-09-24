@@ -26,6 +26,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from dossier.domain.hashing import content_hash
+from dossier.domain.usage import Tokens
 
 # Recorded so an artifact can be traced, and excluded from the key because
 # neither may change an output (R0.4, R5.1 example 4). `step` joins them because
@@ -35,7 +36,9 @@ from dossier.domain.hashing import content_hash
 # `attempts` is how many times the model was asked before an answer validated
 # (R6.2 row 1): a person reading the record can see it took two goes, and no
 # output depends on it -- a retried answer that validated is the same answer.
-PROVENANCE_ONLY = frozenset({"step", "run_id", "dossier_version", "cache_key", "attempts"})
+PROVENANCE_ONLY = frozenset(
+    {"step", "run_id", "dossier_version", "cache_key", "attempts", "tokens"}
+)
 
 
 class ArtifactInput(BaseModel):
@@ -184,6 +187,7 @@ def provenance(
     dossier_version: str,
     step: str | None = None,
     attempts: int | None = None,
+    tokens: Tokens | None = None,
 ) -> dict[str, Any]:
     """The sibling `<name>.meta.json` for one artifact (R0.3, R5.1).
 
@@ -199,4 +203,8 @@ def provenance(
     record["step"] = step if step is not None else getattr(inputs, "step", None)
     if attempts is not None:
         record["attempts"] = attempts
+    if tokens is not None:
+        # What producing the artifact cost, beside `attempts` and outside the
+        # key on the same terms: the road to an answer, not the answer (R5.11).
+        record["tokens"] = {"input": tokens.input, "output": tokens.output}
     return record

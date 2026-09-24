@@ -172,5 +172,7 @@ class TestTheStructureRefusesToDrift:
         second = provenance(inputs, run_id=RUN_ID, dossier_version="0.1.0", attempts=2)
 
         assert second["attempts"] == 2
-        assert set(second) - set(inputs.keyed()) == PROVENANCE_ONLY
+        # Every named exception but `tokens`, which only a stage that knows what
+        # its calls cost writes, and this record was built without (R5.11).
+        assert set(second) - set(inputs.keyed()) == PROVENANCE_ONLY - {"tokens"}
         assert first["cache_key"] == second["cache_key"] == cache_key(inputs)
