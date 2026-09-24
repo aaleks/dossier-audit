@@ -15,18 +15,28 @@ import threading
 
 from tests.fakes import FakeTracker
 
+from dossier.infrastructure.tracking.best_effort import BestEffortTracker
+
 MODEL = "anthropic:claude-sonnet-4-5-20250929"
 DOCUMENTS = ("INC-4821", "INC-4822")
 
 
-def _two_documents_at_once(tracker) -> None:
-    """Two workers, each opening its trace, recording a span and closing, in lockstep."""
-    step = threading.Barrier(len(DOCUMENTS))
+def _two_documents_at_once(tracker, documents: tuple[str, ...] = DOCUMENTS) -> None:
+    """Two workers, each opening its trace, recording a span and closing, in lockstep.
+
+    The traces are opened in the order `documents` names, so which place each
+    holds among the traces opened is known to the test.
+    """
+    step = threading.Barrier(len(documents))
+    opened = [threading.Event() for _ in documents]
     failures: list[BaseException] = []
 
-    def document(key: str) -> None:
+    def document(place: int, key: str) -> None:
         try:
+            if place:
+                opened[place - 1].wait(timeout=5)
             tracker.start_trace(name=f"extract · {key}", tags={"dossier.document": key})
+            opened[place].set()
             step.wait(timeout=5)
             tracker.span(kind="llm", name=MODEL, attributes={"document": key})
             step.wait(timeout=5)
@@ -34,7 +44,10 @@ def _two_documents_at_once(tracker) -> None:
         except BaseException as error:  # pragma: no cover - reported below
             failures.append(error)
 
-    workers = [threading.Thread(target=document, args=(key,)) for key in DOCUMENTS]
+    workers = [
+        threading.Thread(target=document, args=(place, key))
+        for place, key in enumerate(documents)
+    ]
     for worker in workers:
         worker.start()
     for worker in workers:
@@ -80,3 +93,52 @@ class TestATraceIsCurrentInTheThreadThatOpenedIt:
 
         assert len(raised) == 1
         assert tracker.traces[0].spans == []
+
+
+class LosesOneTrace(FakeTracker):
+    """One of `document`'s own calls fails (R10.6), and the server does not hold
+    that trace either (R10.24): the same trace lost two ways.
+
+    The server's answer is by place among the traces opened, as `MlflowTracker`
+    gives it, read off the order this fake saw them opened in.
+    """
+
+    def __init__(self, document: str) -> None:
+        super().__init__()
+        self.document = document
+        self.unrecorded_traces: frozenset[int] = frozenset()
+
+    def span(self, *, kind: str, name: str, attributes) -> None:
+        super().span(kind=kind, name=name, attributes=attributes)
+        if self._trace.tags["dossier.document"] == self.document:
+            raise RuntimeError("the server stopped answering")
+
+    def end_run(self, *, status) -> None:
+        super().end_run(status=status)
+        self.unrecorded_traces = frozenset(
+            place
+            for place, trace in enumerate(self.traces)
+            if trace.tags["dossier.document"] == self.document
+        )
+
+
+class TestTheWrapperCountsWhatEachThreadLost:
+    """R11.21 row 4, on `BestEffortTracker`: a trace lost on one worker is that trace."""
+
+    def test_a_trace_lost_two_ways_is_counted_once(self):
+        """Row 4: `INC-4822`'s span fails and the server does not hold its trace.
+
+        Opened first, so it holds place 0 while `INC-4821` is the last trace
+        opened: a wrapper that took the place of whichever trace was opened last
+        would name `INC-4821`'s, and count one trace lost as two.
+        """
+        inner = LosesOneTrace("INC-4822")
+        tracker = BestEffortTracker(inner)
+        tracker.start_run(experiment="dossier-audit/incident-audit/run", name="r", tags={})
+
+        _two_documents_at_once(tracker, ("INC-4822", "INC-4821"))
+        tracker.end_run(status="FINISHED")
+
+        assert inner.unrecorded_traces == frozenset({0})
+        assert tracker.lost_traces == 1
+        assert tracker.lost_records == 1

@@ -8,6 +8,7 @@ port: after the startup check, a record lost is never a run lost.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Mapping
 
 from dossier.domain.ports import Tracker, VersionRegistry
@@ -33,6 +34,10 @@ class BestEffortTracker:
     the record closes, in `unrecorded_traces` -- the places of those traces among
     the ones the run opened -- and each is counted here once, however many ways
     it was lost (R10.24).
+
+    A run's workers record their documents at once (R11.21), so what belongs to
+    one trace -- its place, and whether any of its calls failed -- is held per
+    thread, and what belongs to the run is changed under a lock.
     """
 
     def __init__(
@@ -55,7 +60,11 @@ class BestEffortTracker:
         # call and not found on the server either is one trace (R10.24 row 4).
         self._lost_traces: set[int] = set()
         self._opened = 0
-        self._this_trace_lost = False
+        # This thread's trace: its place, and whether a call of it failed.
+        self._this_trace = threading.local()
+        # Reentrant, because a trace is opened under it and a failure to open
+        # one is counted under it too.
+        self._lock = threading.RLock()
 
     @property
     def lost_traces(self) -> int:
@@ -65,8 +74,9 @@ class BestEffortTracker:
         try:
             call(*args, **kwargs)
         except Exception as error:
-            self.lost_records += 1
-            self._said_if_refused(error)
+            with self._lock:
+                self.lost_records += 1
+                self._said_if_refused(error)
             return False
         return True
 
@@ -129,19 +139,27 @@ class BestEffortTracker:
         self._sent(self._inner.log_dataset, name=name, dataset_id=dataset_id, digest=digest)
 
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
-        self._opened += 1
-        self._this_trace_lost = not self._sent(self._inner.start_trace, name=name, tags=tags)
+        # The place is taken and the trace opened under one lock, so the place
+        # counted here is the place the tracker inside gives the same trace --
+        # which is how it names one the server does not hold (R10.24, R11.21).
+        with self._lock:
+            place = self._opened
+            self._opened += 1
+            opened = self._sent(self._inner.start_trace, name=name, tags=tags)
+        self._this_trace.place = place
+        self._this_trace.lost = not opened
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None:
         if not self._sent(self._inner.span, kind=kind, name=name, attributes=attributes):
-            self._this_trace_lost = True
+            self._this_trace.lost = True
 
     def end_trace(self, *, status: str, error: str | None = None) -> None:
         if not self._sent(self._inner.end_trace, status=status, error=error):
-            self._this_trace_lost = True
-        if self._this_trace_lost:
-            self._lost_traces.add(self._opened - 1)
-        self._this_trace_lost = False
+            self._this_trace.lost = True
+        if getattr(self._this_trace, "lost", False):
+            with self._lock:
+                self._lost_traces.add(self._this_trace.place)
+        self._this_trace.lost = False
 
     def end_run(self, *, status: str) -> None:
         self._sent(self._inner.end_run, status=status)
