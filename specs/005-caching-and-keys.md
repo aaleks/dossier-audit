@@ -1,7 +1,7 @@
 # 005 — Cache keys, cascade and provenance
 
-**Status:** Implemented
-**Rules:** R5.1 – R5.10
+**Status:** Partially implemented
+**Rules:** R5.1 – R5.12
 
 ## Purpose
 
@@ -311,3 +311,68 @@ said so once and attributed it to one of them was wrong.
 | 5 | the artifact that call produced | `extract/INC-4901.json` says `"document": "INC-4901"`; under R5.7 it said `"document": "INC-4821"` and was filed under `INC-4901` regardless |
 | 6 | *counter-example* — the same document listed twice by one source | one key from sync, so one document and nothing to re-run; this rule is about two keys, not two listings (R2.1) |
 | 7 | *counter-example* — the same document, unchanged, on a second run | served from cache, no model call; a key is per document and still not per run (R5.5) |
+
+### R5.11 — a provenance record says how many tokens its artifact cost, summed over its attempts, and no key holds them
+
+`attempts` already sat in the record beside the key and outside it (R5.1 row
+5): the road to an answer is worth recording and is no part of what the answer
+is. What the road cost belongs beside it, for the same reason and on the same
+terms. The record gains `"tokens": {"input": ..., "output": ...}`, the sum of
+what every attempt's reply said it cost (R9.18).
+
+An attempt that failed validation cost as much as the one that stood, so it is
+in the sum. A count one attempt did not give makes that side of the sum `null`:
+a total over the attempts that reported would read as the whole.
+
+A cache hit copies the record it was stored with (R0.3 row 2), so a record says
+what it cost to *produce* the artifact, not what any later run paid to read
+it -- which was nothing, and R5.12 is where that is said.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.keys.provenance`, `dossier.domain.usage`), application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R005_11__a_provenance_record_says_what_its_artifact_cost.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `verify` over `INC-4821`, valid on its first attempt, which cost 1204 in and 212 out | `verify/INC-4821.meta.json` holds `"tokens": {"input": 1204, "output": 212}` beside `"attempts": 1` |
+| 2 | `INC-4822` valid on its second attempt, the two costing 1204/212 and 1391/230 | `"tokens": {"input": 2595, "output": 442}`; the refused attempt is in the sum |
+| 3 | the same artifact served from cache in run `20260907T090000Z-bbbb` | the record byte-identical to the one written in `20260806T142203Z-4f1a`: the cost of producing it, not of reading it |
+| 4 | a provider that reports nothing (R9.18 row 4) | `"tokens": {"input": null, "output": null}` |
+| 5 | the first attempt reported, the second not | `null` on each side the second did not give; a partial sum is not the sum |
+| 6 | *counter-example* — the same inputs answered again at another token count | the same key; tokens are what an answer cost, not what it was asked (R0.5, R5.1 row 5) |
+| 7 | *counter-example* — a document that failed validation twice | no artifact and no record (R0.3 row 3); what it cost is still spent, and R5.12 row 4 counts it |
+
+### R5.12 — `dossier run` says how many tokens each step spent, and a document served from cache spent none
+
+Each step's line ends with what its model calls cost in this run:
+
+```
+extract: 3 document(s) · 0 from cache · 0 failed · 3,612 tokens in · 636 out
+```
+
+This is the figure a cache exists to keep small, and the first time it can be
+seen: a re-run prints the same line with `3 from cache` and no tokens at all.
+The clause is absent for a step that asked no model, for the reason `described`
+and `findings` are absent at zero (R6.15, R6.16): it would be on every line of
+every cached run. A step with a call whose provider did not say what it cost
+ends `· tokens not reported`, never `· 0 tokens in` (R9.18 row 4).
+
+Composed by `step_line`, so the description of the record the run closes says
+the same (R11.17). The thousands separator is `,` whatever the locale: Python's
+`,` format is not locale-aware, which is what keeps two machines' lines
+identical (R0.4).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.step_line`), application (`dossier.application.run`)
+- **Proved by:** `tests/acceptance/test_R005_12__a_run_says_what_each_step_spent.py`, `tests/unit/test_R005_12__the_step_line_says_what_was_spent.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | three documents, nothing cached, each answer costing 1204 in and 212 out | `extract: 3 document(s) · 0 from cache · 0 failed · 3,612 tokens in · 636 out` |
+| 2 | the same run again, every document served from cache | `extract: 3 document(s) · 3 from cache · 0 failed` and nothing about tokens: nothing was asked, so nothing was spent |
+| 3 | only `INC-4822` changed since | `· 1,204 tokens in · 212 out`: the one document that was asked |
+| 4 | `INC-4822` failing validation twice, each attempt 1204/212 | its 2,408 in and 424 out are in the step's total; spent, though nothing was written |
+| 5 | *counter-example* — a provider that reports nothing | `· tokens not reported`, not `· 0 tokens in` |
+| 6 | *counter-example* — `dossier run --plan` | no tokens anywhere: planning asks no model (R4.6) |

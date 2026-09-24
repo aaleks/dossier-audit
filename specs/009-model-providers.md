@@ -1,7 +1,7 @@
 # 009 — Model providers
 
-**Status:** Implemented
-**Rules:** R9.1 – R9.17
+**Status:** Partially implemented
+**Rules:** R9.1 – R9.18
 
 ## Purpose
 
@@ -429,3 +429,43 @@ wiring, and sits in the one place every model client already sends through.
 | 7 | *counter-example* — `401` | one POST, and the error at once; a key refused once is refused again |
 | 8 | *counter-example* — `400` | one POST, and the error at once; a request the server could not read is not re-read |
 | 9 | *counter-example* — a `200` whose content fails the stage's schema | not this rule's: the stage re-asks once with the error (R6.2), and that is a second call |
+
+### R9.18 — a reply carries the tokens its provider counted, and a count the provider did not give is absent, never zero
+
+Nothing `dossier` recorded said what a run cost. Every provider already says,
+in its own words, on every answer -- and every client threw it away with the
+rest of the body. The first question asked of a tool whose promise is "a new
+audit in an afternoon" is what the afternoon cost, and it had no answer.
+
+A reply is still text. `Reply` is a `str` carrying `input_tokens` and
+`output_tokens`, so every caller that reads an answer as text reads this one
+unchanged, and a client that reports nothing -- a test's fake among them -- is
+still a `ModelClient`. Where each provider says it:
+
+| Provider | Input | Output |
+|---|---|---|
+| OpenAI-compatible (`openai`, `gemini`, `hf`) | `usage.prompt_tokens` | `usage.completion_tokens` |
+| `anthropic` | `usage.input_tokens` | `usage.output_tokens` |
+| `ollama` | `prompt_eval_count` | `eval_count` |
+
+A count the provider did not give is `None`. Not `0`: an OpenWebUI that strips
+`usage` from what it passes through has not reported a free completion, and a
+record saying it cost nothing would be a lie in a smaller font -- the reason
+`source.page` is `null` rather than `1` for a document with no pages (R6.14).
+
+Tokens are what an answer cost, not what it was asked, so they enter no key
+(R0.5).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.ports.Reply`, `dossier.domain.usage`), infrastructure (`dossier.infrastructure.models`)
+- **Proved by:** `tests/unit/test_R009_18__a_reply_carries_the_tokens_its_provider_counted.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `gemini:gemini-3.5-flash-lite` at `http://localhost:8080/api` answers with `usage: {prompt_tokens: 1204, completion_tokens: 212}` | the reply is `choices[0].message.content`, as before, with `input_tokens` 1204 and `output_tokens` 212 |
+| 2 | `anthropic:claude-sonnet-4-5-20250929` answers with `usage: {input_tokens: 1204, output_tokens: 212}` | the same counts, read from Anthropic's names |
+| 3 | `ollama:qwen2.5:7b@sha256:7f3c29a1` answers with `prompt_eval_count: 1204, eval_count: 212` | the same counts, read from Ollama's |
+| 4 | *counter-example* — the answer has no `usage` at all | both `None`; a count nobody gave is not `0` |
+| 5 | *counter-example* — `usage.prompt_tokens` is `"many"`, `-3` or `true` | that count is `None`; what is not a count of tokens is not recorded as one |
+| 6 | *counter-example* — a client that returns plain `str` | read as reporting nothing: both `None`, and it is still a `ModelClient` |
