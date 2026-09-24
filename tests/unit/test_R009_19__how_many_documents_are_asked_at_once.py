@@ -5,13 +5,104 @@ How `N` is decided, without a run: `concurrency` reads the flag, else the
 environment `.env` fills, else 1, and refuses anything that is not a whole
 number of at least 1 by naming where it came from. A decision, so it is in
 `domain/` with the environment handed in (CLAUDE.md, "Default to domain/").
+
+What a step does with `N`, without the CLI: `execute` is run directly over three
+of the scoring example's incidents, with a model whose calls pass through a
+`Gate` that counts how many were in flight together.
 """
 
 from __future__ import annotations
 
-import pytest
+import json
+import re
+from datetime import UTC, datetime
+from pathlib import Path
 
+import pytest
+from tests.fakes import Gate
+from tests.pipelines import prompt_for
+from tests.scoring_example import ISSUES
+
+from dossier.application.run import execute
 from dossier.domain.concurrency import concurrency
+from dossier.domain.fields import OutputSchema
+from dossier.domain.pipeline import PipelineConfig, StepConfig
+from dossier.infrastructure.models._http import ModelRequestFailed
+
+MODEL = "anthropic:claude-sonnet-4-5-20250929"
+SNAPSHOTS = {
+    "INC-4821": "a3f9c1e2" * 8,
+    "INC-4822": "77c1b40a" * 8,
+    "INC-4901": "0e52dd18" * 8,
+}
+CONFIG = PipelineConfig(
+    name="incident-audit",
+    sources=["incidents-jira"],
+    model=MODEL,
+    steps=[
+        StepConfig(
+            id="extract",
+            prompt="prompts/extract.md",
+            input="documents",
+            mode="per_file",
+            output="schemas/incident.yaml",
+        )
+    ],
+)
+
+
+class GatedModel:
+    """A model client whose every call passes through `gate`.
+
+    It answers for any document by abstaining (R6.5), or, `refusing`, raises
+    what a client raises when the endpoint still refuses after R9.17's
+    retries -- naming the document, so which one stopped the run can be read.
+    """
+
+    model_id = MODEL
+
+    def __init__(self, gate: Gate, *, refusing: bool = False) -> None:
+        self.gate = gate
+        self.refusing = refusing
+
+    def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
+        document = re.search(r'<document key="([^"]+)">', prompt).group(1)
+        self.gate.through(document)
+        if self.refusing:
+            raise ModelRequestFailed(
+                f"POST https://api.anthropic.com/v1/messages refused {document}"
+            )
+        return json.dumps(
+            {
+                "document": document,
+                "fields": [
+                    {"field": "loss_amount", "value": None, "reason": "not stated in document"}
+                ],
+            }
+        )
+
+
+def _run(workspace: Path, model: GatedModel, **options):
+    """One run of `extract` over the three incidents; its report."""
+    from dossier.infrastructure.cache import ArtifactCache
+
+    return execute(
+        workspace=workspace,
+        pipeline=CONFIG,
+        pipeline_hash="6e0d4b27" * 8,
+        documents=SNAPSHOTS,
+        document_text=ISSUES,
+        schemas={
+            "extract": OutputSchema(schema={"type": "object"}, declaration_hash="d24c86e1" * 8)
+        },
+        prompts={"extract": prompt_for(["documents"])},
+        model=model,
+        cache=ArtifactCache(workspace, namespace="stage"),
+        run_id="20260806T142203Z-4f1a",
+        started_at=datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC),
+        dossier_version="0.1.0",
+        **options,
+    )
 
 
 class TestHowManyDocumentsAreAskedAtOnce:
@@ -69,3 +160,46 @@ class TestHowManyDocumentsAreAskedAtOnce:
     def test_a_large_count_is_not_capped(self):
         """No ceiling: `dossier` does not know a provider's limit."""
         assert concurrency({}, flag="64") == 64
+
+
+class TestAStepAsksAtMostNAtOnce:
+    """R9.19 — what `execute` does with `N`."""
+
+    def test_three_at_once(self, tmp_path: Path):
+        """Row 1: the one where all three are asked before any is answered."""
+        gate = Gate(expected=3, meet=3)
+
+        report = _run(tmp_path, GatedModel(gate), concurrency=3)
+
+        assert gate.most_at_once == 3
+        assert [result.document for result in report.steps[0].results] == sorted(SNAPSHOTS)
+        assert not report.failed
+
+    def test_results_are_in_document_order_whatever_order_they_were_answered_in(
+        self, tmp_path: Path
+    ):
+        """Row 2: the one answered last-first."""
+        gate = Gate(expected=3, meet=3, order=sorted(SNAPSHOTS, reverse=True))
+
+        report = _run(tmp_path, GatedModel(gate), concurrency=3)
+
+        assert gate.most_at_once == 3
+        assert [result.document for result in report.steps[0].results] == sorted(SNAPSHOTS)
+
+    def test_one_at_a_time_unless_told(self, tmp_path: Path):
+        """Row 5: the one where no concurrency is given."""
+        gate = Gate(expected=3, meet=1)
+
+        _run(tmp_path, GatedModel(gate))
+
+        assert gate.most_at_once == 1
+        assert gate.asked == sorted(SNAPSHOTS)
+
+    def test_a_refused_request_starts_nothing_more(self, tmp_path: Path):
+        """Row 6: the one where every request is refused, two at a time."""
+        gate = Gate(expected=3, meet=2)
+
+        with pytest.raises(ModelRequestFailed, match="refused INC-4821$"):
+            _run(tmp_path, GatedModel(gate, refusing=True), concurrency=2)
+
+        assert sorted(gate.asked) == ["INC-4821", "INC-4822"]

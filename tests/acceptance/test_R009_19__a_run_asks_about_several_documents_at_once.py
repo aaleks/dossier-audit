@@ -8,11 +8,9 @@ work, the run hands a step's documents to that many workers, and the results
 are put back in document order before anything is printed or compared.
 
 The provider is registered the way an installed package would register it
-(R9.1). Its client holds every answer at a gate, so what it counts is how many
-calls were in flight together rather than how quickly they happened to arrive:
-a run asking one at a time never opens a gate set for three, and is answered
-anyway after `PATIENCE`, so a red run fails on what was counted instead of
-hanging. Nothing opens a socket.
+(R9.1). Its client passes every call through a `Gate`, which counts how many
+were in flight together rather than how quickly they happened to arrive.
+Nothing opens a socket.
 
 The fixture inbox holds `INC-4821.md`, `INC-4822.md` and `audit-note.md`, in
 that document order; they stand for the three incidents the spec's rows name.
@@ -23,12 +21,10 @@ from __future__ import annotations
 import json
 import re
 import shutil
-import threading
-import time
 from pathlib import Path
 
 import pytest
-from tests.fakes import register_provider
+from tests.fakes import Gate, register_provider
 from tests.pipelines import write_pipeline
 
 pytestmark = pytest.mark.outer_loop
@@ -38,62 +34,32 @@ MODEL = "ollama:qwen2.5:7b@sha256:" + "7f3c29a1" * 8
 FIELDS = ("loss_amount", "resolution_date", "severity", "affected_systems", "root_cause")
 DOCUMENTS = ("INC-4821.md", "INC-4822.md", "audit-note.md")
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-# How long a call waits for company before it is answered alone. Long enough
-# that a run asking at once always meets; short enough that a run asking one at
-# a time fails in seconds.
-PATIENCE = 2.0
-# How long an answer is held once the gate is open, so calls that overlap are
-# seen to: without it a run that should ask one at a time could ask three and
-# never have two in flight together.
-HOLD = 0.05
 
 
 class Provider:
-    """A provider package's factory, whose clients answer at a gate.
+    """A provider package's factory, whose clients answer through a `Gate`.
 
-    The gate opens once `meet` calls are in flight together, or every document
-    not yet answered is, so the last of an uneven batch is not kept waiting for
-    company that is not coming. `order` names the order answers are given in
-    once it is open. `refusing` is an endpoint that refuses every request,
-    after the gate, so which calls were started is decided before any fails.
+    `meet` and `order` are the gate's. `refusing` is an endpoint that refuses
+    every request, after the gate, so which calls were started is decided
+    before any of them fails.
     """
 
     def __init__(
         self, *, meet: int = 1, order: tuple[str, ...] = (), refusing: bool = False
     ) -> None:
-        self.meet = meet
-        self.order = order
+        self.gate = Gate(expected=len(DOCUMENTS), meet=meet, order=order)
         self.refusing = refusing
-        self.asked: list[str] = []
-        self.most_at_once = 0
-        self._in_flight = 0
-        self._answered: list[str] = []
-        self._open = False
-        self._gate = threading.Condition()
+
+    @property
+    def asked(self) -> list[str]:
+        return self.gate.asked
+
+    @property
+    def most_at_once(self) -> int:
+        return self.gate.most_at_once
 
     def __call__(self, model_id: str, *, url: str, api_key: str | None = None):
         return _Client(model_id, self)
-
-    def answer(self, document: str) -> None:
-        with self._gate:
-            self.asked.append(document)
-            self._in_flight += 1
-            self.most_at_once = max(self.most_at_once, self._in_flight)
-            waiting = len(DOCUMENTS) - len(self._answered)
-            if self._in_flight >= min(self.meet, waiting):
-                self._open = True
-            self._gate.notify_all()
-            self._gate.wait_for(lambda: self._open and self._turn(document), timeout=PATIENCE)
-        time.sleep(HOLD)
-        with self._gate:
-            self._in_flight -= 1
-            self._answered.append(document)
-            self._gate.notify_all()
-
-    def _turn(self, document: str) -> bool:
-        if not self.order:
-            return True
-        return self.order[len(self._answered)] == document
 
 
 class _Client:
@@ -107,7 +73,7 @@ class _Client:
 
         # The document this call is about, as the stage wrapped it (R3.13).
         document = re.search(r'<document key="([^"]+)">', prompt).group(1)
-        self._provider.answer(document)
+        self._provider.gate.through(document)
         if self._provider.refusing:
             raise ModelRequestFailed(f"POST http://localhost:11434/api/chat refused {document}")
         text = json.dumps(
