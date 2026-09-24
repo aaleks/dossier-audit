@@ -21,6 +21,13 @@ dependencies = [
     # network (R0.9). Its MockTransport answers a request with no socket, which
     # is what lets the default suite test the client offline.
     "httpx>=0.28.1",
+    # Jira wiki markup to markdown, for an issue's description and comments
+    # (spec 008, R8.17). A dependency of dossier itself rather than an extra,
+    # because the Jira connector it serves is not one. Pinned exactly, as
+    # Docling is: what it writes is inside the artifact, and K_convert names
+    # jira-issue-markdown's version, not this library's (R5.4). Upgrading it is
+    # a new version of that converter.
+    "jira2markdown==0.5.1",
 ]
 
 [project.optional-dependencies]
@@ -84,6 +91,7 @@ jira = "dossier.infrastructure.connectors.jira:JiraConnector.from_config"
 # registers through the same group a third party would use, with no special case.
 [project.entry-points."dossier.converters"]
 docling-markdown = "dossier.infrastructure.converters.docling_markdown:DoclingMarkdownConverter"
+jira-issue-markdown = "dossier.infrastructure.converters.jira_issue_markdown:JiraIssueMarkdownConverter"
 image-jpeg-pages = "dossier.infrastructure.converters.image_pages:JpegPagesConverter"
 image-png-pages = "dossier.infrastructure.converters.image_pages:PngPagesConverter"
 markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextConverter"

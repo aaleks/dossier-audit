@@ -13,6 +13,30 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A Jira issue converts. The connector held every issue as `application/json`,
+nothing claimed that pair, and `dossier convert` refused the whole source: a Jira
+source could be synced and never audited, which playground exercise 11 walked
+into. Claiming `application/json` would claim every JSON document any source
+holds, so the connector now labels an issue with what wrote it,
+`application/vnd.dossier.jira-issue+json` (R1.14), and `jira-issue-markdown`
+claims that pair. The note is decided in `domain` by `jira_issue.note`: the key
+and summary as a heading, six fields when the issue has them, attachments by
+name, the description, then the comments in Jira's order under author and time
+-- and nothing else in the payload, so a custom field or an avatar URL is never
+something a model can quote (R8.16). A thread Jira sent only part of says how
+much is missing (R8.18). The description and comments are Jira wiki markup,
+written as markdown by `jira2markdown` 0.5.1, a new core dependency pinned
+exactly, with its escaping off and `\r\n` made `\n` (R8.17). Pandoc's jira
+reader and rendered HTML through `markdownify` were considered and are recorded
+in spec 008. The test fixture is an issue in the shape a real Jira Server sends,
+recorded from `issues.apache.org/jira`.
+
+A live sync of Apache's public Jira converted two real issues cleanly -- a stack
+trace in `{noformat}`, a comment in Korean -- and a third found the next wall: an
+issue carrying `.csv`, `.jsonl` and `.html` attachments refuses the whole source,
+because nothing converts those types (R8.5). The HTML one is what the Confluence
+converter will claim.
+
 A photocopy converts to text. `pdf-markdown` reads a PDF's text layer, and a
 scanned contract has none: it converted to three page anchors and nothing else,
 and no field in it could ever be grounded. `docling-markdown` runs Docling over

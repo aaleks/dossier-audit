@@ -90,8 +90,7 @@ written back as a picture, and nothing else of the page is kept.
 
 `tests/fixtures/jira/INC-4821.json` is `INC-4821` as `GET /rest/api/2/issue/INC-4821`
 answers it. The shape -- every top-level key, the nested `self` links and avatar
-URLs, the empty custom fields, `
-` line endings in wiki markup -- is recorded
+URLs, the empty custom fields, `\r\n` line endings in wiki markup -- is recorded
 from a real Jira Server 8.20.10 (`issues.apache.org/jira`), and the content is
 ours:
 

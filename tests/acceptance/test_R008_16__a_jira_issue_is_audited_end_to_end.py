@@ -27,8 +27,6 @@ import pytest
 from tests.fakes import register_connector
 from tests.pipelines import write_pipeline
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 SOURCE = "incidents-jira"
 JIRA = "https://jira.example.internal"
