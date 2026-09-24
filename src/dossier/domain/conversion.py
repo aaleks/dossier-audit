@@ -76,6 +76,9 @@ class Converter(BaseModel):
     version: str
     media_type: str
     kind: str
+    # Answers nothing unless the workspace names it (R8.13). For a converter
+    # claiming a pair another already answers, which it may only take when asked.
+    opt_in: bool = False
 
 
 class NoConverter(ValueError):
@@ -209,6 +212,57 @@ def check_declared(converter: object, *, group: str) -> None:
     )
 
 
+def answering(available: Sequence[Converter], *, named: Sequence[str]) -> list[Converter]:
+    """The converters that answer in a workspace, in `available`'s order (R8.13).
+
+    `named` is `converters:` from `sources.yaml`. A named converter answers every
+    pair it claims, in place of any other claiming it; an opt-in converter answers
+    nothing unless it is named. Decided here, once, so that `select` and `used`
+    are handed at most one converter per pair and never learn there was a choice
+    -- which is also why a replay, reading the pins a run wrote, needs no change.
+
+    A name nothing installed carries is refused rather than ignored: ignored, a
+    misspelt name is no choice at all, and the workspace would convert with
+    whatever answered before while its author read the file and believed
+    otherwise.
+    """
+    installed = sorted({converter.id for converter in available})
+    unknown = sorted(set(named) - set(installed))
+    if unknown:
+        raise NoConverter(
+            f"sources.yaml names {', '.join(unknown)} under converters:, and no installed "
+            f"package provides it. Installed: {', '.join(installed)}. A converter is "
+            "added by installing a package that declares a dossier.converters entry point."
+        )
+
+    chosen = [converter for converter in available if converter.id in named]
+    claimed: dict[tuple[str, str], Converter] = {}
+    conflicts: list[str] = []
+    for converter in chosen:
+        pair = (converter.media_type, converter.kind)
+        held = claimed.setdefault(pair, converter)
+        if held.id != converter.id:
+            conflicts.append(
+                f"({pair[0]}, {pair[1]}) is claimed by both {held.id} and {converter.id}"
+            )
+    if conflicts:
+        raise NoConverter(
+            "sources.yaml names two converters for one pair under converters:, and "
+            "either would be picking by the order the list was written in:\n  "
+            + "\n  ".join(sorted(conflicts))
+        )
+
+    return [
+        converter
+        for converter in available
+        if converter.id in named
+        or (
+            (converter.media_type, converter.kind) not in claimed
+            and not getattr(converter, "opt_in", False)
+        )
+    ]
+
+
 def select(
     *,
     media_type: str,
@@ -302,7 +356,10 @@ def _claims(available: Sequence[Converter]) -> dict[tuple[str, str], Converter]:
     if conflicts:
         raise NoConverter(
             "two converters claim the same pair, and picking either would be "
-            "picking by installation order:\n  " + "\n  ".join(sorted(conflicts))
+            "picking by installation order:\n  "
+            + "\n  ".join(sorted(conflicts))
+            + "\nA workspace settles it by naming one under converters: in "
+            "sources.yaml (R8.13)."
         )
     return claimed
 
