@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.15
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.18
 
 ## Purpose
 
@@ -181,6 +181,59 @@ command a failure names.
 - Docling's markdown escapes underscores and HTML by default. A model quotes
   `lb_acq_01`, not `lb\_acq\_01`, so both are off: the artifact is text a span is
   searched in, not markdown for a renderer.
+
+## A Jira issue
+
+The Jira connector holds an issue as the JSON Jira sent (R1.2), and nothing
+converted it: `dossier convert` over a Jira source stopped on
+`nothing converts ('application/json', 'markdown')` for every issue, so a source
+could be synced and never audited. Playground exercise 11 walked into it.
+
+`jira-issue-markdown` converts it. It claims
+`(application/vnd.dossier.jira-issue+json, markdown)` -- the type the connector
+reports an issue as (R1.14) -- and it ships in this package with the connector,
+because a connector whose documents nothing reads is half a source.
+
+**The note.** An issue payload is mostly machinery: avatar URLs, a `self` link on
+every nested object, permission ids, a hundred custom fields that are empty. The
+note is what a person reading the incident reads -- the key and summary, a few
+fields, the description and the comments, in that order -- and nothing else
+(R8.16). Dropping the rest is not tidying. Forty kilobytes of avatar URLs in
+`{{documents}}` is forty kilobytes a model can find a plausible quote in. Which
+fields are kept, and the order, is a decision over the parsed issue, and is made
+in `domain`.
+
+**The markup.** The connector reads Jira's REST API version 2, which answers the
+description and each comment as *wiki markup* on both Cloud and Data Center:
+`h2. Impact`, `{code:sql}`, `[the rollback|https://…]`. They are written as
+markdown (R8.17). Two choices go beyond what the library does by default, both
+for the reason `docling-markdown` turns its escapes off: the artifact is text a
+span is searched in, not markdown for a renderer. Nothing is backslash-escaped,
+and Jira's `\r\n` line endings -- which Data Center sends -- become `\n`.
+
+**Existing options considered**, before writing any of it:
+
+| Option | Checked | Covers | Missing |
+|---|---|---|---|
+| [`jira2markdown`](https://github.com/catcombo/jira2markdown) 0.5.1 | MIT, pure Python over `pyparsing`. Released 2026-08-13, four releases in two years, issues answered | Wiki markup to markdown: headings, lists, tables, code and noformat blocks, panels, quotes, links, mentions, attachments. Its element list is a constructor argument, so escaping can be left out without patching it | Which fields are the document, and the note's shape: the delta, and project-specific |
+| pandoc's `jira` reader, through `pypandoc-binary` 1.17 | Pandoc is active and very widely used | The same markup, from a mature parser | A 25–40 MB binary per platform, called as a subprocess, for one field format. The same delta |
+| Rendered HTML (`expand=renderedFields`) through `markdownify` | `markdownify` 1.2.3, June 2026, 2.2k stars | Would share one HTML reader with a Confluence converter | Changes the payload every issue is stored as -- a new snapshot of every held issue -- and carries the server's own URLs and macro markup into the note |
+
+**Chosen: `jira2markdown`**, as a dependency of `dossier` itself rather than an
+extra, since the connector it serves is not an extra either. It is pinned exactly,
+as Docling is: what it writes is inside the artifact, and `K_convert` names the
+converter's version, not its library's (R5.4). Upgrading it is a new version of
+`jira-issue-markdown`. The Atlassian Document Format, which REST API version 3
+answers instead, is not read: the connector never asks version 3.
+
+**A workspace synced before R1.14** holds its issues as `application/json`. The
+label is recorded when an issue is fetched (R2.16) and an unchanged issue is not
+fetched again (R2.1), so an issue keeps the old label until it next changes, and
+convert still refuses it by that pair. Nothing depended on the old label: nothing
+converted it. Declaring or changing the source's `fields:` re-fetches every issue
+(R2.3), and `fields: [key, fields]` is the projection a Jira source wants anyway
+-- it leaves out `self` and `expand`, so a new hostname does not re-snapshot every
+issue.
 
 ## Must hold
 
@@ -414,6 +467,7 @@ that a platform fills in.
 | 1 | What is the default `kind` for each media type, beyond `application/pdf → markdown`? | RESOLVED by R8.10 — the table is declared, `image/*` defaults to `page_images`, and anything absent falls back to `markdown` |
 | 2 | Is `docling-markdown`'s artifact byte-identical on another machine? It was identical across runs, thread counts and two inference backends on one Windows machine | OPEN — needs the photocopy converted on a second machine, Linux, and the two artifact hashes compared. A run stays reproducible either way, because a replay reads the artifact the run cached and never converts again (R4.7) |
 | 3 | Should a source, rather than the workspace, choose the converter for a pair? | OPEN — needs a corpus mixing scans with born-digital PDFs where Docling's cost on the digital ones matters. Until then `docling-markdown` reads a digital page from its text layer anyway (R8.14) |
+| 4 | Which custom fields belong in a Jira issue's note? The payload names them `customfield_10042`, and what a person calls them comes only with `expand=names`, which changes every payload the connector stores | OPEN — needs a real incident project where a custom field holds what a stage must read. Until then the note holds none (R8.16 row 6) |
 
 ### R8.12 — an image converts to `page_images` as a container of one part, and every part is a PNG
 
@@ -514,3 +568,61 @@ command that puts the right one where it is looked for.
 | 3 | `model.safetensors` from a later `main` in that folder | the same failure, naming the file, the SHA-256 it expected and the one it found; the right folder holding the wrong weights is the case nothing else would see |
 | 4 | *counter-example* — the folder also holding the model's `README.md` and a picture | converts; only the files the converter reads are checked |
 | 5 | *counter-example* — a workspace naming `docling-markdown` whose sources hold only markdown | nothing fails and nothing is checked; a model is needed by a PDF converted with it, not by the name |
+
+### R8.16 — `jira-issue-markdown` converts an issue to a note of its key, summary, fields, description and comments, and of nothing else in the payload
+
+In this order: `# <key> — <summary>`; a line for each of Status, Type, Priority,
+Resolution, Created and Updated the issue has, then its attachments by name;
+`## Description`; `## Comments`, each comment under its author's display name and
+the time Jira wrote beside it. A value is written as Jira sent it: a timestamp is
+not re-zoned, because the note may not depend on the machine converting it
+(R8.1). An attachment is named and never inlined. It is its own document (R1.6),
+and a sentence held by two artifacts is a span that cannot say which one it was
+found in.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.jira_issue.note`), called by infrastructure (`dossier.infrastructure.converters.jira_issue_markdown`)
+- **Proved by:** `tests/unit/test_R008_16__an_issue_converts_to_a_note_of_what_a_person_reads.py`, `tests/acceptance/test_R008_16__a_jira_issue_is_audited_end_to_end.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821`, summary `Card payments declined at checkout` | the note opens `# INC-4821 — Card payments declined at checkout` |
+| 2 | status `Done`, type `Incident`, priority `High`, no resolution | `**Status:** Done`, `**Type:** Incident`, `**Priority:** High`, in that order, under the heading; no `Resolution` line |
+| 3 | two comments, `m.keller`'s then `a.aleks`'s | both under `## Comments`, `m.keller`'s first: Jira's order is the thread's order, and sorting it would make a different conversation |
+| 4 | `report.pdf` attached | `**Attachments:** report.pdf`, and none of its text |
+| 5 | `incidents-jira` synced from Jira, and a stage quoting `CHF 48'200` from `INC-4821`'s description | `loss_amount` is `grounded` (R6.4); before this the issue could not be converted, so no stage ever read it |
+| 6 | *counter-example* — the issue's avatar URLs, its `self` links and `customfield_10042` | none of them is in the note |
+| 7 | *counter-example* — `{"key": "INC-4821"}`, with no `fields` object | that document fails, naming `jira-issue-markdown` and saying it is not a Jira issue; the source's other documents convert (R8.6) |
+
+### R8.17 — an issue's description and comments are read as Jira wiki markup and written as markdown; its summary and fields are written as text
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.converters.jira_issue_markdown`)
+- **Proved by:** `tests/unit/test_R008_17__wiki_markup_is_written_as_markdown.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a description `h2. Impact`, then `* 42 minutes of declined payments`, its lines ending `\r\n` as Data Center sends them | `## Impact`, then `- 42 minutes of declined payments`, its lines ending `\n` |
+| 2 | a comment `see [the rollback|https://git.example/r/77]` | `see [the rollback](https://git.example/r/77)` |
+| 3 | a description `pool lb_acq_01 held 3*2 connections` | written as it stands, with no `\_` and no `\*`: a model quotes the text, not an escape |
+| 4 | *counter-example* — the summary `*Sev 1* card declines` | the heading keeps `*Sev 1*` as typed; Jira shows a summary as text and never renders it, so neither does the note |
+
+### R8.18 — an issue that holds fewer comments than it counts says so in its note
+
+Jira embeds an issue's comments in its payload and says how many there are in
+`comment.total`. A payload holding fewer is a document with part of its thread
+missing, and a note that looked complete would let a stage report a thread's
+conclusion from its first half.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.jira_issue.note`)
+- **Proved by:** `tests/unit/test_R008_18__a_note_says_when_comments_are_missing.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `comment.total` 7, and the payload holding 5 | after the fifth comment, `2 of 7 comments are not in this snapshot.` |
+| 2 | *counter-example* — `comment.total` 2, and the payload holding 2 | no such line |
+| 3 | *counter-example* — no `comment` field at all | no `## Comments` section, and no such line |
