@@ -225,6 +225,12 @@ class Tracker(Protocol):
 
     A run holds traces; a trace is one (step, document), the unit of a cache key
     (spec 011), and holds spans.
+
+    A trace is current in the thread that opened it: `span`, `assess` and
+    `end_trace` are about the trace their own thread opened last. A run asking
+    about several documents at once opens each one's trace on the worker that
+    asks about it, and a tracker holding one current trace for the process
+    would send every span to the last trace opened (R11.21).
     """
 
     def start_run(self, *, experiment: str, name: str, tags: Mapping[str, str]) -> None: ...

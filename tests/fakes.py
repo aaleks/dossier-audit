@@ -204,10 +204,18 @@ class FakeTracker:
     only accepted calls could prove neither (spec 010). Every method returns
     `None` -- the port reads nothing back from a server, so nothing a tracker
     holds can reach a key, a manifest or a score (R0.10 row 5).
+
+    A trace is current in the thread that opened it, as the port promises
+    (R11.21): a fake holding one current trace for the process could not fail
+    when a run's workers sent their spans to each other's traces.
     """
 
     def __init__(self) -> None:
         self.runs: list[FakeRun] = []
+        # The trace each thread has open (R11.21), and a lock for the list
+        # every thread's trace joins.
+        self._open = threading.local()
+        self._opening = threading.Lock()
         # (prompt name, version) per link, in the order the run made them.
         # A list rather than a set: R14.7 is a claim about which versions
         # were linked, and a duplicate would be a defect worth seeing.
@@ -264,7 +272,10 @@ class FakeTracker:
         self._run.tags["mlflow.note.content"] = text
 
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
-        self._run.traces.append(FakeTrace(name=name, tags=dict(tags)))
+        trace = FakeTrace(name=name, tags=dict(tags))
+        with self._opening:
+            self._run.traces.append(trace)
+        self._open.trace = trace
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None:
         self._trace.spans.append({"kind": kind, "name": name, **attributes})
@@ -298,9 +309,13 @@ class FakeTracker:
 
     @property
     def _trace(self) -> FakeTrace:
-        if not self._run.traces:
+        # The one this thread opened last, in the run now open: a span from a
+        # thread that opened none, or recorded into a run it was not opened in,
+        # is a defect in the caller and said as one.
+        trace = getattr(self._open, "trace", None)
+        if trace is None or not any(held is trace for held in self._run.traces):
             raise FakeTrackerError("recorded to a trace that was never started")
-        return self._run.traces[-1]
+        return trace
 
 
 @dataclass
