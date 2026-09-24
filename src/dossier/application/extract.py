@@ -21,6 +21,7 @@ from dossier.domain.grounding import FieldCheck, check_field, with_derived_page
 from dossier.domain.ports import ImagePart, ModelClient, Tracker
 from dossier.domain.schemas import FieldRecord, StageOutput
 from dossier.domain.tracking import span_payload
+from dossier.domain.usage import Tokens, tokens_of, total
 
 # One retry, and exactly one. A model that cannot produce the shape twice will
 # not produce it on the fifth attempt either, and an unbounded retry loop turns a
@@ -58,6 +59,10 @@ class DocumentResult:
     # cache hit, which carries the stored bytes forward rather than re-deriving
     # them.
     text: str | None = None
+    # What this run's calls for this document cost, every attempt included --
+    # the refused one cost as much as the one that stood (R5.11). Nothing, for
+    # an answer served from cache: that is a count, not an absence of one.
+    tokens: Tokens = Tokens(input=0, output=0)
 
     @property
     def failed(self) -> bool:
@@ -116,10 +121,11 @@ def run_stage(
             capture=capture,
             hashes=hashes,
         )
-        return DocumentResult(document=document, attempts=1, text=text)
+        return DocumentResult(document=document, attempts=1, text=text, tokens=tokens_of(text))
 
     attempts = 0
     correction: str | None = None
+    spent: list[Tokens] = []
 
     while attempts < MAX_ATTEMPTS:
         attempts += 1
@@ -134,6 +140,7 @@ def run_stage(
             hashes=hashes,
             parts=parts,
         )
+        spent.append(tokens_of(response))
 
         try:
             output = StageOutput.model_validate_json(response)
@@ -182,6 +189,7 @@ def run_stage(
             records=records,
             checks=checks,
             attempts=attempts,
+            tokens=total(spent),
         )
 
     # Second failure. The document is reported as failed and is not cached; the
@@ -190,6 +198,7 @@ def run_stage(
         document=document,
         attempts=attempts,
         error=f"{document}: no valid output after {attempts} attempts -- {correction}",
+        tokens=total(spent),
     )
 
 

@@ -331,7 +331,7 @@ it -- which was nothing, and R5.12 is where that is said.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys.provenance`, `dossier.domain.usage`), application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R005_11__a_provenance_record_says_what_its_artifact_cost.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
