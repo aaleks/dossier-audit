@@ -170,6 +170,15 @@ differ.
 | `20260907T090000Z-bbbb` | a second run of the same pipeline, served from cache; the id R0.8 row 3 and R0.11 row 2 write under |
 | `20260918T140000Z-1e2f` | the replay id: a directory under `runs/20260806T142203Z-4f1a/replays/`, in the run-id form (R0.12) |
 
+## Token counts (R9.18, R5.11, R5.12, R11.20)
+
+| Value | Meaning |
+|---|---|
+| 1204 in, 212 out | what one answer about `INC-4821` cost, as its provider counted it: `usage.prompt_tokens` and `usage.completion_tokens` from an OpenAI-compatible endpoint, `input_tokens`/`output_tokens` from Anthropic, `prompt_eval_count`/`eval_count` from Ollama. 1416 in all |
+| 1391 in, 230 out | the second attempt at `INC-4822`, which carries the validation error the first failed on (R6.2), and so is longer |
+| 2595 in, 442 out | the two attempts at `INC-4822` together: what its provenance record says the artifact cost (R5.11 row 2) |
+| 3,612 in, 636 out | three documents at 1204/212 each: what `extract` says it spent, and the run's `tokens_in`/`tokens_out` (R5.12 row 1, R11.20 row 1) |
+
 ## Configuration
 
 | Value | Meaning |

@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.19
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.20
 
 ## Purpose
 
@@ -499,3 +499,37 @@ metadata: the value R4.9 already writes into every manifest.
 | 2 | `dossier run`, `convert`, `calibrate` and `eval --compare` | the same param, under the same name the eval already records it (R11.11 row 1) |
 | 3 | *counter-example* — the manifest that run wrote | already holds it (R4.9). The param is a second place to read the version, never a second way of arriving at it |
 | 4 | *counter-example* — tracking off | no param, and nothing under `runs/` or `.dossier/` differs by a byte (R10.4) |
+
+### R11.20 — a run's record holds the tokens it spent, and each LLM span carries its call's tokens where MLflow reads them
+
+The run gains two metrics beside `model_calls`, `tokens_in` and `tokens_out`:
+the same sums R5.12 prints, handed to the record rather than worked out again
+(this spec's first principle). Each LLM span carries its one call's count under
+`mlflow.chat.tokenUsage` -- `input_tokens`, `output_tokens` and `total_tokens`
+-- which is MLflow's own attribute rather than a `dossier.` one: MLflow 3 adds
+every span's into its trace's `mlflow.trace.tokenUsage`, so the trace list says
+what each (step, document) cost without `dossier` computing a second total.
+
+A count is not content. It is recorded under `capture=hashes` exactly as under
+`full` (R10.8): a number of tokens says nothing a hashed span must not.
+
+A run that asked nothing spent nothing, and records `0`: a true count. A run
+with a call its provider did not report records neither metric, and that span
+carries no usage -- missing, not `0`, as a withheld field is missing from the
+record rather than scored (R7.17).
+
+What a judge's calls cost in `dossier eval` and `dossier calibrate` is not
+claimed here; a stage's are.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`, `dossier.application.extract`)
+- **Proved by:** `tests/unit/test_R011_20__a_run_records_the_tokens_it_spent.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | three documents, nothing cached, each answer costing 1204 in and 212 out | metrics `tokens_in` 3612 and `tokens_out` 636; each of the three LLM spans carries `mlflow.chat.tokenUsage` `{input_tokens: 1204, output_tokens: 212, total_tokens: 1416}` |
+| 2 | `INC-4822` valid on its second attempt (R11.2 row 2) | two LLM spans in its trace, each carrying its own attempt's count; the run's metrics hold their sum |
+| 3 | `DOSSIER_MLFLOW_CAPTURE=hashes` | the same usage on every span, and still no prompt or reply text (R10.8 row 2) |
+| 4 | *counter-example* — the same run again, every document from cache | no LLM span (R11.2 row 3), and `tokens_in` and `tokens_out` both `0`: nothing was asked |
+| 5 | *counter-example* — a provider that reports nothing (R9.18 row 4) | no `mlflow.chat.tokenUsage` on the span, and no `tokens_in` or `tokens_out` on the run: missing, not `0` |
