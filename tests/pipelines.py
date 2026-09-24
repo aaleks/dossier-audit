@@ -63,8 +63,12 @@ def write_pipeline(
     reference: list[str] | None = None,
     model: str = "anthropic:claude-sonnet-4-5-20250929",
     write_declaration: bool = True,
+    step_models: dict[str, str] | None = None,
 ) -> Path:
-    """Write `pipelines/<name>/pipeline.yaml` and return its path."""
+    """Write `pipelines/<name>/pipeline.yaml` and return its path.
+
+    `step_models` names a step's own `model:`, for the steps that have one (R3.14).
+    """
     steps = ["extract"] if steps is None else steps
     inputs = inputs or {}
     outputs = outputs or {}
@@ -98,6 +102,8 @@ def write_pipeline(
         output = outputs.get(step, "schemas/incident.yaml")
         if output is not None:
             lines.append(f"    output: {output}")
+        if step in (step_models or {}):
+            lines.append(f"    model: {step_models[step]}")
 
     path = directory / "pipeline.yaml"
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
