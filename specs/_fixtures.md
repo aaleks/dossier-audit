@@ -12,6 +12,7 @@ Do not invent a new incident key for a new example. Add to this file instead.
 | Name | Role |
 |---|---|
 | `a.aleks` | Verifies the gold answers and signs off the judge threshold. The name the gold set records in `verified_by` (R7.11, R7.12) |
+| `m.keller` | Incident commander on `INC-4821`. The first comment on the Jira issue is theirs (R8.16 row 3) |
 
 ## Documents
 
@@ -84,6 +85,24 @@ written back as a picture, and nothing else of the page is kept.
 |---|---|---|
 | `INC-4830` | *photocopied* | all three pages pictures, no text layer. The root cause is on page 2 |
 | `INC-4830` | *half-photocopied* | page 1 as published, with its text layer; pages 2 and 3 pictures |
+
+## A Jira issue as Jira sends it
+
+`tests/fixtures/jira/INC-4821.json` is `INC-4821` as `GET /rest/api/2/issue/INC-4821`
+answers it. The shape -- every top-level key, the nested `self` links and avatar
+URLs, the empty custom fields, `
+` line endings in wiki markup -- is recorded
+from a real Jira Server 8.20.10 (`issues.apache.org/jira`), and the content is
+ours:
+
+| Field | Value |
+|---|---|
+| `summary` | `Card payments declined at checkout` |
+| `status` / `issuetype` / `priority` / `resolution` | `Done` / `Incident` / `High` / none |
+| `description` | wiki markup: an `h2. Impact` section stating the loss, `CHF 48'200`, and no root cause |
+| `comment` | two, `m.keller`'s then `a.aleks`'s; `total` 2 |
+| `attachment` | `report.pdf` |
+| `customfield_10042` | a value no note may carry (R8.16 row 6) |
 
 **Per-field gold answers are not recorded for the corpus as a whole.** Writing
 expected values nobody verified is inventing a threshold by another name. What is

@@ -1,7 +1,7 @@
 # 001 — Source connectors
 
-**Status:** Implemented
-**Rules:** R1.1 – R1.13
+**Status:** Partially implemented
+**Rules:** R1.1 – R1.14
 
 ## Purpose
 
@@ -372,3 +372,23 @@ inference is a second thing to be wrong about when the route answers 410.
 | 3 | `deployment: cloud` and `INC-4821` fetched | `GET …/rest/api/2/issue/INC-4821`, the route Data Center uses |
 | 4 | *counter-example* — `deployment: server` | load-time error naming the key and the two values it takes (R1.10) |
 | 5 | *counter-example* — `list(since=t)` on either deployment | the same widened `updated >=` clause (R1.4); the deployment changes the route, never the query |
+
+### R1.14 — a Jira issue is reported as `application/vnd.dossier.jira-issue+json`, never as `application/json`
+
+A media type chooses a converter (R8.3), and the pair is the whole type. A
+converter claiming `application/json` would claim every JSON document any source
+ever holds -- a webhook body, a configuration export, a Confluence page -- and read
+each as though Jira had written it. The issue is labelled with what wrote it, so
+that the converter reading it claims Jira issues and nothing else (R8.16). A file
+an issue carries is still what Jira says that file is (R2.16).
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.jira`), naming the type the domain declares (`dossier.domain.conversion.JIRA_ISSUE`)
+- **Proved by:** `tests/unit/test_R001_14__a_jira_issue_is_reported_as_a_jira_issue.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821` fetched | `media_type` `application/vnd.dossier.jira-issue+json`, and the payload the bytes Jira sent (R1.2) |
+| 2 | *counter-example* — `INC-4821/report.pdf` fetched, Jira reporting `application/pdf` | `application/pdf`; what the issue carries is labelled by what Jira says it is, not by the issue (R2.16) |
+| 3 | *counter-example* — a folder source holding `export.json` | `application/json`, as R2.16 assigns it; a folder has only the name to go on and cannot know what wrote the file |
