@@ -21,11 +21,12 @@ from collections.abc import Callable, Sequence
 import httpx
 
 from dossier.domain.model_id import check_served
-from dossier.domain.ports import ImagePart
+from dossier.domain.ports import ImagePart, Reply
 from dossier.infrastructure.models._http import (
     TIMEOUT_SECONDS,
     ModelRequestFailed,
     Sleep,
+    count_at,
     encoded,
     http_client,
     request,
@@ -110,7 +111,12 @@ class OpenAICompatibleClient:
                 "json_schema": {"name": "stage_output", "schema": schema},
             }
         response = request(self._http, "POST", self._url, json=body, sleep=self._sleep)
-        return text_at(response, "choices", 0, "message", "content")
+        # What the answer cost, where the chat-completions API says it (R9.18).
+        return Reply(
+            text_at(response, "choices", 0, "message", "content"),
+            input_tokens=count_at(response, "usage", "prompt_tokens"),
+            output_tokens=count_at(response, "usage", "completion_tokens"),
+        )
 
     def _check_served(self) -> None:
         """Stop before the first completion if the server serves another model (R9.6).

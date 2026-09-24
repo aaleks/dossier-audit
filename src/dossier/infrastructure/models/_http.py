@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from dossier.domain.retries import MAX_RETRIES, retry_after, retryable, wait_before
+from dossier.domain.usage import counted
 
 if TYPE_CHECKING:
     from dossier.domain.ports import ImagePart
@@ -114,6 +115,21 @@ def text_at(response: httpx.Response, *path: str | int) -> str:
             f"{response.status_code} with no {where}"
         )
     return value
+
+
+def count_at(response: httpx.Response, *path: str) -> int | None:
+    """The token count at `path` in a JSON answer, or `None` where there is none (R9.18).
+
+    Absent, malformed or not a count at all, it is `None`: an answer that did not
+    say what it cost is recorded as not saying, never as costing nothing.
+    """
+    try:
+        value = response.json()
+        for step in path:
+            value = value[step]
+    except (ValueError, KeyError, IndexError, TypeError):
+        return None
+    return counted(value)
 
 
 def encoded(part: ImagePart) -> str:

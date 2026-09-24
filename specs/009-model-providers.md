@@ -1,6 +1,6 @@
 # 009 — Model providers
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R9.1 – R9.18
 
 ## Purpose
@@ -459,7 +459,7 @@ Tokens are what an answer cost, not what it was asked, so they enter no key
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.ports.Reply`, `dossier.domain.usage`), infrastructure (`dossier.infrastructure.models`)
 - **Proved by:** `tests/unit/test_R009_18__a_reply_carries_the_tokens_its_provider_counted.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
