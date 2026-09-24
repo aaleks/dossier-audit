@@ -19,9 +19,15 @@ not, so its location cannot reach an artifact (R8.1).
 from __future__ import annotations
 
 import hashlib
+import io
+import logging
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from dossier.domain.conversion import ocr_pages
+from dossier.domain.grounding import page_anchor
+from dossier.infrastructure.converters.pdf_markdown import PAGE_SEPARATOR
 
 # How much of a weight file is read at a time while it is hashed. The table
 # model is two hundred megabytes, and reading it whole to hash it would hold all
@@ -126,3 +132,179 @@ def _sha256(path: Path) -> str:
         while chunk := weights.read(_CHUNK):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+# How many threads Docling's models run on, fixed rather than read from the
+# machine: Docling otherwise takes it from `OMP_NUM_THREADS`, an environment
+# variable a converter may not read (R8.1). Measured before R8.14 was written:
+# one thread and four produced the same artifact byte for byte, so this is about
+# speed and about not asking the environment, never about the output.
+THREADS = 4
+
+# RapidOCR's own models, the ONNX files that ship inside its wheel and are pinned
+# with it, as PDFium is with pypdfium2. PP-OCRv6 small: the detector finds lines
+# of text and the recogniser reads them, its characters held in its own ONNX
+# metadata. Named rather than left to RapidOCR, whose defaults for a torch
+# engine are *not* in the wheel: asked for them, it downloads them on first use,
+# into its own package folder -- found when a fresh install failed on a
+# dictionary file the first spike had quietly fetched.
+_OCR_MODELS = {
+    "det_model_path": "PP-OCRv6_det_small.onnx",
+    "rec_model_path": "PP-OCRv6_rec_small.onnx",
+    "cls_model_path": "ch_ppocr_mobile_v2.0_cls_mobile.onnx",
+}
+
+
+class DoclingMarkdownConverter:
+    """`application/pdf` to `markdown` through Docling, with OCR where there is no text."""
+
+    id = "docling-markdown"
+    # Raise this whenever output could change for the same input (R5.4). It
+    # covers everything the artifact is a function of besides the PDF: the pinned
+    # Docling, RapidOCR and onnxruntime of the `docling` extra, the model commits
+    # in `MODELS`, and every option below -- the direction classifier off, a page
+    # with no text layer OCR'd whole, escaping off, pictures leaving no mark.
+    version = "1.0.0"
+    media_type = "application/pdf"
+    kind = "markdown"
+    # It claims `pdf-markdown`'s pair, so it answers only where a workspace names
+    # it (R8.13). Installing the extra changes nothing until then.
+    opt_in = True
+
+    def __init__(self, models: Path | None = None) -> None:
+        # `None` is Docling's own model folder, found when a PDF is first
+        # converted -- which is also when Docling is first imported, so a
+        # workspace that names this converter and holds no PDF pays for neither.
+        self._models = models
+        self._checked: Path | None = None
+        self._pipelines: dict[bool, object] = {}
+
+    def convert(self, payload: bytes, options: Mapping[str, str]) -> bytes:
+        """Every page, in page order, behind its anchor (R6.14, R8.14).
+
+        A page whose text layer holds no printable character is OCR'd whole; any
+        other page is read from its layer, with Docling's own OCR reading the
+        pictures on it. Which is which is decided in `domain` (`ocr_pages`).
+        """
+        models = self._models if self._models is not None else _docling_models(self.id)
+        if self._checked != models:
+            check_models(models)
+            self._checked = models
+
+        try:
+            texts = _text_layers(payload)
+            photographed = set(ocr_pages(texts))
+            pages = [
+                self._read_page(payload, number, models, whole=number in photographed)
+                for number in range(1, len(texts) + 1)
+            ]
+        except Exception as error:
+            # R8.6's shape: one document fails with a reason and the others
+            # convert. A truncated PDF is a bad input, not a misconfigured
+            # pipeline (R8.5).
+            raise ValueError(f"{self.id} could not read this PDF: {error}") from error
+
+        text = PAGE_SEPARATOR.join(
+            f"{page_anchor(number)}\n{page}".rstrip() for number, page in enumerate(pages, 1)
+        )
+        return text.encode("utf-8")
+
+    def _read_page(self, payload: bytes, number: int, models: Path, *, whole: bool) -> str:
+        from docling.datamodel.base_models import DocumentStream
+
+        # One page at a time, because whether a page is OCR'd whole is decided
+        # per page and Docling takes that decision per conversion. The name is a
+        # constant: nothing about where the bytes came from may reach the text.
+        stream = DocumentStream(name="document.pdf", stream=io.BytesIO(payload))
+        document = (
+            self._pipeline(models, whole=whole)
+            .convert(stream, page_range=(number, number))
+            .document
+        )
+        # Escaping off, because the artifact is text a span is searched in rather
+        # than markdown for a renderer: a model quotes `lb_acq_01` and never its
+        # escaped form (R6.4). A picture leaves no placeholder, as it leaves
+        # nothing in `pdf-markdown`'s artifact either.
+        return document.export_to_markdown(
+            page_no=number,
+            escape_underscores=False,
+            escape_html=False,
+            image_placeholder="",
+        )
+
+    def _pipeline(self, models: Path, *, whole: bool):
+        """Docling set up once per OCR mode, with every model read from disk."""
+        if whole not in self._pipelines:
+            self._pipelines[whole] = _docling(models, whole=whole)
+        return self._pipelines[whole]
+
+
+def _docling_models(converter: str) -> Path:
+    """Docling's own model folder, where the `hf download` a failure names puts the weights."""
+    try:
+        from docling.datamodel.settings import settings
+    except ImportError as error:  # pragma: no cover - depends on the install
+        raise ValueError(
+            f"{converter} needs the 'docling' extra: install dossier[docling]"
+        ) from error
+    return settings.cache_dir / "models"
+
+
+def _text_layers(payload: bytes) -> list[str]:
+    """Each page's text layer, read as `pdf-markdown` reads it."""
+    import pypdfium2 as pdfium
+
+    return [
+        page.get_textpage().get_text_bounded() or "" for page in pdfium.PdfDocument(payload)
+    ]
+
+
+def _docling(models: Path, *, whole: bool):
+    """A Docling converter reading only from `models` and RapidOCR's own wheel.
+
+    `artifacts_path` is what keeps Docling off the network: given one, it looks
+    for each model there and nowhere else, and fails rather than downloads when
+    one is absent -- which `check_models` has already ruled out (R8.15).
+    """
+    import rapidocr
+    from docling.datamodel.accelerator_options import AcceleratorOptions
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import (
+        PdfPipelineOptions,
+        RapidOcrOptions,
+        TableFormerMode,
+    )
+    from docling.document_converter import DocumentConverter, PdfFormatOption
+
+    # RapidOCR announces every model it loads at INFO, through a handler of its
+    # own, between the lines `dossier convert` prints. Its logger is set back to
+    # INFO each time RapidOCR builds one, and its handler is made once -- so the
+    # handler is where the level holds. Transformers draws a progress bar for
+    # every model it loads, to the same terminal, for the same nothing.
+    from rapidocr.utils.log import logger as ocr_log
+    from transformers.utils import logging as transformers_logging
+
+    for handler in ocr_log.handlers:
+        handler.setLevel(logging.WARNING)
+    transformers_logging.disable_progress_bar()
+
+    ocr_models = Path(rapidocr.__file__).parent / "models"
+    options = PdfPipelineOptions(artifacts_path=models, do_ocr=True, do_table_structure=True)
+    options.table_structure_options.mode = TableFormerMode.ACCURATE
+    options.accelerator_options = AcceleratorOptions(num_threads=THREADS, device="cpu")
+    options.ocr_options = RapidOcrOptions(
+        backend="onnxruntime",
+        # Measured before R8.14 was written: Docling's automatic OCR on a page
+        # with no text layer dropped the spaces between words that OCR of the
+        # whole page kept, and a span quoted with its spaces is not found in
+        # text without them (R6.4).
+        force_full_page_ocr=whole,
+        # The direction classifier turned one line of a clean, upright scan into
+        # noise; off, the line read correctly. A page scanned upside down reads
+        # worse for it.
+        use_cls=False,
+        **{option: str(ocr_models / name) for option, name in _OCR_MODELS.items()},
+    )
+    return DocumentConverter(
+        format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=options)}
+    )

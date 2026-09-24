@@ -13,7 +13,7 @@ see "How this is built" below. Where the rules stand is printed by
 behind. This README can fall behind, so its figure carries a date. On 2026-09-24:
 
 ```
-specs: 234 rules across 15 specs | 217 MET, 0 IN PROGRESS, 3 NOT MET, 14 SUPERSEDED
+specs: 234 rules across 15 specs | 220 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSEDED
        231 deterministic, 3 evaluated
 ```
 
@@ -39,7 +39,30 @@ specs: 234 rules across 15 specs | 217 MET, 0 IN PROGRESS, 3 NOT MET, 14 SUPERSE
 pip install dossier            # markdown-text, text-plain, png-pages
 pip install dossier[pdf]       # and pdf-markdown, pdf-images, jpeg-pages
 pip install dossier[tracking]  # and MLflow runs, traces and metrics
+pip install dossier[docling]   # and docling-markdown: a PDF with no text layer, read by OCR
 ```
+
+`docling-markdown` is for a photocopy -- a scanned contract, a faxed incident
+note -- which `pdf-markdown` converts to page anchors and nothing else. It claims
+the same pair, so it is **opt-in**: a workspace chooses it by naming it at the top
+of `sources.yaml`, and a workspace that names nothing converts as before.
+
+```yaml
+converters: [docling-markdown]
+```
+
+It never downloads a model. Docling reads a layout model and a table model, and
+`docling-markdown` reads them at pinned commits from Docling's model folder,
+checked by SHA-256. Fetch them once (the first PDF it meets names these commands
+if you have not):
+
+```bash
+hf download docling-project/docling-layout-heron --revision 8f39ad3c0b4c58e9c2d2c84a38465abf757272d8 --local-dir ~/.cache/docling/models/docling-project--docling-layout-heron
+hf download docling-project/docling-models --revision fc0f2d45e2218ea24bce5045f58a389aed16dc23 --include "model_artifacts/tableformer/accurate/*" --local-dir ~/.cache/docling/models/docling-project--docling-models
+```
+
+It is slow -- about twelve seconds a page on a CPU -- and a conversion is cached,
+so `dossier convert` is the place to pay for it once. Spec 008, R8.13-R8.15.
 
 `jpeg-pages` is under the `pdf` extra despite its name: it decodes through
 Pillow, which the PDF converters need anyway and nothing else in `dossier` does.
@@ -171,7 +194,7 @@ uv sync --all-extras    # extras and the dev group; `pip install -e ".[pdf,track
 
 pytest                  # the default suite: offline, seconds, zero cost
 pytest -m outer_loop    # the open slice, when there is one. Red until it lands
-pytest -m live          # the evaluated rules. Real model calls, run deliberately
+pytest -m live          # the evaluated rules, and Docling's models. Run deliberately
 ```
 
 The default suite blocks network access outright — an autouse fixture refuses

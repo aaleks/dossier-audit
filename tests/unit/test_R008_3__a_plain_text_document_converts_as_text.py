@@ -13,10 +13,12 @@ from __future__ import annotations
 
 import pytest
 
-from dossier.domain.conversion import default_kind, select
+from dossier.domain.conversion import answering, default_kind, select
 from dossier.infrastructure.converters.registry import installed_converters
 
-INSTALLED = installed_converters()
+# What a workspace naming no converter is handed (R8.13): everything installed
+# that is not opt-in, which is what `dossier convert` selects from.
+INSTALLED = answering(installed_converters(), named=[])
 
 
 class TestPlainTextIsClaimed:

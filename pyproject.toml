@@ -41,6 +41,23 @@ tracking = ["mlflow>=2.14"]
 # It is here rather than in the base install because nothing outside the
 # picture converters touches it.
 pdf = ["pypdfium2>=4.30", "pillow>=10.0"]
+# docling-markdown: a PDF with no text layer read by OCR (spec 008, R8.14).
+# MIT (Docling), Apache-2.0 (RapidOCR), MIT (onnxruntime). docling-slim with only
+# what reads a PDF; `docling` itself adds converters for Word, PowerPoint, Excel
+# and e-mail that nothing here uses. Pinned exactly, because docling-markdown's
+# version names what reads a photocopy -- Docling's layout and table code,
+# RapidOCR and the OCR models inside its wheel, and the runtime that executes
+# them -- and a newer release of any of them can change an artifact under a key
+# claiming nothing did (R8.2). Moving a pin is raising that version.
+# Heavy: it brings torch, so CI does not install it and the tests that run it
+# are `live`. And docling-core caps typer below 0.27; one lock resolves every
+# extra together, so the whole install holds typer at 0.26.
+docling = [
+    "docling-slim[convert-core,format-pdf,models-local,feat-ocr-rapidocr-onnx]==2.130.0",
+    "rapidocr==3.9.2",
+    "onnxruntime==1.30.0",
+    "pypdfium2>=4.30",
+]
 
 [dependency-groups]
 dev = [
@@ -66,6 +83,7 @@ jira = "dossier.infrastructure.connectors.jira:JiraConnector.from_config"
 # A converter is a package declaring one of these (R8.7). The one shipped here
 # registers through the same group a third party would use, with no special case.
 [project.entry-points."dossier.converters"]
+docling-markdown = "dossier.infrastructure.converters.docling_markdown:DoclingMarkdownConverter"
 image-jpeg-pages = "dossier.infrastructure.converters.image_pages:JpegPagesConverter"
 image-png-pages = "dossier.infrastructure.converters.image_pages:PngPagesConverter"
 markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextConverter"
