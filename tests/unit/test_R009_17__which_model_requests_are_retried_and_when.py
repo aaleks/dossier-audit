@@ -9,9 +9,13 @@ The list and the numbers are both official SDKs', value for value.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
-from dossier.domain.retries import retryable
+from dossier.domain.retries import retry_after, retryable, wait_before
+
+NOW = datetime(2026, 8, 6, 9, 0, 0, tzinfo=UTC)
 
 
 class TestWhichAnswersAreSentAgain:
@@ -38,3 +42,58 @@ class TestWhichAnswersAreSentAgain:
         read is not re-read. Sending either twice only doubles the refusal.
         """
         assert not retryable(status)
+
+
+class TestHowLongToWait:
+    """R9.17 — how long to wait before sending it again: rows 2, 3 and 6."""
+
+    def test_the_server_says_how_long(self):
+        """Row 2: the one where the 429 carries `Retry-After: 3`."""
+        asked = retry_after({"Retry-After": "3"}, now=NOW)
+        assert wait_before(1, retry_after=asked, jitter=1.0) == 3.0
+
+    def test_a_wait_in_milliseconds_is_read_too(self):
+        """Row 2, in the form OpenAI sends: `retry-after-ms`, preferred when both are there."""
+        headers = {"retry-after-ms": "1500", "retry-after": "3"}
+        assert retry_after(headers, now=NOW) == 1.5
+
+    def test_a_wait_given_as_a_date_is_counted_from_now(self):
+        """Row 2, in HTTP's other form: a date, three seconds after the clock handed in."""
+        assert retry_after({"Retry-After": "Thu, 06 Aug 2026 09:00:03 GMT"}, now=NOW) == 3.0
+
+    def test_with_nothing_said_the_wait_doubles_from_half_a_second(self):
+        """Row 3: the one where the 503s carry no `Retry-After`, with no jitter taken."""
+        waits = [wait_before(retry, retry_after=None, jitter=1.0) for retry in (1, 2)]
+        assert waits == [0.5, 1.0]
+
+    def test_the_backoff_is_capped_at_eight_seconds(self):
+        """Row 3's boundary: the doubling stops at 8 s, as both SDKs stop it."""
+        assert wait_before(6, retry_after=None, jitter=1.0) == 8.0
+
+    def test_the_jitter_shortens_the_backoff_and_never_lengthens_it(self):
+        """Row 3: each wait is shortened by up to a quarter, so callers refused together
+        do not come back together."""
+        assert wait_before(2, retry_after=None, jitter=0.75) == 0.75
+
+    def test_a_wait_longer_than_a_minute_is_not_waited_for(self):
+        """Row 6, a counter-example: the one where the 429 asks for two minutes.
+
+        Both SDKs use their own backoff instead, and a server asking for longer is
+        a quota rather than a burst.
+        """
+        asked = retry_after({"Retry-After": "120"}, now=NOW)
+        assert wait_before(1, retry_after=asked, jitter=1.0) == 0.5
+
+    def test_a_wait_of_exactly_a_minute_is_waited_for(self):
+        """Row 6's boundary: 60 s is the longest wait honoured, and it is honoured."""
+        assert wait_before(1, retry_after=60.0, jitter=1.0) == 60.0
+
+    @pytest.mark.parametrize("value", ["0", "-2", "soon", ""])
+    def test_a_wait_that_is_not_a_wait_falls_back_to_the_backoff(self, value: str):
+        """Row 6's other side: the one where `Retry-After` says nothing usable."""
+        asked = retry_after({"Retry-After": value}, now=NOW)
+        assert wait_before(1, retry_after=asked, jitter=1.0) == 0.5
+
+    def test_no_header_is_no_wait_asked_for(self):
+        """Row 3: the one where the server says nothing about waiting."""
+        assert retry_after({}, now=NOW) is None
