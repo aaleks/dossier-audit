@@ -15,6 +15,7 @@ reaches this module. How a request is made and how a failure is reported is
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Sequence
 
 import httpx
@@ -24,6 +25,7 @@ from dossier.domain.ports import ImagePart
 from dossier.infrastructure.models._http import (
     TIMEOUT_SECONDS,
     ModelRequestFailed,
+    Sleep,
     encoded,
     http_client,
     request,
@@ -66,6 +68,7 @@ class OpenAICompatibleClient:
         url: str,
         api_key: str | None = None,
         transport: httpx.BaseTransport | None = None,
+        sleep: Sleep = time.sleep,
         checks_served: bool = False,
     ) -> None:
         self.model_id = model_id
@@ -73,6 +76,8 @@ class OpenAICompatibleClient:
         self._base = url.rstrip("/")
         self._url = self._base + "/chat/completions"
         self._http = http_client(api_key, transport)
+        # How a refused request waits before it is sent again (R9.17).
+        self._sleep = sleep
         # Checked once, before the first completion: the model a server loaded
         # does not change between two requests of one run (R9.6).
         self._unchecked = checks_served
@@ -104,7 +109,7 @@ class OpenAICompatibleClient:
                 "type": "json_schema",
                 "json_schema": {"name": "stage_output", "schema": schema},
             }
-        response = request(self._http, "POST", self._url, json=body)
+        response = request(self._http, "POST", self._url, json=body, sleep=self._sleep)
         return text_at(response, "choices", 0, "message", "content")
 
     def _check_served(self) -> None:
@@ -115,7 +120,7 @@ class OpenAICompatibleClient:
         decision. The decision itself is the domain's (`check_served`).
         """
         url = self._base + "/models"
-        response = request(self._http, "GET", url)
+        response = request(self._http, "GET", url, sleep=self._sleep)
         try:
             served = {
                 name
@@ -158,6 +163,7 @@ class OpenAICompatible:
         url: str,
         api_key: str | None = None,
         transport: httpx.BaseTransport | None = None,
+        sleep: Sleep = time.sleep,
     ) -> OpenAICompatibleClient:
         return OpenAICompatibleClient(
             model_id,
@@ -166,6 +172,7 @@ class OpenAICompatible:
             api_key=api_key,
             transport=transport,
             checks_served=self._checks_served,
+            sleep=sleep,
         )
 
 

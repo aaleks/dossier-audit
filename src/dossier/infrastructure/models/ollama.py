@@ -12,6 +12,7 @@ is reported is `_http`'s, shared with the OpenAI-compatible client.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Sequence
 
 import httpx
@@ -20,6 +21,7 @@ from dossier.domain.model_id import check_served
 from dossier.domain.ports import ImagePart
 from dossier.infrastructure.models._http import (
     ModelRequestFailed,
+    Sleep,
     encoded,
     http_client,
     request,
@@ -44,12 +46,15 @@ class OllamaClient:
         url: str,
         api_key: str | None = None,
         transport: httpx.BaseTransport | None = None,
+        sleep: Sleep = time.sleep,
     ) -> None:
         self.model_id = model_id
         self._name = _tag(model_id)
         self._base = url.rstrip("/")
         self._url = self._base + "/api/chat"
         self._http = http_client(api_key, transport)
+        # How a refused request waits before it is sent again (R9.17).
+        self._sleep = sleep
         # The digest is checked once, before the first completion -- the first
         # moment a model is reached at all (R9.4, R0.10). A client that is never
         # asked anything, as in a run served from cache, asks the server nothing.
@@ -88,7 +93,7 @@ class OllamaClient:
         }
         if schema is not None:
             body["format"] = schema
-        response = request(self._http, "POST", self._url, json=body)
+        response = request(self._http, "POST", self._url, json=body, sleep=self._sleep)
         return text_at(response, "message", "content")
 
     def _check_digest(self) -> None:
@@ -100,7 +105,7 @@ class OllamaClient:
         the domain's (`check_served`).
         """
         url = self._base + "/api/tags"
-        response = request(self._http, "GET", url)
+        response = request(self._http, "GET", url, sleep=self._sleep)
         names = {self._name} if ":" in self._name else {self._name, f"{self._name}:latest"}
         try:
             served = {
@@ -134,8 +139,11 @@ class Ollama:
         url: str,
         api_key: str | None = None,
         transport: httpx.BaseTransport | None = None,
+        sleep: Sleep = time.sleep,
     ) -> OllamaClient:
-        return OllamaClient(model_id, url=url, api_key=api_key, transport=transport)
+        return OllamaClient(
+            model_id, url=url, api_key=api_key, transport=transport, sleep=sleep
+        )
 
 
 ollama = Ollama("http://localhost:11434")
