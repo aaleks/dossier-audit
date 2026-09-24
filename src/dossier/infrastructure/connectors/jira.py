@@ -25,7 +25,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from dossier.domain.conversion import reported_media_type
+from dossier.domain.conversion import JIRA_ISSUE, reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.domain.sync import server_zone_floor
 
@@ -178,7 +178,9 @@ class JiraConnector:
 
         Returned byte for byte, as received. Jira's JSON is stored as Jira sent
         it -- re-serialising it here would change the content hash of every issue
-        for no reason anyone could see afterwards (R1.2).
+        for no reason anyone could see afterwards (R1.2). An issue is labelled a
+        Jira issue rather than JSON, so the converter that reads it claims Jira
+        issues and nothing else (R1.14).
         """
         item, filename = _split(key)
         if filename is None:
@@ -186,7 +188,7 @@ class JiraConnector:
             return RawItem(
                 key=key,
                 payload=response.content,
-                media_type="application/json",
+                media_type=JIRA_ISSUE,
                 remote_version=_version_of(response.json()),
             )
 

@@ -405,6 +405,12 @@ MEDIA_TYPES = {
     ".yml": "application/yaml",
 }
 
+# What the Jira connector reports an issue as (R1.14). Named for what wrote the
+# payload, not for its syntax: `application/json` is every JSON document any
+# source holds, and a converter claiming it would read a webhook body or a
+# Confluence page as though Jira had written it. A pair is the whole type (R8.3).
+JIRA_ISSUE = "application/vnd.dossier.jira-issue+json"
+
 # What an unrecognised file is called. Not a guess: it says "bytes", which is
 # true of anything, and lets R8.5 refuse it by name rather than hand it to a
 # converter that was never meant to read it.

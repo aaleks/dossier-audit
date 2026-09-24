@@ -130,7 +130,7 @@ dossier sync <pipeline>
             │    → AttachmentRef(key="INC-4821/report.pdf", remote_version="<attachment id>")
             ├─ if the version marker moved (or no marker): fetch the issue
             │    connector.fetch("INC-4821")      GET /rest/api/2/issue/INC-4821
-            │    → RawItem(payload=<bytes as Jira sent them>, media_type=application/json)
+            │    → RawItem(payload=<bytes as Jira sent them>, media_type=application/vnd.dossier.jira-issue+json)
             └─ for each attachment whose id moved: fetch the file
                  connector.fetch("INC-4821/report.pdf")   GET <attachment.content URL>
                  → RawItem(payload=<file bytes>, media_type=<Jira's mimeType, else Content-Type>)
