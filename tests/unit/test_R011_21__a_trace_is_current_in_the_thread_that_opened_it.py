@@ -12,10 +12,13 @@ the real one broke the promise.
 from __future__ import annotations
 
 import threading
+from types import SimpleNamespace
 
+import pytest
 from tests.fakes import FakeTracker
 
 from dossier.infrastructure.tracking.best_effort import BestEffortTracker
+from dossier.infrastructure.tracking.mlflow import MlflowTracker
 
 MODEL = "anthropic:claude-sonnet-4-5-20250929"
 DOCUMENTS = ("INC-4821", "INC-4822")
@@ -142,3 +145,96 @@ class TestTheWrapperCountsWhatEachThreadLost:
         assert inner.unrecorded_traces == frozenset({0})
         assert tracker.lost_traces == 1
         assert tracker.lost_records == 1
+
+
+class Client:
+    """`MlflowClient`, as far as a run's traces go, opened from several threads.
+
+    It remembers which trace each span was started in and under which parent,
+    which is what a tracker holding one current trace for the process gets
+    wrong. What it holds, it holds by the document each trace was opened for.
+    """
+
+    def __init__(self) -> None:
+        self.documents: dict[str, str] = {}
+        self.spans: list[tuple[str, str, str]] = []
+        self.ended: dict[str, str] = {}
+        self._lock = threading.Lock()
+
+    def get_experiment_by_name(self, name):
+        return None
+
+    def create_experiment(self, name):
+        return "1"
+
+    def create_run(self, experiment_id, tags=None, run_name=None):
+        return SimpleNamespace(info=SimpleNamespace(run_id="run-1"))
+
+    def start_trace(self, *, name, tags, experiment_id, run_id):
+        with self._lock:
+            trace_id = f"tr-{len(self.documents)}"
+            self.documents[trace_id] = tags["dossier.document"]
+        return SimpleNamespace(trace_id=trace_id, span_id=f"root-{trace_id}")
+
+    def start_span(self, *, name, trace_id, parent_id, span_type, attributes):
+        with self._lock:
+            self.spans.append((trace_id, parent_id, attributes["document"]))
+        return SimpleNamespace(span_id="child")
+
+    def end_span(self, trace_id, span_id):
+        pass
+
+    def end_trace(self, trace_id, attributes=None, status=None):
+        with self._lock:
+            self.ended[self.documents[trace_id]] = status
+
+    def search_traces(self, *, locations, run_id, include_spans, max_results, **kwargs):
+        held = [trace_id for trace_id, key in self.documents.items() if key == "INC-4821"]
+        return [SimpleNamespace(info=SimpleNamespace(trace_id=trace_id)) for trace_id in held]
+
+    def set_terminated(self, run_id, status=None):
+        pass
+
+
+@pytest.fixture
+def client(monkeypatch) -> Client:
+    mlflow = pytest.importorskip("mlflow")
+
+    stand_in = Client()
+    monkeypatch.setattr(mlflow, "set_tracking_uri", lambda uri: None)
+    monkeypatch.setattr(mlflow, "MlflowClient", lambda tracking_uri=None: stand_in)
+    monkeypatch.setattr(mlflow, "flush_trace_async_logging", lambda *a, **k: None)
+    return stand_in
+
+
+class TestMlflowKeepsEachThreadsTrace:
+    """R11.21 row 1, on `MlflowTracker`: what reaches MLflow, trace by trace."""
+
+    def test_each_span_is_started_in_its_own_documents_trace(self, client: Client):
+        """Row 1: two traces open at once, each span under its own trace's root."""
+        tracker = MlflowTracker("http://localhost:5000")
+        tracker.start_run(experiment="dossier-audit/incident-audit/run", name="r", tags={})
+
+        _two_documents_at_once(tracker)
+
+        assert sorted(document for _, _, document in client.spans) == list(DOCUMENTS)
+        for trace_id, parent_id, document in client.spans:
+            assert client.documents[trace_id] == document
+            assert parent_id == f"root-{trace_id}"
+        assert client.ended == {"INC-4821": "OK", "INC-4822": "ERROR"}
+
+    def test_a_trace_the_server_lacks_is_named_by_the_place_it_was_opened_in(
+        self, client: Client
+    ):
+        """Row 4's other half: the server holds `INC-4821` alone, opened second.
+
+        The place is where the trace was opened among the run's, whichever
+        thread opened it, so it is the place the wrapper counts (R10.24).
+        """
+        tracker = MlflowTracker("http://localhost:5000")
+        tracker.start_run(experiment="dossier-audit/incident-audit/run", name="r", tags={})
+
+        _two_documents_at_once(tracker, ("INC-4822", "INC-4821"))
+        tracker.end_run(status="FINISHED")
+
+        assert tracker.unrecorded_traces == frozenset({0})
