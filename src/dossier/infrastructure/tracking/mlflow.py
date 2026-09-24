@@ -13,6 +13,7 @@ sends and returns nothing (R0.10); the ids MLflow assigns stay inside it.
 from __future__ import annotations
 
 import ssl
+import threading
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -238,10 +239,12 @@ class MlflowTracker:
         self._client = MlflowClient(tracking_uri=uri)
         self._experiment_id: str | None = None
         self._run_id: str | None = None
-        self._trace_id: str | None = None
-        self._root_span_id: str | None = None
-        # Verdicts waiting for their trace to reach the server. See `assess`.
-        self._pending: list[dict[str, str | bool]] = []
+        # The trace each thread has open -- its id, its root span, and the
+        # verdicts waiting for it to reach the server (see `assess`). A trace is
+        # current in the thread that opened it, so a run's workers each record
+        # into their own document's trace (R11.21).
+        self._this = threading.local()
+        self._opening = threading.Lock()
         # Every trace this run opened, in order, so each can be looked for on the
         # server as the record closes (R10.24). `None` for one MLflow could not
         # open, which is in no server's holdings.
@@ -389,26 +392,30 @@ class MlflowTracker:
     def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
         # The place is taken before MLflow is asked, so a trace it could not open
         # still has one. `BestEffortTracker` counts places, and one skipped here
-        # would name every later trace by its neighbour's (R10.24 row 4).
-        self._opened.append(None)
+        # would name every later trace by its neighbour's (R10.24 row 4). Taken
+        # under a lock and kept, since another worker may open one meanwhile.
+        with self._opening:
+            place = len(self._opened)
+            self._opened.append(None)
         root = self._client.start_trace(
             name=name,
             tags=dict(tags),
             experiment_id=self._experiment_id,
             run_id=self._run_id,
         )
-        self._trace_id, self._root_span_id = root.trace_id, root.span_id
-        self._opened[-1] = root.trace_id
+        self._this.trace_id, self._this.root_span_id = root.trace_id, root.span_id
+        self._this.pending = []
+        self._opened[place] = root.trace_id
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None:
         child = self._client.start_span(
             name=name,
-            trace_id=self._trace_id,
-            parent_id=self._root_span_id,
+            trace_id=self._this.trace_id,
+            parent_id=self._this.root_span_id,
             span_type=kind.upper(),
             attributes=dict(attributes),
         )
-        self._client.end_span(self._trace_id, child.span_id)
+        self._client.end_span(self._this.trace_id, child.span_id)
 
     def assess(self, *, name: str, value: bool, rationale: str, source: str) -> None:
         """Hold the verdict until its trace is on the server, then attach it (R11.16).
@@ -422,7 +429,7 @@ class MlflowTracker:
 
         `end_trace` flushes the exporter and sends what is held.
         """
-        self._pending.append(
+        self._this.pending.append(
             {"name": name, "value": value, "rationale": rationale, "source": source}
         )
 
@@ -430,19 +437,20 @@ class MlflowTracker:
         import mlflow
         from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 
-        trace_id = self._trace_id
+        trace_id = self._this.trace_id
+        pending = self._this.pending
         self._client.end_trace(
             trace_id,
             attributes={"error": error} if error else None,
             status=status,
         )
-        if self._pending:
+        if pending:
             # The exporter is asynchronous; feedback on a trace it has not sent
             # yet is refused. Flushed here rather than at the end of the run, so
             # the wait is one trace's worth and a verdict is on its trace before
             # anything else is recorded.
             mlflow.flush_trace_async_logging()
-            for verdict in self._pending:
+            for verdict in pending:
                 # The returned `Assessment` is dropped: the port sends and
                 # returns nothing, and an id read back from a server is the first
                 # way for a record to become an input (R0.10).
@@ -456,8 +464,8 @@ class MlflowTracker:
                         source_id=str(verdict["source"]),
                     ),
                 )
-            self._pending = []
-        self._trace_id = self._root_span_id = None
+        self._this.trace_id = self._this.root_span_id = None
+        self._this.pending = []
 
     def end_run(self, *, status: str) -> None:
         """Look for every trace the run opened, then close it (R10.24).
