@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Implemented
-**Rules:** R6.1 – R6.16
+**Status:** Partially implemented
+**Rules:** R6.1 – R6.20
 
 ## Purpose
 
@@ -55,6 +55,31 @@ nothing.
 
 A field whose span cannot be located is marked `ungrounded` and treated as a
 failure of that field — regardless of how plausible the value looks.
+
+### What a reader cannot tell apart
+
+A span is what the document says, and a model quoting it reads the document the
+way a person does. Some differences between the two are invisible to that reader
+and still fail a string search: a PDF text layer spells `certiﬁcate` with a
+ligature, a typesetter's apostrophe is `’`, a word breaks across a line as
+`certifi-` and `cate`, and a converter writes `**Status:** Done` where the reader
+sees `Status: Done`. The model "corrects" each of these when it quotes, and an
+honest citation comes back `ungrounded` -- scored incorrect before its value is
+looked at (R7.4).
+
+So the span and the document are both *folded* before the search, as whitespace
+already was: Unicode compatibility forms (R6.17), typographic quotes and dashes
+(R6.18), a hyphen at a line break (R6.19), and the markdown a converter wrote
+around words (R6.20). Every fold is applied to both sides, so a span quoted
+exactly still grounds, and none of them reaches a letter, a digit or the case of
+either: `MAJOR` is still not `major`, and `48,200` is still not `48'200`.
+
+It changes verdicts, and so scores. Grounding is re-derived from a cached answer
+on every read rather than stored beside it (R5.5), so no key moves and nothing is
+asked of a model again -- a run served from cache, or replayed, is judged by the
+folds in force when it is read. A span that was `ungrounded` before them and is
+located now was an honest citation all along.
+
 
 ## Must hold
 
@@ -457,3 +482,79 @@ every line of every clean run is noise (R6.15).
 | 5 | *counter-example* — a run whose every field is grounded | no finding lines and no count on the step line; the clean case reads exactly as it did |
 | 6 | *counter-example* — a field that abstained with a reason | not a finding; abstention is valid output and is never counted as a failure (R6.5) |
 | 7 | *counter-example* — a `described` field | not a finding; it is already counted as `described` on the step line, and it is neither a pass nor a failure (R6.15) |
+
+### R6.17 — a span is compared with its document after Unicode compatibility folding, on both sides
+
+NFKC, the Unicode normalisation whose purpose is this: `ﬁ` is `fi`, a full-width
+`Ｃ` is `C`, and an `é` written as `e` plus a combining accent is the `é` a
+keyboard types.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.grounding.locate_span`)
+- **Proved by:** `tests/unit/test_R006_17__unicode_compatibility_forms_are_folded.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4830`'s text reading `the renewed certiﬁcate` (U+FB01), span `the renewed certificate` | grounded |
+| 2 | the span with the ligature, the text without it | grounded; both sides are folded |
+| 3 | text `Café` as `e` and U+0301, span `Café` precomposed | grounded |
+| 4 | *counter-example* — text `major`, span `MAJOR` | `ungrounded`; folding compatibility forms is not folding case |
+
+### R6.18 — typographic quotes, apostrophes and dashes compare equal to their plain forms
+
+`’ ‘ ‛ ′` are `'`; `“ ” „ ‟ ″` are `"`; `‐ ‑ ‒ – — ―` and the minus sign `−` are `-`.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.grounding.locate_span`)
+- **Proved by:** `tests/unit/test_R006_18__typographic_quotes_and_dashes_are_folded.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821`'s text `total exposure CHF 48’200` (U+2019), span `total exposure CHF 48'200` | grounded |
+| 2 | text `the claim was “supported”`, span `the claim was "supported"` | grounded |
+| 3 | text `declined 09:12–09:54` (en dash), span `declined 09:12-09:54` | grounded |
+| 4 | *counter-example* — text `total exposure CHF 48'200`, span `total exposure CHF 48,200` | `ungrounded`, as R6.4 row 3 says: a comma is not an apostrophe |
+
+### R6.19 — a word broken across a line by a hyphen is found joined or hyphenated, and a soft hyphen is not there
+
+A hyphen that ends a line may be the typesetter's, splitting `certificate`, or
+the word's own, in `well-known`. Nothing in the text says which, so the document
+is read both ways and a span found in either is located. Its page is the page of
+the reading it was found in (R6.14). A soft hyphen (U+00AD) is invisible, and is
+dropped.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.grounding.locate_span`, `dossier.domain.grounding.page_of_span`)
+- **Proved by:** `tests/unit/test_R006_19__a_word_hyphenated_across_a_line_is_found.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | text `the renewed certifi-\ncate was never deployed`, span `the renewed certificate was never deployed` | grounded |
+| 2 | text `a well-\nknown gap`, span `a well-known gap` | grounded |
+| 3 | text `certi­ficate`, span `certificate` | grounded |
+| 4 | row 1's text behind `<!-- page 2 -->`, in a document with three pages | the span's page is `2` |
+| 5 | *counter-example* — text `pre- and post-deploy checks`, span `pre and post-deploy checks` | `ungrounded`; that hyphen is not at a line break |
+
+### R6.20 — the markdown a converter wrote around words is not part of the text a span is compared with
+
+Converters write markdown (spec 008): `**Status:** Done` in a Jira issue's note,
+bold and links in Docling's. Strong and emphasis markers, strikethrough, inline
+code and link syntax are folded to the words they mark. A `*` or `_` that marks
+nothing -- inside a word, or unpaired -- is text, as CommonMark reads it.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.grounding.locate_span`)
+- **Proved by:** `tests/unit/test_R006_20__markdown_around_words_is_folded.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821`'s note `**Status:** Done`, span `Status: Done` | grounded |
+| 2 | the same note, span `**Status:** Done` | grounded; a model that kept the markers is folded the same way |
+| 3 | text `see [the rollback](https://git.example/r/77)`, span `see the rollback` | grounded |
+| 4 | text ``the `payments-db` pool``, span `the payments-db pool` | grounded |
+| 5 | text `the *renewed* certificate`, span `the renewed certificate` | grounded |
+| 6 | *counter-example* — text `pool lb_acq_01 held 3*2 connections`, span `pool lbacq01 held 32 connections` | `ungrounded`; `_` inside a word and a lone `*` are text, not emphasis |
