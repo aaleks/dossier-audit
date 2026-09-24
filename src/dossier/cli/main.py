@@ -1075,6 +1075,7 @@ def _execute(workspace: Path, pipeline: str, *, label: str = "") -> None:
                 failed=len(step.failed),
                 described=step.described,
                 findings=len(findings),
+                tokens=step.tokens,
             )
         )
         for document, check in findings:
