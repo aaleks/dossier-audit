@@ -22,11 +22,9 @@ import json
 import re
 from pathlib import Path
 
-import pytest
-from tests.fakes import register_provider
+from tests.fakes import FakeModelClient, register_connector, register_provider
 from tests.pipelines import write_pipeline
-
-pytestmark = pytest.mark.outer_loop
+from tests.scoring_example import ISSUES, SOURCE_ID, SOURCE_TYPE, IssueTracker
 
 PIPELINE = "incident-audit"
 PIPELINE_MODEL = "anthropic:claude-sonnet-4-5-20250929"
@@ -283,3 +281,63 @@ class TestAStepIsAskedWithItsOwnModel:
         assert "steps.0.model" in result.output
         assert "mistral" in result.output
         assert "anthropic" in result.output and "ollama" in result.output
+
+    def test_calibrate_judges_with_the_pipelines_model(self, workspace: Path, monkeypatch):
+        """Row 11, a counter-example: `dossier calibrate` over a pipeline whose `extract`
+        names its own model.
+
+        The judge is the pipeline's `model:`: the only client asked for, and the
+        model the calibration is written for (R7.14). The documents come from an
+        issue tracker, as R7.14's do, because a gold sample is keyed by document.
+        """
+        import dossier.cli.main as cli
+
+        (workspace / "sources.yaml").write_text(
+            f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
+        )
+        path = write_pipeline(
+            workspace, sources=[SOURCE_ID], step_models={"extract": EXTRACT_MODEL}
+        )
+        path.write_text(
+            path.read_text(encoding="utf-8") + "gold: gold/incidents/\n", encoding="utf-8"
+        )
+        register_connector(
+            monkeypatch, SOURCE_TYPE, lambda config, *, workspace: IssueTracker(ISSUES)
+        )
+        gold = workspace / "gold" / "incidents"
+        (gold / "samples").mkdir(parents=True)
+        (gold / "judge.yaml").write_text("root_cause: 0.95\n", encoding="utf-8")
+        keys = sorted(ISSUES)
+        cases = [
+            {
+                "document": keys[index % len(keys)],
+                "answer": f"candidate answer {index}",
+                "supported": index < 12,
+                "verified_by": "a.aleks",
+                "verified_at": "2026-09-15",
+            }
+            for index in range(20)
+        ]
+        (gold / "samples" / "root_cause.jsonl").write_text(
+            "\n".join(json.dumps(case) for case in cases) + "\n", encoding="utf-8"
+        )
+        assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
+        judge = FakeModelClient(
+            responses=[json.dumps({"supported": case["supported"]}) for case in cases]
+        )
+        asked_for: list[str] = []
+
+        def build(model_id: str):
+            asked_for.append(model_id)
+            return judge
+
+        monkeypatch.setattr(cli, "build_model_client", build)
+
+        result = _cli(workspace, monkeypatch, "calibrate", PIPELINE, "--gold", "gold/incidents")
+
+        assert result.exit_code == 0, result.output
+        assert asked_for == [PIPELINE_MODEL]
+        written = json.loads(
+            (gold / "calibrations" / "root_cause.json").read_text(encoding="utf-8")
+        )
+        assert written["judge_model"] == PIPELINE_MODEL

@@ -13,6 +13,26 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A step is asked with its own model. A pipeline named one model for every step,
+and the common real shape -- a cheap model to extract, a strong one to verify or
+report -- took two pipelines (analysis.md 4.3). `model:` on a step overrides the
+pipeline's for that step alone, held at load time to what the pipeline's is held
+to, `steps.<i>.model` named in the error as the loader names every step key
+(R3.14). The pipeline's `model:` stays required: it is the default, and the judge.
+The manifest records a step's own model only where it differs, and never as
+`null` -- a `model_serializer` leaves the field out -- so every pipeline written
+before resolves to the same bytes, and naming the pipeline's own model is naming
+none. `ResolvedPlan.model_of` is the one answer to which model a step is asked
+with, and the run, `--plan` and `--replay` all ask it, so the three cannot
+disagree about a key; `--plan` compares it per step, so the pipeline's model
+moving leaves a step with its own cached. `execute` takes a client per model a
+step names and refuses one with none before anything is written, and the CLI
+builds each lazily, so a step served from cache needs no endpoint for its model.
+Live, with the real clients against two local servers: `extract`'s Ollama
+digest checked once and asked three times, `verify` asked three times through
+the Gemini route, each artifact's record naming its own model, and a second run,
+a replay and a `--plan` asking neither.
+
 Traces stay apart at concurrency. MLflow keeps traces opened on different
 threads apart -- four opened at once through `MlflowClient`, against a real
 3.15.1 store, came back holding a span each with durations MLflow measured --

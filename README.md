@@ -96,6 +96,22 @@ to a judge with the document's pages in place of a transcript, and that judge is
 calibrated and gated on its own threshold, separately from the one that reads
 text (R7.20–R7.24).
 
+A step may be asked with its own model instead of the pipeline's -- a cheap one to
+extract, a strong one to verify:
+
+```yaml
+# pipeline.yaml
+model: anthropic:claude-sonnet-4-5-20250929   # every step that names none, and the judge
+steps:
+  - id: extract
+    ...
+    model: ollama:qwen2.5:7b@sha256:<64 hex>  # this step only
+```
+
+It is pinned and checked at load time like the pipeline's, each step is keyed
+under the model it was asked with, and `--plan` and `--replay` read it back
+(R3.14). A pipeline whose steps name none is exactly what it was.
+
 ## What it records
 
 With tracking on (`DOSSIER_MLFLOW_ENABLED=true` and a tracking URI, in the
