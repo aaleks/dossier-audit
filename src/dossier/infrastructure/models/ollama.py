@@ -12,6 +12,7 @@ is reported is `_http`'s, shared with the OpenAI-compatible client.
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Sequence
 
@@ -59,7 +60,9 @@ class OllamaClient:
         # The digest is checked once, before the first completion -- the first
         # moment a model is reached at all (R9.4, R0.10). A client that is never
         # asked anything, as in a run served from cache, asks the server nothing.
+        # Once however many workers ask at once (R9.19): the rest wait for it.
         self._unchecked = True
+        self._checking = threading.Lock()
 
     def complete(
         self,
@@ -76,8 +79,10 @@ class OllamaClient:
         validate (R6.1, R6.2).
         """
         if self._unchecked:
-            self._check_digest()
-            self._unchecked = False
+            with self._checking:
+                if self._unchecked:
+                    self._check_digest()
+                    self._unchecked = False
 
         body: dict = {
             "model": self._name,

@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
 import pytest
 from tests.fakes import Gate
 from tests.pipelines import prompt_for
@@ -28,6 +31,8 @@ from dossier.domain.concurrency import concurrency
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.models._http import ModelRequestFailed
+from dossier.infrastructure.models.ollama import ollama
+from dossier.infrastructure.models.openai_compatible import hf
 
 MODEL = "anthropic:claude-sonnet-4-5-20250929"
 SNAPSHOTS = {
@@ -203,3 +208,119 @@ class TestAStepAsksAtMostNAtOnce:
             _run(tmp_path, GatedModel(gate, refusing=True), concurrency=2)
 
         assert sorted(gate.asked) == ["INC-4821", "INC-4822"]
+
+
+def _at_once(count: int, call) -> None:
+    """`call` from `count` threads released together, as a run's workers are."""
+    start = threading.Barrier(count)
+    failures: list[BaseException] = []
+
+    def worker() -> None:
+        start.wait(timeout=5)
+        try:
+            call()
+        except BaseException as error:  # pragma: no cover - reported below
+            failures.append(error)
+
+    threads = [threading.Thread(target=worker) for _ in range(count)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+    assert not failures, failures
+
+
+class _SlowServer:
+    """A model server whose listing takes a while, counting what it is asked.
+
+    Slow so that three callers arriving together all arrive while the first is
+    still asking what is served: a check made once per caller would be seen.
+    """
+
+    def __init__(self, listing: str, listed: dict, answer: dict) -> None:
+        self.listing = listing
+        self.listed_body = listed
+        self.answer = answer
+        self.listed = 0
+        self.completions = 0
+        self._lock = threading.Lock()
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path.endswith(self.listing):
+            with self._lock:
+                self.listed += 1
+            time.sleep(0.1)
+            return httpx.Response(200, json=self.listed_body)
+        with self._lock:
+            self.completions += 1
+        return httpx.Response(200, json=self.answer)
+
+
+class TestAModelIsReachedOnceHoweverManyAskAtOnce:
+    """R9.19 row 1's precondition: what a run does once, it still does once."""
+
+    def test_the_client_is_built_once(self, monkeypatch):
+        """The one where three workers make a run's first call together.
+
+        The client is built at the first cache miss and not before (R9.2 row
+        5). Three first misses at once are still one first miss.
+        """
+        import dossier.cli.main as cli
+
+        built: list[str] = []
+
+        class Answering:
+            model_id = MODEL
+
+            def complete(self, prompt: str, *, schema=None, parts=()) -> str:
+                return "answered"
+
+        def build(model_id: str) -> Answering:
+            built.append(model_id)
+            time.sleep(0.1)
+            return Answering()
+
+        monkeypatch.setattr(cli, "build_model_client", build)
+        lazy = cli._BuiltOnFirstCall(MODEL)
+
+        _at_once(3, lambda: lazy.complete("x"))
+
+        assert built == [MODEL]
+
+    def test_an_ollama_digest_is_asked_for_once(self):
+        """The one R9.4 row 1 makes: one digest request for the run, not one per call."""
+        digest = "7f3c29a1" * 8
+        server = _SlowServer(
+            "/api/tags",
+            {"models": [{"name": "qwen2.5:7b", "digest": digest}]},
+            {"message": {"role": "assistant", "content": "answered"}},
+        )
+        client = ollama(
+            f"ollama:qwen2.5:7b@sha256:{digest}",
+            url="http://localhost:11434",
+            api_key=None,
+            transport=httpx.MockTransport(server),
+        )
+
+        _at_once(3, lambda: client.complete("x"))
+
+        assert (server.listed, server.completions) == (1, 3)
+
+    def test_a_served_repository_is_asked_for_once(self):
+        """The same, for R9.6: vLLM is asked what it serves once."""
+        repository = "Qwen/Qwen2.5-7B-Instruct"
+        server = _SlowServer(
+            "/models",
+            {"object": "list", "data": [{"id": repository, "root": repository}]},
+            {"choices": [{"message": {"content": "answered"}}]},
+        )
+        client = hf(
+            f"hf:{repository}@" + "1c0f8e6b" * 5,
+            url="http://gpu-01:8000/v1",
+            api_key=None,
+            transport=httpx.MockTransport(server),
+        )
+
+        _at_once(3, lambda: client.complete("x"))
+
+        assert (server.listed, server.completions) == (1, 3)

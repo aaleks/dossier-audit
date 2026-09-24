@@ -15,6 +15,7 @@ reaches this module. How a request is made and how a failure is reported is
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Callable, Sequence
 
@@ -80,8 +81,10 @@ class OpenAICompatibleClient:
         # How a refused request waits before it is sent again (R9.17).
         self._sleep = sleep
         # Checked once, before the first completion: the model a server loaded
-        # does not change between two requests of one run (R9.6).
+        # does not change between two requests of one run (R9.6). Once however
+        # many workers ask at once (R9.19): the rest wait for it.
         self._unchecked = checks_served
+        self._checking = threading.Lock()
 
     def complete(
         self,
@@ -97,8 +100,10 @@ class OpenAICompatibleClient:
         does not conform (R6.1, R6.2).
         """
         if self._unchecked:
-            self._check_served()
-            self._unchecked = False
+            with self._checking:
+                if self._unchecked:
+                    self._check_served()
+                    self._unchecked = False
 
         body: dict = {
             "model": self._name,

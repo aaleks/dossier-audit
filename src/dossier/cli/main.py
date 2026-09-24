@@ -7,6 +7,7 @@ as arguments.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from importlib.metadata import version
@@ -67,6 +68,7 @@ from dossier.config.load import (
     load_pipeline,
     load_sources,
 )
+from dossier.domain.concurrency import concurrency as concurrency_setting
 from dossier.domain.conversion import (
     PART_SUFFIX,
     PART_TYPE,
@@ -492,6 +494,9 @@ class _BuiltOnFirstCall:
     def __init__(self, model_id: str) -> None:
         self.model_id = model_id
         self._client: ModelClient | None = None
+        # Several workers can miss at once (R9.19); the client is still built
+        # once, and the others wait for it rather than building their own.
+        self._building = threading.Lock()
 
     def complete(
         self,
@@ -501,7 +506,9 @@ class _BuiltOnFirstCall:
         parts: Sequence[ImagePart] = (),
     ) -> str:
         if self._client is None:
-            self._client = build_model_client(self.model_id)
+            with self._building:
+                if self._client is None:
+                    self._client = build_model_client(self.model_id)
         return self._client.complete(prompt, schema=schema, parts=parts)
 
 
@@ -516,6 +523,13 @@ def run(
     ),
     label: str = typer.Option(
         "", "--label", help="A name for this record, in MLflow (R10.11).", metavar="NAME"
+    ),
+    concurrency: str | None = typer.Option(
+        None,
+        "--concurrency",
+        help="How many of a step's documents to ask about at once (R9.19). "
+        "Default: DOSSIER_CONCURRENCY, else 1.",
+        metavar="N",
     ),
 ) -> None:
     """Execute a pipeline, report what executing it would do, or replay one (spec 004).
@@ -535,7 +549,7 @@ def run(
         raise typer.Exit(code=2)
 
     if not plan:
-        _execute(Path.cwd(), pipeline, label=label)
+        _execute(Path.cwd(), pipeline, label=label, concurrency=concurrency)
         return
 
     workspace = Path.cwd()
@@ -831,8 +845,19 @@ def _replay(workspace: Path, directory: Path) -> None:
     typer.echo(f"{reproduced} · no model calls · written to {destination}/")
 
 
-def _execute(workspace: Path, pipeline: str, *, label: str = "") -> None:
+def _execute(
+    workspace: Path, pipeline: str, *, label: str = "", concurrency: str | None = None
+) -> None:
     """`dossier run <pipeline>` (spec 004, spec 005)."""
+    # Before any work: a value that is not a count is refused by where it came
+    # from, not discovered as a run that asked one document at a time (R9.19).
+    # A string, not an int, so `four` is refused in the same words as `0`.
+    try:
+        asked_at_once = concurrency_setting(environment(workspace), flag=concurrency)
+    except ValueError as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+
     try:
         path = _pipeline_path(workspace, pipeline)
         config = load_pipeline(path, providers=available_providers())
@@ -1006,6 +1031,7 @@ def _execute(workspace: Path, pipeline: str, *, label: str = "") -> None:
             # would have published under (R14.8 row 3).
             prompt_prefix=environment(workspace).get(NAMESPACE, ""),
             version_experiment=experiment or "",
+            concurrency=asked_at_once,
             run_id=this_run,
             started_at=started_at,
             dossier_version=version("dossier"),

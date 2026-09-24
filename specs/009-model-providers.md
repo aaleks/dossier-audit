@@ -1,6 +1,6 @@
 # 009 — Model providers
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R9.1 – R9.19
 
 ## Purpose
@@ -510,7 +510,7 @@ one a run at `N = 1` stops with.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.concurrency`), application (`dossier.application.run`), cli (`dossier.cli.main`)
 - **Proved by:** `tests/acceptance/test_R009_19__a_run_asks_about_several_documents_at_once.py`, `tests/unit/test_R009_19__how_many_documents_are_asked_at_once.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

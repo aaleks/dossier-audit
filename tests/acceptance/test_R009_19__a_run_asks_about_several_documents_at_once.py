@@ -27,7 +27,6 @@ import pytest
 from tests.fakes import Gate, register_provider
 from tests.pipelines import write_pipeline
 
-pytestmark = pytest.mark.outer_loop
 
 PIPELINE = "incident-audit"
 MODEL = "ollama:qwen2.5:7b@sha256:" + "7f3c29a1" * 8
@@ -256,3 +255,54 @@ class TestARunAsksAboutSeveralDocumentsAtOnce:
         assert result.exit_code == 2
         assert "concurrency" in result.output
         assert provider.asked == []
+
+    def test_the_pages_of_one_document_are_asked_one_after_another(
+        self, workspace: Path, monkeypatch
+    ):
+        """Row 9, a counter-example: one `per_part` document of three pages, `--concurrency 4`.
+
+        `N` counts (step, document) pairs, the unit of a key and of a trace
+        (R11.1). The PDF is R3.12's, rendered to one picture per page (R8.11).
+        """
+        pytest.importorskip("pypdfium2", reason="page images need the 'pdf' extra")
+        import dossier.cli.main as cli
+
+        corpus = FIXTURES / "documents" / "postmortems" / "pdf"
+        pdf = "INC-4830-postmortem-checkout-tls-expiry.pdf"
+        inbox = workspace / "inbox" / "postmortems"
+        inbox.mkdir(parents=True)
+        shutil.copy(corpus / pdf, inbox / pdf)
+        (workspace / "sources.yaml").write_text(
+            "sources:\n"
+            "  - id: postmortems\n"
+            "    type: folder\n"
+            "    path: inbox/postmortems/\n"
+            "    convert: [markdown, page_images]\n",
+            encoding="utf-8",
+        )
+        write_pipeline(
+            workspace,
+            steps=["describe"],
+            inputs={"describe": "documents@page_images"},
+            outputs={"describe": None},
+            sources=["postmortems"],
+            modes={"describe": "per_part"},
+        )
+        gate = Gate(expected=3, meet=1)
+
+        class Describing:
+            model_id = "anthropic:claude-sonnet-4-5-20250929"
+
+            def complete(self, prompt: str, *, schema=None, parts=()) -> str:
+                gate.through(pdf)
+                return "the page shows a chart."
+
+        assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
+        assert _cli(workspace, monkeypatch, "convert", PIPELINE).exit_code == 0
+        monkeypatch.setattr(cli, "build_model_client", lambda model_id: Describing())
+
+        result = _cli(workspace, monkeypatch, "run", PIPELINE, "--concurrency", "4")
+
+        assert result.exit_code == 0, result.output
+        assert gate.asked == [pdf] * 3
+        assert gate.most_at_once == 1
