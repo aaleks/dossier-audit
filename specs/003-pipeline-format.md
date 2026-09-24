@@ -1,6 +1,6 @@
 # 003 — Configuration format
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R3.1 – R3.14
 
 ## Purpose
@@ -487,7 +487,7 @@ and checked before its own first call (R9.4, R9.6).
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`), domain (`dossier.domain.resolution`, `dossier.domain.plan`), application (`dossier.application.run`), cli (`dossier.cli.main`)
 - **Proved by:** `tests/acceptance/test_R003_14__a_step_is_asked_with_its_own_model.py`, `tests/unit/test_R003_14__which_model_a_step_is_asked_with.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

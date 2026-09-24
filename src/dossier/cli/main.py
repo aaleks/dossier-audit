@@ -644,6 +644,11 @@ def _plan_lines(report: Plan) -> list[str]:
     for step in report.steps:
         marker = "!" if step.rerunning else " "
         lines.append(f"{marker} {step.step.id}: {step.status.value}")
+        if step.step.model is not None:
+            # The model this step is asked with where it is not the header's
+            # (R3.14): a `model changed` line otherwise leaves a person to work
+            # out which of two models it means.
+            lines.append(f"      model: {step.step.model}")
         if step.was is not None:
             lines.append(f"      was: [{', '.join(step.was)}]")
             lines.append(f"      now: [{', '.join(step.step.inputs)}]")

@@ -345,3 +345,28 @@ class TestARunAsksEachStepWithItsModel:
         _execute(tmp_path, default=default, models=None, extract_model=None)
 
         assert default.call_count == 2
+
+
+class TestTheJudgeIsThePipelinesModel:
+    """R3.14 row 11 — a step's own model answers that step and judges nothing."""
+
+    def test_an_eval_judges_with_the_pipelines_model(self, tmp_path: Path):
+        """Row 11, a counter-example: `dossier eval`'s judge, over a pipeline whose
+        `extract` names its own model."""
+        from dossier.cli.main import _judging
+
+        path = _written(tmp_path, extract=EXTRACT_MODEL)
+        pipeline = load_pipeline(path, providers=PROVIDERS)
+
+        judging = _judging(
+            tmp_path,
+            config=pipeline,
+            pipeline_dir=path.parent,
+            declaration=path.parent / "schemas" / "incident.yaml",
+            documents={},
+            withheld={},
+            run_id="20260806T142203Z-4f1a",
+        )
+
+        assert judging.judge_model == PIPELINE_MODEL
+        assert judging.model.model_id == PIPELINE_MODEL
