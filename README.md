@@ -26,7 +26,7 @@ specs: 221 rules across 15 specs | 208 MET, 0 IN PROGRESS, 0 NOT MET, 13 SUPERSE
 | `docs/architecture.md` | The two boundaries and the layer contracts |
 | `docs/dossier-design-deck.pdf` | Background: the proposal this came from |
 | `docs/jira-connector.md` | A tour of the Jira connector: what you write, and what a sync does |
-| `docs/history/` | Working notes kept for their reasoning: the first session's kickoff prompt, and the brainstorm that led to page images |
+| `docs/history/` | How it came to be: `slices.md`, what each slice changed and why, newest first; the first session's kickoff prompt; and the brainstorm that led to page images |
 | `src/dossier/` | The package: `domain/`, `application/`, `infrastructure/`, `config/`, `cli/` |
 | `tests/` | `architecture/`, `unit/`, `acceptance/`, `integration/`, `evals/` |
 | `playground/` | Thirteen hands-on exercises. Ten offline, seconds, zero cost; the eleventh runs a real Jira in Docker; the last two need a local MLflow server. Not part of `dossier`. |
