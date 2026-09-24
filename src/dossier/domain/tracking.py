@@ -614,6 +614,12 @@ def version_params(plan: ResolvedPlan, *, prefix: str = "") -> dict[str, str]:
             recorded[f"{prefix}schema/{step.id}"] = step.schema_hash
         if step.generated_schema_hash:
             recorded[f"{prefix}generated_schema/{step.id}"] = step.generated_schema_hash
+        # A step asked with its own model rather than the pipeline's (R11.22).
+        # Nothing for one asked with the pipeline's, which `model` already names:
+        # a pipeline whose steps name none records what it recorded before, and
+        # keeps its version hash (R13.1).
+        if step.model:
+            recorded[f"{prefix}model/{step.id}"] = step.model
     # Sorted, though nothing here enters a key (R10.4): an unsorted list would
     # make two evals of one run differ in MLflow for a reason nobody could
     # explain, which is its own kind of wrong (R0.4).

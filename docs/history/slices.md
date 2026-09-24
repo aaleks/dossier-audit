@@ -13,6 +13,16 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A pipeline version knows each step's model. `version_params` is the one
+function the run's record, the eval's and the version's are built from, so
+`model/<step>` beside `prompt/<step>`, for a step asked with its own model,
+reaches all three and the version hash taken over them: two pipelines that
+differ only in `extract`'s model are two rows in the Models tab (R11.22,
+R13.1). A step asked with the pipeline's records nothing, and the test pins, as
+a literal computed before the change, the version hash of a pipeline naming
+none -- a new one would have registered every existing pipeline as a new
+version with nothing changed.
+
 A step is asked with its own model. A pipeline named one model for every step,
 and the common real shape -- a cheap model to extract, a strong one to verify or
 report -- took two pipelines (analysis.md 4.3). `model:` on a step overrides the

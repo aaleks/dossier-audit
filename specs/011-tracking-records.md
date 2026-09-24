@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.22
 
 ## Purpose
@@ -593,7 +593,7 @@ the rest (R11.11).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking`, `dossier.domain.versions`), application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R011_22__a_record_names_each_steps_model.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
