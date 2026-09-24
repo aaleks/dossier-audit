@@ -27,8 +27,6 @@ import pytest
 from tests.fakes import FakePromptRegistry, FakeTracker, FakeVersionRegistry, Gate
 from tests.pipelines import write_pipeline
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 URI = "http://localhost:5000"
 DOCUMENTS = ("INC-4821.md", "INC-4822.md", "audit-note.md")

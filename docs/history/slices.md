@@ -13,6 +13,25 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+Traces stay apart at concurrency. MLflow keeps traces opened on different
+threads apart -- four opened at once through `MlflowClient`, against a real
+3.15.1 store, came back holding a span each with durations MLflow measured --
+and `dossier`'s tracker did not: it held one current trace for the process, so
+at `--concurrency 3` every span was started under the trace opened last, and
+the first trace to end cleared the id the others were still writing to. The
+`Tracker` port now promises that a trace is current in the thread that opened
+it, a promise and not a signature (R11.21). The fake keeps it, or it could not
+fail when the real one broke it; `BestEffortTracker` holds each thread's place
+and lost flag, taking the place and opening the trace under one lock so it is
+the place `MlflowTracker` names a trace the server lacks by (R10.24); and
+`MlflowTracker` holds each thread's trace, root span and pending verdicts.
+Nothing is buffered or replayed -- that was the first design, and it needed
+timestamps handed to the port for MLflow to show a duration it measures by
+itself when traces are live. The run records `concurrency` as a param and
+nowhere else. Live, `--concurrency 3` against a real server: three traces,
+each holding its own document's LLM span, 1.35-1.41 s each as MLflow timed
+them, and no record lost.
+
 A run asks about several documents at once. A step over four hundred documents
 was four hundred round trips end to end, against a hosted provider that would
 have answered ten together; R9.17's backoff is what made offering more safe,
