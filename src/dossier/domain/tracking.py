@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from dossier.domain.judges import Calibration
 from dossier.domain.resolution import ResolvedPlan
 from dossier.domain.scoring import FieldDelta, FieldTotal, overall, regressed_fields, weakest
+from dossier.domain.usage import Tokens
 
 ENABLED = "DOSSIER_MLFLOW_ENABLED"
 TRACKING_URI = "DOSSIER_MLFLOW_TRACKING_URI"
@@ -711,8 +712,9 @@ def step_line(
     failed: int,
     described: int = 0,
     findings: int = 0,
+    tokens: Tokens | None = None,
 ) -> str:
-    """The line `dossier run` prints for one step (R6.9, R6.15, R6.16).
+    """The line `dossier run` prints for one step (R6.9, R6.15, R6.16, R5.12).
 
     Composed here rather than in `cli/` because two readers need exactly these
     words: the terminal, and the description of the record the run closes
@@ -722,12 +724,29 @@ def step_line(
     `described` and `findings` are absent when zero. A `· 0 described` on every
     line of every run of every text pipeline is noise, and the number is
     interesting precisely because it is usually absent (R6.15).
+
+    `tokens` is what the step's model calls cost in this run, last on the line
+    because it is what the rest of it cost (R5.12). `None` is a step that asked
+    no model, and says nothing -- it would otherwise be on every line of every
+    cached run. A side the provider did not report reads `tokens not reported`,
+    never `0`. The `,` separator is Python's own and is not locale-aware, so two
+    machines print the same line (R0.4).
     """
     shown = f" · {described} described" if described else ""
     found = f" · {findings} finding(s)" if findings else ""
     return (
         f"{step}: {documents} document(s) · {cached} from cache · {failed} failed{shown}{found}"
+        + _spent(tokens)
     )
+
+
+def _spent(tokens: Tokens | None) -> str:
+    """The token clause of a step's line, or nothing for a step that asked nothing."""
+    if tokens is None:
+        return ""
+    if tokens.input is None or tokens.output is None:
+        return " · tokens not reported"
+    return f" · {tokens.input:,} tokens in · {tokens.output:,} out"
 
 
 def judge_line(*, field: str, agreement: float, cases: int, judge_model: str) -> str:
