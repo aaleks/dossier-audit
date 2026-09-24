@@ -499,6 +499,6 @@ and checked before its own first call (R9.4, R9.6).
 | 6 | `dossier run --replay runs/<run_id>/` of row 1's run | reproduced byte for byte and no model asked (R4.7): each key rebuilt with the model its step recorded |
 | 7 | `verify` naming `model: anthropic:claude-sonnet-4-5-20250929`, the pipeline's own | the same manifest and the same keys, byte for byte, as naming none |
 | 8 | *counter-example* — a pipeline no step of which names a model | no step in its manifest carries `model`, and every key is the one R5.3 composed: nothing written before this rule moves |
-| 9 | *counter-example* — `extract` naming `model: anthropic:claude-sonnet-4-5` | load-time error naming `pipeline.yaml`, the line, `steps[0].model` and the alias (R3.4); nothing asked |
+| 9 | *counter-example* — `extract` naming `model: anthropic:claude-sonnet-4-5` | load-time error naming `pipeline.yaml`, the line, `steps.0.model` and the alias (R3.4); nothing asked |
 | 10 | *counter-example* — `extract` naming `model: mistral:mistral-large-2411`, which no installed package provides | load-time error naming the providers available (R9.1) |
 | 11 | *counter-example* — `dossier eval` and `dossier calibrate` over row 1's pipeline | the judge is the pipeline's `model:`; a step's own model answers that step and judges nothing (spec 007) |
