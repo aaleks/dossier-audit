@@ -61,6 +61,7 @@ from dossier.config.load import (
     JUDGE_FILE,
     ConfigError,
     load_calibration_sample,
+    load_converter_names,
     load_fields,
     load_judge_rubrics,
     load_judge_thresholds,
@@ -73,6 +74,7 @@ from dossier.domain.conversion import (
     PART_SUFFIX,
     PART_TYPE,
     NoConverter,
+    answering,
     part_name,
     unpack_parts,
 )
@@ -439,6 +441,21 @@ def _version_experiment(workspace: Path, pipeline: str) -> str:
     )
 
 
+def _converters_for(workspace: Path) -> list:
+    """The converters that answer in this workspace, as `sources.yaml` names them (R8.13).
+
+    Every command that converts or pins converters asks here, so none of them can
+    choose differently from the others. A name nothing installed carries stops
+    the command before anything converts, as an unclaimed pair does (R8.5).
+    """
+    try:
+        named = load_converter_names(workspace / "sources.yaml")
+        return answering(installed_converters(), named=named)
+    except (ConfigError, NoConverter) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+
 def _versions_for(workspace: Path) -> VersionRegistry | None:
     """The version registry for this workspace, or `None` when it cannot be built.
 
@@ -611,7 +628,9 @@ def run(
                 PinnedConverter(
                     id=c.id, version=c.version, media_type=c.media_type, kind=c.kind
                 )
-                for c in used_converters(requests=requests, available=installed_converters())
+                for c in used_converters(
+                    requests=requests, available=_converters_for(workspace)
+                )
             ],
         )
     except ValueError as error:
@@ -695,7 +714,7 @@ def convert(
     # (R10.5).
     tracker, experiment = _tracking_for(workspace, pipeline, kind="convert")
 
-    converters = installed_converters()
+    converters = _converters_for(workspace)
     store = SnapshotStore(workspace)
     cache = ArtifactCache(workspace, namespace="convert")
     reports: list[ConvertReport] = []
@@ -900,7 +919,7 @@ def _execute(
     prompt_registry = _prompt_registry_for(workspace) if tracker is not None else None
 
     store = SnapshotStore(workspace)
-    converters = installed_converters()
+    converters = _converters_for(workspace)
     text: dict[str, str] = {}
     # Every converted kind, not only `markdown`, so a step naming one can be
     # handed it (R3.11). A kind whose artifact is not text is absent from here
@@ -1161,7 +1180,7 @@ def _held_content(workspace: Path, config) -> tuple[dict[str, str], dict[str, li
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
 
-    converters = installed_converters()
+    converters = _converters_for(workspace)
     store = SnapshotStore(workspace)
     cache = ArtifactCache(workspace, namespace="convert")
 
