@@ -11,6 +11,7 @@ here enters a key, a manifest or a score.
 from __future__ import annotations
 
 import base64
+import json
 import re
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
@@ -18,6 +19,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from dossier.domain.hashing import content_hash
 from dossier.domain.judges import Calibration
 from dossier.domain.resolution import ResolvedPlan
 from dossier.domain.scoring import FieldDelta, FieldTotal, overall, regressed_fields, weakest
@@ -957,3 +959,37 @@ def span_payload(
 def _gold_name(gold: str) -> str:
     """`incidents` from `gold/incidents` or `gold/incidents/`: the set's own name."""
     return gold.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+
+
+def trace_request(
+    document: str, values: Mapping[str, str], *, capture: str
+) -> dict[str, object]:
+    """What a trace was asked about, as the trace list's Request shows it (R15.1).
+
+    The document key, and each value the step was handed under its input's name,
+    as the prompt was rendered with them (R3.13). The values sit under `inputs`
+    of their own, so a step that happens to be called `document` cannot stand in
+    for the key. Under `hashes`, each value is its hash and no word of it is
+    held, as no span holds one (R10.8).
+    """
+    if capture == "hashes":
+        values = {name: content_hash(value.encode("utf-8")) for name, value in values.items()}
+    return {"document": document, "inputs": dict(values)}
+
+
+def trace_response(
+    text: str | None, *, structured: bool, error: str | None, capture: str
+) -> object:
+    """What a trace answered, as the trace list's Response shows it (R15.1).
+
+    The answer as `runs/` holds it (R0.11): a field record parsed, so MLflow
+    renders it as the object it is rather than as a quoted string, and prose as
+    written. A document that failed answered nothing, and shows the error it
+    failed with -- the one the trace already carries (R11.1 row 4). Under
+    `hashes`, the artifact's hash (R10.8).
+    """
+    if error is not None or text is None:
+        return {"error": error}
+    if capture == "hashes":
+        return {"artifact": content_hash(text.encode("utf-8"))}
+    return json.loads(text) if structured else text

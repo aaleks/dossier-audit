@@ -138,14 +138,23 @@ class BestEffortTracker:
     def log_dataset(self, *, name: str, dataset_id: str, digest: str) -> None:
         self._sent(self._inner.log_dataset, name=name, dataset_id=dataset_id, digest=digest)
 
-    def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
+    def start_trace(
+        self,
+        *,
+        name: str,
+        tags: Mapping[str, str],
+        inputs: Mapping[str, object] | None = None,
+    ) -> None:
+        # Handed on only when there is one, so a tracker that shows no request
+        # is called exactly as it was before R15.1.
+        given = {} if inputs is None else {"inputs": inputs}
         # The place is taken and the trace opened under one lock, so the place
         # counted here is the place the tracker inside gives the same trace --
         # which is how it names one the server does not hold (R10.24, R11.21).
         with self._lock:
             place = self._opened
             self._opened += 1
-            opened = self._sent(self._inner.start_trace, name=name, tags=tags)
+            opened = self._sent(self._inner.start_trace, name=name, tags=tags, **given)
         self._this_trace.place = place
         self._this_trace.lost = not opened
 
@@ -153,8 +162,11 @@ class BestEffortTracker:
         if not self._sent(self._inner.span, kind=kind, name=name, attributes=attributes):
             self._this_trace.lost = True
 
-    def end_trace(self, *, status: str, error: str | None = None) -> None:
-        if not self._sent(self._inner.end_trace, status=status, error=error):
+    def end_trace(
+        self, *, status: str, error: str | None = None, outputs: object = None
+    ) -> None:
+        given = {} if outputs is None else {"outputs": outputs}
+        if not self._sent(self._inner.end_trace, status=status, error=error, **given):
             self._this_trace.lost = True
         if getattr(self._this_trace, "lost", False):
             with self._lock:

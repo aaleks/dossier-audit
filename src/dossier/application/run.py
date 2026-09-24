@@ -83,6 +83,8 @@ from dossier.domain.tracking import (
     run_name,
     step_line,
     token_metrics,
+    trace_request,
+    trace_response,
     version_params,
 )
 from dossier.domain.tracking import tags as tracking_tags
@@ -423,6 +425,21 @@ def execute(
                     tracker.start_trace(
                         name=f"{step.id} · {key}",
                         tags={"dossier.step": step.id, "dossier.document": key},
+                        # What a reviewer reads first: the document and what the
+                        # step was handed about it (R15.1).
+                        inputs=trace_request(
+                            key,
+                            _input_values(
+                                declared=declared[step.id],
+                                resolved=step,
+                                document=key,
+                                documents=keys,
+                                aggregate=declared[step.id].mode == "aggregate",
+                                by_kind=by_kind,
+                                produced=produced,
+                            ),
+                            capture=capture,
+                        ),
                     )
                 # A per_part step runs once per part of its input, keyed and
                 # retried per part (R3.12). `[None]` is every other step: one
@@ -477,7 +494,15 @@ def execute(
                 )
                 if tracker is not None:
                     tracker.end_trace(
-                        status="ERROR" if result.failed else "OK", error=result.error
+                        status="ERROR" if result.failed else "OK",
+                        error=result.error,
+                        # And the answer beside it, as `runs/` holds it (R15.1).
+                        outputs=trace_response(
+                            None if result.failed else _as_text(result),
+                            structured=output is not None,
+                            error=result.error if result.failed else None,
+                            capture=capture,
+                        ),
                     )
                 return result, parts_done if declared[step.id].mode == "per_part" else []
 

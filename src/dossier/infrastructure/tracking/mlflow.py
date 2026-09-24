@@ -389,7 +389,13 @@ class MlflowTracker:
         for name, value in metrics.items():
             self._client.log_metric(run_id, name, value, model_id=version_id)
 
-    def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
+    def start_trace(
+        self,
+        *,
+        name: str,
+        tags: Mapping[str, str],
+        inputs: Mapping[str, object] | None = None,
+    ) -> None:
         # The place is taken before MLflow is asked, so a trace it could not open
         # still has one. `BestEffortTracker` counts places, and one skipped here
         # would name every later trace by its neighbour's (R10.24 row 4). Taken
@@ -402,6 +408,9 @@ class MlflowTracker:
             tags=dict(tags),
             experiment_id=self._experiment_id,
             run_id=self._run_id,
+            # The trace list's Request column (R15.1). Only when there is one:
+            # the judge's and a calibration's traces are opened as before.
+            **({} if inputs is None else {"inputs": dict(inputs)}),
         )
         self._this.trace_id, self._this.root_span_id = root.trace_id, root.span_id
         self._this.pending = []
@@ -433,7 +442,9 @@ class MlflowTracker:
             {"name": name, "value": value, "rationale": rationale, "source": source}
         )
 
-    def end_trace(self, *, status: str, error: str | None = None) -> None:
+    def end_trace(
+        self, *, status: str, error: str | None = None, outputs: object = None
+    ) -> None:
         import mlflow
         from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 
@@ -443,6 +454,8 @@ class MlflowTracker:
             trace_id,
             attributes={"error": error} if error else None,
             status=status,
+            # The trace list's Response column (R15.1), when there is one.
+            **({} if outputs is None else {"outputs": outputs}),
         )
         if pending:
             # The exporter is asynchronous; feedback on a trace it has not sent
