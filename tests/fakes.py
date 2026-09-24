@@ -168,6 +168,10 @@ class FakeTrace:
     assessments: list[dict[str, object]] = field(default_factory=list)
     status: str | None = None
     error: str | None = None
+    # What it was opened and closed with: the Request and Response the trace
+    # list shows (R15.1). `None` for a trace given neither.
+    inputs: dict[str, object] | None = None
+    outputs: object = None
 
 
 @dataclass
@@ -271,8 +275,16 @@ class FakeTracker:
         # kept it somewhere else could not fail when the tracker stopped.
         self._run.tags["mlflow.note.content"] = text
 
-    def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None:
-        trace = FakeTrace(name=name, tags=dict(tags))
+    def start_trace(
+        self,
+        *,
+        name: str,
+        tags: Mapping[str, str],
+        inputs: Mapping[str, object] | None = None,
+    ) -> None:
+        trace = FakeTrace(
+            name=name, tags=dict(tags), inputs=None if inputs is None else dict(inputs)
+        )
         with self._opening:
             self._run.traces.append(trace)
         self._open.trace = trace
@@ -285,9 +297,12 @@ class FakeTracker:
             {"name": name, "value": value, "rationale": rationale, "source": source}
         )
 
-    def end_trace(self, *, status: str, error: str | None = None) -> None:
+    def end_trace(
+        self, *, status: str, error: str | None = None, outputs: object = None
+    ) -> None:
         self._trace.status = status
         self._trace.error = error
+        self._trace.outputs = outputs
 
     def end_run(self, *, status: str) -> None:
         # The statuses MLflow's `RunStatus.from_string` accepts. A run and a trace

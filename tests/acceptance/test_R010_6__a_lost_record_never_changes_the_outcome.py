@@ -47,18 +47,18 @@ class LosingTracker(FakeTracker):
         if self._started > self._answers:
             raise ConnectionError(f"the MLflow server at {URI} stopped answering")
 
-    def start_trace(self, *, name, tags) -> None:
+    def start_trace(self, *, name, tags, inputs=None) -> None:
         self._started += 1
         self._check()
-        super().start_trace(name=name, tags=tags)
+        super().start_trace(name=name, tags=tags, inputs=inputs)
 
     def span(self, *, kind, name, attributes) -> None:
         self._check()
         super().span(kind=kind, name=name, attributes=attributes)
 
-    def end_trace(self, *, status, error=None) -> None:
+    def end_trace(self, *, status, error=None, outputs=None) -> None:
         self._check()
-        super().end_trace(status=status, error=error)
+        super().end_trace(status=status, error=error, outputs=outputs)
 
     def log_metrics(self, metrics) -> None:
         self._check()

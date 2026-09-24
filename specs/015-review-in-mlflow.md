@@ -1,6 +1,6 @@
 # 015 — Review in MLflow
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R15.1 – R15.5
 
 ## Purpose
@@ -108,7 +108,7 @@ decision about the server, and it is the person running it who makes it.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`), infrastructure (`dossier.infrastructure.tracking.mlflow`)
 - **Proved by:** `tests/unit/test_R015_1__a_trace_shows_the_document_and_the_answer.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

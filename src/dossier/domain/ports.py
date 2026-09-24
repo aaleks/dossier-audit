@@ -310,7 +310,15 @@ class Tracker(Protocol):
         """
         ...
 
-    def start_trace(self, *, name: str, tags: Mapping[str, str]) -> None: ...
+    def start_trace(
+        self,
+        *,
+        name: str,
+        tags: Mapping[str, str],
+        inputs: Mapping[str, object] | None = None,
+    ) -> None:
+        """Open a trace, with what it was asked about as its request (R15.1)."""
+        ...
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None: ...
 
@@ -325,7 +333,11 @@ class Tracker(Protocol):
         """
         ...
 
-    def end_trace(self, *, status: str, error: str | None = None) -> None: ...
+    def end_trace(
+        self, *, status: str, error: str | None = None, outputs: object = None
+    ) -> None:
+        """Close the trace, with what it answered as its response (R15.1)."""
+        ...
 
     def end_run(self, *, status: str) -> None: ...
 
