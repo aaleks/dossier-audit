@@ -366,7 +366,7 @@ identical (R0.4).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.step_line`), application (`dossier.application.run`)
 - **Proved by:** `tests/acceptance/test_R005_12__a_run_says_what_each_step_spent.py`, `tests/unit/test_R005_12__the_step_line_says_what_was_spent.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
