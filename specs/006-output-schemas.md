@@ -492,7 +492,7 @@ keyboard types.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.grounding.locate_span`)
 - **Proved by:** `tests/unit/test_R006_17__unicode_compatibility_forms_are_folded.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
