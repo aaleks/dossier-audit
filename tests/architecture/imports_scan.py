@@ -42,6 +42,10 @@ NETWORK_MODULES = frozenset(
         "httpcore",
         "httplib2",
         "httpx",
+        # Hugging Face's client downloads weights. Docling reaches for it on its
+        # own, and `docling-markdown` passes Docling a model folder so that it
+        # never does (R8.15); nothing in dossier imports it.
+        "huggingface_hub",
         "cohere",
         "google",
         "jira",
