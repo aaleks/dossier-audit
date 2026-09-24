@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import inspect
 import json
+import threading
+import time
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -83,6 +85,67 @@ class NoModelClient:
         raise FakeModelClientError(
             "a model call was made where the rule under test permits none"
         )
+
+
+class Gate:
+    """Holds each model call until enough are in flight together (R9.19).
+
+    It **counts how many calls were in flight at once**, as `FakeModelClient`
+    counts calls: R9.19 is a claim about that number, and timing alone cannot
+    prove it -- three calls that happened to arrive quickly would look
+    concurrent and prove nothing.
+
+    The gate opens once `meet` calls are in flight together, or every one of
+    the `expected` documents not yet answered is, so the last of an uneven batch
+    is not kept waiting for company that is not coming. Once open it stays
+    open, and `order`, if given, is the order answers leave in. A run asking one
+    at a time never opens a gate set above 1: each call waits out `patience`
+    and passes anyway, so a red test fails on what was counted rather than
+    hanging. `hold` keeps a call in flight briefly after the gate, so calls
+    that do overlap are seen to.
+    """
+
+    def __init__(
+        self,
+        *,
+        expected: int,
+        meet: int = 1,
+        order: Sequence[str] = (),
+        patience: float = 2.0,
+        hold: float = 0.05,
+    ) -> None:
+        self.expected = expected
+        self.meet = meet
+        self.order = tuple(order)
+        self.patience = patience
+        self.hold = hold
+        self.asked: list[str] = []
+        self.most_at_once = 0
+        self._in_flight = 0
+        self._answered: list[str] = []
+        self._open = False
+        self._condition = threading.Condition()
+
+    def through(self, document: str) -> None:
+        """Wait at the gate as a call about `document`, then leave it."""
+        with self._condition:
+            self.asked.append(document)
+            self._in_flight += 1
+            self.most_at_once = max(self.most_at_once, self._in_flight)
+            if self._in_flight >= min(self.meet, self.expected - len(self._answered)):
+                self._open = True
+            self._condition.notify_all()
+            self._condition.wait_for(
+                lambda: self._open and self._turn(document), timeout=self.patience
+            )
+        time.sleep(self.hold)
+        with self._condition:
+            self._in_flight -= 1
+            self._answered.append(document)
+            self._condition.notify_all()
+
+    def _turn(self, document: str) -> bool:
+        return not self.order or self.order[len(self._answered)] == document
 
 
 class FakeTrackerError(AssertionError):

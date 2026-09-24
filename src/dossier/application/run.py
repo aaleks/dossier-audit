@@ -29,7 +29,9 @@ against `FakeModelClient` and lets the tests assert how many calls happened.
 from __future__ import annotations
 
 import json
-from collections.abc import Collection, Mapping, Sequence
+import threading
+from collections.abc import Callable, Collection, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -231,11 +233,16 @@ def execute(
     version_experiment: str = "",
     prompt_registry: PromptRegistry | None = None,
     prompt_prefix: str = "",
+    concurrency: int = 1,
 ) -> RunReport:
     """Resolve the pipeline, freeze it, then run it.
 
     Raises `ValueError` if resolution fails, having written nothing and called
     nothing. Returns a report if it succeeded, whatever individual documents did.
+
+    `concurrency` is how many of a step's documents are asked about at once
+    (R9.19). Steps still run one after another, and every result is put back in
+    document order, so nothing this returns or writes depends on it.
 
     With a `tracker`, the run is also recorded to `experiment`: one MLflow run
     named after `run_id`, one trace per (step, document), and the counts and the
@@ -371,7 +378,12 @@ def execute(
             output = schemas.get(step.id)
             results: list[DocumentResult] = []
             every_part: list[DocumentResult] = []
-            for key in over:
+
+            # `step` and `output` bound now: `one` runs on other threads, but
+            # always before this loop moves on, and binding says so.
+            def one(
+                key: str, *, step: ResolvedStep = step, output: OutputSchema | None = output
+            ) -> tuple[DocumentResult, list[DocumentResult]] | None:
                 # A document an earlier step produced nothing for is skipped,
                 # not run with an empty input: that would ask a model about a
                 # document nobody read and cache the answer under a key whose
@@ -384,7 +396,7 @@ def execute(
                     document=key,
                     produced=produced,
                 ):
-                    continue
+                    return None
 
                 # One trace per (step, document): the unit of a cache key, so one
                 # trace is one key computed or served (spec 011). Opened before
@@ -434,8 +446,6 @@ def execute(
                             part=None if part is None else part[0],
                         )
                     parts_done.append(result)
-                    if declared[step.id].mode == "per_part":
-                        every_part.append(result)
 
                 if not parts_done:
                     # A per_part step whose document has no parts. The document
@@ -445,7 +455,7 @@ def execute(
                     # to describe nothing and cache the answer.
                     if tracker is not None:
                         tracker.end_trace(status="OK", error=None)
-                    continue
+                    return None
 
                 result = (
                     parts_done[0]
@@ -456,6 +466,16 @@ def execute(
                     tracker.end_trace(
                         status="ERROR" if result.failed else "OK", error=result.error
                     )
+                return result, parts_done if declared[step.id].mode == "per_part" else []
+
+            # At most `concurrency` documents at once, collected in document
+            # order whatever order they finish in: the step lines, `runs/` and
+            # every record are what one at a time writes (R9.19).
+            for done in _in_order(over, one, concurrency=concurrency):
+                if done is None:
+                    continue
+                result, parts = done
+                every_part.extend(parts)
                 results.append(result)
             steps.append(
                 StepReport(step=step.id, results=tuple(results), parts=tuple(every_part))
@@ -515,6 +535,41 @@ def execute(
         )
         tracker.end_run(status="FAILED" if report.failed else "FINISHED")
     return report
+
+
+def _in_order[T, R](items: Sequence[T], work: Callable[[T], R], *, concurrency: int) -> list[R]:
+    """`work` over `items`, at most `concurrency` at once, in `items`' order (R9.19).
+
+    One at a time is a plain loop in this thread, the run before R9.19 exactly.
+    Otherwise items start in their order, so every item before one that fails
+    has been started; the results are read back in that order, so the error
+    raised is the first failing item's -- the one a loop would have stopped at.
+    Once anything fails, or the caller is interrupted, an item not yet started is
+    not started. The ones in flight are waited for: a call cannot be taken back,
+    and an answer it paid for is cached as it completes.
+    """
+    if concurrency == 1 or len(items) < 2:
+        return [work(item) for item in items]
+    stopped = threading.Event()
+
+    def guarded(item: T) -> R | None:
+        # `None` is never read: an item only goes unstarted after an earlier
+        # one failed, and reading that one's result raises first.
+        if stopped.is_set():
+            return None
+        try:
+            return work(item)
+        except BaseException:
+            stopped.set()
+            raise
+
+    with ThreadPoolExecutor(max_workers=min(concurrency, len(items))) as pool:
+        started = [pool.submit(guarded, item) for item in items]
+        try:
+            return [future.result() for future in started]
+        except BaseException:
+            stopped.set()
+            raise
 
 
 def _as_text(result: DocumentResult) -> str:
