@@ -582,8 +582,8 @@ found in.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.jira_issue.note`), called by infrastructure (`dossier.infrastructure.converters.jira_issue_markdown`)
-- **Proved by:** `tests/unit/test_R008_16__an_issue_converts_to_a_note_of_what_a_person_reads.py`, `tests/acceptance/test_R008_16__a_jira_issue_is_audited_end_to_end.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R008_16__a_jira_issue_is_audited_end_to_end.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
