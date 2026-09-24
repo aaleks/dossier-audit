@@ -17,11 +17,12 @@ from collections.abc import Sequence
 
 import httpx
 
-from dossier.domain.ports import ImagePart
+from dossier.domain.ports import ImagePart, Reply
 from dossier.infrastructure.models._http import (
     TIMEOUT_SECONDS,
     ModelRequestFailed,
     Sleep,
+    count_at,
     encoded,
     request,
 )
@@ -104,7 +105,12 @@ class AnthropicClient:
         # type `text`: a model that thinks by default puts its thinking first.
         for block in blocks:
             if isinstance(block, dict) and block.get("type") == "text":
-                return block["text"]
+                # What the answer cost, in Anthropic's names for it (R9.18).
+                return Reply(
+                    block["text"],
+                    input_tokens=count_at(response, "usage", "input_tokens"),
+                    output_tokens=count_at(response, "usage", "output_tokens"),
+                )
         # No text block at all -- a `refusal`, or a reply cut off before any
         # text. Reported as what it is rather than handed to the stage as an
         # empty answer for R6.2 to retry: that would record a validation

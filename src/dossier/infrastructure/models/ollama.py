@@ -18,10 +18,11 @@ from collections.abc import Sequence
 import httpx
 
 from dossier.domain.model_id import check_served
-from dossier.domain.ports import ImagePart
+from dossier.domain.ports import ImagePart, Reply
 from dossier.infrastructure.models._http import (
     ModelRequestFailed,
     Sleep,
+    count_at,
     encoded,
     http_client,
     request,
@@ -94,7 +95,12 @@ class OllamaClient:
         if schema is not None:
             body["format"] = schema
         response = request(self._http, "POST", self._url, json=body, sleep=self._sleep)
-        return text_at(response, "message", "content")
+        # What the answer cost, where Ollama's own API says it (R9.18).
+        return Reply(
+            text_at(response, "message", "content"),
+            input_tokens=count_at(response, "prompt_eval_count"),
+            output_tokens=count_at(response, "eval_count"),
+        )
 
     def _check_digest(self) -> None:
         """Stop before the first completion if the tag now holds another digest (R9.4).

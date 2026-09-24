@@ -104,6 +104,33 @@ class ImagePart(BaseModel):
     data: bytes
 
 
+class Reply(str):
+    """A model's answer: the text, and what its provider counted it cost (R9.18).
+
+    A `str`, and that is the design rather than a shortcut. Every caller that
+    reads an answer reads text -- validates it, caches it, hands it to the next
+    prompt -- and reads this one unchanged. A client that reports nothing, a
+    test's fake among them, returns plain text and is still a `ModelClient`.
+
+    The counts are `None` when the provider did not give them. Never 0: a
+    passthrough that strips `usage` has not reported a free completion.
+
+    Nothing here enters a key. Tokens are what an answer cost, not what it was
+    asked (R0.5).
+    """
+
+    input_tokens: int | None
+    output_tokens: int | None
+
+    def __new__(
+        cls, text: str, *, input_tokens: int | None = None, output_tokens: int | None = None
+    ) -> Reply:
+        reply = super().__new__(cls, text)
+        reply.input_tokens = input_tokens
+        reply.output_tokens = output_tokens
+        return reply
+
+
 @runtime_checkable
 class ModelClient(Protocol):
     """How a stage reaches a model.
@@ -127,6 +154,10 @@ class ModelClient(Protocol):
         parts: Sequence[ImagePart] = (),
     ) -> str:
         """One completion, returned as text for the caller to validate.
+
+        A client whose provider says what the answer cost returns a `Reply`,
+        which is text carrying the counts (R9.18); one that does not returns
+        plain `str`, and reads as having reported nothing.
 
         `parts` are images the prompt is about, in the order the caller means
         them -- page order, for a document. A call with none sends exactly what
