@@ -334,9 +334,16 @@ class Tracker(Protocol):
         ...
 
     def end_trace(
-        self, *, status: str, error: str | None = None, outputs: object = None
+        self,
+        *,
+        status: str,
+        error: str | None = None,
+        outputs: object = None,
+        tags: Mapping[str, str] | None = None,
     ) -> None:
-        """Close the trace, with what it answered as its response (R15.1)."""
+        """Close the trace, with what it answered as its response (R15.1), and
+        the tags only its end can know -- whether it belongs in the review
+        queue (R15.2)."""
         ...
 
     def end_run(self, *, status: str) -> None: ...

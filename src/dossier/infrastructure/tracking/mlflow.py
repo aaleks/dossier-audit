@@ -443,13 +443,22 @@ class MlflowTracker:
         )
 
     def end_trace(
-        self, *, status: str, error: str | None = None, outputs: object = None
+        self,
+        *,
+        status: str,
+        error: str | None = None,
+        outputs: object = None,
+        tags: Mapping[str, str] | None = None,
     ) -> None:
         import mlflow
         from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 
         trace_id = self._this.trace_id
         pending = self._this.pending
+        # Before the trace ends, while MLflow holds it in memory: what puts it in
+        # the review queue is known only once the answer is checked (R15.2).
+        for key, value in (tags or {}).items():
+            self._client.set_trace_tag(trace_id, key, value)
         self._client.end_trace(
             trace_id,
             attributes={"error": error} if error else None,

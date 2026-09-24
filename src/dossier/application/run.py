@@ -79,6 +79,7 @@ from dossier.domain.resolution import (
 from dossier.domain.schemas import StageOutput
 from dossier.domain.store import RESERVED_KEY, output_path, record_path
 from dossier.domain.tracking import (
+    review_tags,
     run_description,
     run_name,
     step_line,
@@ -502,6 +503,17 @@ def execute(
                             structured=output is not None,
                             error=result.error if result.failed else None,
                             capture=capture,
+                        ),
+                        # What the run doubts about it, for the review queue
+                        # (R15.2). Checks pair with records one to one.
+                        tags=review_tags(
+                            failed=result.failed,
+                            verdicts=[
+                                (record.field, check.verdict)
+                                for record, check in zip(
+                                    result.records, result.checks, strict=True
+                                )
+                            ],
                         ),
                     )
                 return result, parts_done if declared[step.id].mode == "per_part" else []

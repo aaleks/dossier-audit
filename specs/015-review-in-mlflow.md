@@ -135,13 +135,13 @@ was sure of is the most useful verdict there is.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R015_2__a_run_tags_what_it_doubts.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
 | 1 | `extract · INC-4822` with `loss_amount` ungrounded (R6.4) | tags `dossier.review` `needed` and `dossier.findings` `loss_amount: ungrounded` |
 | 2 | `INC-4822` failing validation twice | `dossier.review` `needed`, `dossier.findings` `failed` |
-| 3 | two fields in doubt, `root_cause` invalid and `loss_amount` ungrounded | `dossier.findings` `loss_amount: ungrounded; root_cause: invalid`, in field order |
+| 3 | two fields in doubt, `root_cause` invalid and `loss_amount` ungrounded | `dossier.findings` `loss_amount: ungrounded; root_cause: invalid`, sorted by field |
 | 4 | the same run again, served from cache | the same tags: a doubt does not go away because the answer was cached |
 | 5 | *counter-example* — `INC-4821`, every field grounded or abstaining | neither tag |
 | 6 | *counter-example* — a field `described` from a picture (R6.15) | not a doubt; the judge decides it (R7.21), and it is not tagged |

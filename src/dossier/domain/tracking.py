@@ -19,6 +19,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from dossier.domain.grounding import FieldVerdict
 from dossier.domain.hashing import content_hash
 from dossier.domain.judges import Calibration
 from dossier.domain.resolution import ResolvedPlan
@@ -993,3 +994,29 @@ def trace_response(
     if capture == "hashes":
         return {"artifact": content_hash(text.encode("utf-8"))}
     return json.loads(text) if structured else text
+
+
+# The tag the review queue filters on, and the tag saying why (R15.2).
+REVIEW = "dossier.review"
+FINDINGS = "dossier.findings"
+
+
+def review_tags(
+    *, failed: bool, verdicts: Sequence[tuple[str, FieldVerdict]]
+) -> dict[str, str]:
+    """The tags that put a trace in the review queue, or none (R15.2).
+
+    A doubt is what the run itself was not sure of: a document that failed, and
+    a field `ungrounded` or `invalid` (R6.16). Not a `described` field, which a
+    judge decides (R7.21), nor an abstention, which is a valid answer (R6.5).
+    The fields are named sorted, with why, so the reason is on the row and two
+    runs of one answer tag it identically (R0.4).
+    """
+    if failed:
+        return {REVIEW: "needed", FINDINGS: "failed"}
+    doubts = sorted(
+        f"{field}: {verdict.value}" for field, verdict in verdicts if verdict.is_failure
+    )
+    if not doubts:
+        return {}
+    return {REVIEW: "needed", FINDINGS: "; ".join(doubts)}

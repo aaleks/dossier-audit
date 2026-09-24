@@ -298,11 +298,17 @@ class FakeTracker:
         )
 
     def end_trace(
-        self, *, status: str, error: str | None = None, outputs: object = None
+        self,
+        *,
+        status: str,
+        error: str | None = None,
+        outputs: object = None,
+        tags: Mapping[str, str] | None = None,
     ) -> None:
         self._trace.status = status
         self._trace.error = error
         self._trace.outputs = outputs
+        self._trace.tags.update(tags or {})
 
     def end_run(self, *, status: str) -> None:
         # The statuses MLflow's `RunStatus.from_string` accepts. A run and a trace

@@ -163,9 +163,16 @@ class BestEffortTracker:
             self._this_trace.lost = True
 
     def end_trace(
-        self, *, status: str, error: str | None = None, outputs: object = None
+        self,
+        *,
+        status: str,
+        error: str | None = None,
+        outputs: object = None,
+        tags: Mapping[str, str] | None = None,
     ) -> None:
         given = {} if outputs is None else {"outputs": outputs}
+        if tags:
+            given["tags"] = tags
         if not self._sent(self._inner.end_trace, status=status, error=error, **given):
             self._this_trace.lost = True
         if getattr(self._this_trace, "lost", False):
