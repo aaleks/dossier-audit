@@ -28,7 +28,13 @@ failed · 3,612 tokens in · 636 out`, nothing at all on a re-run served from
 cache, and `tokens not reported` rather than a zero nobody measured (R5.12).
 The line is `step_line`'s, so the MLflow description says it too (R11.17).
 Tokens, not money: a price per model is the user's to declare, and tokens are
-what any price multiplies.
+what any price multiplies. MLflow reads it too: the run gains `tokens_in` and
+`tokens_out` beside `model_calls`, and each LLM span carries MLflow's own
+`mlflow.chat.tokenUsage` rather than a `dossier.` attribute, because MLflow 3
+adds every span's into the trace's `mlflow.trace.tokenUsage` and shows it in
+the trace list -- verified against a live 3.15.1 server, three traces reading
+1204/212/1416 each and the run 3612/636 (R11.20). A count is not content, so it
+is recorded under `capture=hashes` as well.
 
 A rate limit is not an answer about the document. One `429` from Gemini behind
 OpenWebUI -- the project's default endpoint -- raised straight out of the model
