@@ -13,6 +13,21 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A rate limit is not an answer about the document. One `429` from Gemini behind
+OpenWebUI -- the project's default endpoint -- raised straight out of the model
+client and stopped `dossier run` with exit 2 at the document it hit, which over
+four hundred documents is a question of when. A request answered `408`, `409`,
+`429` or any `5xx`, or not answered at all, is now sent again unchanged, at most
+twice, waiting what the server's `Retry-After` asks when that is at most a
+minute and otherwise 0.5 s then 1 s, jittered down by up to a quarter (R9.17).
+The numbers are both official SDKs', not chosen here. It all happens inside one
+`complete`, so the stage sees one answer, R5.5 counts one call and R11.2 shows
+one span; a `401` or `400` still fails on the first answer, and a failure after
+three says so: `answered 503 Service Unavailable (after 3 attempts)`. The decisions
+are `dossier.domain.retries`; the one loop that acts on them is `_http.request`,
+which every client already sent through, and each client takes a `sleep` so no
+test waits.
+
 MLflow can sit behind authentication. `DOSSIER_MLFLOW_AUTH` names the mode --
 `none`, `basic`, `bearer` or `oidc` -- chosen, never inferred from which
 variables are set, and `DOSSIER_MLFLOW_USER` (Created by) is never a login

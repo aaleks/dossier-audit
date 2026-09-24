@@ -25,8 +25,6 @@ import pytest
 from tests.fakes import register_provider
 from tests.pipelines import write_pipeline
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 MODEL = "gemini:gemini-3.5-flash-lite"
 OPENWEBUI = "http://localhost:8080/api"

@@ -1,6 +1,6 @@
 # 009 — Model providers
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R9.1 – R9.17
 
 ## Purpose
@@ -416,7 +416,7 @@ wiring, and sits in the one place every model client already sends through.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.retries`), infrastructure (`dossier.infrastructure.models._http`)
 - **Proved by:** `tests/acceptance/test_R009_17__a_rate_limited_model_request_is_sent_again.py`, `tests/unit/test_R009_17__which_model_requests_are_retried_and_when.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

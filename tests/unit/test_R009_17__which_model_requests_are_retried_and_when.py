@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import httpx
 import pytest
 
 from dossier.domain.retries import retry_after, retryable, wait_before
@@ -97,3 +98,90 @@ class TestHowLongToWait:
     def test_no_header_is_no_wait_asked_for(self):
         """Row 3: the one where the server says nothing about waiting."""
         assert retry_after({}, now=NOW) is None
+
+
+class Server:
+    """A model endpoint answering from a script -- a response, or an exception to
+    raise -- and then `ok`. Remembers every request, because the rows count them."""
+
+    def __init__(self, *script: httpx.Response | Exception, ok: httpx.Response) -> None:
+        self.script = list(script)
+        self.ok = ok
+        self.requests: list[httpx.Request] = []
+        self.transport = httpx.MockTransport(self)
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        if not self.script:
+            return self.ok
+        answer = self.script.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+
+OPENAI_OK = httpx.Response(200, json={"choices": [{"message": {"content": "answer"}}]})
+ANTHROPIC_OK = httpx.Response(
+    200, json={"content": [{"type": "text", "text": "answer"}], "stop_reason": "end_turn"}
+)
+
+
+class TestEveryClientSendsItAgain:
+    """R9.17 — the resend itself, where every model client sends: rows 4, 5 and 8."""
+
+    def test_a_request_no_server_answered_is_sent_again(self):
+        """Row 4: the one where the connection is refused, then answered."""
+        from dossier.infrastructure.models.openai_compatible import gemini
+
+        refused = httpx.ConnectError("connection refused")
+        server = Server(refused, ok=OPENAI_OK)
+        waits: list[float] = []
+        client = gemini(
+            "gemini:gemini-3.5-flash-lite",
+            url="http://localhost:8080/api",
+            transport=server.transport,
+            sleep=waits.append,
+        )
+
+        assert client.complete("Extract the fields.") == "answer"
+        assert len(server.requests) == 2
+        assert len(waits) == 1
+
+    def test_an_overloaded_anthropic_is_asked_again(self):
+        """Row 5: the one where Anthropic answers 529, then 200."""
+        from dossier.infrastructure.models.anthropic import anthropic
+
+        server = Server(httpx.Response(529), ok=ANTHROPIC_OK)
+        waits: list[float] = []
+        client = anthropic(
+            "anthropic:claude-sonnet-4-5-20250929",
+            url="https://api.anthropic.com/v1",
+            transport=server.transport,
+            sleep=waits.append,
+        )
+
+        assert client.complete("Extract the fields.") == "answer"
+        assert len(server.requests) == 2
+        assert server.requests[0].content == server.requests[1].content
+
+    def test_a_request_the_server_could_not_read_is_not_sent_again(self):
+        """Row 8, a counter-example: the one where the answer is 400."""
+        from dossier.infrastructure.models.ollama import ModelRequestFailed, ollama
+
+        server = Server(httpx.Response(400), ok=httpx.Response(200))
+        waits: list[float] = []
+        client = ollama(
+            "ollama:qwen2.5:7b@sha256:" + "7f3c29a1" * 8,
+            url="http://localhost:11434",
+            transport=server.transport,
+            sleep=waits.append,
+        )
+        client._unchecked = False  # the digest check is R9.4's, not this row's
+
+        with pytest.raises(ModelRequestFailed) as error:
+            client.complete("Extract the fields.")
+
+        assert len(server.requests) == 1
+        assert waits == []
+        assert "400" in str(error.value)
+        assert "attempts" not in str(error.value)

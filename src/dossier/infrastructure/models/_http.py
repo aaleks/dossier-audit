@@ -8,7 +8,13 @@ refused or unreachable is written here once.
 
 from __future__ import annotations
 
+import random
+import time
+from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
+
+from dossier.domain.retries import MAX_RETRIES, retry_after, retryable, wait_before
 
 if TYPE_CHECKING:
     from dossier.domain.ports import ImagePart
@@ -19,6 +25,13 @@ import httpx
 # seconds would fail nearly every real request. Generous rather than unbounded,
 # so a server that never answers still ends the run instead of hanging it.
 TIMEOUT_SECONDS = 300.0
+
+# What httpx raises when no server answered: refused, reset, or timed out. Such a
+# request may be answered next time (R9.17 row 4). Anything else it raises -- a
+# URL it cannot send to at all -- would fail the same way twice.
+NO_ANSWER = (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError)
+
+Sleep = Callable[[float], None]
 
 
 class ModelRequestFailed(RuntimeError):
@@ -41,17 +54,42 @@ def http_client(
     return httpx.Client(headers=headers, timeout=TIMEOUT_SECONDS, transport=transport)
 
 
-def request(http: httpx.Client, method: str, url: str, **kwargs) -> httpx.Response:
-    """One request, or `ModelRequestFailed` naming the URL and what went wrong."""
-    try:
-        response = http.request(method, url, **kwargs)
-    except httpx.HTTPError as error:
-        raise ModelRequestFailed(f"{method} {url} failed: {error}") from None
-    if not response.is_success:
-        raise ModelRequestFailed(
-            f"{method} {url} answered {response.status_code} {response.reason_phrase}"
-        )
-    return response
+def request(
+    http: httpx.Client, method: str, url: str, *, sleep: Sleep = time.sleep, **kwargs
+) -> httpx.Response:
+    """One answer, or `ModelRequestFailed` naming the URL and what went wrong.
+
+    A busy server's refusal, or no answer at all, is not the end: the request is
+    sent again, unchanged, at most twice, waiting as the domain decides (R9.17).
+    All of it happens inside this one call, so the stage above sees one answer
+    and counts one call (R5.5). A refusal that would come back the same -- a
+    `401`, a `400` -- fails on the first answer.
+
+    `sleep` is the wait, handed in so a test about waiting three seconds takes
+    none. The jitter is drawn here, the one place randomness is allowed near it.
+    """
+    attempt = 1
+    while True:
+        try:
+            response = http.request(method, url, **kwargs)
+        except NO_ANSWER as error:
+            status, headers = None, {}
+            failure = f"{method} {url} failed: {error}"
+        except httpx.HTTPError as error:
+            raise ModelRequestFailed(f"{method} {url} failed: {error}") from None
+        else:
+            if response.is_success:
+                return response
+            status, headers = response.status_code, response.headers
+            failure = f"{method} {url} answered {status} {response.reason_phrase}"
+        if attempt > MAX_RETRIES or not retryable(status):
+            # How many were made, once there was more than one: "answered 503"
+            # alone would read as a server that refused the only request sent.
+            tried = f" (after {attempt} attempts)" if attempt > 1 else ""
+            raise ModelRequestFailed(failure + tried)
+        asked = retry_after(headers, now=datetime.now(UTC))
+        sleep(wait_before(attempt, retry_after=asked, jitter=1 - 0.25 * random.random()))
+        attempt += 1
 
 
 def text_at(response: httpx.Response, *path: str | int) -> str:

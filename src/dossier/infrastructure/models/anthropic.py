@@ -12,6 +12,7 @@ HTTP stack, no second dependency, and the hash boundary unchanged.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Sequence
 
 import httpx
@@ -20,6 +21,7 @@ from dossier.domain.ports import ImagePart
 from dossier.infrastructure.models._http import (
     TIMEOUT_SECONDS,
     ModelRequestFailed,
+    Sleep,
     encoded,
     request,
 )
@@ -53,6 +55,7 @@ class AnthropicClient:
         url: str,
         api_key: str | None = None,
         transport: httpx.BaseTransport | None = None,
+        sleep: Sleep = time.sleep,
     ) -> None:
         self.model_id = model_id
         self._name = _after_provider(model_id)
@@ -63,6 +66,8 @@ class AnthropicClient:
         if api_key:
             headers["x-api-key"] = api_key
         self._http = httpx.Client(headers=headers, timeout=TIMEOUT_SECONDS, transport=transport)
+        # How a refused request waits before it is sent again (R9.17).
+        self._sleep = sleep
 
     def complete(
         self,
@@ -86,7 +91,7 @@ class AnthropicClient:
         }
         if schema is not None:
             body["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
-        response = request(self._http, "POST", self._url, json=body)
+        response = request(self._http, "POST", self._url, json=body, sleep=self._sleep)
         try:
             reply = response.json()
             blocks = reply["content"]
@@ -128,8 +133,11 @@ class Anthropic:
         url: str,
         api_key: str | None = None,
         transport: httpx.BaseTransport | None = None,
+        sleep: Sleep = time.sleep,
     ) -> AnthropicClient:
-        return AnthropicClient(model_id, url=url, api_key=api_key, transport=transport)
+        return AnthropicClient(
+            model_id, url=url, api_key=api_key, transport=transport, sleep=sleep
+        )
 
 
 anthropic = Anthropic("https://api.anthropic.com/v1")
