@@ -147,3 +147,36 @@ class TestDoclingReadsOnlyTheModelsItPins:
             assert model.files, model
             for name, digest in model.files.items():
                 assert re.fullmatch(r"[0-9a-f]{64}", digest), (model.repo, name)
+
+
+class TestTheConverterChecksBeforeItReads:
+    """R8.15 — the check stands between a PDF and Docling, not beside it."""
+
+    def test_a_pdf_with_no_models_held_fails_naming_the_fetch(self, tmp_path: Path):
+        """Row 2, through the converter: the one where the folder is empty.
+
+        Refused before a page is read -- and before Docling is imported at all,
+        which is why this runs in the default suite without `dossier[docling]`.
+        Had the check come after, Docling would have been handed the folder and
+        answered with its own error, or, handed none, gone to Hugging Face.
+        """
+        from dossier.infrastructure.converters.docling_markdown import DoclingMarkdownConverter
+
+        with pytest.raises(ValueError) as error:
+            DoclingMarkdownConverter(models=tmp_path).convert(b"%PDF-1.4\n", {})
+
+        message = str(error.value)
+        assert f"hf download {LAYOUT.repo} --revision {LAYOUT_COMMIT}" in message, message
+
+    def test_the_converter_is_opt_in_and_claims_the_pdf_text_pair(self):
+        """The one where installing the extra changes no workspace (R8.13 row 1)."""
+        from dossier.infrastructure.converters.docling_markdown import DoclingMarkdownConverter
+
+        converter = DoclingMarkdownConverter()
+
+        assert (converter.id, converter.media_type, converter.kind) == (
+            "docling-markdown",
+            "application/pdf",
+            "markdown",
+        )
+        assert converter.opt_in is True

@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.15
 
 ## Purpose
@@ -147,9 +147,10 @@ input and inside the converter: `docling-markdown`'s version names each by commi
 and every file it reads is checked against the SHA-256 recorded for that commit
 before a page is converted (R8.15). *Where* the weights are kept is per machine
 (Docling's model folder, `~/.cache/docling/models` by default); *which* weights
-they are is not, so their location cannot reach an artifact. The OCR models ship
-inside the `rapidocr` wheel and are pinned with it, as PDFium is pinned with
-`pypdfium2`.
+they are is not, so their location cannot reach an artifact. RapidOCR's ONNX
+models ship inside the `rapidocr` wheel and are pinned with it, as PDFium is
+pinned with `pypdfium2`, and the converter names each by path: asked for its
+defaults instead, RapidOCR downloads them on first use.
 
 **It never fetches.** Docling's own default is to download a model from Hugging
 Face the first time it needs one, at revision `main` -- a floating name, which is
@@ -482,8 +483,8 @@ Which pages need OCR is a decision over the pages' text layers and is made in
 
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.docling_markdown`), deciding through domain (`dossier.domain.conversion.ocr_pages`)
-- **Proved by:** `tests/unit/test_R008_14__a_page_is_ocred_only_when_it_has_no_text_layer.py`, `tests/acceptance/test_R008_14__a_photocopied_postmortem_is_grounded.py`
-- **Status:** IN PROGRESS
+- **Proved by:** `tests/unit/test_R008_14__a_page_is_ocred_only_when_it_has_no_text_layer.py`, `tests/integration/test_R008_14__a_photocopied_pdf_converts_to_text.py`, `tests/acceptance/test_R008_14__a_photocopied_postmortem_is_grounded.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -503,8 +504,8 @@ command that puts the right one where it is looked for.
 
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.docling_markdown`)
-- **Proved by:** `tests/unit/test_R008_15__docling_reads_only_the_models_it_pins.py`, `tests/integration/test_R008_15__docling_converts_with_the_network_blocked.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R008_15__docling_reads_only_the_models_it_pins.py`, `tests/integration/test_R008_15__docling_converts_with_the_network_blocked.py`, `tests/acceptance/test_R008_15__naming_docling_needs_its_models_only_for_a_pdf.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

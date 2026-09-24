@@ -13,6 +13,37 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A photocopy converts to text. `pdf-markdown` reads a PDF's text layer, and a
+scanned contract has none: it converted to three page anchors and nothing else,
+and no field in it could ever be grounded. `docling-markdown` runs Docling over
+the document, one page at a time -- a page with a text layer read from it, a page
+whose layer holds no printable character OCR'd whole (R8.14), the decision made
+in `domain` by `ocr_pages`. It claims `pdf-markdown`'s pair and is opt-in, so a
+workspace chooses it with `converters: [docling-markdown]` in `sources.yaml`, and
+`answering` decides once, before selection, who answers each pair (R8.13): the
+manifest still pins one converter per pair and a replay needed no change. A
+misspelt name stops the command; it used to be a key nothing read.
+
+Its models are part of it. Docling pins its layout model to `main` and downloads
+it on first use; the converter hands Docling a model folder instead, checks every
+weight file against the SHA-256 of a pinned commit before a page is read, and
+fails the document naming the `hf download` line that fixes it (R8.15). Proved
+live with every socket refused. The photocopies are made by `tests/scans.py` from
+`INC-4830`'s published PDF rather than committed, so what OCR read can be compared
+with the text it was photographed from: the root cause comes back word for word,
+at about twelve seconds a page, and byte-identical from a second process.
+
+What a spike found before the rules were written, and a fresh install found
+after: RapidOCR's direction classifier turned one upright line into noise (`H ed
+ngu e n ng r y e nr c eng`), so it is off; Docling's automatic OCR dropped the
+spaces between words that whole-page OCR kept; and RapidOCR's ONNX models ship
+in its wheel while the dictionary its torch engine wants does not -- the first
+spike had quietly downloaded it, and a clean venv failed on the missing file. The
+converter names the ONNX models by path, and a fresh install converts offline.
+Docling brings torch, so CI installs every extra but `docling` and the tests
+that run it are `live`; and `docling-core` caps typer below 0.27, which holds the
+whole install at 0.26.
+
 R5.3 is superseded by R5.13. "Changing the model identifier changes every stage
 key" stopped being true the moment a step could keep its own model while the
 pipeline's moved; what survives is that a key holds the model its step is asked

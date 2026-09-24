@@ -74,6 +74,7 @@ def first_run(workspace: Path, *, documents=None, text=None) -> Manifest:
     drive a replay through the CLI -- which is where R4.9's "reads by the pinned
     hash" guarantee actually lives.
     """
+    from dossier.domain.conversion import answering
     from dossier.domain.resolution import PinnedConverter
     from dossier.infrastructure.converters.registry import installed_converters
 
@@ -87,7 +88,7 @@ def first_run(workspace: Path, *, documents=None, text=None) -> Manifest:
         media_types=dict.fromkeys(held, "text/markdown"),
         converters=[
             PinnedConverter(id=c.id, version=c.version, media_type=c.media_type, kind=c.kind)
-            for c in installed_converters()
+            for c in answering(installed_converters(), named=[])
         ],
         document_text=text or ORIGINAL_TEXT,
         schemas={"extract": SCHEMA},
@@ -337,6 +338,7 @@ class TestTheReplayReadsByThePinnedHashNotJustRecordsIt:
 
         from dossier.application.convert import HeldDocument, convert_source
         from dossier.cli.main import app
+        from dossier.domain.conversion import answering
         from dossier.infrastructure.cache import ArtifactCache
         from dossier.infrastructure.converters.registry import installed_converters
         from dossier.infrastructure.store import SnapshotStore
@@ -354,7 +356,7 @@ class TestTheReplayReadsByThePinnedHashNotJustRecordsIt:
                     "INC-4821": HeldDocument(snapshot=digest, media_type="text/markdown")
                 },
                 kinds=None,
-                converters=installed_converters(),
+                converters=answering(installed_converters(), named=[]),
                 store=store,
                 cache=ArtifactCache(tmp_path, namespace="convert"),
                 run_id="20260806T142203Z-4f1a",

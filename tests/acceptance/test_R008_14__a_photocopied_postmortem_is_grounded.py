@@ -28,7 +28,7 @@ import pytest
 from tests.pipelines import write_pipeline
 from tests.scans import photocopy
 
-pytestmark = [pytest.mark.outer_loop, pytest.mark.live]
+pytestmark = pytest.mark.live
 
 PIPELINE = "incident-audit"
 

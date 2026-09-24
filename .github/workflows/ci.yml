@@ -40,12 +40,15 @@ jobs:
           python-version: "3.12"
           enable-cache: true
 
-      - name: Install from the lock, every extra
+      - name: Install from the lock, every extra but Docling
         # --locked refuses a uv.lock that has fallen behind pyproject.toml.
         # --all-extras because six acceptance tests importorskip pypdfium2 or
         # Pillow, and without the extras they would pass by being skipped.
+        # Not docling: it brings torch, gigabytes with its CUDA libraries on
+        # Linux, and every test that runs it is `live` -- excluded from the
+        # default run whether it is installed or not (R8.14, R8.15).
         run: |
-          uv sync --locked --all-extras
+          uv sync --locked --all-extras --no-extra docling
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: No conflict markers
