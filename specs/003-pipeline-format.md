@@ -1,7 +1,7 @@
 # 003 — Configuration format
 
-**Status:** Implemented
-**Rules:** R3.1 – R3.13
+**Status:** Partially implemented
+**Rules:** R3.1 – R3.14
 
 ## Purpose
 
@@ -61,6 +61,7 @@ steps:
     input: documents
     mode: per_file
     output: schemas/incident.yaml
+    model: ollama:qwen2.5:7b@sha256:7f3c29a1       # this step only (R3.14)
 
   - id: verify
     prompt: prompts/02_verify.md
@@ -83,6 +84,14 @@ steps:
 | `<step id>` | That step's outputs |
 | `previous` | The immediately preceding step (sugar — see spec 004) |
 | `previous(n)` | The preceding `n` steps (sugar — see spec 004) |
+
+### Models
+
+`model:` at the top is the pipeline's, and every step that names none is asked
+with it. A step may name its own, which is the one it is asked with instead: the
+common shape is a cheap model to extract and a strong one to verify and report
+(R3.14). The pipeline's `model:` stays required -- it is the default, and it is
+what judges an eval (spec 007).
 
 ### Modes
 
@@ -450,3 +459,46 @@ thing R0.5 exists to prevent.
 | 5 | a run written before this rule, replayed after it | `cannot be reproduced`, naming the entry; a replay recomposes its keys and these are keys no run wrote (R4.14, R4.7) |
 | 6 | *counter-example* — an `aggregate` step | unchanged; it already wrapped each document, and this rule is that branch's shape reaching the other two |
 | 7 | *counter-example* — the image parts of a `per_part` step | unchanged; a picture carries no text to wrap, and its key already holds the part's bytes (R3.12, R4.14) |
+
+### R3.14 — a step may name its own `model`, and is asked with it; a step that names none is asked with the pipeline's
+
+A pipeline named one model for every step. The common real shape is a cheap
+model to extract and a strong one to verify or report, and the only way to get
+it was two pipelines. `model:` on a step overrides the pipeline's for that step
+alone.
+
+It is held at load time to what the pipeline's is held to: pinned (R3.4, R0.6),
+and provided by an installed package (R9.1), with the error naming the step's
+key. The pipeline's `model:` stays required. It is the default, and it is what
+judges an eval and a calibration (spec 007), whatever the steps name.
+
+The manifest records a step's own model only where it differs from the
+pipeline's. So a pipeline that names none -- every pipeline written before this
+rule -- resolves to the same manifest byte for byte, and a step naming the
+pipeline's own model is the same step as one naming none. `--plan` compares
+each step's model with the one it ran with, and names a step's own model beneath
+its line; `--replay` rebuilds each step's key with the model it recorded (R4.12,
+R4.7).
+
+A client is built for a model at the first cache miss of a step asked with it,
+and never before (R9.2 row 5). Each is reached where its own provider is (R9.2)
+and checked before its own first call (R9.4, R9.6).
+
+- **Kind:** deterministic
+- **Layer:** config (`dossier.config.load`), domain (`dossier.domain.resolution`, `dossier.domain.plan`), application (`dossier.application.run`), cli (`dossier.cli.main`)
+- **Proved by:** `tests/acceptance/test_R003_14__a_step_is_asked_with_its_own_model.py`, `tests/unit/test_R003_14__which_model_a_step_is_asked_with.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `model: anthropic:claude-sonnet-4-5-20250929`, `extract` naming `model: ollama:qwen2.5:7b@sha256:7f3c29a1` and `verify` naming none; three documents, nothing cached | `extract` asked through the `ollama` provider three times and `verify` through `anthropic` three times; each artifact's provenance record names the model that answered it |
+| 2 | that run's manifest | `extract` carries `"model": "ollama:qwen2.5:7b@sha256:7f3c29a1"`, `verify` carries no `model`, and the plan's `model` is the pipeline's |
+| 3 | the same run again | every step served from cache, and no client built for either model (R9.2 row 5) |
+| 4 | `extract`'s model then changed to `hf:Qwen/Qwen2.5-7B-Instruct@1c0f8e6b`, and `dossier run incident-audit --plan` | `! extract: model changed` with `model: hf:Qwen/Qwen2.5-7B-Instruct@1c0f8e6b` beneath it, and `! verify: upstream changed` |
+| 5 | instead, the pipeline's `model:` changed to `openai:gpt-4o-2024-08-06`, `extract` still naming its own, and `--plan` | `extract: cached`, and `! verify: model changed` |
+| 6 | `dossier run --replay runs/<run_id>/` of row 1's run | reproduced byte for byte and no model asked (R4.7): each key rebuilt with the model its step recorded |
+| 7 | `verify` naming `model: anthropic:claude-sonnet-4-5-20250929`, the pipeline's own | the same manifest and the same keys, byte for byte, as naming none |
+| 8 | *counter-example* — a pipeline no step of which names a model | no step in its manifest carries `model`, and every key is the one R5.3 composed: nothing written before this rule moves |
+| 9 | *counter-example* — `extract` naming `model: anthropic:claude-sonnet-4-5` | load-time error naming `pipeline.yaml`, the line, `steps[0].model` and the alias (R3.4); nothing asked |
+| 10 | *counter-example* — `extract` naming `model: mistral:mistral-large-2411`, which no installed package provides | load-time error naming the providers available (R9.1) |
+| 11 | *counter-example* — `dossier eval` and `dossier calibrate` over row 1's pipeline | the judge is the pipeline's `model:`; a step's own model answers that step and judges nothing (spec 007) |

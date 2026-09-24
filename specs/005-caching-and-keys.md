@@ -1,7 +1,7 @@
 # 005 — Cache keys, cascade and provenance
 
-**Status:** Implemented
-**Rules:** R5.1 – R5.12
+**Status:** Partially implemented
+**Rules:** R5.1 – R5.13
 
 ## Purpose
 
@@ -376,3 +376,30 @@ identical (R0.4).
 | 4 | `INC-4822` failing validation twice, each attempt 1204/212 | its 2,408 in and 424 out are in the step's total; spent, though nothing was written |
 | 5 | *counter-example* — a provider that reports nothing | `· tokens not reported`, not `· 0 tokens in` |
 | 6 | *counter-example* — `dossier run --plan` | no tokens anywhere: planning asks no model (R4.6) |
+
+### R5.13 — a stage key holds the model its step is asked with, so changing a model moves only the keys of the steps asked with it
+
+R5.3 said changing the model identifier changes every stage key. That was true
+while a pipeline had one model. A step may now name its own (R3.14), so the
+pipeline's `model:` is only the model of the steps that name none, and changing
+it leaves a step with its own model served from cache. What survives is that
+the model in a step's key is the one the step is asked with, and changing it
+moves that step's key.
+
+A step that names the pipeline's own model is asked with the same model as one
+that names none, and has the same key: the key holds the model, not where it
+was written.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.keys`, `dossier.domain.resolution`)
+- **Proved by:** `tests/unit/test_R005_13__a_stage_key_holds_the_model_its_step_is_asked_with.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the pinned model replaced with another exact pin, no step naming its own | `extract`, `verify` and `report` keys all change, as R5.3 row 1 |
+| 2 | `extract` naming `ollama:qwen2.5:7b@sha256:7f3c29a1`, and the pipeline's `model:` replaced | `verify`'s and `report`'s keys change; `extract`'s does not |
+| 3 | `extract`'s own model replaced with `hf:Qwen/Qwen2.5-7B-Instruct@1c0f8e6b` | `extract`'s key changes; `verify`'s and `report`'s do not, except through `extract`'s output if it changed (R5.2) |
+| 4 | the same | convert keys unchanged; conversion does not involve a model (R5.3 row 2) |
+| 5 | *counter-example* — the same model reached through a different endpoint or gateway | the identifier is unchanged, so keys are unchanged (R5.3 row 4) |
+| 6 | *counter-example* — `verify` naming the pipeline's own model | its key is the key of naming none |

@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.21
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.22
 
 ## Purpose
 
@@ -573,3 +573,32 @@ provenance record (R10.4).
 | 3 | the run's params | `concurrency` is `3`, and `1` when neither `--concurrency` nor `DOSSIER_CONCURRENCY` is set |
 | 4 | at `--concurrency 3`, one of `INC-4822`'s own tracking calls fails (R10.6), and the server does not hold that trace either | `warning: 1 trace(s) could not be recorded`: counted once, as R10.24 row 4 counts it one at a time, and the other two not at all |
 | 5 | *counter-example* — `--concurrency 3` against `--concurrency 1` over the same snapshots | the same cache keys, artifacts and provenance records apart from `run_id`; `concurrency` is in the record alone (R10.4) |
+
+### R11.22 — a run's record, and the pipeline version it built, name the model each step was asked with
+
+A step may be asked with its own model (R3.14). The run's `model` param stays
+the pipeline's, and a step asked with its own records `model/<step>` beside its
+`prompt/<step>` (R11.18). That goes in the run's params and in the version's,
+and the version hash is taken over them, so a version moves when a step's model
+does (R13.1). Otherwise two pipelines that differ only in `extract`'s model
+would share a row in the Models tab, and "did the cheaper model cost accuracy"
+would have nothing to compare.
+
+A step asked with the pipeline's model records nothing. So a pipeline with no
+step model records exactly the params, and the version hash, it recorded before
+this rule. Each LLM span already names the model that answered it
+(`dossier.model`). An eval reads `model/<step>` off the manifest, as it reads
+the rest (R11.11).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking`, `dossier.domain.versions`), application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R011_22__a_record_names_each_steps_model.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | R3.14 row 1's run, tracked | params `model` `anthropic:claude-sonnet-4-5-20250929` and `model/extract` `ollama:qwen2.5:7b@sha256:7f3c29a1`, and no `model/verify`; `extract`'s LLM spans carry `dossier.model` `ollama:qwen2.5:7b@sha256:7f3c29a1` and `verify`'s the pipeline's |
+| 2 | the pipeline version that run built | its params carry `model/extract`, and its version hash differs from that of the same pipeline with no step model |
+| 3 | `extract`'s model changed to `hf:Qwen/Qwen2.5-7B-Instruct@1c0f8e6b` | another version: the version hash moves, though the pipeline's `model:` and every prompt hash did not (R13.1) |
+| 4 | `dossier eval` of row 1's run | the eval's params carry `model/extract`, read off the manifest (R11.11) |
+| 5 | *counter-example* — no step names a model | no `model/` param on the run or the version, and the version hash is the one computed before this rule |
