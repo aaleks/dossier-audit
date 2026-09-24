@@ -12,6 +12,7 @@ matches gold (R7.4).
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from enum import Enum
@@ -38,23 +39,37 @@ def normalise_whitespace(text: str) -> str:
     return _WHITESPACE.sub(" ", text).strip()
 
 
+def fold(text: str) -> str:
+    """`text` with what a reader cannot tell apart made the same (spec 006).
+
+    Applied to both the span and the document, as whitespace normalisation is and
+    for the same reason: either side may be where the difference came from.
+
+    Unicode compatibility forms first (R6.17): NFKC is the normalisation whose
+    purpose this is -- `ﬁ` is `fi`, a full-width `Ｃ` is `C`, and a decomposed
+    accent is the one a keyboard types. It folds no letter into another and
+    never touches case.
+    """
+    return normalise_whitespace(unicodedata.normalize("NFKC", text))
+
+
 def locate_span(span: str, *, document_text: str) -> bool:
-    """Whether `span` occurs in `document_text`, after whitespace normalisation.
+    """Whether `span` occurs in `document_text`, once both are folded.
 
     Case-sensitive, deliberately. Case-folding would let a field citing
     `MAJOR` claim support from a document that says `major`, and a span is meant
-    to be what the document says rather than an approximation of it. If that
-    proves too strict against real converted text, it is a spec conversation
-    rather than a quiet relaxation here.
+    to be what the document says rather than an approximation of it. What is
+    folded is decided in spec 006 and nowhere else: a relaxation made quietly
+    here would change scores with nothing to review.
     """
-    needle = normalise_whitespace(span)
+    needle = fold(span)
     if not needle:
         # An empty string is a substring of every document. Treating it as
         # located would let a field cite nothing and pass, which is the one
         # outcome that makes the whole check decorative (R6.6).
         return False
 
-    return needle in normalise_whitespace(document_text)
+    return needle in fold(document_text)
 
 
 # The page marker a converter writes ahead of each page's text, and the only
@@ -106,19 +121,18 @@ def page_of_span(span: str, *, document_text: str) -> int | None:
     the same thing to a reader: there is no page to turn to. The document has no
     anchors, the span is not in it, or nothing was claimed at all.
 
-    Searched in the normalised text, exactly as `locate_span` does. The two must
+    Searched in the folded text, exactly as `locate_span` does. The two must
     agree -- a span that grounds and then has no page would be the halves of one
-    check disagreeing about the same document -- and normalising is what lets
-    them share one index. The anchors survive normalisation because they are not
-    whitespace.
+    check disagreeing about the same document -- and folding is what lets them
+    share one index. The anchors survive folding: nothing in one is folded.
     """
-    needle = normalise_whitespace(span)
+    needle = fold(span)
     if not needle:
         # An empty span is located nowhere (R6.6). Without this it would land at
         # position zero and be credited to the first anchor in the document.
         return None
 
-    haystack = normalise_whitespace(document_text)
+    haystack = fold(document_text)
     at = haystack.find(needle)
     if at < 0:
         return None
