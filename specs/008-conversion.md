@@ -457,8 +457,8 @@ manifest (R8.9), a replay (R4.7) -- still sees one converter per pair.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.conversion.answering`)
-- **Proved by:** `tests/unit/test_R008_13__a_named_converter_answers_the_pairs_it_claims.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R008_13__a_named_converter_answers_the_pairs_it_claims.py`, `tests/unit/test_R008_13__sources_yaml_names_the_converters_that_answer.py`, `tests/acceptance/test_R008_13__a_workspace_names_the_converter_that_answers.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

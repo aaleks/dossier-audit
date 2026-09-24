@@ -54,6 +54,7 @@ __all__ = [
     "PipelineConfig",
     "SourceConfig",
     "load_calibration_sample",
+    "load_converter_names",
     "load_fields",
     "load_judge_rubrics",
     "load_judge_thresholds",
@@ -105,6 +106,34 @@ def load_sources(
     ]
     _reject_duplicate_ids(sources, path)
     return sources
+
+
+# The key a workspace names its converters under, beside `sources:` (R8.13).
+CONVERTERS = "converters"
+
+
+def load_converter_names(path: Path) -> list[str]:
+    """The converters `sources.yaml` names under `converters:`, as written (R8.13).
+
+    Absent is an empty list: a workspace that names nothing converts with the
+    one claimant of each pair that is not opt-in, which is what it always did.
+    Whether a name is installed is not checked here -- which converters are
+    installed is infrastructure's to say, and `answering` refuses a name nothing
+    carries -- only that what is written is a list of names. A bare
+    `converters: docling-markdown` would otherwise iterate into one-letter names.
+    """
+    raw = _read_yaml(path).get(CONVERTERS)
+    if raw is None:
+        return []
+    if isinstance(raw, list) and all(isinstance(name, str) and name for name in raw):
+        return list(raw)
+
+    line = _line_of(path.read_text(encoding="utf-8"), CONVERTERS)
+    where = f", line {line}" if line is not None else ""
+    raise ConfigError(
+        f"{_name(path)}{where}: `{CONVERTERS}:` is a list of converter ids, as "
+        f"`{CONVERTERS}: [docling-markdown]` (R8.13)"
+    )
 
 
 def _validate_source(
