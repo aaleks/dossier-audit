@@ -7,15 +7,14 @@ against human-verified answers.
 
 Package and CLI: `dossier`.
 
-**Status: implemented, with one slice being built.** 219 rules across 15 specs.
-Every rule is `MET` or superseded in place except six, R10.17–R10.22 — MLflow
-behind authentication — which are specified and not yet built. The specs came
-first and the code implements them — see "How this is built" below.
-`pytest tests/architecture` prints the current count; at the time of writing:
+**Status: implemented.** The specs came first and the code implements them —
+see "How this is built" below. Where the rules stand is printed by
+`pytest tests/architecture`, which counts them from `specs/` and so cannot fall
+behind. This README can fall behind, so its figure carries a date. On 2026-09-24:
 
 ```
-specs: 219 rules across 15 specs | 200 MET, 0 IN PROGRESS, 6 NOT MET, 13 SUPERSEDED
-       216 deterministic, 3 evaluated
+specs: 221 rules across 15 specs | 208 MET, 0 IN PROGRESS, 0 NOT MET, 13 SUPERSEDED
+       218 deterministic, 3 evaluated
 ```
 
 ## Layout
@@ -26,11 +25,13 @@ specs: 219 rules across 15 specs | 200 MET, 0 IN PROGRESS, 6 NOT MET, 13 SUPERSE
 | `CLAUDE.md` | The working agreement for this repository |
 | `docs/architecture.md` | The two boundaries and the layer contracts |
 | `docs/dossier-design-deck.pdf` | Background: the proposal this came from |
+| `docs/jira-connector.md` | A tour of the Jira connector: what you write, and what a sync does |
+| `docs/history/` | Working notes kept for their reasoning: the first session's kickoff prompt, and the brainstorm that led to page images |
 | `src/dossier/` | The package: `domain/`, `application/`, `infrastructure/`, `config/`, `cli/` |
 | `tests/` | `architecture/`, `unit/`, `acceptance/`, `integration/`, `evals/` |
 | `playground/` | Thirteen hands-on exercises. Ten offline, seconds, zero cost; the eleventh runs a real Jira in Docker; the last two need a local MLflow server. Not part of `dossier`. |
-| `KICKOFF.md` | Prompt for the first implementation session |
 | `.claude/` | The spec-driven toolchain: skills, agents, rules, hooks |
+| `.github/workflows/ci.yml` | The gate every pull request passes: the lock, conflict markers, ruff, the architecture tests, the default suite, and the outer loop reported beside them |
 
 ## Installing
 
@@ -142,9 +143,9 @@ implements them; a rule that is not in a spec does not get built.
   code. The default suite is green at the end of every cycle.
 
 Rule ids never move. A rule that stops being true is **superseded in place** and
-names its replacement — 13 of the 219 are — because test filenames and other
-rules cite those ids, and rewriting the text under one would leave every test
-citing it claiming to prove something nobody agreed to.
+names its replacement, because test filenames and other rules cite those ids,
+and rewriting the text under one would leave every test citing it claiming to
+prove something nobody agreed to.
 
 ## Running the tests
 
