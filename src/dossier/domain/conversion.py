@@ -411,6 +411,11 @@ MEDIA_TYPES = {
 # Confluence page as though Jira had written it. A pair is the whole type (R8.3).
 JIRA_ISSUE = "application/vnd.dossier.jira-issue+json"
 
+# What the Confluence connector reports a page as (R1.17), for the same reason:
+# the JSON Confluence sends for a page rendered for export, which only
+# `confluence-page-markdown` reads (R8.19).
+CONFLUENCE_PAGE = "application/vnd.dossier.confluence-page+json"
+
 # What an unrecognised file is called. Not a guess: it says "bytes", which is
 # true of anything, and lets R8.5 refuse it by name rather than hand it to a
 # converter that was never meant to read it.

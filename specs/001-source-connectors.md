@@ -517,7 +517,7 @@ writes it in a page's history, and no marker is made up for a page without one
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`), naming the type the domain declares (`dossier.domain.conversion.CONFLUENCE_PAGE`)
 - **Proved by:** `tests/unit/test_R001_17__a_confluence_page_is_fetched_rendered.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

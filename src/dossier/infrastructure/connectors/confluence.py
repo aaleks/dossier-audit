@@ -18,12 +18,17 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from dossier.domain.conversion import reported_media_type
+from dossier.domain.conversion import CONFLUENCE_PAGE, reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.domain.sync import server_zone_floor
 
 SEARCH = "/rest/api/content/search"
 CONTENT = "/rest/api/content"
+
+# What a page is fetched with: the body as Confluence renders it for export, and
+# what the note is headed with (R1.17, R8.19). `export_view` rather than
+# `storage`, whose macros only Confluence knows how to draw.
+PAGE_EXPAND = "body.export_view,version,space"
 
 # What one search asks for. Confluence caps it server-side anyway; asking for a
 # page of results at a time and following `next` is what makes the listing
@@ -86,13 +91,26 @@ class ConfluenceConnector:
             )
 
     def fetch(self, key: str) -> RawItem:
-        """The payload at `key`: a file a page carries.
+        """The payload at `key`: a page, or a file one of them carries.
 
-        Returned byte for byte, as received (R1.2), and labelled with what
-        Confluence records the file as, over what the transport said while
-        sending it (R2.16).
+        Returned byte for byte, as received (R1.2). A page is its JSON rendered
+        for export, table of contents and all, labelled a Confluence page so
+        the converter reading it claims nothing else (R1.17). A file is
+        labelled with what Confluence records it as, over what the transport
+        said while sending it (R2.16).
         """
         page, filename = _split(key)
+        if filename is None:
+            response = self._get(
+                f"{self._base}{CONTENT}/{page}", params={"expand": PAGE_EXPAND}
+            )
+            return RawItem(
+                key=key,
+                payload=response.content,
+                media_type=CONFLUENCE_PAGE,
+                remote_version=_version_of(response.json()),
+            )
+
         attachment = self._attachment(page, filename)
         response = self._get(f"{self._base}{attachment['_links']['download']}")
         return RawItem(
