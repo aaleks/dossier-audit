@@ -107,6 +107,7 @@ markdown-text = "dossier.infrastructure.converters.markdown_text:MarkdownTextCon
 pdf-images = "dossier.infrastructure.converters.pdf_images:PdfImagesConverter"
 pdf-markdown = "dossier.infrastructure.converters.pdf_markdown:PdfMarkdownConverter"
 text-plain = "dossier.infrastructure.converters.text_plain:TextPlainConverter"
+text-csv = "dossier.infrastructure.converters.text_csv:TextCsvConverter"
 
 # A model provider is a package declaring one of these (spec 009, R9.1). The
 # prefix of a `model:` value before its first `:` names one. Registered here so
