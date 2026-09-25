@@ -1,11 +1,13 @@
 # The dossier playground
 
-Thirteen hands-on exercises for learning `dossier` by running it: syncing a source,
+Fourteen hands-on exercises for learning `dossier` by running it: syncing a source,
 converting documents, defining a pipeline, grounding an answer, scoring against a gold
 set, calibrating a judge, reading the whole thing back in MLflow, auditing documents
 whose evidence is a chart rather than a sentence, auditing a real Jira running on
-your own machine, and finally publishing a gold set and a pipeline's prompts to
-MLflow, so a regression can be followed to the words that caused it.
+your own machine, publishing a gold set and a pipeline's prompts to MLflow, so a
+regression can be followed to the words that caused it, and finally letting people
+who never run `dossier` review its answers in MLflow, and bringing what they say
+back into the gold set under a maintainer's name.
 
 **Exercises 01 to 10 run offline, in seconds, at zero cost.** No API key, no
 model bill, no network. A stub model server in `toolkit/` answers the same
@@ -59,6 +61,7 @@ when you want the reasoning behind what you just saw.
 | 11 | [A real Jira on your machine](11-a-real-jira-on-your-machine/) | a remote authenticated source, a credential named and never written, issues and attachments as separate addresses, a listing that cannot report a deletion, which fields of an issue are the document, and naming the converter that answers | R1.1, R1.6, R1.8, R1.12, R1.13, R1.14, R2.6, R2.17, R2.18, R2.22, R8.13, R8.16 |
 | 12 | [A dataset, and the change gate](12-a-dataset-and-the-change-gate/) | publishing a gold set as an MLflow evaluation dataset, what a record holds, a publish that sends nothing, a stale dataset, and a comparison recorded as per-field deltas | R12.1, R12.2, R12.3, R12.4, R12.5, R11.7, R11.8, R11.9, R11.10 |
 | 13 | [Prompts and pipeline versions in MLflow](13-prompts-and-pipeline-versions-in-mlflow/) | publishing prompts and rubrics, a publish that sends nothing, which record links which prompt, links found by hash rather than recency, what a pipeline version is made of, one namespace for prompts and datasets, and a registry nothing reads back | R14.1, R14.2, R14.3, R14.4, R14.5, R14.7, R14.9, R14.11, R14.12, R10.13, R10.14, R10.15, R13.1, R13.2 |
+| 14 | [Review in MLflow](14-review-in-mlflow/) | what a trace shows a reviewer, a review queue that is a filter in a URL, verdicts left by hand and through the API, what MLflow records about who left one, pulling them back as files `git` can diff, an override, candidates refused all at once, gold signed by a maintainer, and a run no verdict can move | R15.1, R15.2, R15.3, R15.4, R15.5, R7.7, R6.4, R7.4, R10.8 |
 
 ## How an exercise folder is laid out
 
