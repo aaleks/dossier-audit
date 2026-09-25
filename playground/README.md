@@ -16,8 +16,8 @@ and edit — so the code path is the real one and the answers are yours to contr
 in Docker, which costs an evaluation licence, about 4 GB of RAM and an
 interactive setup wizard. Its model is still the stub; only the source is real.
 It is last because everything it teaches — a named credential, someone else's
-version marker, a listing that cannot report a deletion, a payload nothing
-converts — only exists once a source is remote. Its `SOLUTION.md` marks each
+version marker, a listing that cannot report a deletion, a payload that is
+mostly machinery — only exists once a source is remote. Its `SOLUTION.md` marks each
 block as run, derived or shape, because a live Jira cannot produce the
 reproducible transcript the other ten promise.
 
@@ -56,7 +56,7 @@ when you want the reasoning behind what you just saw.
 | 08 | [MLflow tracing end to end](08-mlflow-tracing-end-to-end/) | switching tracking on, experiments, tags, one trace per (step, document), LLM spans, capture modes | R10.1, R10.2, R10.5, R10.8, R11.1, R11.4 |
 | 09 | [Cache keys, determinism and replay](09-cache-keys-determinism-and-replay/) | what changes a key and what does not, replay, byte-identical keys across machines | R5.2, R5.3, R5.6, R4.6, R4.7, R5.9 |
 | 10 | [Charts, screenshots and the `described` state](10-charts-screenshots-and-the-described-state/) | `page_images`, a `per_part` step, one call per page, the third grounding state, a judge shown the pages, a threshold per state | R8.10, R8.11, R8.12, R3.12, R6.15, R7.20, R7.22, R7.23, R4.14 |
-| 11 | [A real Jira on your machine](11-a-real-jira-on-your-machine/) | a remote authenticated source, a credential named and never written, issues and attachments as separate addresses, a listing that cannot report a deletion, and a payload nothing converts | R1.1, R1.6, R1.8, R1.12, R1.13, R2.6, R2.17, R2.18, R2.22, R8.5 |
+| 11 | [A real Jira on your machine](11-a-real-jira-on-your-machine/) | a remote authenticated source, a credential named and never written, issues and attachments as separate addresses, a listing that cannot report a deletion, which fields of an issue are the document, and naming the converter that answers | R1.1, R1.6, R1.8, R1.12, R1.13, R1.14, R2.6, R2.17, R2.18, R2.22, R8.13, R8.16 |
 | 12 | [A dataset, and the change gate](12-a-dataset-and-the-change-gate/) | publishing a gold set as an MLflow evaluation dataset, what a record holds, a publish that sends nothing, a stale dataset, and a comparison recorded as per-field deltas | R12.1, R12.2, R12.3, R12.4, R12.5, R11.7, R11.8, R11.9, R11.10 |
 | 13 | [Prompts and pipeline versions in MLflow](13-prompts-and-pipeline-versions-in-mlflow/) | publishing prompts and rubrics, a publish that sends nothing, which record links which prompt, links found by hash rather than recency, what a pipeline version is made of, one namespace for prompts and datasets, and a registry nothing reads back | R14.1, R14.2, R14.3, R14.4, R14.5, R14.7, R14.9, R14.11, R14.12, R10.13, R10.14, R10.15, R13.1, R13.2 |
 
@@ -203,7 +203,7 @@ docker compose -f playground/11-a-real-jira-on-your-machine/docker-compose.yml d
 
 **The uninstalls are not optional if you share the environment with the test
 suite.** Exercises 03 and 11 each install a converter package, and a converter is
-resolved from the installed environment — so
+resolved from the installed environment. With exercise 03's installed,
 `tests/unit/test_R008_1__conversion_is_a_pure_function_of_its_input.py` fails on
 
 ```
@@ -211,13 +211,25 @@ AssertionError: ['text/csv', 'text/html'] has no sample payload, so every
 converter claiming it is silently skipped by the rows above
 ```
 
-and on `['application/json']` for exercise 11's.
-
 The suite runs its R8.1 purity rows over every installed converter, skips any
 whose media type it has no sample payload for, and then asserts that every skip
 is a *named* exemption — because a converter quietly exempted from the purity
-check is the one outcome nobody would notice. Uninstall the package, or install
-it into a throwaway virtualenv, and `pytest` is green again.
+check is the one outcome nobody would notice.
+
+Exercise 11's package passes that check, because the suite has a sample Jira
+issue. It fails more widely: it claims the pair `jira-issue-markdown` already
+claims, none of the workspaces the suite builds names either converter, and so
+every test that converts stops on
+
+```
+two converters claim the same pair, and picking either would be picking by
+installation order:
+(application/vnd.dossier.jira-issue+json, markdown) is claimed by both
+jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
+```
+
+Uninstall the package, or install it into a throwaway virtualenv, and `pytest`
+is green again.
 
 `.dossier/`, `runs/`, `mlruns/` and `.env` are already ignored by the
 repository's `.gitignore`, wherever they appear.

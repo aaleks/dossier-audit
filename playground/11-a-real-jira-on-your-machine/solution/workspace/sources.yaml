@@ -5,6 +5,23 @@
 # variables, and `dossier.config` is the only package that reads them (R1.8,
 # R9.8). Writing `token:` here is refused by name at load time, because this
 # file is the one that gets committed.
+
+# Which converter answers a pair two installed packages claim (R8.13). `dossier`
+# ships `jira-issue-markdown` for a Jira issue; task 8's package claims the same
+# pair to put the labels in the note, and with both installed and neither named,
+# `dossier convert` refuses every document rather than pick one by installation
+# order. Naming one settles it for this workspace and for no other; any other
+# workspace in the same environment still refuses until it names one too.
+#
+# Beside `sources:` rather than inside the source, because a manifest pins one
+# converter per pair for the whole run (R8.9).
+#
+# This line needs task 8's package installed. A name that no installed package
+# provides is refused by every command that plans or converts, before anything
+# runs (R8.13 row 4). If you copy this file in before task 8, or after
+# uninstalling the package, leave the line out.
+converters: [play-jira-issue-markdown]
+
 sources:
   - id: incidents-jira
     type: jira
@@ -33,7 +50,7 @@ sources:
     # because the one-word difference is the whole of R1.13: `datacenter` pages
     # /rest/api/2/search by offset, `cloud` pages /rest/api/2/search/jql by
     # token. Change it to `cloud` and watch the sync fail against this server --
-    # that is task 7's optional half.
+    # that is task 9, the optional one.
     deployment: datacenter
 
     # The projection the content hash is taken over (R2.10). The raw payload is
@@ -50,6 +67,12 @@ sources:
     # projection and every no-op edit still moves the hash. There is no
     # `fields: [fields.summary]`. Task 5 is where you see that, and
     # `resources/proposal.md` is where it is written down.
+    #
+    # Declaring this list, or changing it, re-fetches every issue in the source
+    # (R2.3). That is also the way out for a workspace synced before an issue
+    # was reported as `application/vnd.dossier.jira-issue+json` (R1.14): its
+    # issues keep the `application/json` they were fetched with until they are
+    # fetched again, and nothing converts that pair.
     fields: [key, fields]
 
     # Attachments are never projected -- a projection needs a JSON object, and
