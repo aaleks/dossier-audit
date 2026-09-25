@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.23
 
 ## Purpose
@@ -760,7 +760,7 @@ wherever they are.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.html_markdown`)
 - **Proved by:** `tests/unit/test_R008_21__an_html_file_converts_to_what_a_reader_sees.py`, `tests/acceptance/test_R008_21__exported_files_no_longer_stop_a_source.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
