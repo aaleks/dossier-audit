@@ -19,6 +19,8 @@ evidence. Refusing to print it is the only thing that tells the two apart.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from math import sqrt
+from statistics import NormalDist
 
 from pydantic import BaseModel, ConfigDict
 
@@ -26,6 +28,10 @@ from pydantic import BaseModel, ConfigDict
 # measurement. R7.11 row 3 says so: report "not measurable at this N", never a
 # percentage. Twenty is the spec's number, not one chosen here.
 MINIMUM_SAMPLE = 20
+
+# The two-sided 95% z, taken rather than typed as 1.96 (R7.26): the bound is
+# then a function of its two counts alone, and the same on every machine.
+_Z = NormalDist().inv_cdf(0.975)
 
 
 class NotCalibrated(ValueError):
@@ -202,6 +208,31 @@ def agreement(
     disagreed = tuple(case for case in sorted(human) if verdicts.get(case) is not human[case])
     agreed = len(human) - len(disagreed)
     return agreed / len(human), disagreed
+
+
+def lower_bound(*, agreed: int, cases: int) -> float:
+    """The 95% Wilson lower bound on an agreement of `agreed` in `cases` (R7.26).
+
+    How low the judge's true rate of agreement could be and still produce this
+    sample. Wilson's rather than the textbook interval's, because a calibration
+    is often at 100% or near it, where the textbook interval collapses to a
+    width of zero and claims a certainty twenty cases cannot give.
+
+    The counts are the agreement's, a case the judge could not be asked
+    included as a disagreement (R7.11), so the bound and the figure it bounds
+    are over the same cases.
+    """
+    if not 0 <= agreed <= cases or cases == 0:
+        raise ValueError(
+            f"{agreed} agreed of {cases} case(s) is not a sample: a bound needs at "
+            "least one case, and no more agreed than there were"
+        )
+    rate = agreed / cases
+    spread = _Z * _Z / cases
+    centre = rate + spread / 2
+    margin = _Z * sqrt(rate * (1 - rate) / cases + spread / (4 * cases))
+    # Floating point leaves 0 of n a hair above zero; a bound on nothing agreed is 0.
+    return max(0.0, (centre - margin) / (1 + spread))
 
 
 def calibration(
