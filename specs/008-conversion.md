@@ -775,7 +775,7 @@ wherever they are.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.html_markdown`)
 - **Proved by:** `tests/unit/test_R008_22__an_image_is_its_alt_text_and_its_file.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
