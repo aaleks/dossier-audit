@@ -876,7 +876,7 @@ own half, as it counts against the agreement.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.judges`)
 - **Proved by:** `tests/unit/test_R007_28__supported_and_unsupported_cases_are_reported_apart.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
