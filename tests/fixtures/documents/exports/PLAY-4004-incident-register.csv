@@ -1,0 +1,5 @@
+key,opened,severity,system,root_cause,recorded_loss_chf
+PLAY-4001,2026-04-17,major,payments-worker,redelivered messages charged twice with no idempotency key,1240
+PLAY-4002,2026-05-08,minor,internal-dns,one resolver replica running an eight-month-old image,0
+PLAY-4005,2026-06-21,major,orders-api,connection pool exhausted by a report query holding transactions open,9800
+PLAY-4006,2026-07-02,minor,search-indexer,indexer restarted mid-batch and skipped a shard,0
