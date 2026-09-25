@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.20
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.23
 
 ## Purpose
 
@@ -276,6 +276,51 @@ writes, so a new release of either can change an artifact under a key that says
 nothing changed (R5.4). The same reader is what a `text/html` file would be
 converted with.
 
+## An HTML page or a CSV file someone exported
+
+A Jira issue or a Confluence page often carries a file someone exported: a wiki
+page saved as HTML, an incident register saved as CSV. Nothing claimed either
+pair, so R8.5 stopped the whole source over one attachment. Synced from Apache's
+Jira, `KAFKA-20416` carries a `.csv`, a `.jsonl` and an `.html`, and no
+document in that source could be converted until they were removed. Two
+converters now ship in the core install and answer those pairs by default:
+`html-markdown` and `text-csv`.
+
+**HTML** is read with the reader `confluence-page-markdown` uses (R8.20), and the
+same choices apply: nothing is escaped, and what a reader of the page does not
+see is taken out first (R8.21). In a file, that means the whole `<head>` as
+well as `<style>`, `<script>` and `<template>`. Otherwise markdownify writes the
+`<title>` into the text as a line of its own, and an export repeats it as the
+page's first heading. An image is written as its alt text and the name of its
+file (R8.22). An export often inlines its images as `data:` URIs, and markdownify
+would put megabytes of base64 into the note.
+
+The bytes are decoded as UTF-8 by the converter, and BeautifulSoup is handed
+text, not bytes. Given bytes, BeautifulSoup guesses their encoding with
+`charset-normalizer` or `chardet` when either is installed. MLflow brings in
+the first, so the same file would decode differently depending on which extras
+a machine has, and R8.1 forbids that. A file in another encoding fails, naming
+UTF-8, as a text file does (R8.6).
+
+**CSV** is written as the text it is (R8.23). A markdown table was the obvious
+alternative and was rejected. A table rewrites every row: `a,b` becomes
+`| a | b |`, and a cell holding `|` needs an escape. A model quotes what it is
+shown, so a quote from the table would not be found in what the file says, and
+the note grows by a third. A person reading a CSV sees its cells, and so does a
+model reading its text.
+
+**Existing options considered:**
+
+| Option | Checked | Covers | Missing |
+|---|---|---|---|
+| `markdownify` 1.2.3, already a core dependency (R8.20) | See "A Confluence page" | HTML to markdown | What is taken out first, and the image rule |
+| [`trafilatura`](https://github.com/adbar/trafilatura) | Apache-2.0, active | The main content of a web page, without navigation and advertising | It decides what is boilerplate by heuristic. An export is a document, not a web page, and a heuristic that drops a paragraph drops evidence without a word. A new release would change what counts as boilerplate under an unchanged key |
+| `html2text` | GPL-3.0 | HTML to markdown | Its licence would reach everyone who installs `dossier`, as PyMuPDF's AGPL would have (the `pdf` extra) |
+| [`tabulate`](https://github.com/astanin/python-tabulate) or [`pytablewriter`](https://github.com/thombashi/pytablewriter), for CSV | MIT, both maintained | A CSV as a markdown table | See **CSV** above. What is missing is the reason to rewrite the file at all |
+
+**Chosen:** `markdownify` for HTML, through the reader R8.20 already pins. No
+library for CSV: its text is its note.
+
 ## Must hold
 
 ### R8.1 — a converted artifact is a pure function of the snapshot bytes and the declared options
@@ -510,6 +555,8 @@ that a platform fills in.
 | 3 | Should a source, rather than the workspace, choose the converter for a pair? | OPEN — needs a corpus mixing scans with born-digital PDFs where Docling's cost on the digital ones matters. Until then `docling-markdown` reads a digital page from its text layer anyway (R8.14) |
 | 4 | Which custom fields belong in a Jira issue's note? The payload names them `customfield_10042`, and what a person calls them comes only with `expand=names`, which changes every payload the connector stores | OPEN — needs a real incident project where a custom field holds what a stage must read. Until then the note holds none (R8.16 row 6) |
 | 5 | Should a source declare kinds per media type? `convert:` applies to every document a source holds. So `page_images` for a Confluence page's PDF export (R1.19) is asked of the page JSON too, and nothing claims that pair (R8.5) | OPEN — a change to spec 003's `convert:`, and not this story's to make. Until then the export converts to `markdown` (R8.10), and a vision stage reads a page's images as the files they are (R1.18) |
+| 6 | Should a CSV saved by Excel in Windows-1252, or an HTML page declaring a legacy `charset`, be read? | OPEN — needs one in a real source. Until then each fails naming UTF-8 (R8.21 row 4, R8.23 row 3), and guessing the encoding is exactly what R8.1 rules out |
+| 7 | Should a file nothing claims stop its whole source (R8.5), or only itself? `KAFKA-20416`'s `.jsonl` still stops Apache's source after R8.21–R8.23 | OPEN — a change to R8.5, which says the fix is an installation. A file a person attached is not configuration, so it is a real question, and not this story's |
 
 ### R8.12 — an image converts to `page_images` as a container of one part, and every part is a PNG
 
@@ -703,3 +750,50 @@ converting it (R8.1).
 | 4 | an image whose `src` is `…/download/attachments/embedded-page/OPS/…/escalation-matrix.png?api=v2` | `![escalation-matrix.png](escalation-matrix.png)`: the file is named, and the server's URL is not kept |
 | 5 | *counter-example* — the table of contents macro, its `<style>` and its `div.toc-macro` | neither is in the note. The headings it lists are there once, where they stand |
 | 6 | *counter-example* — text inside an expand macro, hidden until a reader clicks it | kept. A reader who opens the page can read it, so a stage can too |
+
+### R8.21 — `html-markdown` converts an HTML file to markdown of what a reader sees on the page, unescaped
+
+The page's `<body>`, written as R8.20 writes a Confluence page's body. The
+whole `<head>` is taken out, and so are `<style>`, `<script>` and `<template>`
+wherever they are.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.converters.html_markdown`)
+- **Proved by:** `tests/unit/test_R008_21__an_html_file_converts_to_what_a_reader_sees.py`, `tests/acceptance/test_R008_21__exported_files_no_longer_stop_a_source.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `PLAY-4001-payment-retries.html` | opens `# PLAY-4001 — Duplicate payment retries after a queue redelivery`, then `**Severity:** major`, and `## Timeline` with its list; the title is there once, as the page's heading, and none of its CSS is |
+| 2 | a folder source holding `PLAY-4001-payment-retries.html`, `PLAY-4004-incident-register.csv` and `audit-note.pdf`, its source declaring no `convert:` | `3 converted`. Before this, `convert` stopped on `(text/html, markdown)` and `(text/csv, markdown)` and converted nothing (R8.5) |
+| 3 | `<p>pool lb_acq_01 held 3*2 connections</p>` | written as it stands, with no `\_` and no `\*` (R8.17 row 3) |
+| 4 | *counter-example* — an HTML file in Windows-1252 with `é` in it | that document fails, naming `html-markdown` and UTF-8; the source's other documents convert (R8.6) |
+| 5 | *counter-example* — a `<script>` in the body holding `var rota = 'on call'` | not in the note; the paragraphs either side of it are |
+
+### R8.22 — an image in an HTML file is written as its alt text and the name of its file, and never as its URL or its data
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.converters.html_markdown`)
+- **Proved by:** `tests/unit/test_R008_22__an_image_is_its_alt_text_and_its_file.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `<img src="panel-checkout-p99.png" alt="Checkout p99 latency">` | `![Checkout p99 latency](panel-checkout-p99.png)` |
+| 2 | `PLAY-4003-latency-dashboard-export.html`, whose body is one `<img>` with no alt text | `![panel-checkout-p99.png](panel-checkout-p99.png)`: the file is named, and no text is made up |
+| 3 | `<img src="https://grafana.example/render/d/p99.png?from=now-6h">` | `![p99.png](p99.png)`; the host and the query are not kept |
+| 4 | *counter-example* — `<img src="data:image/png;base64,iVBORw0KGgo…" alt="Checkout p99 latency">` | `![Checkout p99 latency]()`; none of the base64 is in the note |
+| 5 | *counter-example* — `<img src="data:image/png;base64,iVBORw0KGgo…">`, with no alt text | nothing is written for it |
+
+### R8.23 — `text-csv` converts a CSV file to its text as written
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.converters.text_csv`)
+- **Proved by:** `tests/unit/test_R008_23__a_csv_file_converts_to_its_text.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `PLAY-4004-incident-register.csv` | the artifact is the file's bytes, header row first |
+| 2 | *counter-example* — the row `PLAY-4001,2026-04-17,major,payments-worker,…` | written with its commas, and no `|` is added: a quote from the row is found in the note as the file has it |
+| 3 | *counter-example* — a CSV saved by Excel in Windows-1252 | that document fails, naming `text-csv` and UTF-8 (R8.6) |
