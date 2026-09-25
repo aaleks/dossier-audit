@@ -5,7 +5,7 @@ item that did change.
 
 Proved here for the `folder` connector. The Jira missing-field row (example 3)
 is implemented in `jira.py` and not transcribed here yet; the Confluence `v37`
-row (example 2) names a connector that does not exist.
+row (example 2) is proved where the marker is decided, by R1.16's test.
 """
 
 from __future__ import annotations
