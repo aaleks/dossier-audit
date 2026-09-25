@@ -573,9 +573,11 @@ with an empty document. Every picture then had the same key, and each one after
 the first was served the first one's answer, naming the first picture.
 Playground exercise 15 found it on two images from one Apache wiki page.
 
-A step reading more than one kind runs for a document that holds any of them,
-with what it holds. The key then carries the parts, which tell two pictures
-apart.
+A `per_part` step already behaved this way, since a document with no parts gives
+it nothing to fan out over (R3.12). It can read only a kind that has parts, so
+that is the only case it has. An `aggregate` step reads a set, and a document
+holding nothing of its kind is simply not in the set, as R6.13 row 4 says of a
+document that failed.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
@@ -586,7 +588,7 @@ apart.
 |---|-------|------|
 | 1 | `81920114` (a note) and `81920114/escalation-matrix.png` (page images), and `extract` reading `documents` | one call, for `81920114`; for the picture no model call, no artifact and no cache entry |
 | 2 | two pictures beside the note, and `extract` reading `documents` | neither is asked about. Before this rule both were asked with `""` under one key, and the second was served the first's answer, naming the first |
-| 3 | *counter-example* — `describe` reading `documents@page_images` | runs for the picture, and not for the note, which has no pages as pictures |
-| 4 | *counter-example* — a step reading `documents` and `documents@page_images` | runs for both: the note with its text, the picture with its pages |
+| 3 | *counter-example* — `describe`, `per_part`, reading `documents@page_images` | runs once for each of the picture's pages, and not for the note, which has no pages as pictures (R3.12) |
+| 4 | *counter-example* — `summarise`, `aggregate`, reading `documents` | runs once, over the note. The picture is not among the documents it joins, and the run does not stop over it |
 | 5 | the run's report | the picture is not a failure. Skipping is not failing (R6.13), and nothing about the picture went wrong |
 | 6 | a replay of that run | reproduces it without asking for an entry for the picture, which the run never wrote (R4.7) |
