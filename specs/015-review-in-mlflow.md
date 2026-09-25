@@ -169,7 +169,7 @@ server, and with the server unreachable (R10.5).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow`), application (`dossier.application.review`), cli (`dossier.cli.main`)
 - **Proved by:** `tests/unit/test_R015_3__review_pull_writes_every_human_verdict.py`, `tests/acceptance/test_R015_3__a_reviewers_verdicts_come_back.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

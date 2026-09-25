@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict
 
 from dossier.domain.datasets import PublishedDataset
 from dossier.domain.prompts import PublishedPrompt
+from dossier.domain.review import Verdict
 from dossier.domain.versions import PublishedVersion, VersionRecord
 
 
@@ -210,6 +211,25 @@ class DatasetRegistry(Protocol):
 
 
 @runtime_checkable
+class ReviewSource(Protocol):
+    """Where the verdicts reviewers left on a pipeline's traces are read back from (spec 015).
+
+    The one port through which `dossier` reads what a person said in MLflow, and
+    a port of its own for the reason `DatasetRegistry` is: it **returns** what it
+    read, which a `Tracker` may never do (R0.10 row 5). Only `dossier review
+    pull` builds one, and what it returns reaches the files under `review/` and
+    nothing else -- no key, manifest, artifact or score (R15.5).
+    """
+
+    def human_verdicts(self, *, experiment: str) -> list[Verdict]:
+        """Every valid verdict a person left on the traces of the runs in `experiment`.
+
+        A verdict another reviewer overrode is not among them, nor the judge's
+        verdicts: only what a person said, and still says (R15.3).
+        """
+        ...
+
+
 class Tracker(Protocol):
     """Where a command's record is sent (spec 010, spec 011).
 
