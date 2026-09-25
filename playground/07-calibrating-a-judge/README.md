@@ -6,7 +6,8 @@ human-scored cases, an agreed threshold, and a calibrated judge — then watch
 
 **You will learn:** why a judge has to be measured before its numbers may be
 printed, what a calibration sample is and why it is not a gold set, what makes a
-calibration stale, and why a verdict is cached like any other artifact.
+calibration stale, why a verdict is cached like any other artifact, and what an
+agreement figure does not say.
 
 **Uses the stub model as both the extractor and the judge.**
 
@@ -94,9 +95,10 @@ Now calibrate:
 dossier calibrate incident-audit --gold gold/incidents
 ```
 
-**Checkpoint.** One line per judged field: the agreement, the case count, and the
-judge it measured. Then read `gold/incidents/calibrations/root_cause.json` and
-work out what each of its five fields is for. Two of them are what make the
+**Checkpoint.** Two lines per judged field: the agreement, the case count and the
+judge it measured, and under them what that agreement does not say — task 7 is
+about that second line. Then read `gold/incidents/calibrations/root_cause.json` and
+work out what each of its fields is for. Three of them are what make the
 measurement go stale later — find them before task 5 tells you.
 
 ## Task 4 — the field is reported
@@ -141,13 +143,43 @@ must be that way.
 
 ## Task 6 — make the judge wrong, on purpose
 
-Flip one `supported` in `resources/replies-judge.json`, delete the calibration and
-the judge cache, and re-calibrate.
+In a copy of `resources/replies-judge.json`, flip the `supported` in the reply for
+`rc-04` — a candidate the reviewer marked unsupported. Point the stub at the copy,
+delete the calibration and the judge cache, and re-calibrate.
 
 **Checkpoint.** 95% over twenty cases — and with a threshold of 0.95 the field is
-still reported. Flip a second one and it is not. Now you have seen both sides of
-the bound you set in task 3, and you know what a single disagreement costs at
-N=20. That is the argument the threshold's comment is making.
+still reported. Flip a second one, `rc-01`, which the reviewer marked supported,
+and it is not. Now you have seen both sides of the bound you set in task 3, and
+you know what a single disagreement costs at N=20. That is the argument the
+threshold's comment is making.
+
+## Task 7 — what the agreement does not say
+
+Every calibration you ran printed a second line under its agreement (R7.29). Put
+the three from tasks 3 and 6 side by side, and read `root_cause.json` again.
+
+**Checkpoint.** At 100%:
+
+```
+                   lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
+```
+
+and the same figures in the file, where `lower_bound` is not rounded.
+
+- The lower bound at 100% is 83.9%, and the bar you set in task 3 is 0.95. Is
+  this judge below your bar? Which of the figures does the gate compare, and why
+  is changing that a decision for a person rather than for `dossier`?
+  (R7.26 row 4, R7.5.)
+- In task 6, which flip moved the `unsupported` count and which moved `supported`?
+  Given what a judge exists to catch, which of the two would you rather it got
+  wrong? (R7.28, R7.12.)
+- A judge that answers "supported" to all twenty: work out its agreement, its
+  kappa and its two counts from the sample, before checking R7.27 row 2. What
+  does the gap between its agreement and its kappa say about a judge measured by
+  agreement alone?
+- A sample in which every case is supported would print `no unsupported case`,
+  not `8 of 8`, and `kappa not measurable`. Why is each of those the honest
+  answer? (R7.27 row 4, R7.28 row 4.)
 
 ---
 
@@ -156,6 +188,8 @@ N=20. That is the argument the threshold's comment is making.
 - a judged field that is withheld, then measured, then reported;
 - a sample you have read and a threshold you would defend in a review;
 - you can name what makes a calibration stale, and why each of those inputs
-  belongs in the staleness check.
+  belongs in the staleness check;
+- you can say what an agreement figure hides, and which half of a sample a judge
+  is failing on, from the line under it.
 
 **Next:** [08 · MLflow tracing end to end](../08-mlflow-tracing-end-to-end/).

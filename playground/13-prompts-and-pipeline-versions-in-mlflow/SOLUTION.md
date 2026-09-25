@@ -62,6 +62,7 @@ recorded to MLflow: dossier-audit/incident-audit/run · run 20260923T065111Z-80b
   extract: 5 document(s) · 0 from cache · 0 failed
 
 root_cause         100.0% agreement over 20 cases · openai:gpt-5.4-mini
+                   lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
 recorded to MLflow: dossier-audit/incident-audit/calibrate
 ```
 
@@ -221,6 +222,7 @@ version it does not describe (R14.12 row 4).
 ```
 $ dossier calibrate incident-audit --gold gold/incidents
 root_cause         100.0% agreement over 20 cases · openai:gpt-5.4-mini
+                   lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
 recorded to MLflow: dossier-audit/incident-audit/calibrate
 ```
 
