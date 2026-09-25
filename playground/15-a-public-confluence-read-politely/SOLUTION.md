@@ -442,8 +442,9 @@ Grounding is doing its job here. A model is shown the note, not the page, and a
 model quoting the note grounds. The lesson for writing reply files, and gold
 answers, is to copy spans from the note. The defect is in the converter, and it
 has been reported. Confluence's editor puts non-breaking spaces everywhere, so
-it will not be rare. `html-markdown` reads HTML with the same reader (R8.21), so
-it will have the same defect.
+it will not be rare. `html-markdown` reads an HTML file with the same reader
+(R8.21, `converters/_html.py`), and given the same `<strong>Released:&nbsp;</strong>`
+it writes the same `**Released:**0.10.0.0`.
 
 **[run]** A value that lives only in a link:
 
