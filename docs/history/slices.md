@@ -13,6 +13,27 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A span is compared after folding what a reader cannot tell apart. `locate_span`
+normalised whitespace only, so an honest citation failed on a difference nobody
+can see, and was scored incorrect before its value was looked at (R7.4). Two
+converters had just made that likelier: OCR text brings ligatures and line-end
+hyphens, and the Jira note writes `**Status:** Done`. `grounding.fold` is now the
+one fold both `locate_span` and `page_of_span` search through, applied to both
+sides: NFKC (R6.17); typographic quotes, apostrophes and dashes as their plain
+forms, before NFKC as well as after, because NFKC writes `″` as two primes
+(R6.18); a hyphen ending a line between letters read both ways -- joined for
+`certifi-`/`cate`, kept for `well-`/`known` -- with the page taken from the
+reading the span was found in (R6.19); and links, inline code, strong, emphasis
+and strikethrough as their words, emphasis read by CommonMark's flanking rules so
+`lb_acq_01` and `3*2` stay text (R6.20). No fold reaches a letter, a digit or
+case. Grounding is re-derived from a cached answer on every read, so no key
+moved; verdicts, and scores, can.
+
+Checked against playground exercise 11's seed, which posts the corpus notes'
+markdown as Jira descriptions: read as wiki markup, `**Severity:** major` becomes
+`***Severity:*** major`, and three spans per issue had failed to ground. All 19
+ground now.
+
 A Jira issue converts. The connector held every issue as `application/json`,
 nothing claimed that pair, and `dossier convert` refused the whole source: a Jira
 source could be synced and never audited, which playground exercise 11 walked
