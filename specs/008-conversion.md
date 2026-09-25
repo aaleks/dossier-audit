@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.18
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.20
 
 ## Purpose
 
@@ -234,6 +234,47 @@ converted it. Declaring or changing the source's `fields:` re-fetches every issu
 (R2.3), and `fields: [key, fields]` is the projection a Jira source wants anyway
 -- it leaves out `self` and `expand`, so a new hostname does not re-snapshot every
 issue.
+
+## A Confluence page
+
+The Confluence connector holds a page as the JSON Confluence sends when asked for
+the page rendered for export, and labels it
+`application/vnd.dossier.confluence-page+json` (R1.17). `confluence-page-markdown`
+claims that type with `markdown`. It ships beside the connector for the reason
+`jira-issue-markdown` does: a connector whose documents nothing reads is half a
+source.
+
+**The note.** `# <title>`; a line each for the space, the version, when it was
+written and by whom; then the body (R8.19). The rest of the payload is Confluence's
+machinery: `_links`, `_expandable`, and a `self` URL on every nested object. None
+of it goes in the note, for the reason R8.16 gives. Which fields are kept, and in
+what order, is decided over the parsed page in `domain`.
+
+**The body.** `body.export_view.value` is HTML, and it is written as markdown
+(R8.20). The choices are the ones R8.17 made for wiki markup, for the same reason:
+the artifact is text a span is searched in, not markdown for a renderer. Nothing is
+backslash-escaped, lists use `-`, and headings use `#`. What a reader does not see
+is dropped. That means the content of `<style>` and `<script>`, and the table of
+contents macro. The table of contents repeats the page's headings, and its class
+name holds the time it was rendered, so it would add a sentence that changes on
+every fetch. An embedded image is written as the name of the file it shows. The
+file is its own document (R1.18). The server's download URL is not kept: it holds
+the page's title, and it moves when the page is renamed.
+
+**Existing options considered**, before writing any of it:
+
+| Option | Checked | Covers | Missing |
+|---|---|---|---|
+| [`markdownify`](https://github.com/matthewwithanm/python-markdownify) 1.2.3 | MIT, pure Python over BeautifulSoup. Released 2026-06-30, six releases since 1.0 | HTML to markdown: headings, lists, tables, code, links and images. Escaping, bullets and heading style are options, and any tag's conversion can be overridden in a subclass | Which fields are the note, the table of contents and the image rule. That is the delta, and it is project-specific |
+| [`html-to-markdown`](https://pypi.org/project/html-to-markdown/) 3.14.3 | MIT, released 2026-09-19, with a compiled Rust core in a wheel per platform | The same conversion, faster | Speed is not the constraint here, with one page per request. Every release is a new native binary per platform, inside the artifact's bytes. The same delta |
+| pandoc, through `pypandoc-binary` | As for a Jira issue above | The same | A 25–40 MB binary called as a subprocess, as it would have been for Jira |
+
+**Chosen: `markdownify`**, as a dependency of `dossier` itself rather than an
+extra, for the reason `jira2markdown` is one. Both `markdownify` and
+`beautifulsoup4` are pinned exactly. The parser builds the tree that `markdownify`
+writes, so a new release of either can change an artifact under a key that says
+nothing changed (R5.4). The same reader is what a `text/html` file would be
+converted with.
 
 ## Must hold
 
@@ -468,6 +509,7 @@ that a platform fills in.
 | 2 | Is `docling-markdown`'s artifact byte-identical on another machine? It was identical across runs, thread counts and two inference backends on one Windows machine | OPEN — needs the photocopy converted on a second machine, Linux, and the two artifact hashes compared. A run stays reproducible either way, because a replay reads the artifact the run cached and never converts again (R4.7) |
 | 3 | Should a source, rather than the workspace, choose the converter for a pair? | OPEN — needs a corpus mixing scans with born-digital PDFs where Docling's cost on the digital ones matters. Until then `docling-markdown` reads a digital page from its text layer anyway (R8.14) |
 | 4 | Which custom fields belong in a Jira issue's note? The payload names them `customfield_10042`, and what a person calls them comes only with `expand=names`, which changes every payload the connector stores | OPEN — needs a real incident project where a custom field holds what a stage must read. Until then the note holds none (R8.16 row 6) |
+| 5 | Should a source declare kinds per media type? `convert:` applies to every document a source holds. So `page_images` for a Confluence page's PDF export (R1.19) is asked of the page JSON too, and nothing claims that pair (R8.5) | OPEN — a change to spec 003's `convert:`, and not this story's to make. Until then the export converts to `markdown` (R8.10), and a vision stage reads a page's images as the files they are (R1.18) |
 
 ### R8.12 — an image converts to `page_images` as a container of one part, and every part is a PNG
 
@@ -626,3 +668,38 @@ conclusion from its first half.
 | 1 | `comment.total` 7, and the payload holding 5 | after the fifth comment, `2 of 7 comments are not in this snapshot.` |
 | 2 | *counter-example* — `comment.total` 2, and the payload holding 2 | no such line |
 | 3 | *counter-example* — no `comment` field at all | no `## Comments` section, and no such line |
+
+### R8.19 — `confluence-page-markdown` converts a page to a note of its title, space, version, time and author, and its body, and of nothing else in the payload
+
+In this order: `# <title>`, then a line each for `**Space:**`, `**Version:**`,
+`**Updated:**` and `**By:**`, then the body. A value is written as Confluence sent
+it. A time is not re-zoned, because the note may not depend on the machine
+converting it (R8.1).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.confluence_page.note`), called by infrastructure (`dossier.infrastructure.converters.confluence_page_markdown`)
+- **Proved by:** `tests/unit/test_R008_19__a_page_converts_to_a_note_of_what_a_person_reads.py`, `tests/acceptance/test_R008_19__a_confluence_page_is_audited_end_to_end.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `81920114`, titled `OPS-114 Incident escalation procedure`, in `OPS`, at version 37, written by `m.keller` at `2026-08-05T16:02:00.000Z` | `# OPS-114 Incident escalation procedure`, then `**Space:** OPS`, `**Version:** 37`, `**Updated:** 2026-08-05T16:02:00.000Z` and `**By:** m.keller`, in that order |
+| 2 | `procedures-confluence` synced from Confluence, and a stage quoting a sentence from `81920114`'s body | the value is `grounded` (R6.4). Before this, nothing could sync a Confluence space, so no stage ever read one |
+| 3 | *counter-example* — the page's `_links`, its `_expandable`, and its space's `self` URL | none of them is in the note |
+| 4 | *counter-example* — `{"id": "81920114"}`, with no `body.export_view` | that document fails, naming `confluence-page-markdown` and saying it is not a rendered Confluence page. The source's other documents convert (R8.6) |
+
+### R8.20 — a page's body is written as markdown, unescaped, and without what a reader does not see
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.converters.confluence_page_markdown`)
+- **Proved by:** `tests/unit/test_R008_20__a_pages_body_is_written_as_markdown.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `<h2>Escalation</h2><ul><li>Page the incident commander</li></ul>` | `## Escalation`, then `- Page the incident commander` |
+| 2 | `<a href="https://status.example/rota">the rota</a>` | `[the rota](https://status.example/rota)` |
+| 3 | `pool lb_acq_01 held 3*2 connections` | written as it stands, with no `\_` and no `\*` (R8.17 row 3) |
+| 4 | an image whose `src` is `…/download/attachments/embedded-page/OPS/…/escalation-matrix.png?api=v2` | `![escalation-matrix.png](escalation-matrix.png)`: the file is named, and the server's URL is not kept |
+| 5 | *counter-example* — the table of contents macro, its `<style>` and its `div.toc-macro` | neither is in the note. The headings it lists are there once, where they stand |
+| 6 | *counter-example* — text inside an expand macro, hidden until a reader clicks it | kept. A reader who opens the page can read it, so a stage can too |

@@ -9,14 +9,14 @@ spec assumes.
 | Spec | Covers | Rules | Status |
 |---|---|---|---|
 | `000-overview.md` | Vocabulary, the hash boundary, hashing, workspace layout, global invariants | R0.1 – R0.14 | Implemented |
-| `001-source-connectors.md` | The connector interface and its registration | R1.1 – R1.14 | Implemented |
+| `001-source-connectors.md` | The connector interface and its registration | R1.1 – R1.21 | Partially implemented |
 | `002-ledger-and-sync.md` | Change detection, incremental fetch, tombstoning, the store | R2.1 – R2.22 | Implemented |
 | `003-pipeline-format.md` | `sources.yaml` and `pipeline.yaml` schemas | R3.1 – R3.14 | Implemented |
 | `004-step-resolution.md` | Reference expansion, the run manifest, plan diffing | R4.1 – R4.14 | Implemented |
 | `005-caching-and-keys.md` | Cache key composition, cascade, provenance records, and what a run spent in tokens | R5.1 – R5.13 | Implemented |
 | `006-output-schemas.md` | Structured output, grounding, abstention, validation | R6.1 – R6.20 | Implemented |
 | `007-scoring-and-gold.md` | Gold sets, scorers, judge calibration, the change gate | R7.1 – R7.25 | Implemented |
-| `008-conversion.md` | The converter interface, its registration, versioning and selection | R8.1 – R8.18 | Implemented |
+| `008-conversion.md` | The converter interface, its registration, versioning and selection | R8.1 – R8.20 | Partially implemented |
 | `009-model-providers.md` | Model providers, their pinned forms, where each is reached, when a request is sent again, what an answer cost, and how many are asked at once | R9.1 – R9.19 | Implemented |
 | `010-mlflow-tracking.md` | MLflow tracking: the switch, experiment routing, naming, authentication, and what tracking may not do | R10.1 – R10.24 | Implemented |
 | `011-tracking-records.md` | What each command records to MLflow: runs, traces, spans and metrics | R11.1 – R11.22 | Implemented |
