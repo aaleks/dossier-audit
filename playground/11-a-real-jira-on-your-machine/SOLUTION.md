@@ -79,6 +79,11 @@ sources:
     fields: [key, fields]
 ```
 
+The finished file also has `converters: [play-jira-issue-markdown]` at the top.
+That line belongs to task 8, and it needs task 8's package installed: every
+command that plans or converts refuses a name no installed package provides
+(R8.13). Until then, leave it out.
+
 `query` has **no `ORDER BY`**, and that is not style. The connector narrows an
 incremental listing by appending a clause (R1.4):
 
@@ -348,88 +353,247 @@ be found without editing `fields:` to force a re-evaluation of everything
 - A tombstone is a state, not a delete. The row and its snapshots are still
   there; what changed is that the document is no longer active.
 
-## Task 7 — the wall
+## Task 7 — what an issue converts to
 
-**[derived]** The message below is assembled by
-`application/convert.py:_resolve_converters` and
-`domain/conversion.py:select`. The wording is theirs, run against the converters
-installed in this repository; the document keys are this exercise's.
+**[derived]** Every console block in this task and the next was produced by the
+real `dossier` CLI. It was run through tasks 3 to 6 and then these two, against a
+Jira played by a local HTTP server. That server answered the three routes the
+connector asks with `PLAY-1` to `PLAY-4`: the seeded summaries and descriptions,
+wrapped in the payload of `tests/fixtures/jira/INC-4821.json`, a Jira Server
+issue with its avatars and custom fields. The wording is `dossier`'s. The
+timestamps, the status, the type and the priority come from the played Jira,
+and yours will be your instance's.
 
-```bash
+```console
 $ dossier convert jira-audit
-4 document(s) have no converter:
-  PLAY-1 (application/json): nothing converts ('application/json', 'markdown').
-    Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)',
-    '(image/jpeg, page_images)', '(image/png, page_images)',
-    '(text/markdown, markdown)', '(text/plain, markdown)'].
-    A converter is added by installing a package that declares a dossier.converters
-    entry point.
-  PLAY-2 (application/json): …
-  PLAY-3 (application/json): …
-  PLAY-4 (application/json): …
+incidents-jira  4 held · 4 converted · 0 cached
+cache updated · 4 converted · 0 cached
 ```
 
-Four named, not one. And **five** documents refused, not four — the attachment
-converts perfectly well and does not get to, because resolution happens for the
-whole source before any conversion runs:
+Four held, not five, because task 6 tombstoned `PLAY-4`, and `convert` reads
+only the rows that are not tombstoned. The ledger shows what each document is
+held as:
+
+```console
+$ python -c "import sqlite3; [print(*r) for r in sqlite3.connect('.dossier/ledger.db').execute('select key, media_type, state from items order by key')]"
+PLAY-1 application/vnd.dossier.jira-issue+json active
+PLAY-1/postmortem.md text/markdown active
+PLAY-2 application/vnd.dossier.jira-issue+json active
+PLAY-3 application/vnd.dossier.jira-issue+json active
+PLAY-4 application/vnd.dossier.jira-issue+json tombstoned
+```
+
+An issue is labelled by what wrote it, and the connector says so where it
+fetches one (R1.14):
 
 ```python
-plan = _resolve_converters(documents=documents, kinds=kinds, converters=converters)
+response = self._get(f"{self._base}{ISSUES}/{item}")
+return RawItem(
+    key=key,
+    payload=response.content,
+    media_type=JIRA_ISSUE,
+    remote_version=_version_of(response.json()),
+)
 ```
 
-The docstring says why, and it is a design position rather than an implementation
-detail: discovering the gap partway through would leave a source half converted
-for a reason that was knowable before any work started.
+R1.14 gives the reason: a converter claiming `application/json` would claim
+every JSON document any source ever holds, whether a webhook body, a
+configuration export or a Confluence page, and read each one as though Jira had
+written it. `jira-issue-markdown` claims the Jira type and nothing else. Spec
+008 says it ships with the connector "because a connector whose documents
+nothing reads is half a source". The attachment is still labelled by what Jira says it is
+(R2.16), and `markdown-text` converts it.
 
-Note also what the message ends with. It does not say "not supported"; it says a
-converter is added by installing a package. The refusal names its own fix (R8.5).
+Which artifact is `PLAY-1`'s? A `.meta.json` names the snapshot an artifact was
+made from, and the ledger's `snapshot_path` ends in the snapshot's address:
 
-## Task 8 — get past it
-
-`solution/dossier_jira_playground/` claims the pair from outside `dossier`,
-through the same entry-point group the shipped converters use (R8.7):
-
-```toml
-[project.entry-points."dossier.converters"]
-jira-issue-markdown = "dossier_jira_playground.issue_markdown:JiraIssueMarkdownConverter"
+```console
+$ python - <<'PY'
+import json, pathlib, sqlite3
+held = {path.rsplit("/", 1)[-1]: key for key, path in
+        sqlite3.connect(".dossier/ledger.db").execute("select key, snapshot_path from items")}
+for meta in sorted(pathlib.Path(".dossier/cache/convert").rglob("*.meta.json")):
+    m = json.loads(meta.read_text(encoding="utf-8"))
+    print(f"{held[m['snapshot']]:22} {m['converter_id']:20} {meta.as_posix()[:-len('.meta.json')]}")
+PY
+PLAY-1/postmortem.md   markdown-text        .dossier/cache/convert/11/2b/112b55ff…
+PLAY-2                 jira-issue-markdown  .dossier/cache/convert/6f/f6/6ff68e57…
+PLAY-1                 jira-issue-markdown  .dossier/cache/convert/85/fc/85fc100b…
+PLAY-3                 jira-issue-markdown  .dossier/cache/convert/e2/87/e28752a1…
 ```
 
-**[run]** What it produces, for a payload of the shape Jira returns:
+The ledger's `content_hash` would not work here. For an issue it is the hash of
+the `fields: [key, fields]` projection, which is not the address of any
+snapshot (R2.17). For a folder source the two are the same, which is why
+exercise 03's version of this script could use it.
 
-```
+```console
+$ cat .dossier/cache/convert/85/fc/85fc100b…
 # PLAY-1 — Checkout timeouts after the payment gateway upgrade
 
 **Status:** Open
 **Type:** Task
 **Priority:** Medium
 **Created:** 2026-09-21T10:15:31.212+0000
-**Updated:** 2026-09-21T10:15:33.004+0000
+**Updated:** 2026-09-21T11:06:30.905+0000
 **Attachments:** postmortem.md
 
 ## Description
 
-**Severity:** major
+***Severity:*** major
+***Resolved:*** 2026-03-04
+***Systems affected:*** checkout-api, payments-gateway
 
-## Root cause
+## Timeline
 
-The gateway upgrade shipped a connection pool whose idle timeout was 30 seconds.
+- 2026-03-02 09:14 UTC — checkout starts returning 504s on about one request in
+    five. The on-call engineer is paged by the synthetic checkout probe.
+…
 
-## Comments
+## Impact
 
-**A. Aleks**
+Finance reconciled 214 abandoned baskets against the gateway's own records, a
+recorded loss of CHF 18'400.
 
-Reverted the pool settings.
+## Follow-up
+
+- Align pool and balancer timeouts in the shared service template.
+- Add a synthetic probe that fails on a closed-socket retry rather than on a 504.
+
+## Correction
+
+Finance restated the recorded loss after reconciliation.
 ```
 
-**[run]** And the three properties that make it a converter rather than a
-formatter:
+There is no `Resolution` line because the issue has none, and no `## Comments`
+because the seeded issues have no comments (R8.16). The `## Correction` is task
+5's `edit`.
+
+The three checks:
+
+- **The attachment is named, never inlined.** `**Attachments:** postmortem.md`,
+  and none of its text. It is its own document (R1.6): the same sentence in two
+  artifacts is a span that cannot say which one it was found in.
+- **No machinery reached the note.**
+
+  ```console
+  $ for w in avatarUrls customfield_; do echo "$w  snapshot $(grep -o $w .dossier/snapshots/9a/68/9a689738… | wc -l)  note $(grep -o $w .dossier/cache/convert/85/fc/85fc100b… | wc -l)"; done
+  avatarUrls  snapshot 5  note 0
+  customfield_  snapshot 93  note 0
+  ```
+
+  A 9 KB payload became a 1.5 KB note. The played payload is a Jira Server
+  issue with 93 custom fields. How many yours has depends on your instance, and
+  the note holds none of them either way.
+- **The description was read as wiki markup.** The seed posted
+  `**Severity:** major` and the note says `***Severity:*** major`. REST API
+  version 2 returns a description as wiki markup on both Cloud and Data Center,
+  and `jira-issue-markdown` hands it to `jira2markdown` (R8.17). Read as wiki
+  markup, where `*…*` is bold, `**Severity:**` comes out `***Severity:***`. The
+  lists are re-indented too, which costs nothing, because grounding normalises
+  whitespace (R6.4). The stars do cost something, as the next task shows. This
+  converter is right for a Jira that people type into. The source's descriptions
+  were written by `seed_jira.py`, which posted markdown, not wiki markup.
+
+**[derived]** A workspace synced before R1.14 still holds its issues as
+`application/json`. The rows below were set back to that label by hand in the
+ledger:
+
+```console
+$ dossier convert jira-audit
+3 document(s) have no converter:
+  PLAY-1 (application/json): nothing converts ('application/json', 'markdown'). Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)', '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)', '(image/png, page_images)', '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by installing a package that declares a dossier.converters entry point.
+  PLAY-2 (application/json): …
+  PLAY-3 (application/json): …
+```
+
+The message reads as though a converter were missing, but none is. A label is
+recorded when an issue is fetched (R2.16), and an unchanged issue is not fetched
+again (R2.1). Changing `fields:` changes the source's configuration hash, which
+re-fetches every issue (R2.3):
+
+```console
+$ # fields: [key, fields] changed to fields: [key, fields, id]
+$ dossier sync jira-audit
+incidents-jira  4 known · 3 changed · 0 new -> 3 fetched
+…
+```
+
+The three issues are fetched again and recorded under the new label, and
+`convert` then reads them as it did above. `id` was added only because it was a
+change to make. Declaring `fields: [key, fields]` where no `fields:` was
+declared before has the same effect.
+
+`resources/proposal.md` is the proposal this task used to end in, written when
+every issue was refused. It is kept as it was written, with a note at the top
+saying how it was settled. Its first half argued that a converter claiming
+`application/json` claims every JSON document, and that argument landed almost
+word for word in R1.14. What changed is the answer. The proposal was that
+`dossier` should claim nothing, and add a note under R8.5. What landed was a
+media type that only a Jira issue carries, so `dossier` could ship a converter
+claiming it without claiming anyone else's JSON.
+
+## Task 8 — a note of your own
+
+**[derived]** First, the audit on the shipped note:
+
+```console
+$ dossier run jira-audit
+run 20260924T200218Z-4742 · …/runs/20260924T200218Z-4742/manifest.json
+  extract: 4 document(s) · 0 from cache · 0 failed · 9 finding(s) · tokens not reported
+    PLAY-1  resolution_date: span not found in PLAY-1 (R6.4).
+    PLAY-1  severity: span not found in PLAY-1 (R6.4).
+    PLAY-1  affected_systems: span not found in PLAY-1 (R6.4).
+    PLAY-2  resolution_date: span not found in PLAY-2 (R6.4).
+    …
+    PLAY-3  affected_systems: span not found in PLAY-3 (R6.4).
+```
+
+That is three fields on each of three issues. The reply file quotes
+`**Severity:** major`, `**Resolved:** 2026-03-04` and `**Systems affected:** …`,
+which is the text the seed wrote.
+The note holds `***Severity:*** major`. `loss_amount` grounds on every issue,
+because `a recorded loss of CHF 18'400` has no markup in it. The attachment
+grounds on every field, because `markdown-text` wrote its markdown as it was.
+
+`solution/dossier_jira_playground/` claims the same pair from outside `dossier`,
+through the entry-point group the shipped converters use (R8.7):
+
+```toml
+[project.entry-points."dossier.converters"]
+play-jira-issue-markdown = "dossier_jira_playground.issue_markdown:JiraIssueMarkdownConverter"
+```
+
+It makes two decisions differently from `jira-issue-markdown`, and its
+docstring says why:
+
+- **The labels are part of the document**, sorted, on a line of their own. A
+  label set has no order that Jira means anything by.
+- **The description is written as Jira holds it**, and is not read as wiki
+  markup. This is true of this instance and of no other.
+
+It also writes less of a comment than the shipped note does: the author but not
+the time, and nothing when `comment.total` says the payload holds fewer
+comments than there are (R8.18). The seeded issues have no comments. A Jira
+whose threads matter wants the shipped note.
+
+Its id is `play-jira-issue-markdown`, not `jira-issue-markdown`. `_claims` in
+`domain/conversion.py` treats two converters with the same id and version as
+"one claim made through two entry-point paths, which is untidy rather than
+ambiguous". A copy that kept the shipped id and version would be taken for the
+shipped converter, and which of the two wrote an artifact would then turn on
+installation order, under a convert key saying it made no difference.
+
+**[run]** The three properties that make it a converter rather than a formatter,
+plus the one it adds:
 
 ```
 determinism (same payload twice):        True
 independent of JSON key order:           True
-not JSON            -> jira-issue-markdown: the payload is not UTF-8 JSON: …
-a JSON array        -> jira-issue-markdown: expected a JSON object, got list
-an object, no fields-> jira-issue-markdown: the payload has no `fields` object,
+independent of label order:              True
+not JSON            -> play-jira-issue-markdown: the payload is not UTF-8 JSON: …
+a JSON array        -> play-jira-issue-markdown: expected a JSON object, got list
+an object, no fields-> play-jira-issue-markdown: the payload has no `fields` object,
                        so it is not a Jira issue
 ```
 
@@ -439,56 +603,147 @@ issue depending on how Jira serialised it that day — and the convert key would
 stable while the artifact was not, which is the worst version of this failure
 because nothing would ever report it (R8.1, R0.4).
 
-The attachment is **named, never inlined**. Two documents holding the same
-sentence would make it impossible to say which one a span was grounded in.
+**[derived]** Installed, with nothing named:
 
-**[shape]** After installing it:
-
-```
+```console
 $ dossier convert jira-audit
-incidents-jira  5 held · 5 converted · 0 cached
+4 document(s) have no converter:
+  PLAY-1 (application/vnd.dossier.jira-issue+json): two converters claim the same pair, and picking either would be picking by installation order:
+  (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
+A workspace settles it by naming one under converters: in sources.yaml (R8.13).
+  PLAY-1/postmortem.md (text/markdown): two converters claim the same pair, and picking either would be picking by installation order:
+  (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
+A workspace settles it by naming one under converters: in sources.yaml (R8.13).
+  PLAY-2 (application/vnd.dossier.jira-issue+json): …
+  PLAY-3 (application/vnd.dossier.jira-issue+json): …
+$ echo $?
+2
+```
+
+`PLAY-1/postmortem.md` is refused too, and neither converter claims
+`text/markdown`. `select` checks every installed claim before it looks up the
+pair it was asked about, so a tie anywhere stops every document. Exercise 03's
+last task ran into the same refusal, and so do the repository's tests (see
+below).
+
+`solution/workspace/sources.yaml` settles it, beside `sources:` rather than
+inside the source:
+
+```yaml
+converters: [play-jira-issue-markdown]
+```
+
+The reason it sits there is in spec 008: a manifest pins one converter per pair
+(R8.9), and a replay recomposes every conversion from that pin (R4.7). One
+converter per pair per workspace keeps both of those true.
+
+```console
+$ dossier convert jira-audit        # converters: [play-jira-issue-markdwn]
+sources.yaml names play-jira-issue-markdwn under converters:, and no installed package provides it. Installed: docling-markdown, jira-issue-markdown, jpeg-pages, markdown-text, pdf-images, pdf-markdown, play-jira-issue-markdown, png-pages, text-plain. A converter is added by installing a package that declares a dossier.converters entry point.
+
+$ dossier convert jira-audit        # converters: [play-jira-issue-markdown]
+incidents-jira  4 held · 3 converted · 1 cached
+cache updated · 3 converted · 1 cached
+```
+
+Three issues are converted, under a key that now names
+`play-jira-issue-markdown`. The attachment is cached, because its converter,
+and therefore its key, did not change. `PLAY-1`'s new note:
+
+```
+# PLAY-1 — Checkout timeouts after the payment gateway upgrade
+
+**Status:** Open
+**Type:** Task
+**Priority:** Medium
+**Created:** 2026-09-21T10:15:31.212+0000
+**Updated:** 2026-09-21T11:06:30.905+0000
+**Labels:** touched-1790500000
+**Attachments:** postmortem.md
+
+## Description
+
+**Severity:** major
+**Resolved:** 2026-03-04
+**Systems affected:** checkout-api, payments-gateway
+
+## Timeline
+…
+```
+
+The label is task 5's `touch`, in the played Jira's spelling. Yours carries the
+epoch second at which you ran it.
+
+```console
+$ dossier run jira-audit
+run 20260924T200255Z-53a3 · …/runs/20260924T200255Z-53a3/manifest.json
+  extract: 4 document(s) · 1 from cache · 0 failed · tokens not reported
 
 $ dossier run jira-audit
-extract: 5 document(s) · 0 from cache · 0 failed
+run 20260924T200256Z-c9a2 · …/runs/20260924T200256Z-c9a2/manifest.json
+  extract: 4 document(s) · 4 from cache · 0 failed
 
-$ dossier run jira-audit
-extract: 5 document(s) · 5 from cache · 0 failed
+$ wc -l < /tmp/dossier-calls.jsonl
+7
 ```
 
-**[run]** The reply file was checked against the documents it describes, using
-`dossier`'s own grounding function rather than a plain substring test:
+Seven calls in all: four for the first run on the shipped note, three for this
+one, and none for the second (R5.5). The one from cache in this run is the
+attachment. Its artifact did not move, so neither did the stage key above it.
+The manifest pins what answered, and not what was installed (R8.9):
+
+```json
+"converters": [
+  {"id": "play-jira-issue-markdown", "version": "1.0.0",
+   "media_type": "application/vnd.dossier.jira-issue+json", "kind": "markdown"},
+  {"id": "markdown-text", "version": "1.0.0",
+   "media_type": "text/markdown", "kind": "markdown"}
+]
+```
+
+**[run]** The reply file was checked against the notes each converter writes for
+all five documents, using `dossier`'s own grounding function rather than a plain
+substring test:
 
 ```
-documents: ['PLAY-1', 'PLAY-1/postmortem.md', 'PLAY-2', 'PLAY-3', 'PLAY-4']
-every match string hits exactly one document: yes
-every span locates in the document it names (locate_span): yes
-problems: 0
+jira-issue-markdown       problems: 12   (resolution_date, severity, affected_systems on PLAY-1..4)
+play-jira-issue-markdown  problems: 0
+every match string hits exactly one document: yes, for both
 ```
 
-That check found a real mistake worth repeating here: the span
-`a recorded loss of CHF 18'400` does **not** appear verbatim in the note — it is
-broken across a line. It grounds anyway, because `locate_span` normalises
-whitespace before searching (R6.4). A plain `in` test would have rejected a
-correct reply file, and a reply file "fixed" to satisfy it would have been wrong.
+That check still finds the mistake worth repeating here. The span
+`a recorded loss of CHF 18'400` does **not** appear verbatim in either note,
+because it is broken across a line. It grounds anyway, because `locate_span`
+normalises whitespace before searching (R6.4). A plain `in` test would have
+rejected a correct reply file, and a reply file "fixed" to satisfy it would have
+been wrong.
 
-> **Uninstall when you are done.** `tests/unit/test_R008_1__…` collects every
-> *installed* converter, skips any whose media type it has no sample payload for,
-> and then asserts that every skip is a named exemption:
+> **Uninstall when you are done.** The R8.1 purity rows pass with this package
+> installed: the suite carries a sample Jira issue, so `play-jira-issue-markdown`
+> is checked like any other converter. What fails is everything that converts.
+> None of the suite's workspaces names either Jira converter, and with two
+> claimants for one pair each of them refuses before anything converts:
 >
-> ```python
-> EXEMPT = {"application/pdf", "image/jpeg"}
-> uncovered = {c.media_type for c in INSTALLED if c.media_type not in PAYLOADS}
-> assert uncovered <= EXEMPT
+> ```
+> AssertionError: 3 document(s) have no converter:
+>     INC-4821.md (text/markdown): two converters claim the same pair, and picking either would be picking by installation order:
+>     (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
 > ```
 >
-> `PAYLOADS` has `text/markdown`, `text/plain` and `image/png`. So
-> `application/json` is neither covered nor exempt, and leaving this package
-> installed turns the default suite red — exactly as exercise 03's package does,
-> and for exactly the reason that guard exists: a converter quietly exempted from
-> the purity check is the one outcome nobody would notice.
+> Those are notes in a folder, which have nothing to do with Jira. That is the
+> refusal doing its job: a converter installed into an environment decides for
+> every workspace in it that does not decide for itself.
 >
 > ```bash
 > uv pip uninstall dossier-jira-playground
+> ```
+>
+> Then take `converters: [play-jira-issue-markdown]` out of the workspace's
+> `sources.yaml`. With the package gone, it is a name that no installed package
+> provides, and `run --plan` refuses it as `convert` does:
+>
+> ```
+> sources.yaml names play-jira-issue-markdown under converters:, and no installed package provides it. Installed: docling-markdown, jira-issue-markdown, jpeg-pages, markdown-text, pdf-images, pdf-markdown, png-pages, text-plain. A converter is added by installing a package that declares a dossier.converters entry point.
 > ```
 
 ## Task 9 — optional: the wrong deployment, and a 401

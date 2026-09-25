@@ -1,5 +1,17 @@
 # Proposal — two things exercise 11 walked into
 
+> **How proposal 1 was settled.** It was accepted, though not in the form
+> proposed below. Its argument held: a converter claiming `application/json`
+> claims every JSON document any source ever holds. But the answer was not a
+> note under R8.5 leaving the pair unclaimed. It was a media type only a Jira
+> issue carries. The connector now reports an issue as
+> `application/vnd.dossier.jira-issue+json` (R1.14), and `dossier` ships
+> `jira-issue-markdown` claiming that pair (R8.16 – R8.18), so an issue converts
+> out of the box. The reasoning, including the options that were weighed, is in
+> the section "A Jira issue" of `specs/008-conversion.md`. The text below is
+> the proposal as it was handed to review, kept unedited so that you can
+> compare the two.
+
 A worked example of the shape ground rule 1 asks for. Exercise 04 wrote one of
 these, it was reviewed, and it landed as R8.10. This one is **not** written as
 though it were agreed: it is the thing you hand to review, and the second half

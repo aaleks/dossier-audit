@@ -1,36 +1,61 @@
-"""A Jira issue payload, read as markdown.
+"""A Jira issue, read as the note this playground's Jira wants.
 
-The gap exercise 11 walks into: an issue is held as `application/json`, nothing
-installed claims that pair, and R8.5 refuses the whole source rather than
-convert half of it. This is the honest fix -- a package that claims the pair --
-written the way exercise 03's package is, through the entry-point group and with
-no edit to `dossier` (R8.7).
+`dossier` converts a Jira issue out of the box. The connector reports an issue
+as `application/vnd.dossier.jira-issue+json` (R1.14), and `jira-issue-markdown`,
+which ships beside it, claims that pair and writes the note spec 008 describes
+(R8.16). This package claims the same pair to write a different note, and is
+written the way exercise 03's package is: through the entry-point group, with no
+edit to `dossier` (R8.7).
 
-What it decides, and why each decision is a decision:
+What it decides differently from the shipped converter, and why each difference
+is a decision:
+
+* **Labels are part of the document.** The shipped note leaves them out. Here
+  they are a line of their own, sorted: a label set has no order Jira means
+  anything by, so the note does not change when the same labels arrive in a
+  different order (R0.4).
+* **The description is written as Jira holds it.** The shipped converter reads
+  it as Jira wiki markup (R8.17), which is what a person typing into Jira
+  writes. Every description in this Jira was posted by `seed_jira.py`, in
+  markdown, and read as wiki markup `**Severity:** major` comes out
+  `***Severity:*** major` -- a sentence the stub's reply file does not quote.
+  That is true of this instance and of no other: on a Jira people type into,
+  the shipped reading is the right one.
+* **Less of a comment.** Its author, not the time beside it, and nothing said
+  when the payload holds fewer comments than it counts (R8.18). The seeded
+  issues have no comments; a Jira whose threads matter wants the shipped note.
+
+What it decides the same way:
 
 * **Which fields are the document.** A Jira issue payload is mostly machinery:
-  avatars, permission ids, rendered HTML, a `self` URL per nested object. The
-  document is the summary, the description, and the handful of fields a person
-  reading the incident would want. Everything else is dropped -- and dropping it
-  is not tidying, it is what makes a span searchable: `{{documents}}` carrying
-  forty kilobytes of avatar URLs is forty kilobytes a model can ground a
-  fabricated quote in.
+  avatars, permission ids, a `self` URL per nested object, custom fields by the
+  hundred. The document is the summary, the description, and the handful of
+  fields a person reading the incident would want. Everything else is dropped --
+  and dropping it is not tidying, it is what makes a span searchable:
+  `{{documents}}` carrying forty kilobytes of avatar URLs is forty kilobytes a
+  model can ground a fabricated quote in.
 * **A fixed order.** Written in the order below on every machine, never in the
   order the JSON happened to arrive in. Two runs over the same issue must
   produce the same bytes or the convert key means nothing (R8.1, R0.4).
 * **No clock, no environment, no network.** The only input is `payload`.
 
-Not shipped with `dossier`, and this file is not a proposal that it should be in
-this form -- `resources/proposal.md` is. A converter for a *Jira* issue is not a
-converter for `application/json`, and the pair is the whole type: claiming
-`application/json` claims every JSON document any source ever holds. That is the
-question the proposal asks, and it is why this lives in the playground.
+Two converters now claim one pair, and `dossier` will not choose between them by
+installation order. A workspace chooses, by naming one under `converters:` in
+`sources.yaml` (R8.13) -- `solution/workspace/sources.yaml` names this one. Not
+shipped with `dossier`, and not a proposal that it should be: which fields are
+the document is a decision a workspace makes about its own source.
 """
 
 from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+
+# The type the Jira connector reports an issue as (R1.14). Spelled out rather
+# than imported from `dossier`: a package claiming a pair from outside names it
+# the way any third party would, and it is a label on a snapshot, not a code
+# path this package depends on.
+JIRA_ISSUE = "application/vnd.dossier.jira-issue+json"
 
 # Written in this order, always. The label is what a reader sees; the key is
 # where the value is read from under `fields`.
@@ -49,14 +74,19 @@ class JiraIssueConversionFailed(ValueError):
 
 
 class JiraIssueMarkdownConverter:
-    """`application/json` to the `markdown` kind, for a Jira issue payload."""
+    """A Jira issue to the `markdown` kind, labels included."""
 
-    id = "jira-issue-markdown"
+    # Not `jira-issue-markdown`. The id and the version are how `dossier` tells
+    # two claims apart: a converter sharing the shipped one's id and version is
+    # taken for that converter listed twice, and which of the two wrote an
+    # artifact would then turn on installation order, under a convert key
+    # saying it made no difference (R8.2, R5.6).
+    id = "play-jira-issue-markdown"
     # Every change to what `convert` writes raises this, because the version is
     # in the convert key and an artifact produced by 1.0.0 must never be served
     # for a request that 1.1.0 would answer differently (R5.4, R8.2).
     version = "1.0.0"
-    media_type = "application/json"
+    media_type = JIRA_ISSUE
     kind = "markdown"
 
     def convert(self, payload: bytes, options: Mapping[str, str]) -> bytes:
@@ -86,6 +116,16 @@ class JiraIssueMarkdownConverter:
             if value:
                 lines.append(f"**{label}:** {value}")
 
+        labels = sorted(
+            label.strip()
+            for label in fields.get("labels") or []
+            if isinstance(label, str) and label.strip()
+        )
+        if labels:
+            # The field this package adds. Sorted, because the set is the
+            # document and the order Jira listed it in is not.
+            lines.append(f"**Labels:** {', '.join(labels)}")
+
         attachments = [
             str(item.get("filename"))
             for item in fields.get("attachment") or []
@@ -100,6 +140,7 @@ class JiraIssueMarkdownConverter:
 
         description = str(fields.get("description") or "").strip()
         if description:
+            # As held, not read as wiki markup: see the module docstring.
             lines += ["", "## Description", "", description]
 
         comments = _comments(fields)
@@ -114,9 +155,9 @@ class JiraIssueMarkdownConverter:
 def _heading(key: str, summary: str) -> str:
     """`# PLAY-1 -- Checkout timeouts ...`, in the corpus notes' own shape.
 
-    The same heading a folder note carries, so a prompt written against one
-    reads the other, and a `match` in the stub's reply file tells two issues
-    apart on the line a person would use.
+    The heading a folder note carries and the shipped converter writes, so a
+    prompt written against one reads the other, and a `match` in the stub's
+    reply file tells two issues apart on the line a person would use.
     """
     if key and summary:
         return f"# {key} — {summary}"
@@ -133,11 +174,11 @@ def _parsed(payload: bytes) -> dict:
         issue = json.loads(payload.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise JiraIssueConversionFailed(
-            f"jira-issue-markdown: the payload is not UTF-8 JSON: {error}"
+            f"play-jira-issue-markdown: the payload is not UTF-8 JSON: {error}"
         ) from None
     if not isinstance(issue, dict):
         raise JiraIssueConversionFailed(
-            f"jira-issue-markdown: expected a JSON object, got {type(issue).__name__}"
+            f"play-jira-issue-markdown: expected a JSON object, got {type(issue).__name__}"
         )
     return issue
 
@@ -157,8 +198,9 @@ def _comments(fields: Mapping[str, object]) -> list[tuple[str, str]]:
 
     Jira's order is the document's order: a comment thread read out of sequence
     is a different document. Not sorted here for that reason -- sorting is for
-    things whose order carries no meaning (R0.4 is about removing *accidental*
-    variation, not about imposing an order on a sequence that has one).
+    things whose order carries no meaning, like the labels above (R0.4 is about
+    removing *accidental* variation, not about imposing an order on a sequence
+    that has one).
     """
     container = fields.get("comment")
     if not isinstance(container, Mapping):

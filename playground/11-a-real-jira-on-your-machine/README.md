@@ -6,7 +6,8 @@
 **You will learn:** what a remote source costs that a folder does not — a
 credential that is named and never written, a version marker that belongs to
 someone else, a listing that cannot tell you about a deletion, and a payload
-nothing converts.
+that is mostly machinery, where which fields make up the document is a decision
+somebody has to make.
 
 ---
 
@@ -248,53 +249,72 @@ needs no full listing (R2.6 row 3).
 Now decide, for your own use: what should run `--full`, and how often? The answer
 is not "always", and writing down why is the task.
 
-## Task 7 — the wall
+## Task 7 — what an issue converts to
 
 ```bash
 dossier convert jira-audit
 ```
 
-**Checkpoint.** It refuses, and refuses *everything*:
+**Checkpoint.** Everything converts:
 
 ```
-4 document(s) have no converter:
-  PLAY-1 (application/json): …
+incidents-jira  4 held · 4 converted · 0 cached
 ```
 
-Not three of five converted and two skipped. Every document is resolved before
-any is converted, so a half-converted source is not a state that exists (R8.5,
-R8.6). The attachment is fine — `text/markdown` is claimed by `markdown-text`,
-which ships — and it does not matter, because the source is refused as a whole.
+Four, not five: task 6 tombstoned `PLAY-4`, and a tombstoned document is not
+converted. Look at the ledger's `media_type` column to see why the other three
+issues converted. Each is `application/vnd.dossier.jira-issue+json`, not
+`application/json`: the connector labels an issue with what wrote it (R1.14),
+and `jira-issue-markdown`, which ships with `dossier`, claims that pair and
+nothing else (R8.16). A converter claiming `application/json` would claim every
+JSON document any source ever holds. `PLAY-1/postmortem.md` is still
+`text/markdown`, converted by `markdown-text`, because a file an issue carries
+is what Jira says it is (R2.16).
 
-This is the most common source anybody would point `dossier` at, and out of the
-box it cannot be audited. Before fixing it, write the proposal: what is the
-honest fix, where does it belong, and what is wrong with the obvious answer of
-shipping a JSON converter inside `dossier`? Ground rule 1 is that an exercise
-which runs into a needed change ends in a written proposal, and exercise 04's
-became R8.10.
+Now read `PLAY-1`'s note. The artifacts are under `.dossier/cache/convert/`, and
+each has a `.meta.json` beside it naming its converter and the snapshot it was
+made from. The ledger's `snapshot_path` column tells you which snapshot `PLAY-1`
+holds. Its `content_hash` does not: for an issue, that is the hash of the
+`fields:` projection (task 5), and it is not the address of any snapshot.
 
-Then read `resources/proposal.md` and compare. It argues partly against itself,
-which is what a proposal handed to review should do.
+**Checkpoint.** It opens `# PLAY-1 — Checkout timeouts after the payment gateway
+upgrade`. Then comes a line each for status, type, priority, created and
+updated, then `**Attachments:** postmortem.md`, then `## Description`. Check
+three things against the snapshot you read in task 4:
 
-## Task 8 — get past it
+- The attachment is *named*, not inlined. `postmortem.md` is its own document,
+  with its own snapshot (R1.6). If its text were here too, the same sentence
+  would sit in two artifacts, and a span found in it could not say which one it
+  came from.
+- None of the machinery reached the note. Search the snapshot for `avatarUrls`
+  and `customfield_`, then search the note for the same strings: neither is
+  there (R8.16). Forty kilobytes of that in `{{documents}}` would be forty
+  kilobytes a model could find a plausible quote in.
+- Look at the first three lines under `## Description`. The seed wrote
+  `**Severity:** major`, and the note says `***Severity:*** major`. Jira's REST
+  API version 2 returns a description as wiki markup, and `jira-issue-markdown`
+  reads it as wiki markup and writes markdown (R8.17). `seed_jira.py` posted
+  markdown. The converter trusted what the source says the format is, as task 4
+  trusted what the source says the media type is, and here the text was never
+  in that format.
 
-Write a converter package claiming `(application/json, markdown)`, the way
-exercise 03's package claims HTML. It needs `id`, `version`, `media_type`, `kind`
-and a `convert` that is a pure function of its payload — no clock, no
-environment, no network (R8.1). Decide **which fields are the document**: a Jira
-payload is mostly avatars and permission ids, and forty kilobytes of machinery in
-`{{documents}}` is forty kilobytes a model can ground a fabricated quote in.
+Then read the first proposal in `resources/proposal.md`. It was written when
+every issue here was refused as `application/json`. It was accepted in a
+different form, and its note says which. Compare it with the section "A Jira
+issue" in `specs/008-conversion.md`, and work out which of its arguments
+survived.
 
-```bash
-uv pip install -e playground/11-a-real-jira-on-your-machine/solution/dossier_jira_playground
-dossier convert jira-audit
-```
+> **A workspace synced before R1.14** holds its issues as `application/json`,
+> and `convert` refuses them with `nothing converts ('application/json',
+> 'markdown')`. The label is recorded when an issue is fetched (R2.16), and an
+> unchanged issue is not fetched again (R2.1). To force a re-fetch, declare the
+> source's `fields:` (`fields: [key, fields]`), or change it if it is already
+> declared. That re-fetches every issue (R2.3), and they come back with the
+> new label.
 
-**Checkpoint.** Five converted. Read `PLAY-1`'s converted artifact and check that
-the attachment is *named* in it and not inlined — two documents holding the same
-sentence would make it impossible to say which one a span was grounded in.
+## Task 8 — a note of your own
 
-Then start the stub model and run the audit:
+Start the stub model, and run the audit on the shipped note first:
 
 ```bash
 .venv/bin/python playground/toolkit/stub_model.py \
@@ -302,19 +322,100 @@ Then start the stub model and run the audit:
     --port 8099 --log /tmp/dossier-calls.jsonl
 
 dossier run jira-audit
+```
+
+**Checkpoint.** `extract: 4 document(s) · 0 from cache · 0 failed · 9
+finding(s)`, and every finding is `span not found`, for `resolution_date`,
+`severity` or `affected_systems` on an issue. The stub quotes
+`**Severity:** major`, which is what the seed wrote, but the note says
+`***Severity:*** major`. The attachment has no findings, because
+`markdown-text` read its markdown as markdown. `loss_amount` has none either: a
+sentence with no markup in it reads the same either way.
+
+Now write a converter package of your own. It claims the same pair,
+`(application/vnd.dossier.jira-issue+json, markdown)`, the way exercise 03's
+package claims HTML. It needs `id`, `version`, `media_type`, `kind` and a
+`convert` that is a pure function of its payload — no clock, no environment, no
+network (R8.1). Decide two things:
+
+- **Which fields are the document.** Add one the shipped note leaves out, such
+  as the labels (the field `seed_jira.py touch` changed in task 5). Keep leaving
+  out the avatars and the permission ids.
+- **How the description is read.** Reading it as wiki markup is right for a Jira
+  that people type into. This one was written by a script, in markdown.
+
+Give it an id of its own. `dossier` tells two claims apart by id and version,
+and a converter calling itself `jira-issue-markdown` at `1.0.0` would be taken
+for the shipped one, listed twice.
+
+```bash
+uv pip install -e playground/11-a-real-jira-on-your-machine/solution/dossier_jira_playground
+dossier convert jira-audit
+```
+
+**Checkpoint.** It refuses everything, the attachment included, even though
+neither converter claims the attachment's pair:
+
+```
+4 document(s) have no converter:
+  PLAY-1 (application/vnd.dossier.jira-issue+json): two converters claim the same pair, and picking either would be picking by installation order:
+  (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
+A workspace settles it by naming one under converters: in sources.yaml (R8.13).
+  …
+```
+
+The winner's id and version go into `K_convert`. If the tie were settled by
+installation order, two machines with the same packages would compute
+different keys (R5.6). Exercise 03 ran into the same refusal. The workspace
+settles it by writing the decision down. Add this line to the top of
+`sources.yaml`, beside `sources:`, using your own converter's id if you wrote
+one:
+
+```yaml
+converters: [play-jira-issue-markdown]
+```
+
+Convert again.
+
+**Checkpoint.** `4 held · 3 converted · 1 cached`. The three issues are new
+artifacts, under a new converter's key. The attachment's converter did not
+change, so its key did not change either. Read `PLAY-1`'s note again: it now has
+a `**Labels:**` line holding the label task 5 added, and `**Severity:** major`
+as the seed wrote it. Then misspell the name once (`play-jira-issue-markdwn`).
+It is refused before anything converts, and the message names the converters
+that are installed (R8.13 row 4). A name that matches nothing would otherwise
+be no choice at all.
+
+Should your package declare itself opt-in, as `docling-markdown` does? An
+opt-in converter answers only where a workspace names it, so installing it
+changes nothing anywhere else (R8.13). Write down what that would have saved
+you, and what it would cost someone who installed it and expected it to answer.
+
+```bash
+dossier run jira-audit
 dossier run jira-audit          # again
 ```
 
-**Checkpoint.** `extract: 5 document(s)`, then `5 from cache` and a call log that
-did not grow (R5.5). Compare `pipeline.yaml` with exercise 02's: it is the same
-file with a different source id. A pipeline says what to audit, never where the
-documents came from — which is the claim this whole exercise was testing.
+**Checkpoint.** `extract: 4 document(s) · 1 from cache · 0 failed`, with no
+findings. The second run gives `4 from cache`, and the call log does not grow
+(R5.5). The one from cache is the attachment: its artifact did not move, so its
+stage key did not. Open the run's `manifest.json`. It pins
+`play-jira-issue-markdown` and `markdown-text`, but not `jira-issue-markdown`,
+which is installed and answered nothing (R8.9).
 
-> **Uninstall the package when you are done.** `pytest` runs its R8.1 purity rows
-> over every *installed* converter and asserts that every converter it had to
-> skip is a named exemption — and the suite has no sample `application/json`
-> payload. Leaving this installed turns the default suite red, exactly as
-> exercise 03's package does. `uv pip uninstall dossier-jira-playground`.
+Compare `pipeline.yaml` with exercise 02's: it is the same file with a different
+source id. A pipeline says what to audit, never where the documents came from,
+and that is the claim this whole exercise was testing. The choice of converter
+went into `sources.yaml` and not the pipeline, because which fields of this
+source are the document is a fact about the source.
+
+> **Uninstall the package when you are done.** With it installed, two converters
+> claim one pair. Any workspace that names neither refuses to convert, and none
+> of the workspaces the test suite builds names either. Leaving it installed
+> turns the default suite red, as exercise 03's package does.
+> `uv pip uninstall dossier-jira-playground`, then take the `converters:` line
+> out of this workspace's `sources.yaml`. A name that no installed package
+> provides is refused by every command that plans or converts.
 
 ## Task 9 — optional: the wrong deployment, and a 401
 
@@ -339,8 +440,11 @@ nowhere in the message, the ledger or the manifest — `Credential` prints as
 - five documents from four issues, and you can say why five;
 - a repointed issue, a repointed attachment and a tombstoned issue, each shown
   by a different command, and you can say which one needed `--full` and why;
-- a written proposal for the `application/json` gap, and a converter that closes
-  it from outside `dossier`;
+- a converted issue checked against its snapshot, and you can say what was left
+  out and why the attachment is only named;
+- a converter of your own for a Jira issue, named under `converters:`, and you
+  can say why installing it stopped every document, the attachment included,
+  until you named it;
 - the package uninstalled and `pytest` green.
 
 ## Cleaning up
