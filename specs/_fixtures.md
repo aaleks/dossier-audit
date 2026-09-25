@@ -88,6 +88,19 @@ written back as a picture, and nothing else of the page is kept.
 | `INC-4830` | *photocopied* | all three pages pictures, no text layer. The root cause is on page 2 |
 | `INC-4830` | *half-photocopied* | page 1 as published, with its text layer; pages 2 and 3 pictures |
 
+## Exports
+
+Three files under `tests/fixtures/documents/exports/`, promoted from the
+playground corpus as the scans were. They are what an attachment often is: a
+page someone saved from a wiki, and a register someone saved from a
+spreadsheet. Nothing claimed either pair until R8.21 and R8.23.
+
+| Key | File | State |
+|---|---|---|
+| `PLAY-4001` | `PLAY-4001-payment-retries.html` | a wiki page saved as HTML: a `<title>`, CSS in the `<head>`, a breadcrumb, then an `<h1>` repeating the title, three field lines, `## Timeline` and a root cause |
+| `PLAY-4003` | `PLAY-4003-latency-dashboard-export.html` | a Grafana panel shared as a page: its whole body is one `<img>` of `panel-checkout-p99.png`, with no alt text |
+| `PLAY-4004` | `PLAY-4004-incident-register.csv` | a header row and one row per incident, `PLAY-4001` first, commas and no quoting |
+
 ## A Jira issue as Jira sends it
 
 `tests/fixtures/jira/INC-4821.json` is `INC-4821` as `GET /rest/api/2/issue/INC-4821`
