@@ -56,6 +56,13 @@ PAYLOADS = {
     "text/markdown": b"# INC-4821\n\nTotal exposure CHF 48'200 on page 3.\n",
     "text/plain": b"INC-4821\n\nTotal exposure CHF 48'200 on page 3.\n",
     "text/csv": b"key,opened,recorded_loss_chf\nINC-4821,2026-07-30,48200\n",
+    # An exported page, with what `html-markdown` takes out and an inline image,
+    # so its changes to the library's output are inside what is checked.
+    "text/html": (
+        b"<html><head><title>INC-4821</title><style>p{}</style></head><body>"
+        b"<h2>Impact</h2><p>Total exposure CHF 48'200.</p><script>var x=1;</script>"
+        b'<img alt="p99" src="data:image/png;base64,iVBORw0KGgo="></body></html>'
+    ),
     "image/png": ONE_PIXEL_PNG,
     # A Jira issue as the connector holds it (R1.14): small enough for the
     # subprocess probe's command line, with wiki markup and a comment, so the

@@ -20,8 +20,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "export-audit"
 SOURCE = "incidents-exports"
 

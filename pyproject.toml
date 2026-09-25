@@ -99,6 +99,7 @@ confluence = "dossier.infrastructure.connectors.confluence:ConfluenceConnector.f
 # registers through the same group a third party would use, with no special case.
 [project.entry-points."dossier.converters"]
 docling-markdown = "dossier.infrastructure.converters.docling_markdown:DoclingMarkdownConverter"
+html-markdown = "dossier.infrastructure.converters.html_markdown:HtmlMarkdownConverter"
 confluence-page-markdown = "dossier.infrastructure.converters.confluence_page_markdown:ConfluencePageMarkdownConverter"
 jira-issue-markdown = "dossier.infrastructure.converters.jira_issue_markdown:JiraIssueMarkdownConverter"
 image-jpeg-pages = "dossier.infrastructure.converters.image_pages:JpegPagesConverter"
