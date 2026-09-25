@@ -50,6 +50,14 @@ CREATE TABLE IF NOT EXISTS source_config (
     config_hash TEXT NOT NULL
 );
 
+-- The source's own keys its last listing answered (R2.24). A table of its own
+-- for the reason `source_config` is one: a ledger written before it gains it
+-- empty, and an empty one lists whole once.
+CREATE TABLE IF NOT EXISTS source_listing (
+    source_id    TEXT PRIMARY KEY,
+    listing_hash TEXT NOT NULL
+);
+
 -- Every address a row has ever held, appended to and never updated (R2.19).
 -- `rowid` is the order: two revisions written by one sync share a
 -- `recorded_at`, and the sequence is the record, not the set of hashes.
@@ -262,6 +270,24 @@ class Ledger:
             """
             INSERT INTO source_config (source_id, config_hash) VALUES (?, ?)
             ON CONFLICT (source_id) DO UPDATE SET config_hash = excluded.config_hash
+            """,
+            (source_id, value),
+        )
+        self._connection.commit()
+
+    def listing_hash(self, source_id: str) -> str | None:
+        """The hash of the keys this source's last listing answered (R2.24), if recorded."""
+        cursor = self._connection.execute(
+            "SELECT listing_hash FROM source_listing WHERE source_id = ?", (source_id,)
+        )
+        record = cursor.fetchone()
+        return record["listing_hash"] if record else None
+
+    def set_listing_hash(self, source_id: str, value: str) -> None:
+        self._connection.execute(
+            """
+            INSERT INTO source_listing (source_id, listing_hash) VALUES (?, ?)
+            ON CONFLICT (source_id) DO UPDATE SET listing_hash = excluded.listing_hash
             """,
             (source_id, value),
         )

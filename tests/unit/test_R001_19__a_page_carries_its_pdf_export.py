@@ -41,6 +41,7 @@ EXPORT = "/spaces/flyingpdf/pdfpageexport.action"
 FILE = "/download/export/pdfexport-20260805-160200-1/OPS-114.pdf"
 PDF = b"%PDF-1.5\n not the rest of a PDF\n%%EOF\n"
 NOW = datetime(2026, 8, 6, 9, 0, tzinfo=UTC)
+LATER = datetime(2026, 8, 7, 9, 0, tzinfo=UTC)
 
 
 def file(name: str, id_: str, number: int) -> dict:
@@ -69,6 +70,11 @@ class Confluence:
             self.asked.append(request)
             path = request.url.path
             if path == "/rest/api/content/search":
+                # The page was last edited long before any window asked here, and
+                # a window is honoured as cwiki honours it. A stand-in that
+                # ignored it was how row 6 once passed while false.
+                if "lastmodified" in request.url.params["cql"]:
+                    return httpx.Response(200, json={"results": [], "_links": {}})
                 page = {"id": PAGE, "type": "page", "version": {"number": 37}}
                 return httpx.Response(200, json={"results": [page], "_links": {}})
             if path == f"/rest/api/content/{PAGE}":
@@ -165,20 +171,27 @@ class TestAPageCarriesItsPdfExport:
 
     def test_taking_export_away_tombstones_every_pdf(self, tmp_path: Path):
         """Counter-example, row 6: the one where the page no longer carries its export."""
-        config = SourceConfig(id="procedures-confluence", type="confluence", options={})
+        exported = SourceConfig(
+            id="procedures-confluence", type="confluence", options={"export": "pdf"}
+        )
+        plain = SourceConfig(id="procedures-confluence", type="confluence", options={})
 
-        def sync(export: str | None):
+        def sync(config: SourceConfig, export: str | None, now: datetime):
             with Ledger(tmp_path) as ledger:
                 return sync_source(
                     config=config,
                     connector=connector(Confluence(), export=export),
                     store=SnapshotStore(tmp_path),
                     ledger=ledger,
-                    now=NOW,
+                    now=now,
                 )
 
-        first = sync("pdf")
-        second = sync(None)
+        first = sync(exported, "pdf", NOW)
+        # A day later, with `export:` gone. The page has not changed, so only a
+        # listing without a window returns it -- which the changed key asks
+        # for (R2.24).
+        second = sync(plain, None, LATER)
+        config = plain
 
         assert first.failures == ()
         assert second.departed == (f"{PAGE}.pdf",)

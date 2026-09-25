@@ -96,6 +96,18 @@ def source_config_hash(config: SourceConfig) -> str:
     return content_hash(json.dumps({"fields": projection}, **_CANONICAL).encode())
 
 
+def listing_hash(config: SourceConfig) -> str:
+    """The hash of the keys a source's connector declares, which decide what it lists (R2.24).
+
+    Its own keys -- `url` and `query`, a folder's `path`, Confluence's `export`
+    -- and none of the core's: `watermark_overlap` moves the window and
+    `fields` is R2.3's projection. A key that names only a credential or a
+    route is in here too. Its change costs one complete listing, which is
+    cheaper than keeping a second list of the keys that matter.
+    """
+    return content_hash(json.dumps({"options": config.options}, **_CANONICAL).encode())
+
+
 def configured_overlap(configured: timedelta | None) -> timedelta:
     """The overlap a source asks for, or the default where it names none (R2.4).
 
@@ -154,6 +166,7 @@ def sync_window(
     last_sync_at: datetime | None,
     overlap: timedelta,
     full: bool = False,
+    rescoped: bool = False,
 ) -> datetime | None:
     """Where this sync's listing starts: the watermark window, or everything (R2.3, R2.4).
 
@@ -166,8 +179,11 @@ def sync_window(
     the flag that meant editing `fields` to force it. It moves where the listing
     starts and nothing else: version markers still skip the fetch (R2.1), and
     the watermark advances afterwards as on any sync (R2.8).
+
+    `rescoped` is a source whose own keys changed since its last listing: an
+    incremental listing would answer for the source as it was (R2.24).
     """
-    if reevaluating or full:
+    if reevaluating or full or rescoped:
         return None
     return window_start(last_sync_at, overlap=overlap)
 

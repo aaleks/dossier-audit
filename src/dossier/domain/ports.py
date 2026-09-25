@@ -491,6 +491,10 @@ class LedgerWriter(Protocol):
 
     def set_config_hash(self, source_id: str, value: str) -> None: ...
 
+    def listing_hash(self, source_id: str) -> str | None: ...
+
+    def set_listing_hash(self, source_id: str, value: str) -> None: ...
+
 
 class PromptRegistry(Protocol):
     """Where a pipeline's prompts are published as versions (spec 014).
