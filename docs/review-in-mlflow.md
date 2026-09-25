@@ -76,14 +76,23 @@ taken from.
 | the whole answer is good or bad | feedback | `overall` (or any name that is not a field) | Boolean, and a rationale |
 
 Use the field's own name for anything about one field: only an expectation named
-after a field can become a gold answer. You may edit or delete your own verdict;
-changing someone else's records an override, and theirs stops counting.
+after a field can become a gold answer.
+
+**Changing a verdict.** The page thinks everyone is `User`, so every verdict left
+through it is yours to edit -- and everyone else's. An edit replaces the verdict
+where it stands: MLflow keeps neither the value it replaced nor who replaced it.
+A verdict logged under a real name, through the API, shows no Edit; it can be
+deleted in the page, or overridden through the API (`mlflow.override_feedback`),
+which leaves the old verdict in place, marked as overridden, and stops it
+counting.
 
 **Two things to know.**
 
 - *Your name is not recorded.* Open-source MLflow's trace view records every
   verdict's author as `User`, whoever is logged in. If it matters who said it,
-  sign the rationale. Gold is signed by the maintainer who applies it.
+  sign the rationale. Gold is signed by the maintainer who applies it. And since
+  anyone can edit a `User` verdict in place, the only history of what a verdict
+  said is the maintainer's committed `feedback.jsonl`.
 - *Assigned queues are not available.* MLflow's labeling sessions and Review App
   exist only on Databricks. Here everyone sees the same traces and the same
   verdicts, so agree among yourselves who takes which part of the queue.
@@ -151,7 +160,7 @@ gold set, and MLflow's `User` is not a signature.
 
 **Rejecting for good.** A pull rewrites `candidates.jsonl` from what is on the
 server, so a line you deleted comes back on the next pull. To reject a candidate
-for good, delete or override the expectation in MLflow, where it was left.
+for good, delete the expectation in MLflow, where it was left.
 
 ## What never happens
 
