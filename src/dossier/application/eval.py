@@ -52,9 +52,9 @@ from dossier.domain.scoring import (
 )
 from dossier.domain.tracking import (
     calibration_description,
+    calibration_lines,
     calibration_record,
     case_tags,
-    judge_line,
     run_name,
     span_payload,
     version_params,
@@ -1063,13 +1063,9 @@ def calibrate_fields(
                 gold=directory.name,
                 gold_hash=gold_set_hash(gold_files or {}),
                 lines=[
-                    judge_line(
-                        field=name,
-                        agreement=found.agreement,
-                        cases=found.sample_size,
-                        judge_model=found.judge_model,
-                    )
+                    line
                     for name, found in sorted(measured.items())
+                    for line in calibration_lines(name, found)
                 ],
             )
         )

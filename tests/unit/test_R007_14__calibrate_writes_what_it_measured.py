@@ -119,12 +119,18 @@ class TestCalibrateWritesWhatItMeasured:
         assert model.call_count == len(cases)
         assert measured.agreement == 0.95
         assert measured.sample_size == 20
+        # With what the agreement hides (R7.29): case 7 is a supported case the
+        # judge called unsupported, so 11 of 12 and 8 of 8.
         assert _written(tmp_path) == {
             "judge_model": JUDGE,
             "rubric_hash": RUBRIC_HASH,
             "prompt_hash": judge_prompt_hash(),
             "agreement": 0.95,
             "sample_size": 20,
+            "lower_bound": pytest.approx(0.763868807, abs=1e-9),
+            "kappa": pytest.approx(176 / 196),
+            "supported": {"agreed": 11, "cases": 12},
+            "unsupported": {"agreed": 8, "cases": 8},
         }
 
     def test_a_new_measurement_replaces_the_old(self, tmp_path: Path):

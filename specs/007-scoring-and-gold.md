@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.29
 
 ## Purpose
@@ -903,7 +903,7 @@ every new figure in it is optional, and the gate reads the agreement (R7.5).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.judges.Calibration`, `dossier.domain.tracking`), application (`dossier.application.eval.calibrate_fields`)
 - **Proved by:** `tests/unit/test_R007_29__calibrate_prints_writes_and_records_the_same_figures.py`, `tests/acceptance/test_R007_29__calibrate_reports_what_its_agreement_hides.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

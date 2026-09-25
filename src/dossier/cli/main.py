@@ -111,12 +111,12 @@ from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.domain.tracking import (
     NAMESPACE,
     TrackingSettings,
+    calibration_lines,
     comparison_description,
     convert_description,
     count_metrics,
     eval_description,
     experiment_name,
-    judge_line,
     label_for,
     name_template,
     namespace,
@@ -1344,15 +1344,9 @@ def calibrate(
 
     for field, calibration in sorted(measured.items()):
         # In the domain for the reason the run's step line is: `calibrate_fields`
-        # put this same line on the record it closed (R11.17).
-        typer.echo(
-            judge_line(
-                field=field,
-                agreement=calibration.agreement,
-                cases=calibration.sample_size,
-                judge_model=calibration.judge_model,
-            )
-        )
+        # put these same lines on the record it closed (R11.17, R7.29).
+        for line in calibration_lines(field, calibration):
+            typer.echo(line)
     if tracker is not None:
         typer.echo(f"recorded to MLflow: {experiment}")
 
