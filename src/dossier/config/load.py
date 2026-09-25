@@ -25,7 +25,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from dossier.domain.fields import OutputSchema, declare_fields, json_schema
+from dossier.domain.fields import OutputSchema, declare_fields, enum_values, json_schema
 from dossier.domain.gold import CalibrationCase, GoldDocument
 from dossier.domain.grounding import DESCRIBED, GROUNDED, JUDGED_STATES
 from dossier.domain.hashing import text_hash
@@ -353,6 +353,11 @@ def load_fields(path: Path) -> dict[str, FieldKind]:
         return declare_fields(document)
     except ValueError as error:
         raise ConfigError(f"{_name(path)}: {error}") from error
+
+
+def load_enum_values(path: Path) -> dict[str, tuple[str, ...]]:
+    """The values each enum field of one declaration allows (R15.4)."""
+    return enum_values(_read_yaml(path))
 
 
 def load_judge_rubrics(path: Path) -> dict[str, str]:

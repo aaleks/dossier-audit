@@ -102,3 +102,19 @@ def declare_fields(
                 "and cannot be scored without one"
             )
     return kinds
+
+
+def enum_values(
+    document: Mapping[str, Mapping[str, Mapping[str, object]]],
+) -> dict[str, tuple[str, ...]]:
+    """The values each enum field of a declaration allows, in declared order (R15.4 row 7).
+
+    Read beside `declare_fields`, which keeps only each field's kind: a candidate
+    for an enum is refused when it names a value the declaration does not have,
+    so it could never be scored correct against it.
+    """
+    return {
+        name: tuple(str(value) for value in spec.get("values", ()) or ())
+        for name, spec in (document.get("fields") or {}).items()
+        if isinstance(spec, Mapping) and spec.get("kind") == FieldKind.ENUM.value
+    }

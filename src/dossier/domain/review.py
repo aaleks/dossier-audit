@@ -12,15 +12,34 @@ prompt work starts from -- from verdicts it is handed. Reading them is the
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
+from datetime import date
 from itertools import groupby
 from typing import Literal
 
-__all__ = ["FEEDBACK", "Verdict", "feedback_jsonl", "review_report"]
+from dossier.domain.gold import Correction
+from dossier.domain.scoring import FieldKind
 
-# Where `dossier review pull` writes every verdict, under `review/<pipeline>/`.
+__all__ = [
+    "CANDIDATES",
+    "FEEDBACK",
+    "Candidate",
+    "CandidatesRefused",
+    "Verdict",
+    "candidates_jsonl",
+    "candidates_of",
+    "check_candidates",
+    "correction_of",
+    "feedback_jsonl",
+    "read_candidates",
+    "review_report",
+]
+
+# Where `dossier review pull` writes every verdict, and every expected value as a
+# gold candidate, under `review/<pipeline>/` (R15.3, R15.4).
 FEEDBACK = "feedback.jsonl"
+CANDIDATES = "candidates.jsonl"
 
 
 @dataclass(frozen=True)
@@ -109,3 +128,164 @@ def review_report(verdicts: Sequence[Verdict]) -> list[str]:
                 reason = f"{verdict.value!r} -- {reason}"
             lines.append(f"    {verdict.document}  {verdict.reviewer}: {reason}")
     return lines
+
+
+@dataclass(frozen=True)
+class Candidate:
+    """A value a reviewer expected, waiting for a maintainer to make it gold (R15.4).
+
+    `suggested_by` is the author as MLflow recorded it, which is `User` for the
+    trace view. It is provenance, kept in the gold entry's reason; the answer
+    itself is signed by the maintainer who applies it (R7.7).
+    """
+
+    document: str
+    field: str
+    value: object
+    suggested_by: str
+    at: str
+    trace: str
+    reason: str | None
+
+    __hash__ = None  # type: ignore[assignment]
+
+
+class CandidatesRefused(ValueError):
+    """Candidates that cannot become gold, every one of them named (R15.4 rows 5-7).
+
+    All at once rather than the first: a maintainer fixes the file once, and a
+    gold set half-applied is a definition of correct nobody agreed to.
+    """
+
+    def __init__(self, problems: Sequence[str]) -> None:
+        self.problems = list(problems)
+        super().__init__("\n".join(self.problems))
+
+
+def candidates_of(verdicts: Sequence[Verdict]) -> list[Candidate]:
+    """Every expected value, as a candidate; never a feedback (R15.4 row 1).
+
+    A thumbs-down says an answer is wrong and not what is right, so it is the
+    report's alone. Sorted by document, field and when, as the file is read.
+    """
+    found = [
+        Candidate(
+            document=verdict.document,
+            field=verdict.name,
+            value=verdict.value,
+            suggested_by=verdict.reviewer,
+            at=verdict.at,
+            trace=verdict.trace,
+            reason=verdict.rationale,
+        )
+        for verdict in verdicts
+        if verdict.kind == "expectation"
+    ]
+    return sorted(found, key=lambda each: (each.document, each.field, each.at, each.trace))
+
+
+def candidates_jsonl(candidates: Sequence[Candidate]) -> str:
+    """The candidates file: one JSON object per line, keys sorted, a maintainer's to edit."""
+    return "".join(
+        json.dumps(asdict(candidate), sort_keys=True, ensure_ascii=False) + "\n"
+        for candidate in candidates
+    )
+
+
+def read_candidates(text: str) -> list[Candidate]:
+    """The candidates file as a maintainer left it (R15.4 row 8).
+
+    A line that is not a candidate is refused by its number: the file is
+    edited by hand, and "invalid JSON" with no line is a search.
+    """
+    read: list[Candidate] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            read.append(Candidate(**json.loads(line)))
+        except (ValueError, TypeError) as error:
+            raise ValueError(
+                f"line {number} of {CANDIDATES} is not a candidate: {error}"
+            ) from None
+    return read
+
+
+def check_candidates(
+    candidates: Sequence[Candidate],
+    *,
+    kinds: Mapping[str, FieldKind],
+    allowed: Mapping[str, Sequence[str]],
+) -> list[Candidate]:
+    """The candidates that can become gold, one per document and field, or every reason not.
+
+    Refused: a field the pipeline does not declare, which is a verdict about the
+    whole answer (row 6); a value an enum does not allow (row 7); a value that is
+    not a scalar, which no gold answer is; and two reviewers expecting different
+    values for one field of one document (row 5), named with who and where, for
+    a maintainer to settle. Two expecting the same value are one candidate, the
+    earlier.
+    """
+    problems: list[str] = []
+    for candidate in candidates:
+        where = f"{candidate.document} {candidate.field}"
+        if candidate.field not in kinds:
+            problems.append(
+                f"{where}: {candidate.field} is not a field the pipeline declares; a verdict "
+                "about the whole answer is the report's, never gold's"
+            )
+        elif not isinstance(candidate.value, str | int | float | bool | type(None)):
+            problems.append(
+                f"{where}: {candidate.value!r} is not a value a gold answer can hold; "
+                "expect text, a number, yes or no, or nothing"
+            )
+        elif kinds[candidate.field] is FieldKind.ENUM and candidate.value not in allowed.get(
+            candidate.field, ()
+        ):
+            problems.append(
+                f"{where}: {candidate.value!r} is not one of "
+                f"{', '.join(allowed.get(candidate.field, ()))}"
+            )
+
+    kept: dict[tuple[str, str], Candidate] = {}
+    ordered = sorted(
+        candidates, key=lambda each: (each.document, each.field, each.at, each.trace)
+    )
+    for (document, field), grouped in groupby(
+        ordered, key=lambda each: (each.document, each.field)
+    ):
+        group = list(grouped)
+        values = {json.dumps(each.value, sort_keys=True) for each in group}
+        if len(values) > 1:
+            said = ", ".join(
+                f"{each.value!r} ({each.suggested_by}, {each.trace})" for each in group
+            )
+            problems.append(f"{document} {field}: reviewers expected different values: {said}")
+        kept[(document, field)] = group[0]
+
+    if problems:
+        raise CandidatesRefused(problems)
+    return [kept[key] for key in sorted(kept)]
+
+
+def correction_of(candidate: Candidate, *, verified_by: str, today: date) -> Correction:
+    """The correction a maintainer's signature makes of a candidate (R15.4 row 2, R7.7).
+
+    Signed by the maintainer, on the day they applied it: the author MLflow
+    recorded is `User` for everyone who used the trace view, and a gold answer
+    is signed by a person who can be asked about it. Where it was expected, and
+    by whom as recorded, is kept in the reason.
+    """
+    reason = (
+        f"expected by {candidate.suggested_by} on {candidate.at[:10]} "
+        f"in MLflow trace {candidate.trace}"
+    )
+    if candidate.reason:
+        reason += f": {candidate.reason}"
+    return Correction(
+        field=candidate.field,
+        value=candidate.value,
+        verified_by=verified_by,
+        verified_at=today,
+        reason=reason,
+    )
