@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PLAY-4001 — Duplicate payment retries after a queue redelivery</title>
+  <style>
+    body { font-family: sans-serif; }
+    .breadcrumb { color: #6b778c; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="breadcrumb">Spaces / Site Reliability / Postmortems / 2026 / PLAY-4001</div>
+  <h1>PLAY-4001 — Duplicate payment retries after a queue redelivery</h1>
+
+  <p><strong>Severity:</strong> major<br>
+     <strong>Resolved:</strong> 2026-04-18<br>
+     <strong>Systems affected:</strong> payments-worker, orders-api</p>
+
+  <h2>Timeline</h2>
+  <ul>
+    <li>2026-04-17 21:06 UTC — the payments worker is restarted during a routine
+        node drain while 1,900 messages are in flight.</li>
+    <li>2026-04-17 21:07 UTC — the broker redelivers every unacknowledged message,
+        and the worker charges each one a second time.</li>
+    <li>2026-04-17 22:40 UTC — the duplicate charges are spotted in the daily
+        settlement report and the worker is stopped.</li>
+    <li>2026-04-18 — refunds are issued and the incident is closed.</li>
+  </ul>
+
+  <h2>Root cause</h2>
+  <p>The payments worker acknowledged a message only after the charge had settled,
+     but wrote no idempotency key with the charge. A redelivered message was
+     therefore indistinguishable from a new one, and the gateway had no way to
+     reject the second attempt.</p>
+
+  <h2>Impact</h2>
+  <p>612 customers were charged twice, a duplicated total of CHF 47'300. All of it
+     was refunded within 36 hours; the recorded loss is the CHF 1'240 of
+     non-refundable gateway fees.</p>
+
+  <h2>Follow-up</h2>
+  <ul>
+    <li>Derive an idempotency key from the order id and send it with every charge.</li>
+    <li>Alert on a settlement report where any order id appears twice in one day.</li>
+  </ul>
+
+  <script>document.querySelector('.breadcrumb').title = 'exported 2026-04-19';</script>
+</body>
+</html>

@@ -759,13 +759,13 @@ wherever they are.
 
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.html_markdown`)
-- **Proved by:** `tests/unit/test_R008_21__an_html_file_converts_to_what_a_reader_sees.py`, `tests/acceptance/test_R008_21__exported_files_no_longer_stop_a_source.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R008_21__exported_files_no_longer_stop_a_source.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
 | 1 | `PLAY-4001-payment-retries.html` | opens `# PLAY-4001 — Duplicate payment retries after a queue redelivery`, then `**Severity:** major`, and `## Timeline` with its list; the title is there once, as the page's heading, and none of its CSS is |
-| 2 | a folder source holding `PLAY-4001-payment-retries.html`, `PLAY-4004-incident-register.csv` and `audit-note.pdf`, its source declaring no `convert:` | `3 converted`. Before this, `convert` stopped on `(text/html, markdown)` and `(text/csv, markdown)` and converted nothing (R8.5) |
+| 2 | a folder source holding `PLAY-4001-payment-retries.html`, `PLAY-4004-incident-register.csv` and `PLAY-2001-terminal-scan.pdf`, declaring no `convert:` | `3 converted`. Before this, `convert` stopped on `(text/html, markdown)` and `(text/csv, markdown)` and converted nothing (R8.5) |
 | 3 | `<p>pool lb_acq_01 held 3*2 connections</p>` | written as it stands, with no `\_` and no `\*` (R8.17 row 3) |
 | 4 | *counter-example* — an HTML file in Windows-1252 with `é` in it | that document fails, naming `html-markdown` and UTF-8; the source's other documents convert (R8.6) |
 | 5 | *counter-example* — a `<script>` in the body holding `var rota = 'on call'` | not in the note; the paragraphs either side of it are |
