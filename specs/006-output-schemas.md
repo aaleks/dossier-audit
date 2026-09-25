@@ -1,6 +1,6 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R6.1 – R6.20
 
 ## Purpose
@@ -548,7 +548,7 @@ nothing -- inside a word, or unpaired -- is text, as CommonMark reads it.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.grounding.locate_span`)
 - **Proved by:** `tests/unit/test_R006_20__markdown_around_words_is_folded.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

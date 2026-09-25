@@ -63,11 +63,41 @@ def fold(text: str) -> str:
     the one a keyboard types. It folds no letter into another and never touches
     case. Typographic quotes and dashes are folded on either side of it
     (R6.18), because NFKC writes a double prime `″` as two single ones, which
-    would otherwise fold to `''` rather than `"`.
+    would otherwise fold to `''` rather than `"`. The markdown a converter wrote
+    around words is folded to the words (R6.20) before whitespace is, because
+    a marker is looked for within one line.
     """
     visible = text.translate(_TYPOGRAPHIC).replace(_SOFT_HYPHEN, "")
     compatible = unicodedata.normalize("NFKC", visible)
-    return normalise_whitespace(compatible.translate(_TYPOGRAPHIC))
+    return normalise_whitespace(_unmarked(compatible).translate(_TYPOGRAPHIC))
+
+
+# The markdown a converter writes around words, each with the group holding the
+# words (R6.20). Applied in this order: a link's text may be emphasised, code
+# is not read inside, and strong goes before emphasis so `***x***` is `x`.
+#
+# Emphasis follows CommonMark's reading of a delimiter: it opens before a
+# non-space and closes after one, and an `_` or `*` touching a letter on its
+# outer side marks nothing. So `lb_acq_01` keeps its underscores, `3*2` its
+# star, and `2 * 3 * 4` both of its stars.
+_MARKUP = (
+    # `[text](url)` and `![alt](src)`, with an optional "title".
+    re.compile(r"!?\[([^\]\n]*)\]\([^)\s]*(?:\s+\"[^\"\n]*\")?\)"),
+    # Inline code, fenced by one or more backticks.
+    re.compile(r"(`+)([^`\n]+?)\1"),
+    # Strong, underscore strong and strikethrough.
+    re.compile(r"(\*\*|__|~~)(?=\S)([^\n]*?\S)\1"),
+    # Emphasis, by `*` and by `_`.
+    re.compile(r"(?<![\w*])\*(?=[^\s*])([^*\n]*?[^\s*])\*(?![\w*])"),
+    re.compile(r"(?<![\w_])_(?=[^\s_])([^_\n]*?[^\s_])_(?![\w_])"),
+)
+
+
+def _unmarked(text: str) -> str:
+    """`text` with markdown markers folded to the words they mark (R6.20)."""
+    for pattern in _MARKUP:
+        text = pattern.sub(lambda match: match.group(match.lastindex or 0), text)
+    return text
 
 
 # Invisible wherever it is rendered: a place the typesetter may break a word,
