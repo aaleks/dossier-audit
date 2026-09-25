@@ -1,0 +1,136 @@
+{
+  "_comment": [
+    "Two answers the run itself will doubt, layered in front of exercise 07's rules:",
+    "    --replies resources/replies-doubts.json",
+    "    --replies ../07-calibrating-a-judge/resources/replies-judge.json",
+    "    --replies ../07-calibrating-a-judge/resources/replies.json",
+    "",
+    "Each rule matches on the extraction prompt's first line as well as the note's",
+    "heading. A judge's prompt holds the whole note too (R7.19), so a rule matching",
+    "the heading alone would answer the judge with a field record.",
+    "",
+    "  PLAY-1001  loss_amount  the value is right and the span is not in the note:",
+    "                          `CHF 18,400` where the note writes `CHF 18'400`.",
+    "                          Ungrounded (R6.4).",
+    "  PLAY-1003  loss_amount  the right figure, cited in words the note never uses.",
+    "                          Ungrounded (R6.4).",
+    "             root_cause   the right cause, with no source at all. Invalid (R6.6).",
+    "",
+    "Neither document fails. Both are answered, cached and written to runs/ like",
+    "the other three -- and both traces are tagged dossier.review = needed, with",
+    "the fields named in dossier.findings (R15.2). PLAY-1002, PLAY-1004 and",
+    "PLAY-1005 are exercise 07's answers unchanged, so the run is sure of them."
+  ],
+  "rules": [
+    {
+      "match": [
+        "Extract the requested fields",
+        "# PLAY-1001"
+      ],
+      "reply": {
+        "document": "PLAY-1001.md",
+        "fields": [
+          {
+            "field": "loss_amount",
+            "value": 18400.0,
+            "currency": "CHF",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1001.md",
+              "span": "a recorded loss of CHF 18,400"
+            }
+          },
+          {
+            "field": "resolution_date",
+            "value": "2026-03-04",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1001.md",
+              "span": "**Resolved:** 2026-03-04"
+            }
+          },
+          {
+            "field": "severity",
+            "value": "major",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1001.md",
+              "span": "**Severity:** major"
+            }
+          },
+          {
+            "field": "affected_systems",
+            "value": "checkout-api, payments-gateway",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1001.md",
+              "span": "**Systems affected:** checkout-api, payments-gateway"
+            }
+          },
+          {
+            "field": "root_cause",
+            "value": "The gateway upgrade shipped a connection pool whose idle timeout was 30 seconds while the load balancer held connections open for 60, so the pool handed out sockets the balancer had already closed",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1001.md",
+              "span": "The gateway upgrade shipped a connection pool whose idle timeout was 30 seconds while the load balancer held connections open for 60, so the pool handed out sockets the balancer had already closed"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": [
+        "Extract the requested fields",
+        "# PLAY-1003"
+      ],
+      "reply": {
+        "document": "PLAY-1003.md",
+        "fields": [
+          {
+            "field": "loss_amount",
+            "value": 61250.0,
+            "currency": "CHF",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1003.md",
+              "span": "CHF 61'250 in delayed-shipment credits"
+            }
+          },
+          {
+            "field": "resolution_date",
+            "value": "2026-04-07",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1003.md",
+              "span": "**Resolved:** 2026-04-07"
+            }
+          },
+          {
+            "field": "severity",
+            "value": "critical",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1003.md",
+              "span": "**Severity:** critical"
+            }
+          },
+          {
+            "field": "affected_systems",
+            "value": "terminal-gateway, inventory-sync",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1003.md",
+              "span": "**Systems affected:** terminal-gateway, inventory-sync"
+            }
+          },
+          {
+            "field": "root_cause",
+            "value": "A firewall change written against a stale network inventory replaced the allow rule for the active terminal subnet with a rule for a range that had been decommissioned six months earlier",
+            "confidence": "high"
+          }
+        ]
+      }
+    }
+  ]
+}
