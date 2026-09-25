@@ -45,6 +45,7 @@ from dossier.application.plan import (
     pinned_documents,
 )
 from dossier.application.prompts import publish_prompts
+from dossier.application.review import pull_reviews
 from dossier.application.run import (
     MissingFromReplay,
     execute,
@@ -90,10 +91,12 @@ from dossier.domain.ports import (
     ImagePart,
     ModelClient,
     PromptRegistry,
+    ReviewSource,
     Tracker,
     VersionRegistry,
 )
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
+from dossier.domain.review import FEEDBACK, review_report
 from dossier.domain.scoring import (
     check_same_documents,
     compare_totals,
@@ -144,6 +147,7 @@ from dossier.infrastructure.tracking.mlflow import (
     connect,
     connect_datasets,
     connect_prompts,
+    connect_reviews,
     connect_versions,
 )
 
@@ -2035,6 +2039,75 @@ def _held_snapshots(workspace: Path) -> dict[str, str]:
             for row in ledger.rows(source)
             if row.state is not State.TOMBSTONED
         }
+
+
+review_app = typer.Typer(
+    add_completion=False,
+    help="Bring reviewers' verdicts on a pipeline's runs back from MLflow (spec 015).",
+)
+app.add_typer(review_app, name="review")
+
+
+def build_review_source(settings: TrackingSettings) -> ReviewSource:
+    """Where reviewers' verdicts are read back from, checked before anything is read.
+
+    The seam a test replaces with a `FakeReviewSource`, as `build_dataset_registry`
+    is. Built by `dossier review pull` and by no other command: it is the one
+    read `dossier` makes of what a person said in MLflow, and it reaches the
+    files under `review/` and nothing else (R15.5).
+    """
+    return connect_reviews(settings.uri, auth=settings.auth, ca_bundle=settings.ca_bundle)
+
+
+@review_app.command("pull")
+def review_pull(
+    pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
+) -> None:
+    """Write every verdict reviewers left on a pipeline's runs to review/<pipeline>/ (R15.3).
+
+    Reads the pipeline's run experiment and nothing else. Asks no model, and
+    changes no key, manifest, artifact or gold file: what a reviewer expected
+    becomes gold only through `dossier review apply` (R15.4, R15.5).
+    """
+    workspace = Path.cwd()
+    environ = environment(workspace)
+
+    try:
+        _pipeline_path(workspace, pipeline)
+    except ConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    # Tracking off is a refusal, as for `dataset publish`: the verdicts are on
+    # the server and nowhere else, so there is nothing to do without it (R15.3
+    # row 6). The server is reached here, before anything is read (R10.5).
+    try:
+        tracking = tracking_settings(environ)
+        if tracking is None:
+            raise ValueError(
+                "pulling reviews needs tracking on: set DOSSIER_MLFLOW_ENABLED=true and "
+                "DOSSIER_MLFLOW_TRACKING_URI. Reviewers' verdicts are read from MLflow "
+                "and nowhere else"
+            )
+        experiment = experiment_name(kind="run", pipeline=pipeline, gold="", environ=environ)
+        namespace(environ)
+        source = build_review_source(tracking)
+    except (ValueError, TrackingUnavailable) as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+
+    verdicts = pull_reviews(
+        source, experiment=experiment, directory=workspace / "review" / pipeline
+    )
+    if not verdicts:
+        typer.echo(f"no reviewer verdicts on {pipeline}'s runs")
+        return
+
+    runs = len({verdict.run for verdict in verdicts})
+    typer.echo(f"{pipeline}  {_count(len(verdicts), 'verdict')} on {_count(runs, 'run')}")
+    for line in review_report(verdicts):
+        typer.echo(f"  {line}")
+    typer.echo(f"written to review/{pipeline}/{FEEDBACK}")
 
 
 prompts_app = typer.Typer(

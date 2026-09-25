@@ -796,3 +796,19 @@ class FakeVersionRegistry:
             created=True,
             params=dict(made.params),
         )
+
+
+class FakeReviewSource:
+    """A `ReviewSource` holding verdicts by experiment, and remembering what it was asked.
+
+    Returns a copy, as a server's answer is a fresh list each time: a caller
+    sorting what it was handed must not reorder what the next caller reads.
+    """
+
+    def __init__(self, verdicts: Mapping[str, Sequence[object]]) -> None:
+        self.verdicts = {experiment: list(held) for experiment, held in verdicts.items()}
+        self.asked: list[str] = []
+
+    def human_verdicts(self, *, experiment: str) -> list:
+        self.asked.append(experiment)
+        return list(self.verdicts.get(experiment, []))

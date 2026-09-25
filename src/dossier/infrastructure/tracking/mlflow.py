@@ -16,6 +16,7 @@ import ssl
 import threading
 import time
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -24,10 +25,12 @@ from dossier.domain.datasets import PublishedDataset
 from dossier.domain.ports import (
     DatasetRegistry,
     PromptRegistry,
+    ReviewSource,
     Tracker,
     VersionRegistry,
 )
 from dossier.domain.prompts import PublishedPrompt
+from dossier.domain.review import Verdict
 from dossier.domain.tracking import CA_BUNDLE, MlflowAuth, refused_credential
 from dossier.domain.versions import (
     HASH_TAG,
@@ -930,3 +933,103 @@ class MlflowVersionRegistry:
             max_results=1,
         )
         return hits[0] if hits else None
+
+
+# How many traces one search asks for. Paged rather than capped: a pipeline
+# reviewed for a year holds more traces than any one page, and a verdict left
+# on the last of them is as much a verdict as one on the first.
+REVIEW_PAGE = 100
+
+
+def connect_reviews(
+    uri: str, *, auth: MlflowAuth | None = None, ca_bundle: str | None = None
+) -> ReviewSource:
+    """A reader of reviewers' verdicts at `uri`, or `TrackingUnavailable` saying why not.
+
+    The extra, the server and the credential are checked as for any record,
+    before anything is read (R10.5, R15.3 row 6).
+    """
+    connect(uri, auth=auth, ca_bundle=ca_bundle)
+    return MlflowReviewSource(uri)
+
+
+class MlflowReviewSource:
+    """Reviewers' verdicts, as MLflow holds them on a pipeline's traces (spec 015).
+
+    An assessment is a reviewer's verdict when its source is `HUMAN`, it is still
+    valid -- MLflow marks one another reviewer overrode as not -- and it sits on
+    a trace a run wrote, one tagged with its step and document (spec 011). The
+    judge's verdicts are `LLM_JUDGE` and are the judge's (R11.16).
+
+    The author is `source_id` as MLflow holds it. The open-source trace view
+    sends `User` for everyone, whoever is logged in, and the server stores what
+    it is sent; that is reported as it is, never guessed at (spec 015).
+    """
+
+    def __init__(self, uri: str) -> None:
+        import mlflow
+        from mlflow import MlflowClient
+
+        mlflow.set_tracking_uri(uri)
+        self._client = MlflowClient(tracking_uri=uri)
+
+    def human_verdicts(self, *, experiment: str) -> list[Verdict]:
+        found = self._client.get_experiment_by_name(experiment)
+        if found is None:
+            # No run of this pipeline was ever recorded, so nothing was reviewed.
+            return []
+        verdicts: list[Verdict] = []
+        runs: dict[str, str] = {}
+        token: str | None = None
+        while True:
+            page = self._client.search_traces(
+                locations=[found.experiment_id],
+                include_spans=False,
+                max_results=REVIEW_PAGE,
+                page_token=token,
+            )
+            for trace in page:
+                verdicts.extend(self._verdicts(trace.info, runs))
+            token = getattr(page, "token", None)
+            if not token:
+                return verdicts
+
+    def _verdicts(self, info, runs: dict[str, str]) -> list[Verdict]:
+        step = info.tags.get("dossier.step")
+        document = info.tags.get("dossier.document")
+        if not step or not document:
+            return []
+        source_run = (info.request_metadata or {}).get("mlflow.sourceRun", "")
+        if source_run and source_run not in runs:
+            # The dossier run id is the MLflow run's name (R11.1): asked once per
+            # run, however many traces it wrote.
+            runs[source_run] = self._client.get_run(source_run).info.run_name
+        read: list[Verdict] = []
+        for assessment in info.assessments or []:
+            if str(assessment.source.source_type) != "HUMAN":
+                continue
+            if getattr(assessment, "valid", None) is False:
+                continue
+            said = (
+                assessment.feedback
+                if assessment.feedback is not None
+                else assessment.expectation
+            )
+            read.append(
+                Verdict(
+                    run=runs.get(source_run, ""),
+                    step=step,
+                    document=document,
+                    name=assessment.name,
+                    kind="feedback" if assessment.feedback is not None else "expectation",
+                    value=said.value,
+                    rationale=assessment.rationale or None,
+                    reviewer=assessment.source.source_id,
+                    at=datetime.fromtimestamp(assessment.create_time_ms / 1000, UTC).strftime(
+                        "%Y-%m-%dT%H:%M:%SZ"
+                    ),
+                    trace=info.trace_id,
+                    assessment=assessment.assessment_id,
+                )
+            )
+        return read
