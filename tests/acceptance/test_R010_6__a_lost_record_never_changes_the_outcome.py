@@ -56,9 +56,9 @@ class LosingTracker(FakeTracker):
         self._check()
         super().span(kind=kind, name=name, attributes=attributes)
 
-    def end_trace(self, *, status, error=None, outputs=None) -> None:
+    def end_trace(self, *, status, error=None, outputs=None, tags=None) -> None:
         self._check()
-        super().end_trace(status=status, error=error, outputs=outputs)
+        super().end_trace(status=status, error=error, outputs=outputs, tags=tags)
 
     def log_metrics(self, metrics) -> None:
         self._check()
