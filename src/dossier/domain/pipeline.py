@@ -15,7 +15,10 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 # `documents` and `reference` name sources, not steps. A step may read them
 # without any step having produced them (spec 003).
-SOURCE_KEYWORDS = frozenset({"documents", "reference"})
+# The documents a pipeline audits, which a per-document step runs over one at a
+# time (R6.21 asks whether each holds anything the step reads).
+DOCUMENTS = "documents"
+SOURCE_KEYWORDS = frozenset({DOCUMENTS, "reference"})
 
 _STEP_ID = re.compile(r"^[a-z][a-z0-9_]*$")
 
