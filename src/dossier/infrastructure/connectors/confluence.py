@@ -39,6 +39,9 @@ PAGE_EXPAND = "body.export_view,version,space"
 EXPORT = "/spaces/flyingpdf/pdfpageexport.action"
 EXPORT_HEADERS = {"X-Atlassian-Token": "no-check", "Accept": "application/pdf"}
 EXPORT_SUFFIX = ".pdf"
+# What an export is, once its bytes have shown it is one.
+PDF_SIGNATURE = b"%PDF-"
+EXPORTED_AS = "application/pdf"
 
 Export = Literal["pdf"]
 
@@ -194,16 +197,34 @@ class ConfluenceConnector:
             except httpx.HTTPError as error:
                 raise ConfluenceRequestFailed(f"GET {url} failed: {error}") from None
 
+        # Reported, never worked around (R1.20). `export: pdf` says the server
+        # exports; when it does not, the fix is that key or a permission on the
+        # server, and asking again another way would make a refusal mean two
+        # things. Failing this one document keeps the page and its files, and
+        # holds the watermark back, so the refusal is seen at every sync (R2.8).
+        asked = f"GET {url}?pageId={page}"
+        if response.status_code in (401, 403):
+            raise ConfluenceRequestFailed(
+                f"{asked} answered {response.status_code} {response.reason_phrase}: "
+                "`export: pdf` asks for an export this server refuses. Take `export:` "
+                "out of the source, or have the export permission granted."
+            )
         if not response.is_success:
             raise ConfluenceRequestFailed(
-                f"GET {url}?pageId={page} answered {response.status_code} "
-                f"{response.reason_phrase}"
+                f"{asked} answered {response.status_code} {response.reason_phrase}"
+            )
+        # A server that wants a login redirects to its login page, which answers
+        # `200`. Stored, it would be a web page kept and converted as a PDF. The
+        # bytes decide, not the header: a PDF begins with its signature whatever
+        # a server calls it, and a login page never does.
+        if not response.content.startswith(PDF_SIGNATURE):
+            sent = reported_media_type(None, response.headers.get("content-type"))
+            raise ConfluenceRequestFailed(
+                f"{asked} answered {sent}, not a PDF: the export was not made, "
+                "and a login page is what a server that wants one sends instead."
             )
         return RawItem(
-            key=key,
-            payload=response.content,
-            media_type=reported_media_type(None, response.headers.get("content-type")),
-            remote_version=None,
+            key=key, payload=response.content, media_type=EXPORTED_AS, remote_version=None
         )
 
     def _version(self, key: str) -> str | None:
