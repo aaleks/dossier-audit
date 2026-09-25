@@ -555,7 +555,7 @@ decision and lives in the domain.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`), with the marker from the domain (`dossier.domain.confluence.export_version`)
 - **Proved by:** `tests/unit/test_R001_19__a_page_carries_its_pdf_export.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

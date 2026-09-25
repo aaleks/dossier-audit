@@ -123,12 +123,16 @@ def _sync_once(tmp_path, connector: _Recording, overlap: timedelta | None) -> No
     """One sync of `incidents-jira`, watermarked at `LAST_SYNC`, with `overlap` configured."""
     from dossier.application.sync import sync_source
     from dossier.domain.pipeline import SourceConfig
+    from dossier.domain.sync import listing_hash
     from dossier.infrastructure.ledger import Ledger
     from dossier.infrastructure.store import SnapshotStore
 
     config = SourceConfig(id="incidents-jira", type="jira", watermark_overlap=overlap)
     with Ledger(tmp_path) as ledger:
+        # Synced before, under these keys: the watermark, and the listing it
+        # answered (R2.24). Without the second, the sync lists whole once.
         ledger.set_watermark("incidents-jira", LAST_SYNC)
+        ledger.set_listing_hash("incidents-jira", listing_hash(config))
         sync_source(
             config=config,
             connector=connector,

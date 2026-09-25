@@ -32,6 +32,7 @@ from dossier.domain.sync import (
     State,
     classify,
     configured_overlap,
+    listing_hash,
     listing_is_complete,
     must_refetch,
     needs_fetch,
@@ -176,6 +177,14 @@ def sync_source(
         recorded=ledger.config_hash(config.id), configured=configured
     )
 
+    # Keys of the source's own that its last listing did not answer -- an
+    # `export:` added, a query narrowed -- make this listing complete, so what
+    # they change is seen now rather than at the next `--full` (R2.24). An
+    # unrecorded hash, from a ledger written before it was kept, vouches for
+    # nothing and lists whole once.
+    listed_under = listing_hash(config)
+    rescoped = ledger.listing_hash(config.id) != listed_under
+
     # The source's own overlap where it set one (R2.4, "configurable per source"):
     # a key the loader accepts and sync then ignores is configuration that lies.
     since = sync_window(
@@ -183,6 +192,7 @@ def sync_source(
         last_sync_at=ledger.watermark(config.id),
         overlap=configured_overlap(config.watermark_overlap),
         full=full,
+        rescoped=rescoped,
     )
 
     # Tombstoning may only be computed against a complete listing (R1.3, R2.7):
@@ -268,6 +278,11 @@ def sync_source(
         # Recorded for the same reason and at the same moment: a re-evaluation
         # that failed partway must be retried, not remembered as done (R2.3).
         ledger.set_config_hash(config.id, configured)
+
+    # Recorded once a listing under these keys has run to the end, failed
+    # fetches or not: what a failed key is owed is kept by the ledger itself
+    # (R2.23), and the listing's own question has been answered (R2.24).
+    ledger.set_listing_hash(config.id, listed_under)
 
     return SourceReport(
         source_id=config.id,

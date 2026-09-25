@@ -570,7 +570,7 @@ matters.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync.sync_window`, `dossier.domain.sync.listing_hash`)
 - **Proved by:** `tests/unit/test_R002_24__a_changed_source_is_listed_whole.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
