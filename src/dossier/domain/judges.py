@@ -235,6 +235,34 @@ def lower_bound(*, agreed: int, cases: int) -> float:
     return max(0.0, (centre - margin) / (1 + spread))
 
 
+def kappa(*, verdicts: Mapping[str, bool], human: Mapping[str, bool]) -> float | None:
+    """Cohen's kappa between the judge and the reviewer, or `None` (R7.27).
+
+    Agreement beyond what the two would reach by chance, chance being set by
+    how often each said supported. A case the judge could not be asked is
+    counted as the opposite of the reviewer's verdict, so kappa counts the same
+    disagreements the agreement does (R7.11).
+
+    `None` when the reviewer marked every case the same way. Chance agreement
+    then depends on the judge alone, and kappa is 0 or undefined whatever the
+    judge did: a figure that says nothing, which would read as one that does.
+
+    Worked in counts, with one division at the end, so a perfect judge is
+    exactly 1 and a judge that never says no is exactly 0.
+    """
+    if not human:
+        raise ValueError("no human-scored cases: there is nothing to agree with")
+    cases = len(human)
+    said = {case: verdicts.get(case, not verdict) for case, verdict in human.items()}
+    human_yes = sum(human.values())
+    if human_yes in (0, cases):
+        return None
+    judge_yes = sum(said.values())
+    agreed = sum(said[case] is verdict for case, verdict in human.items())
+    by_chance = judge_yes * human_yes + (cases - judge_yes) * (cases - human_yes)
+    return (agreed * cases - by_chance) / (cases * cases - by_chance)
+
+
 def calibration(
     *,
     verdicts: Mapping[str, bool],
