@@ -187,7 +187,16 @@ class TestACalibrationRecordsOneRunWithOneTracePerCase:
             "judge/root_cause/model": MODEL,
             "judge/root_cause/rubric": RUBRIC_HASH,
         }
-        assert run.metrics == {"judge/root_cause/agreement": 95.0, "judge/root_cause/cases": 20}
+        # With what the agreement hides, rounded as the terminal prints it
+        # (R7.29): case 7 is a supported case the judge called unsupported.
+        assert run.metrics == {
+            "judge/root_cause/agreement": 95.0,
+            "judge/root_cause/cases": 20,
+            "judge/root_cause/lower_bound": 76.4,
+            "judge/root_cause/kappa": 0.9,
+            "judge/root_cause/supported": 91.7,
+            "judge/root_cause/unsupported": 100.0,
+        }
         assert len(run.traces) == 20
         assert run.status == "FINISHED"
 

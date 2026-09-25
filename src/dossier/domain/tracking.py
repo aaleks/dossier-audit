@@ -808,6 +808,57 @@ def judge_line(*, field: str, agreement: float, cases: int, judge_model: str) ->
     return f"{field:<18} {agreement:.1%} agreement over {cases} case{plural} · {judge_model}"
 
 
+def statistics_line(calibration: Calibration, *, field: str = "") -> str | None:
+    """The line under a judge's agreement line: what the agreement hides (R7.29).
+
+    Indented to start where the agreement line's figure starts, so the eye
+    reads down one column of figures; `field` is the judge line's, for a name
+    long enough to push that figure right. In plain words, because the person
+    reading it agrees the bar and may never have met a Wilson interval.
+
+    A figure that is not measurable is said to be, never printed as 0 or 100%
+    (R7.27, R7.28). `None` for a calibration written before these figures
+    existed: there is nothing to say that the file does not hold.
+    """
+    if calibration.lower_bound is None:
+        return None
+    measured_kappa = (
+        "kappa not measurable"
+        if calibration.kappa is None
+        else f"kappa {calibration.kappa:.2f}"
+    )
+    halves = [
+        f"{name} {half.agreed} of {half.cases}" if half.cases else f"no {name} case"
+        for name, half in (
+            ("supported", calibration.supported),
+            ("unsupported", calibration.unsupported),
+        )
+        if half is not None
+    ]
+    figures = " · ".join(
+        [f"lower bound {calibration.lower_bound:.1%}", measured_kappa, *halves]
+    )
+    return f"{'':<{len(f'{field:<18} ')}}{figures}"
+
+
+def calibration_lines(field: str, calibration: Calibration) -> list[str]:
+    """What `dossier calibrate` prints for one judge, and its record repeats (R7.29).
+
+    One function for both, so the terminal and the description cannot hold
+    different lines (R11.17): the agreement line, then what it hides.
+    """
+    lines = [
+        judge_line(
+            field=field,
+            agreement=calibration.agreement,
+            cases=calibration.sample_size,
+            judge_model=calibration.judge_model,
+        )
+    ]
+    hidden = statistics_line(calibration, field=field)
+    return lines if hidden is None else [*lines, hidden]
+
+
 def run_description(
     *, run_id: str, pipeline: str, model: str, pipeline_hash: str, lines: Sequence[str]
 ) -> str:
@@ -881,15 +932,29 @@ def calibration_record(
     # printed line in its last digits is exactly the disagreement spec 011
     # exists to rule out.
     percentage = round(calibration.agreement * 100, 1)
+    metrics: dict[str, float] = {
+        f"judge/{field}/agreement": percentage,
+        f"judge/{field}/cases": calibration.sample_size,
+    }
+    # What the agreement hides (R7.29), rounded as `statistics_line` prints it.
+    # A figure that is not measurable is left out rather than sent as 0:
+    # MLflow has no null, and a 0 would be charted as a judge that scored 0.
+    if calibration.lower_bound is not None:
+        metrics[f"judge/{field}/lower_bound"] = round(calibration.lower_bound * 100, 1)
+    if calibration.kappa is not None:
+        metrics[f"judge/{field}/kappa"] = round(calibration.kappa, 2)
+    for name, half in (
+        ("supported", calibration.supported),
+        ("unsupported", calibration.unsupported),
+    ):
+        if half is not None and half.rate is not None:
+            metrics[f"judge/{field}/{name}"] = round(half.rate * 100, 1)
     return (
         {
             f"judge/{field}/model": calibration.judge_model,
             f"judge/{field}/rubric": calibration.rubric_hash,
         },
-        {
-            f"judge/{field}/agreement": percentage,
-            f"judge/{field}/cases": calibration.sample_size,
-        },
+        metrics,
     )
 
 

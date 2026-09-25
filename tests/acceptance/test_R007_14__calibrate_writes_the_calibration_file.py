@@ -123,12 +123,18 @@ class TestCalibrateWritesTheCalibrationFile:
         assert judge.call_count == 20, "one judge call per case"
         rubric = calibratable / "pipelines" / PIPELINE / "rubrics" / "root_cause.md"
         assert rubric.read_text(encoding="utf-8") == RUBRIC
+        # With what the agreement hides (R7.29): case 7 is a supported case the
+        # judge called unsupported, so 11 of 12 and 8 of 8.
         assert _calibration(calibratable) == {
             "judge_model": MODEL,
             "rubric_hash": text_hash(rubric),
             "prompt_hash": judge_prompt_hash(),
             "agreement": 0.95,
             "sample_size": 20,
+            "lower_bound": pytest.approx(0.763868807, abs=1e-9),
+            "kappa": pytest.approx(176 / 196),
+            "supported": {"agreed": 11, "cases": 12},
+            "unsupported": {"agreed": 8, "cases": 8},
         }
 
     def test_a_second_run_replaces_the_figure(self, calibratable: Path, monkeypatch):

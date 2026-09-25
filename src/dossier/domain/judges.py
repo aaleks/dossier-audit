@@ -86,6 +86,13 @@ class Calibration(BaseModel):
     prompt_hash: str | None = None
     agreement: float
     sample_size: int
+    # What the agreement does not say (R7.26 - R7.29). Optional so a file
+    # written before them still loads, and gates as it did: the gate reads the
+    # agreement (R7.5). `kappa` is also None for a sample it cannot measure.
+    lower_bound: float | None = None
+    kappa: float | None = None
+    supported: Tally | None = None
+    unsupported: Tally | None = None
 
 
 def is_eligible(calibration: Calibration | None, *, threshold: float) -> bool:
@@ -320,12 +327,21 @@ def calibration(
     figure because an agreement number on its own says a judge agreed with a
     human without saying which judge, or on what question -- and `is_stale`
     needs all three to notice when any has moved since (R7.6, R7.19).
+
+    With it, what the agreement hides: how sure it is, how much of it chance
+    would give, and which half of the sample the judge gets wrong -- each over
+    the same cases (R7.26 - R7.29).
     """
-    measured, _ = agreement(verdicts=verdicts, human=human)
+    measured, disagreed = agreement(verdicts=verdicts, human=human)
+    supported, unsupported = by_verdict(verdicts=verdicts, human=human)
     return Calibration(
         judge_model=judge_model,
         rubric_hash=rubric_hash,
         prompt_hash=prompt_hash,
         agreement=measured,
         sample_size=len(human),
+        lower_bound=lower_bound(agreed=len(human) - len(disagreed), cases=len(human)),
+        kappa=kappa(verdicts=verdicts, human=human),
+        supported=supported,
+        unsupported=unsupported,
     )

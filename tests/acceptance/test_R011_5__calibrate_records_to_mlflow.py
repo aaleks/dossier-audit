@@ -147,7 +147,15 @@ class TestCalibrateRecordsToMLflow:
         rubric = calibratable / "pipelines" / PIPELINE / "rubrics" / f"{FIELD}.md"
         assert run.params[f"judge/{FIELD}/model"] == MODEL
         assert run.params[f"judge/{FIELD}/rubric"] == text_hash(rubric)
-        assert run.metrics == {f"judge/{FIELD}/agreement": 100.0, f"judge/{FIELD}/cases": 20.0}
+        # With what the agreement hides, rounded as the terminal prints it (R7.29).
+        assert run.metrics == {
+            f"judge/{FIELD}/agreement": 100.0,
+            f"judge/{FIELD}/cases": 20.0,
+            f"judge/{FIELD}/lower_bound": 83.9,
+            f"judge/{FIELD}/kappa": 1.0,
+            f"judge/{FIELD}/supported": 100.0,
+            f"judge/{FIELD}/unsupported": 100.0,
+        }
 
     def test_each_case_is_a_trace_carrying_both_verdicts_and_one_llm_span(
         self, calibratable: Path, monkeypatch, tracker: FakeTracker
