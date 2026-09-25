@@ -678,8 +678,8 @@ converting it (R8.1).
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.confluence_page.note`), called by infrastructure (`dossier.infrastructure.converters.confluence_page_markdown`)
-- **Proved by:** `tests/unit/test_R008_19__a_page_converts_to_a_note_of_what_a_person_reads.py`, `tests/acceptance/test_R008_19__a_confluence_page_is_audited_end_to_end.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R008_19__a_confluence_page_is_audited_end_to_end.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
