@@ -205,7 +205,7 @@ a definition of correct nobody agreed to.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.review`, `dossier.domain.gold`), application (`dossier.application.review`), cli (`dossier.cli.main`)
 - **Proved by:** `tests/unit/test_R015_4__a_candidate_becomes_gold_when_applied.py`, `tests/acceptance/test_R015_4__a_maintainer_applies_what_reviewers_expected.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -45,7 +45,7 @@ from dossier.application.plan import (
     pinned_documents,
 )
 from dossier.application.prompts import publish_prompts
-from dossier.application.review import pull_reviews
+from dossier.application.review import apply_candidates, pull_reviews
 from dossier.application.run import (
     MissingFromReplay,
     execute,
@@ -63,6 +63,7 @@ from dossier.config.load import (
     ConfigError,
     load_calibration_sample,
     load_converter_names,
+    load_enum_values,
     load_fields,
     load_judge_rubrics,
     load_judge_thresholds,
@@ -96,8 +97,9 @@ from dossier.domain.ports import (
     VersionRegistry,
 )
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
-from dossier.domain.review import FEEDBACK, review_report
+from dossier.domain.review import CANDIDATES, FEEDBACK, review_report
 from dossier.domain.scoring import (
+    FieldKind,
     check_same_documents,
     compare_totals,
     overall,
@@ -2108,6 +2110,90 @@ def review_pull(
     for line in review_report(verdicts):
         typer.echo(f"  {line}")
     typer.echo(f"written to review/{pipeline}/{FEEDBACK}")
+    expected = sum(1 for verdict in verdicts if verdict.kind == "expectation")
+    if expected:
+        # What a maintainer reads next, and applies with `dossier review apply`.
+        typer.echo(
+            f"{_count(expected, 'expected value')} written as gold candidates to "
+            f"review/{pipeline}/{CANDIDATES}"
+        )
+
+
+@review_app.command("apply")
+def review_apply(
+    pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
+    gold: str = typer.Option(..., "--gold", help="Gold set directory", metavar="DIR"),
+    verified_by: str = typer.Option(
+        "", "--verified-by", help="Who signs these answers (R7.7).", metavar="NAME"
+    ),
+) -> None:
+    """Make review/<pipeline>/candidates.jsonl gold, signed by --verified-by (R15.4).
+
+    The file as the maintainer left it: a line deleted is a candidate rejected.
+    Every candidate is checked before a gold file is written, and a refusal
+    names each problem and writes nothing.
+    """
+    # Before anything is read. MLflow's trace view records every reviewer as
+    # `User`, so the answer is signed by whoever applies it -- and there is no
+    # anonymous path into the gold set (R7.7, R15.4 row 9).
+    if not verified_by.strip():
+        typer.echo(
+            f"{pipeline}: --verified-by is required: there is no anonymous path into the gold "
+            "set (R7.7). MLflow's trace view records every reviewer as User, so the "
+            "maintainer who applies a candidate signs it",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    workspace = Path.cwd()
+    try:
+        path = _pipeline_path(workspace, pipeline)
+        config = load_pipeline(path, providers=available_providers())
+        kinds: dict[str, FieldKind] = {}
+        allowed: dict[str, tuple[str, ...]] = {}
+        for step in config.steps:
+            if step.output:
+                kinds.update(load_fields(path.parent / step.output))
+                allowed.update(load_enum_values(path.parent / step.output))
+    except ConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+
+    candidates = workspace / "review" / pipeline / CANDIDATES
+    if not candidates.is_file():
+        typer.echo(
+            f"{pipeline}: no candidates at review/{pipeline}/{CANDIDATES}; run "
+            f"`dossier review pull {pipeline}` first",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    directory = workspace / gold
+    if not directory.is_dir():
+        typer.echo(f"{pipeline}: no gold set at {gold}", err=True)
+        raise typer.Exit(code=2)
+
+    try:
+        applied = apply_candidates(
+            candidates=candidates,
+            gold=directory,
+            kinds=kinds,
+            allowed=allowed,
+            verified_by=verified_by,
+            today=datetime.now(UTC).date(),
+        )
+    except ValueError as error:
+        typer.echo(f"{pipeline}: nothing applied:", err=True)
+        for problem in getattr(error, "problems", [str(error)]):
+            typer.echo(f"  {problem}", err=True)
+        raise typer.Exit(code=2) from error
+
+    if not applied:
+        typer.echo("nothing to apply: every candidate is already gold")
+        return
+    for change in applied:
+        before = repr(change.before) if change.had else "(new)"
+        typer.echo(f"  {change.document}  {change.field}  {before} -> {change.after!r}")
+    typer.echo(f"{_count(len(applied), 'answer')} applied to {gold}, signed by {verified_by}")
 
 
 prompts_app = typer.Typer(
