@@ -13,6 +13,31 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+Reviewers review in MLflow. The people who can say whether an answer is right
+rarely run `dossier`, so the daily run's record became the place they review it
+(spec 015). Every trace now opens with the document it read and closes with the
+answer, which MLflow shows as the trace list's Request and Response (R15.1), and
+a run tags what it doubts -- a failed document, a field ungrounded or invalid --
+so the review queue is a filter in a URL (R15.2). A spike against MLflow 3.15.1
+came first and changed the design twice: labeling sessions, MLflow's assigned
+queues, are Databricks-only, so the queue is a filter; and the open-source trace
+view records every verdict's author as the fixed string `User`, whoever is
+logged in -- found in the JavaScript it ships -- so a reviewer's expected value
+becomes gold under the name of the maintainer who applies it, the recorded
+author and the trace kept in its reason. `dossier review pull` reads the
+verdicts back through a port of its own, `ReviewSource` -- valid `HUMAN`
+assessments only, so an override replaces what it overrode and the judge's
+verdicts stay the judge's -- and writes `feedback.jsonl` and a report by step and
+field (R15.3) and `candidates.jsonl` (R15.4); `dossier review apply
+--verified-by` checks every candidate before writing anything and passes the rest
+through `apply_correction` (R7.7), the half of spec 007's review design that had
+no caller. It is the one read from MLflow, fenced as the dataset, version and
+prompt reads were: an architecture test holds that no run, plan, replay, eval or
+calibration can name a verdict (R15.5). Built while another session held the
+repository's one open outer loop, so each rule went from NOT MET to MET in one
+PR. Live, end to end: verdicts posted as the UI posts them, pulled, applied under
+`a.aleks`, and a following run served entirely from cache.
+
 A span is compared after folding what a reader cannot tell apart. `locate_span`
 normalised whitespace only, so an honest citation failed on a difference nobody
 can see, and was scored incorrect before its value was looked at (R7.4). Two

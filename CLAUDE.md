@@ -116,7 +116,9 @@ Installing, the extras and what each one adds: `README.md`.
 1. **Three packages reach the network, and no others.**
    `dossier.infrastructure.connectors` fetches source payloads;
    `dossier.infrastructure.models` asks a model;
-   `dossier.infrastructure.tracking` sends records to MLflow, and only sends.
+   `dossier.infrastructure.tracking` sends records to MLflow, and reads back
+   only what spec 012-015 fence: an id a registry hands back, and reviewers'
+   verdicts, through `ReviewSource`, for `dossier review pull` alone (R15.5).
    Nothing else may import a network client -- `mlflow` included -- on any code
    path, including a lazy import inside a function. This is R0.10 -- it
    supersedes R0.9, which admitted two, and R0.1, which allowed only
