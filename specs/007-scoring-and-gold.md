@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.25
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.29
 
 ## Purpose
 
@@ -106,6 +106,37 @@ threshold is a property of scoring and the declaration is hashed into every stag
 key that reads it (R6.11 row 3): raising a bar from 0.95 to 0.96 there would
 re-run every extraction the pipeline has cached, to change a number no extraction
 can affect.
+
+**What an agreement figure does not say.** Agreement is one number, and it hides
+three things, each of which can make a judge look better than it is
+(R7.26 – R7.29):
+
+- **How sure the figure is.** 20 of 20 is 100%, and 20 cases support a 95%
+  lower bound near 84% -- which is why R7.11's bar sits below what it measured.
+  The bound is the Wilson score interval's, which stays inside 0 and 1 at the
+  extremes a calibration sample is often at, where the textbook interval claims
+  a certainty the sample cannot give.
+- **How much of it is chance.** R7.11's sample is 12 supported and 8
+  unsupported, so a judge that calls every case supported agrees on 60% of it.
+  Cohen's kappa measures agreement beyond what the two sets of verdicts would
+  reach by chance, and puts that judge at 0.
+- **Which half it gets wrong.** Catching an unsupported claim is the judge's
+  whole job (R7.12). Agreement pools the supported cases with the unsupported
+  ones, so a judge strong on the first can hide a weak second.
+
+These figures are reported, not gated. Whether the bar should compare the lower
+bound, or set a separate bar for unsupported cases, is a threshold, and a
+threshold is a person's to agree (R7.11). These figures are what that person
+needs to see first.
+
+## Existing options considered
+
+The Wilson interval is in statsmodels (`proportion_confint(method="wilson")`), and
+kappa is in scikit-learn (`cohen_kappa_score`). Neither is used. `domain/` imports
+only the standard library and pydantic, and each figure is a few lines of `math`
+over four counts. Using a library would put a scoring decision outside the layer
+that decisions live in, for the sake of two formulas. Decided by `a.aleks` on
+2026-09-25. The tests pin the figures below, each computed by hand.
 
 ## The review loop
 
@@ -789,3 +820,95 @@ percentage was refused would be the number arriving by the back door.
 | 5 | documents in the order the run visited them | the same order under every field, so two evals of one run read identically (R0.4) |
 | 6 | *counter-example* — a withheld `root_cause` | its reason line, and no details; nothing was scored, so there is nothing to explain (R7.15) |
 | 7 | *counter-example* — a field absent from gold for one document | no line for that document; absent is not `null` and is not a miss (R7.3 row 4) |
+
+### R7.26 — a calibration reports the 95% Wilson lower bound on its agreement
+
+The bound is taken over the same cases as the agreement, and a case the judge
+could not be asked counts as a disagreement, as it does in the agreement
+(R7.11). The z it uses is the 0.975 quantile of the standard normal,
+`statistics.NormalDist().inv_cdf(0.975)`, taken rather than typed as 1.96, so the
+bound is a function of the two counts alone and comes out the same on every
+machine (R0.4).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.judges`)
+- **Proved by:** `tests/unit/test_R007_26__a_calibration_reports_the_lower_bound_on_its_agreement.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | 20 of 20 `root_cause` cases agreed | agreement 100.0%, lower bound 83.9% -- the figure R7.11's threshold note reasons with |
+| 2 | 19 of 20 agreed | agreement 95.0%, lower bound 76.4%: one miss costs 5 points of agreement and 7.5 of the bound |
+| 3 | 38 of 40 agreed, the same 95% | lower bound 83.5%; a larger sample earns a tighter bound, so the count is read and not only the ratio |
+| 4 | *counter-example* — 20 of 20 against R7.11's bar of 0.95 | `root_cause` reported by `dossier eval` as before; the bound gates nothing, and R7.5 still compares the agreement |
+
+### R7.27 — a calibration reports Cohen's kappa between the judge and the reviewer
+
+Kappa is agreement beyond what chance would give: the observed agreement less the
+agreement expected from how often each side said supported, over what is left of
+1 after that expectation. A case the judge could not be asked counts as the
+opposite of the reviewer's verdict, so kappa and the agreement count the same
+disagreements.
+
+It is not measurable when the reviewer marked every case the same way. Chance
+agreement then depends on the judge alone, and kappa comes out 0 or undefined
+whatever the judge did -- a figure that would say nothing while looking like a
+measurement.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.judges`)
+- **Proved by:** `tests/unit/test_R007_27__a_calibration_reports_kappa.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | 20 of 20 agreed, 12 cases supported and 8 unsupported | kappa 1.00 |
+| 2 | a judge that calls all 20 supported | agreement 60.0% and kappa 0.00: every agreement it has is what chance would give |
+| 3 | 19 of 20 agreed, the miss an unsupported case called supported | kappa 0.89 |
+| 4 | *counter-example* — the reviewer marked all 20 supported, and the judge agreed on every one | kappa not measurable, never 0 or 1; a sample with one verdict in it cannot tell agreement from chance |
+
+### R7.28 — a calibration reports the supported and the unsupported cases apart, each as how many the judge agreed on out of how many there were
+
+Counts, not only rates: 8 of 8 and 80 of 80 are both 100%, and only the count
+says how far to trust it. A case the judge could not be asked counts against its
+own half, as it counts against the agreement.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.judges`)
+- **Proved by:** `tests/unit/test_R007_28__supported_and_unsupported_cases_are_reported_apart.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | 20 of 20 agreed, 12 cases supported and 8 unsupported | supported 12 of 12, unsupported 8 of 8 |
+| 2 | a judge that calls all 20 supported | supported 12 of 12, unsupported 0 of 8: 60% agreement, and none of the claims it exists to catch |
+| 3 | no verdict for one supported case, every other case agreed | supported 11 of 12, unsupported 8 of 8 |
+| 4 | *counter-example* — a sample with no unsupported case | `no unsupported case`, never 0 of 0 as a percentage: there was nothing to catch, which is not the same as catching it |
+
+### R7.29 — `dossier calibrate` prints, writes and records the same lower bound, kappa and counts
+
+The figures of R7.26 – R7.28 go everywhere the agreement already goes. The
+terminal gets one more line under each judge's agreement line (R7.14), in plain
+words. `calibrations/<field>.json` holds them beside the agreement. The calibrate
+run holds them as metrics (R11.5) and in its description (R11.17), rounded as the
+terminal prints them, so the file, the terminal and MLflow cannot disagree.
+
+A figure that is not measurable is `null` in the file, said in words in the
+terminal, and sent as no metric at all. MLflow has no null, and a 0 standing in
+for one would be charted as a judge that scored 0.
+
+A calibration file written before these figures still loads and gates as it did:
+every new figure in it is optional, and the gate reads the agreement (R7.5).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.judges.Calibration`, `dossier.domain.tracking`), application (`dossier.application.eval.calibrate_fields`)
+- **Proved by:** `tests/unit/test_R007_29__calibrate_prints_writes_and_records_the_same_figures.py`, `tests/acceptance/test_R007_29__calibrate_reports_what_its_agreement_hides.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier calibrate incident-audit --gold gold/incidents`, 20 of 20 agreed | under `root_cause         100.0% agreement over 20 cases · openai:gpt-5.4-mini`, the line `                   lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8` |
+| 2 | the same | `calibrations/root_cause.json` gains `lower_bound` 0.8389…, `kappa` 1.0, `supported` `{"agreed": 12, "cases": 12}` and `unsupported` `{"agreed": 8, "cases": 8}`; the run gains metrics `judge/root_cause/lower_bound` 83.9, `judge/root_cause/kappa` 1.0, `judge/root_cause/supported` 100.0 and `judge/root_cause/unsupported` 100.0 |
+| 3 | a `per_part` pipeline, both samples measured | the same figures for `root_cause.described`, in its own file and under its own metric names (R7.22) |
+| 4 | a sample the reviewer marked all supported, 20 of 20 agreed | `kappa not measurable` and `no unsupported case` in the terminal; `kappa` `null` and `unsupported` `{"agreed": 0, "cases": 0}` in the file; no `kappa` or `unsupported` metric |
+| 5 | *counter-example* — a `calibrations/root_cause.json` written before R7.26 | loads, and `dossier eval` withholds or reports `root_cause` exactly as before (R7.15); the gate reads the agreement alone |
