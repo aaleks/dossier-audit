@@ -14,9 +14,10 @@ attachment listing in the shape a real Confluence Data Center 9.2 sends. No
 socket is opened.
 
 The page carries `escalation-matrix.png`, which is its own document (R1.18) and
-converts as an image does (R8.10). The model is a fake. It is asked twice --
-once for the page and once for the file -- and quotes from the page and abstains
-on the file, so the order the run asks in does not matter.
+converts as an image does (R8.10), to pictures and no text. The model is a
+fake, and it is asked once: about the page. The step reads text, so it does not
+run for the picture (R6.21). This test once asserted two calls, the second about
+the picture with an empty document, which was the bug R6.21 closes.
 
 Checked against a real server as well: `cwiki.apache.org` (Confluence Data
 Center 9.2.21) synced two KIP pages and 66 images, and both notes came out
@@ -183,7 +184,7 @@ def _audit(workspace: Path, monkeypatch, span: str):
     _use(monkeypatch, model)
     result = _cli(workspace, monkeypatch, "run", PIPELINE)
     assert result.exit_code == 0, result.output
-    assert model.call_count == 2
+    assert model.call_count == 1
     return result
 
 

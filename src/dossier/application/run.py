@@ -49,6 +49,7 @@ from dossier.domain.hashing import content_hash
 from dossier.domain.keys import ArtifactInput, StageInputs, cache_key, provenance
 from dossier.domain.pipeline import (
     DEFAULT_INPUT_KIND,
+    DOCUMENTS,
     SOURCE_KEYWORDS,
     PipelineConfig,
     SourceConfig,
@@ -411,6 +412,16 @@ def execute(
                     resolved=step,
                     document=key,
                     produced=produced,
+                ):
+                    return None
+                # Nor for a document the source gave nothing of the kinds this
+                # step reads: a picture, to a step reading text. Asked anyway,
+                # every picture had the key of `""`, and the second was served
+                # the first one's answer (R6.21).
+                if declared[step.id].mode != "aggregate" and _reads_nothing(
+                    targets=_targets(declared[step.id], step),
+                    document=key,
+                    holds=lambda kind: _held(kind, by_kind=by_kind, by_part=by_part),
                 ):
                     return None
 
@@ -921,6 +932,35 @@ def _missing_input(
     )
 
 
+def _reads_nothing(
+    *, targets: Sequence[str], document: str, holds: Callable[[str], Collection[str]]
+) -> bool:
+    """Whether `document` holds nothing of any kind this step reads from `documents` (R6.21).
+
+    Only `documents`: those are what the step runs over, one call each. A step
+    reading no `documents` at all -- only earlier steps' output -- is R6.13's
+    to decide. `execute` and `replay` both ask this, each saying what it holds,
+    because a replay that asked for a document the run skipped would look for
+    an entry that was never written (R4.7).
+    """
+    kinds = [
+        kind or DEFAULT_INPUT_KIND
+        for name, kind in (split_kind(target) for target in targets)
+        if name == DOCUMENTS
+    ]
+    return bool(kinds) and not any(document in holds(kind) for kind in kinds)
+
+
+def _held(
+    kind: str,
+    *,
+    by_kind: Mapping[str, Mapping[str, str]],
+    by_part: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]],
+) -> set[str]:
+    """The documents that hold `kind`: as text, or as parts."""
+    return set(by_kind.get(kind, {})) | set(by_part.get(kind, {}))
+
+
 def _parts_for(
     *,
     declared: StepConfig,
@@ -1345,6 +1385,17 @@ def replay(
             # The same fan-out `execute` ran, so the keys recomposed here are
             # the keys it wrote. A `per_part` step whose parts are gone raises
             # inside `_replay_one`, naming the part (R4.14).
+            # What `execute` skipped, skipped here, or the replay would look
+            # for an entry the run never wrote (R6.21, R4.7). Replay holds
+            # text as `document_text`, which is only ever the markdown kind.
+            if step.mode != "aggregate" and _reads_nothing(
+                targets=step.inputs,
+                document=document,
+                holds=lambda kind: _held(
+                    kind, by_kind={DEFAULT_INPUT_KIND: document_text}, by_part=by_part
+                ),
+            ):
+                continue
             parts = _replayed_parts_for(step=step, document=document, by_part=by_part)
             served: list[DocumentResult] = []
             for part in parts:
