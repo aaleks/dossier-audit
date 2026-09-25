@@ -91,6 +91,8 @@ class TestExportedFilesNoLongerStopASource:
         assert "3 converted" in converted.output, converted.output
         page = [note for note in _notes(exports_workspace) if "PLAY-4001 — Duplicate" in note]
         assert len(page) == 1, "the exported page has one artifact, holding its title"
-        assert page[0].startswith(
-            "# PLAY-4001 — Duplicate payment retries after a queue redelivery"
-        )
+        # Once, as the page's heading: the `<title>` is in the `<head>`, which a
+        # reader never sees, and the breadcrumb above the heading is kept.
+        heading = "# PLAY-4001 — Duplicate payment retries after a queue redelivery\n"
+        assert heading in page[0]
+        assert page[0].count("Duplicate payment retries") == 1
