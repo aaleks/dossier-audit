@@ -27,10 +27,10 @@ sources:
 
   - id: procedures-confluence
     type: confluence
-    space: OPS
-    label: procedure
+    url: https://confluence.example.internal
+    query: space = OPS AND label = procedure
+    token_env: DOSSIER_CONFLUENCE_TOKEN
     export: pdf
-    convert: [markdown, page_images]
 ```
 
 `fields` doubles as the normalisation projection for hashing (spec 002). It is
@@ -42,7 +42,7 @@ An empty list is not the same thing and is rejected: `fields: []` is a projectio
 onto nothing, which no payload satisfies.
 
 The keys every source takes are `id`, `type`, `fields`, `convert` and
-`watermark_overlap`. Anything else -- `path`, `query`, `space` -- belongs to the
+`watermark_overlap`. Anything else -- `path`, `query`, `export` -- belongs to the
 source's type, and its connector declares it; the loader checks a source against
 both before anything runs (R1.10).
 

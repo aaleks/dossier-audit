@@ -23,7 +23,7 @@ Do not invent a new incident key for a new example. Add to this file instead.
 | `INC-4821` | `incidents-jira` | issue | The worked example throughout. Loss of CHF 48'200 on page 3. Root cause not stated. |
 | `INC-4822` | `incidents-jira` | issue | Changed since last sync. Re-fetched. |
 | `INC-4901` | `incidents-jira` | issue | New since last sync. |
-| `OPS-114` | `procedures-confluence` | page | Reference material, PDF export, `remote_version` `v37`. |
+| `OPS-114` | `procedures-confluence` | page | Reference material, `remote_version` `v37`. A Confluence page, titled `OPS-114 Incident escalation procedure`, whose key is its id, `81920114` (R1.16). Its PDF export is `81920114.pdf` (R1.19). The stand-in connectors in spec 002's tests key it `OPS-114`. |
 | `OPS-115` | `procedures-confluence` | page | Unchanged throughout. `remote_version` `v12`. The item R2.15 asserts is *not* read. |
 | `OPS-116` | `procedures-confluence` | page | Unchanged throughout. `remote_version` `v3`. |
 | `audit-note.pdf` | `incidents-manual` | file | Folder source. No `remote_version`. |
@@ -110,6 +110,25 @@ expected values nobody verified is inventing a threshold by another name. What i
 recorded is which document is defective and how, which is what the corpus was
 built to say. The one exception is `INC-5455` in the scoring example below, whose
 `root_cause` of `null` is exactly its recorded defect.
+
+## A Confluence page as Confluence sends it
+
+`tests/fixtures/confluence/81920114.json` is `OPS-114` as
+`GET /rest/api/content/81920114?expand=body.export_view,version,space` answers it.
+`tests/fixtures/confluence/81920114-attachments.json` is its
+`/child/attachment?expand=version`. The shape -- `_links`, `_expandable`, the
+space's `self`, the table of contents macro with its `<style>` and render-time
+class name, and images addressed under `embedded-page/` -- is recorded from a
+real Confluence Data Center 9.2.21 (`cwiki.apache.org/confluence`). The content
+is ours:
+
+| Field | Value |
+|---|---|
+| `id` / `title` | `81920114` / `OPS-114 Incident escalation procedure` |
+| `space.key` | `OPS` |
+| `version` | number 37, `when` `2026-08-05T16:02:00.000Z`, `by.displayName` `m.keller` |
+| `body.export_view` | a table of contents; `<h2>Escalation</h2>`; a list whose first item is `Page the incident commander within 15 minutes`; a link to `the rota`; the image `escalation-matrix.png`; an expand macro |
+| attachment | `escalation-matrix.png`, id `81920301`, version 2, `image/png` |
 
 ## Gold set
 
