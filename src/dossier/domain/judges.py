@@ -45,6 +45,29 @@ class NotCalibrated(ValueError):
     """
 
 
+class Tally(BaseModel):
+    """How many of one half of a sample the judge agreed on, out of how many (R7.28).
+
+    Counts rather than a rate, because 8 of 8 and 80 of 80 are both 100% and
+    only the count says how far to trust it.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    agreed: int
+    cases: int
+
+    @property
+    def rate(self) -> float | None:
+        """The share agreed, or `None` for a half with no cases in it.
+
+        None rather than 0 or 1: no unsupported case in a sample is not every
+        unsupported case caught, and 0 of 0 read as 100% would credit the judge
+        for a test it never sat.
+        """
+        return self.agreed / self.cases if self.cases else None
+
+
 class Calibration(BaseModel):
     """What a judge was measured at, and what it was measured against.
 
@@ -261,6 +284,26 @@ def kappa(*, verdicts: Mapping[str, bool], human: Mapping[str, bool]) -> float |
     agreed = sum(said[case] is verdict for case, verdict in human.items())
     by_chance = judge_yes * human_yes + (cases - judge_yes) * (cases - human_yes)
     return (agreed * cases - by_chance) / (cases * cases - by_chance)
+
+
+def by_verdict(
+    *, verdicts: Mapping[str, bool], human: Mapping[str, bool]
+) -> tuple[Tally, Tally]:
+    """The supported cases and the unsupported ones, each as agreed of cases (R7.28).
+
+    Apart, because catching an unsupported claim is the judge's whole job
+    (R7.12), and a judge strong on the supported half can hide a weak other
+    half inside one agreement figure. A case the judge could not be asked
+    counts against its own half, as it counts against the agreement (R7.11).
+    """
+
+    def half(supported: bool) -> Tally:
+        cases = [case for case, verdict in human.items() if verdict is supported]
+        return Tally(
+            agreed=sum(verdicts.get(case) is supported for case in cases), cases=len(cases)
+        )
+
+    return half(True), half(False)
 
 
 def calibration(
