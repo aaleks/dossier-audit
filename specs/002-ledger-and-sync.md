@@ -1,7 +1,7 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Implemented
-**Rules:** R2.1 – R2.22
+**Status:** Partially implemented
+**Rules:** R2.1 – R2.24
 
 ## Purpose
 
@@ -521,3 +521,63 @@ source the flag costs one listing and nothing else.
 | 2 | the same, with every remaining issue's `remote_version` unchanged | `0 fetched`, `0 new snapshots`; a full listing is not a re-fetch (R2.1) |
 | 3 | the same, no item failing | `last_sync_at` advances to the sync's start time as on any sync (R2.8 row 4); `--full` asks one question, it does not reset the watermark |
 | 4 | *counter-example* — `dossier sync incident-audit` without the flag | the connector is asked `list(since=2026-08-05T09:00:00Z)`; `INC-4821`, absent from that listing, stays `active` (R2.7 row 4) |
+
+### R2.23 — a key whose fetch failed is asked again at the next sync, whether or not the listing returns its item
+
+R2.8 holds the watermark back when an item fails, so the next sync's window
+starts where the failed one did. That returns the item again only if it changed
+inside the window. A file that failed while its item stood still -- a Confluence
+export refused under `--full`, a Jira attachment that timed out -- was not asked
+about again. The next sync then had nothing to fail on, moved the watermark
+past the failure, and never reported it again. Playground exercise 15 found this
+against `cwiki.apache.org`.
+
+So the ledger remembers what it is owed. A key whose fetch failed is recorded
+with the item carrying it. At the next sync, an owed key's item is visited
+whether or not the listing returned it. An owed item is fetched. For an owed
+file, its item's files are listed again, and the item is not fetched again
+unless its own marker moved. Whether an item is visited is a decision over the
+owed keys and the listing, and it is made in `domain`.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.sync.owed_items`), applied by application (`dossier.application.sync`), recorded by infrastructure (`dossier.infrastructure.ledger`)
+- **Proved by:** `tests/unit/test_R002_23__a_failed_key_is_asked_again.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `81920114.pdf` refused `403` by `dossier sync --full`, then a plain sync whose window returns no page | the export is asked again, once; still refused, it is reported again and the watermark stays where it was (R2.8) |
+| 2 | the same, and the export succeeds on the retry | stored and recorded; the sync after that does not ask for it |
+| 3 | `INC-4821/report.pdf` timed out, and `INC-4821` unchanged since | the file is asked again; the issue is not fetched, its marker being unchanged (R2.1) |
+| 4 | *counter-example* — the file, owed, and its item no longer carrying it | not asked; it is owed nothing, and is not tombstoned either, since it was never held |
+| 5 | *counter-example* — an owed item that a complete listing no longer returns | tombstoned (R2.7), and neither it nor its files are asked |
+
+### R2.24 — a change to a source's own keys makes its next listing complete, and fetches nothing that did not change
+
+The keys a connector declares (R1.10) -- `url` and `query`, a folder's `path`,
+Confluence's `export` -- decide what a listing answers. When one of them
+changes, an incremental listing answers a question about the source as it was.
+A Jira query narrowed to `labels = sev1` leaves every issue it no longer matches
+`active` until `--full`. `export: pdf` added to a source already synced asks for
+no export until a page changes, and taken away it tombstones nothing. So the
+hash of those keys is recorded, and a sync that finds it changed lists without a
+window, as `--full` does (R2.22). It is a complete listing, not a re-evaluation:
+an item whose marker has not moved is not fetched (R2.1). A key that only names
+a credential or a route costs one complete listing when it changes, and
+separating them would be a second list to keep right for no saving that
+matters.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.sync.sync_window`, `dossier.domain.sync.listing_hash`)
+- **Proved by:** `tests/unit/test_R002_24__a_changed_source_is_listed_whole.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `procedures-confluence` synced, then `export: pdf` added | the next sync lists every page without a window; each `<page id>.pdf` is fetched, and no page is (R2.1) |
+| 2 | `export: pdf` taken away | the next sync lists without a window, and every `<page id>.pdf` is tombstoned (R2.6 row 3) |
+| 3 | `incidents-jira`'s `query` narrowed to `project = INC AND labels = sev1` | the next sync lists without a window; `INC-4822`, no longer matched, is tombstoned now rather than at the next `--full` (R2.7) |
+| 4 | the sync after that, nothing changed | lists from the window again (R2.4) |
+| 5 | *counter-example* — `watermark_overlap: 48h` | not a key of the source's own. It moves the window (R2.4), and the listing stays windowed |
+| 6 | *counter-example* — `fields:` changed | R2.3's re-evaluation, which fetches every item. This rule fetches none that did not change |
+| 7 | a ledger written before this rule, holding no hash of the source's keys | the next sync lists without a window, once. An unknown hash cannot vouch that the last listing answered today's keys |

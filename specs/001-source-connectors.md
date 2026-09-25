@@ -1,6 +1,6 @@
 # 001 — Source connectors
 
-**Status:** Implemented
+**Status:** Partially implemented
 **Rules:** R1.1 – R1.21
 
 ## Purpose
@@ -555,7 +555,7 @@ decision and lives in the domain.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`), with the marker from the domain (`dossier.domain.confluence.export_version`)
 - **Proved by:** `tests/unit/test_R001_19__a_page_carries_its_pdf_export.py`
-- **Status:** MET
+- **Status:** NOT MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -564,7 +564,7 @@ decision and lives in the domain.
 | 3 | `escalation-matrix.png` uploaded again, and the page still at `v37` | the export's marker moves, and the export is fetched again: the PDF draws the image |
 | 4 | *counter-example* — `export: pdf`, and a page carrying no files | the export's marker is `v37` |
 | 5 | *counter-example* — no `export:` | no `81920114.pdf`, and no export is asked for |
-| 6 | *counter-example* — `export: pdf` removed after a sync | at the next sync, every `<page id>.pdf` is tombstoned, as a file its page no longer carries (R2.6 row 3) |
+| 6 | *counter-example* — `export: pdf` removed after a sync | at the next sync, every `<page id>.pdf` is tombstoned, as a file its page no longer carries (R2.6 row 3). The next sync lists every page because a key of the source changed (R2.24) |
 | 7 | *counter-example* — `export: docx` | load-time error naming the key and the one value it takes (R1.10) |
 
 ### R1.20 — an export that is refused, or answered with anything but a PDF, fails that document and says why
@@ -577,13 +577,13 @@ refused credential.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`)
 - **Proved by:** `tests/unit/test_R001_20__a_refused_export_fails_its_document.py`
-- **Status:** MET
+- **Status:** NOT MET
 
 | # | Given | Then |
 |---|-------|------|
 | 1 | `export: pdf`, against a server that answers the export `403` | `81920114.pdf` fails with the URL, `403`, and that `export: pdf` asks for an export this server refuses. The page and its files are held (R1.9), and the watermark stays where it was (R2.8) |
 | 2 | *counter-example* — the export answered `200` with Confluence's login page, as `text/html` | the document fails, naming the type it got. A login page is never stored as a PDF |
-| 3 | *counter-example* — that `403`, at the next sync | asked again as before, once. Not retried without the header, and not dropped from the listing: a PDF missing without a word reads exactly like a page that has none |
+| 3 | *counter-example* — that `403`, at the next sync | asked again as before, once, whether or not the listing returns the page (R2.23). Not retried without the header, and not dropped from the listing: a PDF missing without a word reads exactly like a page that has none |
 
 ### R1.21 — a Confluence source authenticates as a Jira source does
 
@@ -612,3 +612,4 @@ so the two cannot drift apart.
 | 1 | Does the connector read Confluence Cloud? Cloud still answers the version-1 content routes under `/wiki`, but its PDF export is an asynchronous task that is started and then polled | OPEN — needs a Cloud site to run against. The connector is read against Data Center 9.2 (`cwiki.apache.org`, `confluence.atlassian.com`) |
 | 2 | Should a page's comments be part of its document? `expand=children.comment.body.export_view` would bring them into the payload, which gives every held page a new snapshot | OPEN — needs a space whose comments hold what a stage must read |
 | 3 | A page that includes another page's text (`include`, `excerpt-include`) renders it without its own version moving, so a change to the included page is not fetched | OPEN — needs a real space that relies on inclusion. Until then, changing `fields:` re-fetches every page (R2.3) |
+| 4 | Does CQL `lastmodified` move when a file is uploaded again to a page whose version does not? If not, a windowed listing leaves the page out, and R1.18 row 2 holds only under a complete listing (R2.22, R2.24) | OPEN — needs a Confluence this project can write to. Both servers read so far are public and read-only |
