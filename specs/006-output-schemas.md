@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Implemented
-**Rules:** R6.1 – R6.20
+**Status:** Partially implemented
+**Rules:** R6.1 – R6.21
 
 ## Purpose
 
@@ -558,3 +558,35 @@ nothing -- inside a word, or unpaired -- is text, as CommonMark reads it.
 | 4 | text ``the `payments-db` pool``, span `the payments-db pool` | grounded |
 | 5 | text `the *renewed* certificate`, span `the renewed certificate` | grounded |
 | 6 | *counter-example* — text `pool lb_acq_01 held 3*2 connections`, span `pool lbacq01 held 32 connections` | `ungrounded`; `_` inside a word and a lone `*` are text, not emphasis |
+
+### R6.21 — a step does not run for a document that holds nothing of any kind it reads
+
+R6.13 found that handing a step an empty input asks a model about a document
+nobody read. The answer is cached under a key whose input hash is the hash of
+`""`, so it is invisible in the provenance record and served again on the next
+run (R5.5). R6.13 closed that for a document an earlier step failed on. It
+stayed open for a document the *source* gave no artifact of the kind a step
+reads. A source that mixes pages and pictures -- a Confluence space, a Jira
+project with screenshots -- converts a PNG to `page_images` and never to
+`markdown` (R8.10). So a step reading `documents` was asked about every picture
+with an empty document. Every picture then had the same key, and each one after
+the first was served the first one's answer, naming the first picture.
+Playground exercise 15 found it on two images from one Apache wiki page.
+
+A step reading more than one kind runs for a document that holds any of them,
+with what it holds. The key then carries the parts, which tell two pictures
+apart.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R006_21__a_step_skips_a_document_with_nothing_it_reads.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `81920114` (a note) and `81920114/escalation-matrix.png` (page images), and `extract` reading `documents` | one call, for `81920114`; for the picture no model call, no artifact and no cache entry |
+| 2 | two pictures beside the note, and `extract` reading `documents` | neither is asked about. Before this rule both were asked with `""` under one key, and the second was served the first's answer, naming the first |
+| 3 | *counter-example* — `describe` reading `documents@page_images` | runs for the picture, and not for the note, which has no pages as pictures |
+| 4 | *counter-example* — a step reading `documents` and `documents@page_images` | runs for both: the note with its text, the picture with its pages |
+| 5 | the run's report | the picture is not a failure. Skipping is not failing (R6.13), and nothing about the picture went wrong |
+| 6 | a replay of that run | reproduces it without asking for an entry for the picture, which the run never wrote (R4.7) |
