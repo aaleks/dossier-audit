@@ -18,10 +18,12 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from dossier.domain.ports import ItemRef
+from dossier.domain.conversion import reported_media_type
+from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.domain.sync import server_zone_floor
 
 SEARCH = "/rest/api/content/search"
+CONTENT = "/rest/api/content"
 
 # What one search asks for. Confluence caps it server-side anyway; asking for a
 # page of results at a time and following `next` is what makes the listing
@@ -74,21 +76,69 @@ class ConfluenceConnector:
         if since is not None:
             cql = f"{cql} AND {_modified_since(since)}"
 
+        for page in self._results(f"{self._base}{SEARCH}", {"cql": cql, "expand": "version"}):
+            # The id, never the title: a rename would otherwise be a
+            # tombstone and a new item rather than an edit (R1.16, R2.7).
+            yield ItemRef(
+                key=str(page["id"]),
+                remote_version=_version_of(page),
+                updated_at=_when(page),
+            )
+
+    def fetch(self, key: str) -> RawItem:
+        """The payload at `key`: a file a page carries.
+
+        Returned byte for byte, as received (R1.2), and labelled with what
+        Confluence records the file as, over what the transport said while
+        sending it (R2.16).
+        """
+        page, filename = _split(key)
+        attachment = self._attachment(page, filename)
+        response = self._get(f"{self._base}{attachment['_links']['download']}")
+        return RawItem(
+            key=key,
+            payload=response.content,
+            media_type=reported_media_type(
+                (attachment.get("extensions") or {}).get("mediaType"),
+                response.headers.get("content-type"),
+            ),
+            remote_version=_file_version_of(attachment),
+        )
+
+    def attachments(self, key: str) -> Iterator[AttachmentRef]:
+        """The files page `key` carries, each with its own address and marker (R1.18)."""
+        for attachment in self._attachments_of(key):
+            yield AttachmentRef(
+                key=f"{key}/{attachment['title']}",
+                item_key=key,
+                remote_version=_file_version_of(attachment),
+            )
+
+    def _attachments_of(self, key: str) -> Iterator[dict]:
+        yield from self._results(
+            f"{self._base}{CONTENT}/{key}/child/attachment", {"expand": "version"}
+        )
+
+    def _attachment(self, key: str, filename: str | None) -> dict:
+        for attachment in self._attachments_of(key):
+            if attachment.get("title") == filename:
+                return attachment
+        raise ConfluenceRequestFailed(f"page {key} carries no file named {filename!r}")
+
+    def _results(self, url: str, params: Mapping[str, object]) -> Iterator[dict]:
+        """Every result a paged answer holds, asked for `PAGE_SIZE` at a time.
+
+        Search and a page's files page the same way: by `start` and `limit`,
+        until an answer names no `next` (R1.15, R1.18). An empty page of
+        results ends it too, so a server that always names one cannot loop.
+        """
         start = 0
         while True:
             answer = self._get(
-                f"{self._base}{SEARCH}",
-                params={"cql": cql, "start": start, "limit": PAGE_SIZE, "expand": "version"},
+                url, params={**params, "start": start, "limit": PAGE_SIZE}
             ).json()
             results = answer.get("results") or []
-            for page in results:
-                # The id, never the title: a rename would otherwise be a
-                # tombstone and a new item rather than an edit (R1.16, R2.7).
-                yield ItemRef(
-                    key=str(page["id"]),
-                    remote_version=_version_of(page),
-                    updated_at=_when(page),
-                )
+            yield from results
 
             start += len(results)
             if not results or "next" not in (answer.get("_links") or {}):
@@ -104,7 +154,10 @@ class ConfluenceConnector:
             transport=self._transport,
         ) as http:
             try:
-                response = http.get(url, params=dict(params or {}))
+                # `None` rather than `{}` when there are none: httpx replaces a
+                # URL's own query with `params`, and a file's download link
+                # carries the version it names in its query (R1.18).
+                response = http.get(url, params=dict(params) if params else None)
             except httpx.HTTPError as error:
                 raise ConfluenceRequestFailed(f"GET {url} failed: {error}") from None
 
@@ -123,6 +176,23 @@ def _version_of(page: Mapping[str, Any]) -> str | None:
     """
     number = (page.get("version") or {}).get("number")
     return f"v{number}" if number is not None else None
+
+
+def _file_version_of(attachment: Mapping[str, Any]) -> str | None:
+    """A file's marker: its attachment id and version, `81920301:v2` (R1.18).
+
+    Both, because each alone misses a case. Uploading again under the same name
+    keeps the id and raises the version; deleting and uploading again makes a
+    new id and starts the version at 1 again.
+    """
+    number = (attachment.get("version") or {}).get("number")
+    return f"{attachment['id']}:v{number}" if number is not None else None
+
+
+def _split(key: str) -> tuple[str, str | None]:
+    """`81920114/escalation-matrix.png` as its page and its filename; a page id as itself."""
+    page, separator, filename = key.partition("/")
+    return page, filename if separator else None
 
 
 def _when(page: Mapping[str, Any]) -> datetime | None:
