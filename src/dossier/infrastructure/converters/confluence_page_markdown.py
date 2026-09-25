@@ -23,10 +23,10 @@ text a span is searched in, not markdown for a renderer (R8.20).
 from __future__ import annotations
 
 from collections.abc import Mapping
-from urllib.parse import unquote, urlsplit
 
 from dossier.domain.confluence_page import note
 from dossier.domain.conversion import CONFLUENCE_PAGE
+from dossier.infrastructure.converters import _html
 
 # What a reader of the page never sees, taken out before anything is written.
 UNSEEN = "div.toc-macro, style, script"
@@ -59,31 +59,10 @@ class ConfluencePageMarkdownConverter:
 
 def markdown(html: str) -> str:
     """A page's rendered body as markdown, unescaped, without what a reader does not see."""
-    from bs4 import BeautifulSoup
-
-    tree = BeautifulSoup(html, "html.parser")
-    for unseen in tree.select(UNSEEN):
-        unseen.decompose()
-    return _writer()(
-        heading_style="atx",
-        bullets="-",
-        escape_asterisks=False,
-        escape_underscores=False,
-        escape_misc=False,
-    ).convert_soup(tree)
+    return _html.markdown(html, unseen=UNSEEN, image=_named)
 
 
-def _writer():
-    """markdownify's converter, writing an image as the name of its file (R8.20 row 4).
-
-    Built on first use so that importing this module does not import the
-    library, as the other converters defer theirs.
-    """
-    from markdownify import MarkdownConverter
-
-    class Writer(MarkdownConverter):
-        def convert_img(self, el, text, parent_tags):
-            name = unquote(urlsplit(el.get("src") or "").path.rsplit("/", 1)[-1])
-            return f"![{name}]({name})" if name else ""
-
-    return Writer
+def _named(attributes: Mapping[str, str]) -> str:
+    """An image as the name of its file (R8.20 row 4). The file is its own document."""
+    name = _html.file_name(attributes.get("src", ""))
+    return f"![{name}]({name})" if name else ""
