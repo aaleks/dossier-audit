@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -185,6 +186,27 @@ class ConfluenceConnector:
             )
         return response
 
+    @classmethod
+    def from_config(
+        cls, config, *, workspace: Path, credential: object | None = None
+    ) -> ConfluenceConnector:
+        """Build from a `sources.yaml` entry (the entry-point contract).
+
+        The credential arrives as an argument, resolved by `dossier.config`, the
+        only package that reads the environment (R1.8).
+        """
+        url = config.options.get("url")
+        query = config.options.get("query")
+        if not url or not query:
+            # Loading has already refused a confluence source missing either
+            # (R1.10). Checked again because a connector is built from whatever
+            # config it is handed, and one built by hand never went through the
+            # loader.
+            raise ValueError(
+                f"source {config.id!r} has type 'confluence' and needs both `url` and `query`."
+            )
+        return cls(base_url=url, query=query)
+
 
 def _version_of(page: Mapping[str, Any]) -> str | None:
     """A page's marker: Confluence's version number, written `v37` (R1.16).
@@ -231,3 +253,9 @@ def _when(page: Mapping[str, Any]) -> datetime | None:
 def _modified_since(since: datetime) -> str:
     """The CQL clause narrowing a search, from the floor the domain sets (R1.4)."""
     return f'lastmodified >= "{server_zone_floor(since).strftime("%Y-%m-%d %H:%M")}"'
+
+
+# The entry point resolves to `ConfluenceConnector.from_config`, and a bound
+# method reads its attributes from the function beneath it, so this is where the
+# registry finds the declaration (R1.10), as it does for Jira.
+ConfluenceConnector.from_config.__func__.keys = ConfluenceKeys

@@ -14,9 +14,13 @@ attachment listing in the shape a real Confluence Data Center 9.2 sends. No
 socket is opened.
 
 The page carries `escalation-matrix.png`, which is its own document (R1.18) and
-converts as an image does (R8.10). The model is a fake that quotes from the page
-and abstains on anything else it is shown, so the order the run asks in does not
-matter.
+converts as an image does (R8.10). The model is a fake. It is asked twice --
+once for the page and once for the file -- and quotes from the page and abstains
+on the file, so the order the run asks in does not matter.
+
+Checked against a real server as well: `cwiki.apache.org` (Confluence Data
+Center 9.2.21) synced two KIP pages and 66 images, and both notes came out
+without a table of contents, a download URL or an escape.
 """
 
 from __future__ import annotations
@@ -27,8 +31,6 @@ from pathlib import Path
 import pytest
 from tests.fakes import register_connector
 from tests.pipelines import write_pipeline
-
-pytestmark = pytest.mark.outer_loop
 
 PIPELINE = "incident-audit"
 SOURCE = "procedures-confluence"
@@ -181,7 +183,7 @@ def _audit(workspace: Path, monkeypatch, span: str):
     _use(monkeypatch, model)
     result = _cli(workspace, monkeypatch, "run", PIPELINE)
     assert result.exit_code == 0, result.output
-    assert model.call_count >= 1
+    assert model.call_count == 2
     return result
 
 

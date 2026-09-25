@@ -93,6 +93,7 @@ dossier = "dossier.infrastructure.tracking.auth:DossierAuthProvider"
 [project.entry-points."dossier.connectors"]
 folder = "dossier.infrastructure.connectors.folder:FolderConnector.from_config"
 jira = "dossier.infrastructure.connectors.jira:JiraConnector.from_config"
+confluence = "dossier.infrastructure.connectors.confluence:ConfluenceConnector.from_config"
 
 # A converter is a package declaring one of these (R8.7). The one shipped here
 # registers through the same group a third party would use, with no special case.
