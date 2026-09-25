@@ -82,7 +82,13 @@ class ConfluenceConnector:
             ).json()
             results = answer.get("results") or []
             for page in results:
-                yield ItemRef(key=str(page["id"]), remote_version=None, updated_at=None)
+                # The id, never the title: a rename would otherwise be a
+                # tombstone and a new item rather than an edit (R1.16, R2.7).
+                yield ItemRef(
+                    key=str(page["id"]),
+                    remote_version=_version_of(page),
+                    updated_at=_when(page),
+                )
 
             start += len(results)
             if not results or "next" not in (answer.get("_links") or {}):
@@ -107,6 +113,31 @@ class ConfluenceConnector:
                 f"GET {url} answered {response.status_code} {response.reason_phrase}"
             )
         return response
+
+
+def _version_of(page: Mapping[str, Any]) -> str | None:
+    """A page's marker: Confluence's version number, written `v37` (R1.16).
+
+    `None` when the answer carries no number, never a fetch time: a made-up
+    marker makes R2.1 skip a page that did change (R1.5).
+    """
+    number = (page.get("version") or {}).get("number")
+    return f"v{number}" if number is not None else None
+
+
+def _when(page: Mapping[str, Any]) -> datetime | None:
+    """When the page's version was written, or `None` if that is unreadable.
+
+    Advisory, as a Jira issue's `updated` is: an unparsed string is better
+    reported as absent than as a time nobody can vouch for.
+    """
+    when = (page.get("version") or {}).get("when")
+    if not when:
+        return None
+    try:
+        return datetime.fromisoformat(str(when).replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def _modified_since(since: datetime) -> str:

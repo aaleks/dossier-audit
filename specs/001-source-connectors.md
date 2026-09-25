@@ -504,7 +504,7 @@ writes it in a page's history, and no marker is made up for a page without one
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`)
 - **Proved by:** `tests/unit/test_R001_16__a_confluence_page_is_keyed_by_its_id.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
