@@ -15,10 +15,11 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from dossier.domain.confluence import export_version
 from dossier.domain.conversion import CONFLUENCE_PAGE, reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.domain.sync import server_zone_floor
@@ -30,6 +31,16 @@ CONTENT = "/rest/api/content"
 # what the note is headed with (R1.17, R8.19). `export_view` rather than
 # `storage`, whose macros only Confluence knows how to draw.
 PAGE_EXPAND = "body.export_view,version,space"
+
+# The PDF export (R1.19). A user-interface action, not a REST route: Confluence
+# runs it only for a request carrying `EXPORT_HEADERS`, answers with a redirect
+# to a file under `/download/export/`, and serves that file to the session that
+# asked for it. A page's export is keyed `<page id>.pdf`.
+EXPORT = "/spaces/flyingpdf/pdfpageexport.action"
+EXPORT_HEADERS = {"X-Atlassian-Token": "no-check", "Accept": "application/pdf"}
+EXPORT_SUFFIX = ".pdf"
+
+Export = Literal["pdf"]
 
 # What one search asks for. Confluence caps it server-side anyway; asking for a
 # page of results at a time and following `next` is what makes the listing
@@ -56,19 +67,31 @@ class ConfluenceKeys(BaseModel):
 
     url: str
     query: str
+    export: Export | None = None
 
 
 class ConfluenceConnector:
-    """Pages matching a CQL query."""
+    """Pages matching a CQL query, the files they carry, and their PDF exports if asked."""
 
     # `since` becomes a CQL clause, so a windowed listing omits every unchanged
     # page, and subtracting from one would tombstone most of the space (R1.11).
     lists_everything = False
 
-    def __init__(self, *, base_url: str, query: str, transport: Any | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        query: str,
+        export: Export | None = None,
+        transport: Any | None = None,
+    ) -> None:
         self._base = base_url.rstrip("/")
         self._query = query
+        self._export = export
         self._transport = transport
+        # Each listed page's marker, kept so that an export's marker does not
+        # cost a request for a version the listing already said (R1.19).
+        self._versions: dict[str, str | None] = {}
 
     def list(self, since: datetime | None = None) -> Iterator[ItemRef]:
         """Every page the query matches, a page of results at a time (R1.15).
@@ -85,11 +108,9 @@ class ConfluenceConnector:
         for page in self._results(f"{self._base}{SEARCH}", {"cql": cql, "expand": "version"}):
             # The id, never the title: a rename would otherwise be a
             # tombstone and a new item rather than an edit (R1.16, R2.7).
-            yield ItemRef(
-                key=str(page["id"]),
-                remote_version=_version_of(page),
-                updated_at=_when(page),
-            )
+            key = str(page["id"])
+            self._versions[key] = _version_of(page)
+            yield ItemRef(key=key, remote_version=self._versions[key], updated_at=_when(page))
 
     def fetch(self, key: str) -> RawItem:
         """The payload at `key`: a page, or a file one of them carries.
@@ -100,6 +121,10 @@ class ConfluenceConnector:
         labelled with what Confluence records it as, over what the transport
         said while sending it (R2.16).
         """
+        exported = _exported(key)
+        if exported is not None:
+            return self._exported(key, exported)
+
         page, filename = _split(key)
         if filename is None:
             response = self._get(
@@ -125,13 +150,68 @@ class ConfluenceConnector:
         )
 
     def attachments(self, key: str) -> Iterator[AttachmentRef]:
-        """The files page `key` carries, each with its own address and marker (R1.18)."""
-        for attachment in self._attachments_of(key):
-            yield AttachmentRef(
+        """The files page `key` carries, each with its own address and marker (R1.18).
+
+        With `export: pdf`, its PDF export as well, keyed `<page id>.pdf`
+        (R1.19). It is carried by the page as a file is, so it is tombstoned
+        with the page, and when `export:` is taken away (R2.6 row 3).
+        """
+        files = [
+            AttachmentRef(
                 key=f"{key}/{attachment['title']}",
                 item_key=key,
                 remote_version=_file_version_of(attachment),
             )
+            for attachment in self._attachments_of(key)
+        ]
+        yield from files
+        if self._export == "pdf":
+            yield AttachmentRef(
+                key=f"{key}{EXPORT_SUFFIX}",
+                item_key=key,
+                remote_version=export_version(
+                    self._version(key), [ref.remote_version for ref in files]
+                ),
+            )
+
+    def _exported(self, key: str, page: str) -> RawItem:
+        """Page `page` as the PDF Confluence exports it (R1.19).
+
+        One client for both requests: the action sets the session cookie that
+        the file it redirects to is served under.
+        """
+        import httpx
+
+        url = f"{self._base}{EXPORT}"
+        with httpx.Client(
+            headers=EXPORT_HEADERS,
+            timeout=TIMEOUT_SECONDS,
+            transport=self._transport,
+            follow_redirects=True,
+        ) as http:
+            try:
+                response = http.get(url, params={"pageId": page})
+            except httpx.HTTPError as error:
+                raise ConfluenceRequestFailed(f"GET {url} failed: {error}") from None
+
+        if not response.is_success:
+            raise ConfluenceRequestFailed(
+                f"GET {url}?pageId={page} answered {response.status_code} "
+                f"{response.reason_phrase}"
+            )
+        return RawItem(
+            key=key,
+            payload=response.content,
+            media_type=reported_media_type(None, response.headers.get("content-type")),
+            remote_version=None,
+        )
+
+    def _version(self, key: str) -> str | None:
+        """Page `key`'s marker: the one its listing said, or asked for if it was not listed."""
+        if key not in self._versions:
+            answer = self._get(f"{self._base}{CONTENT}/{key}", params={"expand": "version"})
+            self._versions[key] = _version_of(answer.json())
+        return self._versions[key]
 
     def _attachments_of(self, key: str) -> Iterator[dict]:
         yield from self._results(
@@ -205,7 +285,7 @@ class ConfluenceConnector:
             raise ValueError(
                 f"source {config.id!r} has type 'confluence' and needs both `url` and `query`."
             )
-        return cls(base_url=url, query=query)
+        return cls(base_url=url, query=query, export=config.options.get("export"))
 
 
 def _version_of(page: Mapping[str, Any]) -> str | None:
@@ -227,6 +307,17 @@ def _file_version_of(attachment: Mapping[str, Any]) -> str | None:
     """
     number = (attachment.get("version") or {}).get("number")
     return f"{attachment['id']}:v{number}" if number is not None else None
+
+
+def _exported(key: str) -> str | None:
+    """The page whose PDF export `key` addresses, or `None` if it addresses something else.
+
+    A page's key is its id and a file's is `<page id>/<filename>`, so
+    `81920114.pdf` can only be the export.
+    """
+    if "/" not in key and key.endswith(EXPORT_SUFFIX):
+        return key.removesuffix(EXPORT_SUFFIX)
+    return None
 
 
 def _split(key: str) -> tuple[str, str | None]:
