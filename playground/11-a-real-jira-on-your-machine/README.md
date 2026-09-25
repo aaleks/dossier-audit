@@ -135,7 +135,9 @@ reported by name rather than as a 401 (R1.8 row 6, R9.11 row 4).
 ```
 
 It creates project `PLAY` and four issues from `corpus/incidents/`, the same
-notes exercise 01 synced from a folder. **Only `PLAY-1` carries a file.**
+notes exercise 01 synced from a folder. Each note's text becomes an issue's
+description, written as Jira wiki markup, because a description is wiki markup.
+**Only `PLAY-1` carries a file**, and that file is the note exactly as written.
 
 The seed script writes. `dossier` does not, and that separation is deliberate —
 put the two side by side and notice that the tool doing the auditing has no verb
@@ -290,13 +292,13 @@ three things against the snapshot you read in task 4:
   and `customfield_`, then search the note for the same strings: neither is
   there (R8.16). Forty kilobytes of that in `{{documents}}` would be forty
   kilobytes a model could find a plausible quote in.
-- Look at the first three lines under `## Description`. The seed wrote
-  `**Severity:** major`, and the note says `***Severity:*** major`. Jira's REST
-  API version 2 returns a description as wiki markup, and `jira-issue-markdown`
-  reads it as wiki markup and writes markdown (R8.17). `seed_jira.py` posted
-  markdown. The converter trusted what the source says the format is, as task 4
-  trusted what the source says the media type is, and here the text was never
-  in that format.
+- The description was read as wiki markup and written as markdown. In the
+  snapshot it is `*Severity:* major`, `h2. Timeline` and `* 2026-03-02 …`. That
+  is how Jira holds a description, and `seed_jira.py` converted each corpus note
+  to it when it seeded the issue (`wiki_markup`). In the note it is
+  `**Severity:** major`, `## Timeline` and `- 2026-03-02 …`: the corpus note's
+  own markdown, back again (R8.17). The summary and the fields are not markup,
+  so they are written as typed.
 
 Then read the first proposal in `resources/proposal.md`. It was written when
 every issue here was refused as `application/json`. It was accepted in a
@@ -314,35 +316,21 @@ survived.
 
 ## Task 8 — a note of your own
 
-Start the stub model, and run the audit on the shipped note first:
+The shipped note is one answer to **which fields are the document**, and the
+answer belongs to the workspace, not to `dossier`. This workspace's incidents
+carry labels, and the note leaves them out. Suppose a label is something an
+auditor here should read.
 
-```bash
-.venv/bin/python playground/toolkit/stub_model.py \
-    --replies playground/11-a-real-jira-on-your-machine/resources/replies.json \
-    --port 8099 --log /tmp/dossier-calls.jsonl
-
-dossier run jira-audit
-```
-
-**Checkpoint.** `extract: 4 document(s) · 0 from cache · 0 failed · 9
-finding(s)`, and every finding is `span not found`, for `resolution_date`,
-`severity` or `affected_systems` on an issue. The stub quotes
-`**Severity:** major`, which is what the seed wrote, but the note says
-`***Severity:*** major`. The attachment has no findings, because
-`markdown-text` read its markdown as markdown. `loss_amount` has none either: a
-sentence with no markup in it reads the same either way.
-
-Now write a converter package of your own. It claims the same pair,
+Write a converter package of your own. It claims the same pair,
 `(application/vnd.dossier.jira-issue+json, markdown)`, the way exercise 03's
 package claims HTML. It needs `id`, `version`, `media_type`, `kind` and a
 `convert` that is a pure function of its payload — no clock, no environment, no
-network (R8.1). Decide two things:
-
-- **Which fields are the document.** Add one the shipped note leaves out, such
-  as the labels (the field `seed_jira.py touch` changed in task 5). Keep leaving
-  out the avatars and the permission ids.
-- **How the description is read.** Reading it as wiki markup is right for a Jira
-  that people type into. This one was written by a script, in markdown.
+network (R8.1). Put in a field the shipped note leaves out, such as the labels
+(the field `seed_jira.py touch` changed in task 5), and keep leaving out the
+avatars and the permission ids. The description and comments are wiki markup.
+Read them with the library the shipped converter uses, `jira2markdown`, pinned
+to the same release. What a library writes goes into the artifact, so moving
+the pin is a new version of your converter (R5.4).
 
 Give it an id of its own. `dossier` tells two claims apart by id and version,
 and a converter calling itself `jira-issue-markdown` at `1.0.0` would be taken
@@ -379,9 +367,9 @@ Convert again.
 
 **Checkpoint.** `4 held · 3 converted · 1 cached`. The three issues are new
 artifacts, under a new converter's key. The attachment's converter did not
-change, so its key did not change either. Read `PLAY-1`'s note again: it now has
-a `**Labels:**` line holding the label task 5 added, and `**Severity:** major`
-as the seed wrote it. Then misspell the name once (`play-jira-issue-markdwn`).
+change, so its key did not change either. Read `PLAY-1`'s note again. It now
+has a `**Labels:**` line holding the label task 5 added, and otherwise it
+matches the shipped note. Then misspell the name once (`play-jira-issue-markdwn`).
 It is refused before anything converts, and the message names the converters
 that are installed (R8.13 row 4). A name that matches nothing would otherwise
 be no choice at all.
@@ -391,15 +379,21 @@ opt-in converter answers only where a workspace names it, so installing it
 changes nothing anywhere else (R8.13). Write down what that would have saved
 you, and what it would cost someone who installed it and expected it to answer.
 
+Then start the stub model and run the audit:
+
 ```bash
+.venv/bin/python playground/toolkit/stub_model.py \
+    --replies playground/11-a-real-jira-on-your-machine/resources/replies.json \
+    --port 8099 --log /tmp/dossier-calls.jsonl
+
 dossier run jira-audit
 dossier run jira-audit          # again
 ```
 
-**Checkpoint.** `extract: 4 document(s) · 1 from cache · 0 failed`, with no
-findings. The second run gives `4 from cache`, and the call log does not grow
-(R5.5). The one from cache is the attachment: its artifact did not move, so its
-stage key did not. Open the run's `manifest.json`. It pins
+**Checkpoint.** `extract: 4 document(s) · 0 from cache · 0 failed`, with no
+findings: every span the stub quotes is in the note it names (R6.4). The second
+run gives `4 from cache`, and the call log does not grow (R5.5). Open the run's
+`manifest.json`. It pins
 `play-jira-issue-markdown` and `markdown-text`, but not `jira-issue-markdown`,
 which is installed and answered nothing (R8.9).
 

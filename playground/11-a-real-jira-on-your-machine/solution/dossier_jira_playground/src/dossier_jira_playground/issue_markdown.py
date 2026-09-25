@@ -14,26 +14,26 @@ is a decision:
   they are a line of their own, sorted: a label set has no order Jira means
   anything by, so the note does not change when the same labels arrive in a
   different order (R0.4).
-* **The description is written as Jira holds it.** The shipped converter reads
-  it as Jira wiki markup (R8.17), which is what a person typing into Jira
-  writes. Every description in this Jira was posted by `seed_jira.py`, in
-  markdown, and read as wiki markup `**Severity:** major` comes out
-  `***Severity:*** major` -- a sentence the stub's reply file does not quote.
-  That is true of this instance and of no other: on a Jira people type into,
-  the shipped reading is the right one.
 * **Less of a comment.** Its author, not the time beside it, and nothing said
   when the payload holds fewer comments than it counts (R8.18). The seeded
   issues have no comments; a Jira whose threads matter wants the shipped note.
 
 What it decides the same way:
 
-* **Which fields are the document.** A Jira issue payload is mostly machinery:
-  avatars, permission ids, a `self` URL per nested object, custom fields by the
-  hundred. The document is the summary, the description, and the handful of
-  fields a person reading the incident would want. Everything else is dropped --
-  and dropping it is not tidying, it is what makes a span searchable:
-  `{{documents}}` carrying forty kilobytes of avatar URLs is forty kilobytes a
-  model can ground a fabricated quote in.
+* **Which fields are the document**, apart from the labels. A Jira issue payload
+  is mostly machinery: avatars, permission ids, a `self` URL per nested object,
+  custom fields by the hundred. The document is the summary, the description,
+  and the handful of fields a person reading the incident would want.
+  Everything else is dropped -- and dropping it is not tidying, it is what
+  makes a span searchable: `{{documents}}` carrying forty kilobytes of avatar
+  URLs is forty kilobytes a model can ground a fabricated quote in.
+* **The description and comments are wiki markup.** That is what Jira's REST
+  API version 2 answers them as, and what `seed_jira.py` writes. They are read
+  with the library the shipped converter uses, the same two ways (R8.17): no
+  backslash escapes, since a model quotes `3*2` and not `3\\*2`, and `\\r\\n` as
+  `\\n`. The library is pinned exactly in `pyproject.toml`, because what it
+  writes is inside the artifact and the convert key names this converter's
+  version, not the library's: moving the pin is a new `version` here (R5.4).
 * **A fixed order.** Written in the order below on every machine, never in the
   order the JSON happened to arrive in. Two runs over the same issue must
   produce the same bytes or the convert key means nothing (R8.1, R0.4).
@@ -50,6 +50,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+
+from jira2markdown import convert as _jira2markdown
+from jira2markdown.elements import MarkupElements
+from jira2markdown.markup.text_effects import EscSpecialChars
 
 # The type the Jira connector reports an issue as (R1.14). Spelled out rather
 # than imported from `dossier`: a package claiming a pair from outside names it
@@ -140,8 +144,7 @@ class JiraIssueMarkdownConverter:
 
         description = str(fields.get("description") or "").strip()
         if description:
-            # As held, not read as wiki markup: see the module docstring.
-            lines += ["", "## Description", "", description]
+            lines += ["", "## Description", "", _markdown(description)]
 
         comments = _comments(fields)
         if comments:
@@ -150,6 +153,17 @@ class JiraIssueMarkdownConverter:
                 lines += [f"**{author}**", "", body, ""]
 
         return ("\n".join(lines).rstrip() + "\n").encode("utf-8")
+
+
+def _markdown(markup: str) -> str:
+    """Jira wiki markup as markdown, unescaped and with `\n` line endings.
+
+    The summary and the fields are not passed through here: Jira shows them as
+    typed and never renders them, so neither does the note.
+    """
+    elements = MarkupElements()
+    elements.remove(EscSpecialChars)
+    return _jira2markdown(markup.replace("\r\n", "\n"), elements=elements).strip()
 
 
 def _heading(key: str, summary: str) -> str:
@@ -215,5 +229,5 @@ def _comments(fields: Mapping[str, object]) -> list[tuple[str, str]]:
             name = str(author.get("displayName") or author.get("name") or "").strip()
         body = str(comment.get("body") or "").strip()
         if body:
-            found.append((name or "(unknown)", body))
+            found.append((name or "(unknown)", _markdown(body)))
     return found

@@ -9,7 +9,7 @@ deliberately outside the tool, in the playground where it belongs.
     seed_jira.py wait                 block until Jira answers RUNNING
     seed_jira.py seed                 create the project and four incidents
     seed_jira.py show PLAY-1          print the issue JSON, as dossier will hold it
-    seed_jira.py touch PLAY-1         add a label: `updated` moves, the projection does not
+    seed_jira.py touch PLAY-1         add a label: `updated` moves, the description does not
     seed_jira.py edit PLAY-1          change the description: both move
     seed_jira.py replace-file PLAY-1  new bytes behind the same filename
     seed_jira.py delete PLAY-4        remove the issue entirely
@@ -22,8 +22,10 @@ you write for `dossier` is the one this script reads:
     DOSSIER_JIRA_URL=http://localhost:8080      (optional; this is the default)
 
 The four incidents are `playground/corpus/incidents/PLAY-100*.md`, the same
-notes exercise 01 synced from a folder -- so the only thing that changed between
-that exercise and this one is where they came from.
+notes exercise 01 synced from a folder -- so what changed between that exercise
+and this one is where they came from, and one thing that follows from it: an
+issue's description is Jira wiki markup, so each note's markdown is written as
+wiki markup when it becomes one (`wiki_markup` below).
 
 Jira assigns its own keys. A project keyed `PLAY` numbers its issues `PLAY-1`,
 `PLAY-2`, ... and there is no REST route that would let this script ask for
@@ -39,6 +41,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -147,24 +150,68 @@ def wait(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------
 # seeding
 
+# The markdown the corpus notes use, and nothing more: a `##` heading, `**strong**`,
+# and a `- ` list whose items wrap onto indented lines.
+HEADING = re.compile(r"^(#{1,6}) (\S.*)$")
+STRONG = re.compile(r"\*\*(\S(?:[^*\n]*\S)?)\*\*")
+BULLET = "- "
+CONTINUATION = "  "
+
+
+def wiki_markup(markdown: str) -> str:
+    """A corpus note's markdown as Jira wiki markup, which is what a description is.
+
+    Jira's REST API version 2 stores a description as wiki markup and returns it
+    as such, and `dossier` reads it that way (R8.17). Posting the note's markdown
+    as it stands would seed a Jira holding text in a format no Jira description
+    has: `**Severity:**` would be read as emphasis wrapped in stars and come back
+    `***Severity:***`, and `## Impact` is not a heading in wiki markup at all. So
+    each construct the notes use is written as its wiki markup -- `h2. Impact`,
+    `*Severity:*`, `* item` -- and a list item's indented continuation joins the
+    item, since a wiki-markup list item is one line. Everything else, including
+    where a paragraph's lines break, is left as written. Read back through
+    `jira2markdown`, as `dossier` reads it, each description is its note again,
+    byte for byte, but for those joined lines.
+
+    Written out rather than taken from a library. mistletoe (MIT, pure Python)
+    ships a Jira renderer in `mistletoe.contrib`, but it escapes every hyphen --
+    `checkout\\-api` -- and runs the three field lines into one paragraph, and the
+    playground's tooling installs nothing but httpx.
+    """
+    lines: list[str] = []
+    for line in markdown.splitlines():
+        line = STRONG.sub(r"*\1*", line)
+        heading = HEADING.match(line)
+        if heading:
+            lines.append(f"h{len(heading[1])}. {heading[2]}")
+        elif line.startswith(BULLET):
+            lines.append(f"* {line[len(BULLET) :]}")
+        elif line.startswith(CONTINUATION) and lines and lines[-1].startswith("* "):
+            lines[-1] = f"{lines[-1]} {line.strip()}"
+        else:
+            lines.append(line)
+    return "\n".join(lines)
+
 
 def incidents() -> list[tuple[str, str, str]]:
     """Each corpus note as (summary, description, whole note), in key order.
 
     The first line is `# PLAY-1001 -- Checkout timeouts after ...`; the summary
-    is the half after the dash, and the description is everything below it. The
-    third value is the file as written, heading and all -- what gets attached,
-    so that the attachment is the note and not a second copy of the description.
-    That difference is deliberate: the issue and its file are separate documents
-    (R1.6), and two documents whose text was identical would make it impossible
-    to tell which one a span was grounded in.
+    is the half after the dash, and the description is everything below it,
+    written as wiki markup. The third value is the file as written, heading and
+    all -- what gets attached, so that the attachment is the note and not a
+    second copy of the description. That difference is deliberate: the issue and
+    its file are separate documents (R1.6), and two documents whose text was
+    identical would make it impossible to tell which one a span was grounded in.
     """
     found = []
     for path in sorted(CORPUS.glob("PLAY-100*.md")):
         text = path.read_text(encoding="utf-8")
         heading, _, body = text.partition("\n")
         _, _, title = heading.lstrip("# ").partition(EM_DASH)
-        found.append((title.strip() or heading.lstrip("# ").strip(), body.strip(), text))
+        found.append(
+            (title.strip() or heading.lstrip("# ").strip(), wiki_markup(body.strip()), text)
+        )
     if not found:
         raise SeedFailed(f"no incident notes under {CORPUS}")
     return found
@@ -299,12 +346,12 @@ def show(args: argparse.Namespace) -> int:
 
 
 def touch(args: argparse.Namespace) -> int:
-    """Add a label: `updated` moves, and nothing in the `fields:` projection does.
+    """Add a label: `updated` moves, and the summary and description do not.
 
     This is the pair of facts task 5 is about. The version marker moving is what
-    makes sync re-fetch the issue (R2.1); the projection not moving is what makes
-    it keep the snapshot it already had, because the content hash is taken over
-    the projection while the raw payload is what gets stored (R2.10, R2.17).
+    makes sync re-fetch the issue (R2.1). The label and `updated` both sit under
+    `fields`, which `fields: [key, fields]` projects whole, so the content hash
+    moves too and a new snapshot is written for an issue nobody edited (R2.10).
     """
     with client(args) as http:
         call(
@@ -319,7 +366,9 @@ def touch(args: argparse.Namespace) -> int:
 
 def edit(args: argparse.Namespace) -> int:
     """Change the description: the version marker and the projection both move."""
-    addition = "\n\n## Correction\n\nFinance restated the recorded loss after reconciliation."
+    addition = "\n\n" + wiki_markup(
+        "## Correction\n\nFinance restated the recorded loss after reconciliation."
+    )
     with client(args) as http:
         current = call(http, "GET", f"/rest/api/2/issue/{args.key}").json()
         description = (current.get("fields", {}).get("description") or "").rstrip()

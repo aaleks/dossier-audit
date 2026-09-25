@@ -163,6 +163,13 @@ values in `resources/replies.json` need renumbering to match. Nothing about this
 is `dossier`'s doing — the key belongs to the source, which is the first real
 difference from a folder, where the key was a filename you chose.
 
+The description is not the note's markdown. `wiki_markup` writes the constructs
+the notes use as Jira wiki markup: `h2. Impact`, `*Severity:*`, and `* item`
+with its wrapped lines joined. Jira holds a description in that form, and
+`dossier` reads it that way (R8.17). Posted as markdown, `**Severity:** major`
+would be read as emphasis wrapped in stars and come back `***Severity:***
+major`. Task 7 shows the note coming back as markdown.
+
 `issue_type` is asked rather than assumed:
 
 ```python
@@ -401,8 +408,8 @@ every JSON document any source ever holds, whether a webhook body, a
 configuration export or a Confluence page, and read each one as though Jira had
 written it. `jira-issue-markdown` claims the Jira type and nothing else. Spec
 008 says it ships with the connector "because a connector whose documents
-nothing reads is half a source". The attachment is still labelled by what Jira says it is
-(R2.16), and `markdown-text` converts it.
+nothing reads is half a source". The attachment is still labelled by what Jira
+says it is (R2.16), and `markdown-text` converts it.
 
 Which artifact is `PLAY-1`'s? A `.meta.json` names the snapshot an artifact was
 made from, and the ledger's `snapshot_path` ends in the snapshot's address:
@@ -417,9 +424,9 @@ for meta in sorted(pathlib.Path(".dossier/cache/convert").rglob("*.meta.json")):
     print(f"{held[m['snapshot']]:22} {m['converter_id']:20} {meta.as_posix()[:-len('.meta.json')]}")
 PY
 PLAY-1/postmortem.md   markdown-text        .dossier/cache/convert/11/2b/112b55ff…
-PLAY-2                 jira-issue-markdown  .dossier/cache/convert/6f/f6/6ff68e57…
-PLAY-1                 jira-issue-markdown  .dossier/cache/convert/85/fc/85fc100b…
-PLAY-3                 jira-issue-markdown  .dossier/cache/convert/e2/87/e28752a1…
+PLAY-1                 jira-issue-markdown  .dossier/cache/convert/16/4c/164c01f2…
+PLAY-2                 jira-issue-markdown  .dossier/cache/convert/23/ba/23ba6114…
+PLAY-3                 jira-issue-markdown  .dossier/cache/convert/29/51/2951ff22…
 ```
 
 The ledger's `content_hash` would not work here. For an issue it is the hash of
@@ -428,7 +435,7 @@ snapshot (R2.17). For a folder source the two are the same, which is why
 exercise 03's version of this script could use it.
 
 ```console
-$ cat .dossier/cache/convert/85/fc/85fc100b…
+$ cat .dossier/cache/convert/16/4c/164c01f2…
 # PLAY-1 — Checkout timeouts after the payment gateway upgrade
 
 **Status:** Open
@@ -440,14 +447,13 @@ $ cat .dossier/cache/convert/85/fc/85fc100b…
 
 ## Description
 
-***Severity:*** major
-***Resolved:*** 2026-03-04
-***Systems affected:*** checkout-api, payments-gateway
+**Severity:** major
+**Resolved:** 2026-03-04
+**Systems affected:** checkout-api, payments-gateway
 
 ## Timeline
 
-- 2026-03-02 09:14 UTC — checkout starts returning 504s on about one request in
-    five. The on-call engineer is paged by the synthetic checkout probe.
+- 2026-03-02 09:14 UTC — checkout starts returning 504s on about one request in five. The on-call engineer is paged by the synthetic checkout probe.
 …
 
 ## Impact
@@ -477,7 +483,7 @@ The three checks:
 - **No machinery reached the note.**
 
   ```console
-  $ for w in avatarUrls customfield_; do echo "$w  snapshot $(grep -o $w .dossier/snapshots/9a/68/9a689738… | wc -l)  note $(grep -o $w .dossier/cache/convert/85/fc/85fc100b… | wc -l)"; done
+  $ for w in avatarUrls customfield_; do echo "$w  snapshot $(grep -o $w .dossier/snapshots/5f/00/5f0083a4… | wc -l)  note $(grep -o $w .dossier/cache/convert/16/4c/164c01f2… | wc -l)"; done
   avatarUrls  snapshot 5  note 0
   customfield_  snapshot 93  note 0
   ```
@@ -485,15 +491,27 @@ The three checks:
   A 9 KB payload became a 1.5 KB note. The played payload is a Jira Server
   issue with 93 custom fields. How many yours has depends on your instance, and
   the note holds none of them either way.
-- **The description was read as wiki markup.** The seed posted
-  `**Severity:** major` and the note says `***Severity:*** major`. REST API
-  version 2 returns a description as wiki markup on both Cloud and Data Center,
-  and `jira-issue-markdown` hands it to `jira2markdown` (R8.17). Read as wiki
-  markup, where `*…*` is bold, `**Severity:**` comes out `***Severity:***`. The
-  lists are re-indented too, which costs nothing, because grounding normalises
-  whitespace (R6.4). The stars do cost something, as the next task shows. This
-  converter is right for a Jira that people type into. The source's descriptions
-  were written by `seed_jira.py`, which posted markdown, not wiki markup.
+- **The description was read as wiki markup and written as markdown.** The
+  snapshot holds what `seed_jira.py` posted:
+
+  ```console
+  $ python -c "import json; print(*json.load(open('.dossier/snapshots/5f/00/5f0083a4…', encoding='utf-8'))['fields']['description'].splitlines()[:7], sep='\n')"
+  *Severity:* major
+  *Resolved:* 2026-03-04
+  *Systems affected:* checkout-api, payments-gateway
+
+  h2. Timeline
+
+  * 2026-03-02 09:14 UTC — checkout starts returning 504s on about one request in five. The on-call engineer is paged by the synthetic checkout probe.
+  ```
+
+  REST API version 2 returns a description as wiki markup on both Cloud and Data
+  Center, and `jira-issue-markdown` hands it to `jira2markdown` (R8.17). What
+  comes back is the corpus note's own markdown. Apart from the list items, which
+  the seed joined onto one line, it is the note byte for byte. Had the seed
+  posted the markdown as it stood, the same converter would have read
+  `**Severity:**` as wiki emphasis wrapped in stars and written
+  `***Severity:***`.
 
 **[derived]** A workspace synced before R1.14 still holds its issues as
 `application/json`. The rows below were set back to that label by hand in the
@@ -535,27 +553,6 @@ claiming it without claiming anyone else's JSON.
 
 ## Task 8 — a note of your own
 
-**[derived]** First, the audit on the shipped note:
-
-```console
-$ dossier run jira-audit
-run 20260924T200218Z-4742 · …/runs/20260924T200218Z-4742/manifest.json
-  extract: 4 document(s) · 0 from cache · 0 failed · 9 finding(s) · tokens not reported
-    PLAY-1  resolution_date: span not found in PLAY-1 (R6.4).
-    PLAY-1  severity: span not found in PLAY-1 (R6.4).
-    PLAY-1  affected_systems: span not found in PLAY-1 (R6.4).
-    PLAY-2  resolution_date: span not found in PLAY-2 (R6.4).
-    …
-    PLAY-3  affected_systems: span not found in PLAY-3 (R6.4).
-```
-
-That is three fields on each of three issues. The reply file quotes
-`**Severity:** major`, `**Resolved:** 2026-03-04` and `**Systems affected:** …`,
-which is the text the seed wrote.
-The note holds `***Severity:*** major`. `loss_amount` grounds on every issue,
-because `a recorded loss of CHF 18'400` has no markup in it. The attachment
-grounds on every field, because `markdown-text` wrote its markdown as it was.
-
 `solution/dossier_jira_playground/` claims the same pair from outside `dossier`,
 through the entry-point group the shipped converters use (R8.7):
 
@@ -564,18 +561,20 @@ through the entry-point group the shipped converters use (R8.7):
 play-jira-issue-markdown = "dossier_jira_playground.issue_markdown:JiraIssueMarkdownConverter"
 ```
 
-It makes two decisions differently from `jira-issue-markdown`, and its
-docstring says why:
+The difference that matters is one decision about which fields are the
+document: **the labels are part of it**, sorted, on a line of their own,
+because a label set has no order that Jira means anything by. Everything else
+matches the shipped note, and its docstring says why:
 
-- **The labels are part of the document**, sorted, on a line of their own. A
-  label set has no order that Jira means anything by.
-- **The description is written as Jira holds it**, and is not read as wiki
-  markup. This is true of this instance and of no other.
-
-It also writes less of a comment than the shipped note does: the author but not
-the time, and nothing when `comment.total` says the payload holds fewer
-comments than there are (R8.18). The seeded issues have no comments. A Jira
-whose threads matter wants the shipped note.
+- The description and comments are read as wiki markup with `jira2markdown`,
+  the same way (R8.17). The package depends on the release `dossier` pins,
+  `jira2markdown==0.5.1`, so installing it changes nothing already installed.
+  It pins exactly, because what the library writes is inside the artifact, and
+  the convert key names this converter's version, not the library's (R5.4).
+- It writes less of a comment than the shipped note: the author, not the time,
+  and nothing when `comment.total` says the payload holds fewer comments than
+  there are (R8.18). The seeded issues have no comments. A Jira whose threads
+  matter wants the shipped note.
 
 Its id is `play-jira-issue-markdown`, not `jira-issue-markdown`. `_claims` in
 `domain/conversion.py` treats two converters with the same id and version as
@@ -671,25 +670,25 @@ and therefore its key, did not change. `PLAY-1`'s new note:
 …
 ```
 
-The label is task 5's `touch`, in the played Jira's spelling. Yours carries the
-epoch second at which you ran it.
+The only line that differs from the shipped note is `**Labels:**`. Its value is
+task 5's `touch`, spelt the way the played Jira spelt it. Yours carries the epoch
+second at which you ran it.
 
 ```console
 $ dossier run jira-audit
-run 20260924T200255Z-53a3 · …/runs/20260924T200255Z-53a3/manifest.json
-  extract: 4 document(s) · 1 from cache · 0 failed · tokens not reported
+run 20260925T054748Z-411e · …/runs/20260925T054748Z-411e/manifest.json
+  extract: 4 document(s) · 0 from cache · 0 failed · tokens not reported
 
 $ dossier run jira-audit
-run 20260924T200256Z-c9a2 · …/runs/20260924T200256Z-c9a2/manifest.json
+run 20260925T054749Z-ef42 · …/runs/20260925T054749Z-ef42/manifest.json
   extract: 4 document(s) · 4 from cache · 0 failed
 
 $ wc -l < /tmp/dossier-calls.jsonl
-7
+4
 ```
 
-Seven calls in all: four for the first run on the shipped note, three for this
-one, and none for the second (R5.5). The one from cache in this run is the
-attachment. Its artifact did not move, so neither did the stage key above it.
+There are four calls, one per document, and the second run makes none (R5.5).
+There are no findings: every span the stub quotes is in the document it names.
 The manifest pins what answered, and not what was installed (R8.9):
 
 ```json
@@ -701,14 +700,14 @@ The manifest pins what answered, and not what was installed (R8.9):
 ]
 ```
 
-**[run]** The reply file was checked against the notes each converter writes for
-all five documents, using `dossier`'s own grounding function rather than a plain
-substring test:
+**[run]** The reply file was checked against the notes each converter writes
+for all five documents. The descriptions are the ones `seed_jira.py` posts, and
+the check uses `dossier`'s own grounding function rather than a plain substring
+test:
 
 ```
-jira-issue-markdown       problems: 12   (resolution_date, severity, affected_systems on PLAY-1..4)
-play-jira-issue-markdown  problems: 0
-every match string hits exactly one document: yes, for both
+jira-issue-markdown        spans 19  ungrounded 0  every match hits exactly one document
+play-jira-issue-markdown   spans 19  ungrounded 0  every match hits exactly one document
 ```
 
 That check still finds the mistake worth repeating here. The span

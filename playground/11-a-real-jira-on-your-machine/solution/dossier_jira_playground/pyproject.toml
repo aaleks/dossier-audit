@@ -4,10 +4,14 @@ version = "0.2.0"
 description = "A playground converter: a Jira issue read as markdown, labels included."
 requires-python = ">=3.12"
 
-# Nothing outside the standard library. A Jira issue is JSON, and `json` reads
-# JSON -- the whole converter is one function deciding which fields of a large
-# payload are the document and in what order they are written.
-dependencies = []
+# One library. A Jira issue is JSON, and `json` reads JSON; its description and
+# comments are Jira wiki markup, and `jira2markdown` reads that -- the library
+# `dossier`'s own `jira-issue-markdown` uses, at the release `dossier` pins, so
+# installing this changes nothing already installed. Pinned exactly, because
+# what it writes is inside the artifact: moving the pin is a new `version` of
+# the converter (R5.4). The rest is one function deciding which fields of a
+# large payload are the document and in what order they are written.
+dependencies = ["jira2markdown==0.5.1"]
 
 # The same group exercise 03's package declares, and the same group `dossier`'s
 # own converters declare (R8.7). There is no list inside `dossier` that this is
