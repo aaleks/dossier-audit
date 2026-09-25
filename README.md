@@ -10,10 +10,10 @@ Package and CLI: `dossier`.
 **Status: implemented.** The specs came first and the code implements them —
 see "How this is built" below. Where the rules stand is printed by
 `pytest tests/architecture`, which counts them from `specs/` and so cannot fall
-behind. This README can fall behind, so its figure carries a date. On 2026-09-24:
+behind. This README can fall behind, so its figure carries a date. On 2026-09-25:
 
 ```
-specs: 247 rules across 16 specs | 231 MET, 0 IN PROGRESS, 2 NOT MET, 14 SUPERSEDED
+specs: 247 rules across 16 specs | 233 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSEDED
        244 deterministic, 3 evaluated
 ```
 
@@ -26,6 +26,7 @@ specs: 247 rules across 16 specs | 231 MET, 0 IN PROGRESS, 2 NOT MET, 14 SUPERSE
 | `docs/architecture.md` | The two boundaries and the layer contracts |
 | `docs/dossier-design-deck.pdf` | Background: the proposal this came from |
 | `docs/jira-connector.md` | A tour of the Jira connector: what you write, and what a sync does |
+| `docs/review-in-mlflow.md` | Reviewing a run's answers in MLflow, for reviewers who never run `dossier`, and bringing their verdicts back |
 | `docs/history/` | How it came to be: `slices.md`, what each slice changed and why, newest first; the first session's kickoff prompt; and the brainstorm that led to page images |
 | `src/dossier/` | The package: `domain/`, `application/`, `infrastructure/`, `config/`, `cli/` |
 | `tests/` | `architecture/`, `unit/`, `acceptance/`, `integration/`, `evals/` |
@@ -86,6 +87,8 @@ dossier eval <pipeline> --gold …     # score against verified answers
 dossier eval <pipeline> --compare a b
 dossier dataset publish <pipeline> --gold …  # the gold set as an MLflow evaluation dataset
 dossier prompts publish <pipeline>   # each step's prompt and each rubric as an MLflow prompt version
+dossier review pull <pipeline>       # reviewers' verdicts from MLflow, into review/<pipeline>/
+dossier review apply <pipeline> --gold … --verified-by …  # their expected values, into gold
 ```
 
 ## What it reads
@@ -153,10 +156,25 @@ so a prompt edited since cannot attach its words to a run that never saw them
 (R14.7). That is what lets a regression in a comparison be followed, link by
 link, to the prompt text that caused it — `playground/13-*` walks exactly that.
 
-MLflow is a place to **read** these, never a place `dossier` reads from. No
+MLflow is a place to **read** these, not a place `dossier` reads from. No
 prompt, dataset or score is ever loaded back into a run: the files in the
 workspace are the only source, which is what keeps a run reproducible from a
-checkout (R14.5, R12.4).
+checkout (R14.5, R12.4). The one exception is below, and it is fenced.
+
+## Review in MLflow
+
+People who never run `dossier` review its answers where the runs already are.
+Each trace shows the document it read as its Request and the answer as its
+Response (R15.1), and a run tags every trace it doubts, so
+`` tags.`dossier.review` = 'needed' `` is a review queue anyone can open (R15.2).
+Reviewers leave a thumbs-down with a reason, or the value that should have been
+there. `dossier review pull` brings those back as a report by step and field --
+where prompt work starts -- and as gold candidates (R15.3), which a maintainer
+applies with `dossier review apply --verified-by <name>` as a signed, reviewable
+change to the gold set (R15.4, R7.7). It is the only command that reads MLflow
+back, and nothing it reads reaches a key, a manifest or a score (R15.5).
+`docs/review-in-mlflow.md` is the tour, for reviewers and maintainers both, and
+`playground/14-*` walks it.
 
 Prompt and dataset names are global on a server. When two checkouts share one,
 set `DOSSIER_MLFLOW_NAMESPACE` on each — `sandbox` publishes
