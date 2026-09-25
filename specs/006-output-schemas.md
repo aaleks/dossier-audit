@@ -528,7 +528,7 @@ dropped.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.grounding.locate_span`, `dossier.domain.grounding.page_of_span`)
 - **Proved by:** `tests/unit/test_R006_19__a_word_hyphenated_across_a_line_is_found.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

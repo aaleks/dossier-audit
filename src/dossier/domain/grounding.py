@@ -65,8 +65,34 @@ def fold(text: str) -> str:
     (R6.18), because NFKC writes a double prime `″` as two single ones, which
     would otherwise fold to `''` rather than `"`.
     """
-    compatible = unicodedata.normalize("NFKC", text.translate(_TYPOGRAPHIC))
+    visible = text.translate(_TYPOGRAPHIC).replace(_SOFT_HYPHEN, "")
+    compatible = unicodedata.normalize("NFKC", visible)
     return normalise_whitespace(compatible.translate(_TYPOGRAPHIC))
+
+
+# Invisible wherever it is rendered: a place the typesetter may break a word,
+# not a character of it (R6.19).
+_SOFT_HYPHEN = "­"
+
+# A hyphen ending a line between two letters (R6.19). Letters, not digits: a
+# word is what a typesetter breaks, and `09:12-` above `09:54` is a range. Any
+# line ending counts -- Jira sends `\r\n`, a PDF pads its lines with spaces.
+_LINE_END_HYPHEN = re.compile(r"(?<=[^\W\d_])-[^\S\n]*\n\s*(?=[^\W\d_])")
+
+
+def _readings(document_text: str) -> tuple[str, ...]:
+    """The folded ways `document_text` may be read (R6.19).
+
+    A hyphen that ends a line may be the typesetter's, splitting `certificate`,
+    or the word's own, in `well-known`. Nothing in the text says which, so a text
+    holding one is read both ways: joined, and with the hyphen kept and the break
+    gone. Joined first, because a typesetter's break is the commoner case, and a
+    span found in both readings sits in the same place in each.
+    """
+    dashed = document_text.translate(_TYPOGRAPHIC)
+    if not _LINE_END_HYPHEN.search(dashed):
+        return (fold(dashed),)
+    return (fold(_LINE_END_HYPHEN.sub("", dashed)), fold(_LINE_END_HYPHEN.sub("-", dashed)))
 
 
 def locate_span(span: str, *, document_text: str) -> bool:
@@ -85,7 +111,7 @@ def locate_span(span: str, *, document_text: str) -> bool:
         # outcome that makes the whole check decorative (R6.6).
         return False
 
-    return needle in fold(document_text)
+    return any(needle in reading for reading in _readings(document_text))
 
 
 # The page marker a converter writes ahead of each page's text, and the only
@@ -148,15 +174,16 @@ def page_of_span(span: str, *, document_text: str) -> int | None:
         # position zero and be credited to the first anchor in the document.
         return None
 
-    haystack = fold(document_text)
-    at = haystack.find(needle)
-    if at < 0:
-        return None
-
-    preceding = [match for match in _PAGE_ANCHOR.finditer(haystack) if match.start() <= at]
-    if not preceding:
-        return None
-    return int(preceding[-1].group(1))
+    # The page of the reading the span was found in (R6.19). Anchors are not
+    # letters, so no line-end hyphen joins across one, and every reading holds
+    # the same anchors in the same order.
+    for haystack in _readings(document_text):
+        at = haystack.find(needle)
+        if at < 0:
+            continue
+        preceding = [match for match in _PAGE_ANCHOR.finditer(haystack) if match.start() <= at]
+        return int(preceding[-1].group(1)) if preceding else None
+    return None
 
 
 def with_derived_page(
