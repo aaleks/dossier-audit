@@ -693,7 +693,7 @@ converting it (R8.1).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.confluence_page_markdown`)
 - **Proved by:** `tests/unit/test_R008_20__a_pages_body_is_written_as_markdown.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -34,7 +34,7 @@ from pathlib import Path
 
 import pytest
 
-from dossier.domain.conversion import JIRA_ISSUE
+from dossier.domain.conversion import CONFLUENCE_PAGE, JIRA_ISSUE
 from dossier.domain.ports import Converter
 from dossier.infrastructure.converters.registry import installed_converters
 
@@ -65,6 +65,18 @@ PAYLOADS = {
         b'"comment":{"comments":[{"author":{"displayName":"m.keller"},'
         b'"created":"2026-08-05T10:02:00.000+0000","body":"Rolled back at 09:54."}],'
         b'"total":1}}}'
+    ),
+    # A Confluence page as the connector holds it (R1.17), small for the same
+    # reason, with a table of contents and an image, so the library's work and
+    # this converter's changes to it are inside what is checked for purity.
+    CONFLUENCE_PAGE: (
+        b'{"id":"81920114","title":"OPS-114 Incident escalation procedure",'
+        b'"space":{"key":"OPS"},"version":{"number":37,"when":"2026-08-05T16:02:00.000Z",'
+        b'"by":{"displayName":"m.keller"}},"body":{"export_view":{"value":'
+        b"\"<div class='toc-macro rbtoc1786032120000'><ul><li>Escalation</li></ul></div>"
+        b"<h2>Escalation</h2><ul><li>Page the incident commander within 15 minutes.</li></ul>"
+        b'<p><img src=\\"https://confluence.example.internal/download/attachments/'
+        b'embedded-page/OPS/x/escalation-matrix.png?api=v2\\"></p>"}}}'
     ),
 }
 

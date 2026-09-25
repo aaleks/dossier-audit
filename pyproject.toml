@@ -28,6 +28,13 @@ dependencies = [
     # jira-issue-markdown's version, not this library's (R5.4). Upgrading it is
     # a new version of that converter.
     "jira2markdown==0.5.1",
+    # A Confluence page's rendered body as markdown (spec 008, R8.20), for the
+    # same reasons: the connector it serves is core, and what these write is
+    # inside the artifact under confluence-page-markdown's version. Both are
+    # pinned, because BeautifulSoup builds the tree markdownify writes, and a
+    # new release of either can change an artifact under an unchanged key.
+    "markdownify==1.2.3",
+    "beautifulsoup4==4.15.0",
 ]
 
 [project.optional-dependencies]
@@ -91,6 +98,7 @@ jira = "dossier.infrastructure.connectors.jira:JiraConnector.from_config"
 # registers through the same group a third party would use, with no special case.
 [project.entry-points."dossier.converters"]
 docling-markdown = "dossier.infrastructure.converters.docling_markdown:DoclingMarkdownConverter"
+confluence-page-markdown = "dossier.infrastructure.converters.confluence_page_markdown:ConfluencePageMarkdownConverter"
 jira-issue-markdown = "dossier.infrastructure.converters.jira_issue_markdown:JiraIssueMarkdownConverter"
 image-jpeg-pages = "dossier.infrastructure.converters.image_pages:JpegPagesConverter"
 image-png-pages = "dossier.infrastructure.converters.image_pages:PngPagesConverter"
