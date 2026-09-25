@@ -1,0 +1,18 @@
+# Two Kafka Improvement Proposals, one model, one step.
+#
+# Nothing here says Confluence. A pipeline names sources and says what to ask of
+# their documents; where the documents came from is `sources.yaml`'s business.
+sources: [kafka-kips]
+
+model: openai:gpt-5.4-mini
+
+steps:
+  - id: extract
+    prompt: prompts/01_extract.md
+    # Bare `documents` means `documents@markdown` (R3.11): the notes the pages
+    # convert to. The PNGs the ZStandard page carries convert to `page_images`
+    # (R8.10), so this step has no text for them -- and is still called for
+    # them, with an empty document. Task 4 is about that.
+    input: documents
+    mode: per_file
+    output: schemas/kip.yaml

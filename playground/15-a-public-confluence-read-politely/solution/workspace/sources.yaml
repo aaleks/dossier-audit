@@ -1,0 +1,62 @@
+# Two Confluence sources on two servers that belong to someone else, read
+# anonymously. Nothing here is a credential, because neither server asks for
+# one: with no `token_env` and no `user_env` the connector sends no
+# `Authorization` header at all (R1.21 row 3).
+#
+# Both queries are narrow on purpose. A CQL query can name a whole space, and a
+# space on cwiki.apache.org is thousands of pages and their images. This
+# exercise needs three pages, so it asks for three pages.
+
+sources:
+  - id: kafka-kips
+    type: confluence
+
+    # The base of the instance, INCLUDING its context path. Confluence Data
+    # Center is often served under `/confluence`, and the connector appends
+    # `/rest/api/content/...` to exactly what is written here.
+    url: https://cwiki.apache.org/confluence
+
+    # CQL, quoted as a whole: the titles hold `: `, which YAML reads as the start
+    # of a mapping if the value is not quoted (task 1). The connector wraps this
+    # in parentheses and adds `AND type = page` (R1.15), and narrows an
+    # incremental sync with `AND lastmodified >= "..."` (R1.4).
+    #
+    # Two accepted Kafka Improvement Proposals about compression, chosen because
+    # nobody has edited either in years: KIP-57 was last changed in 2016, KIP-110
+    # in 2018. Asking by title is fine for a query. It is not how the ledger keys
+    # them: a page's key is its id (R1.16).
+    query: 'space = KAFKA AND title in ("KIP-57 - Interoperable LZ4 Framing", "KIP-110: Add Codec for ZStandard Compression")'
+
+    # Task 5. The projection the content hash is taken over (R2.10), declared
+    # here for the one thing declaring or changing it does: every page in the
+    # source is fetched again (R2.3). Because the table of contents is drawn with
+    # the time it was rendered, each page comes back as new bytes and a new
+    # snapshot, and converts to the same note.
+    #
+    # It buys little else, as a Jira issue's `fields:` buys little (exercise 11).
+    # `_links` and `_expandable` stop being content, but the body holds absolute
+    # URLs and the rendered table of contents, and the body has to be in the
+    # projection, or an edit to the page would be invisible.
+    fields: [id, title, space, version, body]
+
+    # Task 6 adds `export: pdf` here and takes it away again. cwiki.apache.org
+    # answers the export 403 to an anonymous reader, so leaving it here fails
+    # both pages' exports at every sync that lists them -- and only then, which
+    # is what task 6 is about.
+
+  - id: atlassian-docs
+    type: confluence
+
+    # Atlassian's own documentation site, which is also a Confluence Data Center
+    # and does allow an anonymous PDF export. No context path this time.
+    url: https://confluence.atlassian.com
+
+    # One page, by id: "Navigating to the Export to PDF Option" in the archived
+    # documentation for Confluence 5.9, last edited in 2015. It carries one small
+    # image, which the PDF draws and the note only names.
+    query: id = 792498257
+
+    # The page's PDF export, held beside it as `792498257.pdf` (R1.19). Asking
+    # makes the server render a PDF, which is work for someone else's machine:
+    # that is why it is absent by default, and why this source asks for one page.
+    export: pdf

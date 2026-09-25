@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "Task 4's second reply file. Layer it IN FRONT of replies.json:",
+    "",
+    "  stub_model.py --replies .../replies-no-document.json --replies .../replies.json",
+    "",
+    "It answers the call the first run of task 4 could not: a prompt whose",
+    "document is empty. `extract` reads bare `documents`, which is the `markdown`",
+    "kind (R3.11). The two PNGs the ZStandard page carries convert to",
+    "`page_images` (R8.10), so for them the step has no text at all -- and it is",
+    "still called, with `<source_document></source_document>` and nothing in it.",
+    "",
+    "The rule matches exactly that, and answers as a careful model would: every",
+    "field null, with a reason. It cannot name the document, because nothing in",
+    "the prompt names one -- which is the whole problem. Task 4 is about why the",
+    "call happens, and SOLUTION.md about what it costs."
+  ],
+  "rules": [
+    {
+      "match": ["<source_document></source_document>"],
+      "reply": {
+        "document": "unknown",
+        "fields": [
+          {"field": "current_state", "value": null, "reason": "The prompt holds no document.", "confidence": "high"},
+          {"field": "jira_issue", "value": null, "reason": "The prompt holds no document.", "confidence": "high"},
+          {"field": "released_in", "value": null, "reason": "The prompt holds no document.", "confidence": "high"}
+        ]
+      }
+    }
+  ]
+}
