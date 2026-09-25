@@ -17,12 +17,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from dossier.domain.confluence import export_version
 from dossier.domain.conversion import CONFLUENCE_PAGE, reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.domain.sync import server_zone_floor
+from dossier.infrastructure.connectors.atlassian import authorization
 
 SEARCH = "/rest/api/content/search"
 CONTENT = "/rest/api/content"
@@ -64,13 +65,28 @@ class ConfluenceRequestFailed(RuntimeError):
 
 
 class ConfluenceKeys(BaseModel):
-    """The keys a `confluence` source takes beyond the shared ones (R1.10)."""
+    """The keys a `confluence` source takes beyond the shared ones (R1.10).
+
+    `token_env` and `user_env` name the variables holding the credential, read
+    as a Jira source reads them (R1.21); the values are never written here,
+    because `sources.yaml` is committed to git (R1.8). `export: pdf` asks for
+    each page's PDF export beside it (R1.19).
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     url: str
     query: str
+    token_env: str = ""
+    user_env: str = ""
     export: Export | None = None
+
+    @model_validator(mode="after")
+    def _a_user_needs_a_token(self) -> ConfluenceKeys:
+        # Half a credential, refused at load time as a Jira source's is (R1.21).
+        if self.user_env and not self.token_env:
+            raise ValueError("`user_env` names a user with no token: name `token_env` as well")
+        return self
 
 
 class ConfluenceConnector:
@@ -85,12 +101,16 @@ class ConfluenceConnector:
         *,
         base_url: str,
         query: str,
+        token: str | None = None,
+        user: str | None = None,
         export: Export | None = None,
         transport: Any | None = None,
     ) -> None:
         self._base = base_url.rstrip("/")
         self._query = query
         self._export = export
+        # Decided once, by the one function Jira's connector uses (R1.21).
+        self._authorization = authorization(user=user, token=token)
         self._transport = transport
         # Each listed page's marker, kept so that an export's marker does not
         # cost a request for a version the listing already said (R1.19).
@@ -187,7 +207,7 @@ class ConfluenceConnector:
 
         url = f"{self._base}{EXPORT}"
         with httpx.Client(
-            headers=EXPORT_HEADERS,
+            headers=self._headers(EXPORT_HEADERS),
             timeout=TIMEOUT_SECONDS,
             transport=self._transport,
             follow_redirects=True,
@@ -226,6 +246,12 @@ class ConfluenceConnector:
         return RawItem(
             key=key, payload=response.content, media_type=EXPORTED_AS, remote_version=None
         )
+
+    def _headers(self, headers: Mapping[str, str]) -> dict[str, str]:
+        """`headers`, with the source's `Authorization` when it names a credential."""
+        if self._authorization is None:
+            return dict(headers)
+        return {**headers, "Authorization": self._authorization}
 
     def _version(self, key: str) -> str | None:
         """Page `key`'s marker: the one its listing said, or asked for if it was not listed."""
@@ -269,7 +295,7 @@ class ConfluenceConnector:
         import httpx
 
         with httpx.Client(
-            headers={"Accept": "application/json"},
+            headers=self._headers({"Accept": "application/json"}),
             timeout=TIMEOUT_SECONDS,
             transport=self._transport,
         ) as http:
@@ -306,7 +332,13 @@ class ConfluenceConnector:
             raise ValueError(
                 f"source {config.id!r} has type 'confluence' and needs both `url` and `query`."
             )
-        return cls(base_url=url, query=query, export=config.options.get("export"))
+        return cls(
+            base_url=url,
+            query=query,
+            token=getattr(credential, "value", None),
+            user=getattr(credential, "user", None),
+            export=config.options.get("export"),
+        )
 
 
 def _version_of(page: Mapping[str, Any]) -> str | None:

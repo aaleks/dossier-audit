@@ -17,7 +17,6 @@ never builds this connector should not pay for the import.
 
 from __future__ import annotations
 
-import base64
 from collections.abc import Iterator, Mapping
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from dossier.domain.conversion import JIRA_ISSUE, reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.domain.sync import server_zone_floor
+from dossier.infrastructure.connectors.atlassian import authorization
 
 # Where a listing is asked for depends on the deployment (R1.13). Data Center
 # pages `SEARCH` by offset against `total`; Cloud has retired that route and
@@ -234,9 +234,9 @@ class JiraConnector:
         import httpx
 
         headers = {"Accept": "application/json"}
-        authorization = _authorization(user=self._user, token=self._token)
-        if authorization:
-            headers["Authorization"] = authorization
+        header = authorization(user=self._user, token=self._token)
+        if header:
+            headers["Authorization"] = header
 
         with httpx.Client(
             headers=headers, timeout=TIMEOUT_SECONDS, transport=self._transport
@@ -282,23 +282,6 @@ class JiraConnector:
             user=getattr(credential, "user", None),
             deployment=config.options.get("deployment", "datacenter"),
         )
-
-
-def _authorization(*, user: str | None, token: str | None) -> str | None:
-    """The `Authorization` header the keys ask for, or none (R1.12).
-
-    A token alone is Bearer, what Data Center takes a personal access token as.
-    A user beside it is Basic, the only form Cloud accepts an API token in and
-    what Data Center takes a username and password as. Decided once from the
-    configuration, never by trying one and then the other: a refusal is a 401
-    naming the URL, and the fix is a key in `sources.yaml`.
-    """
-    if not token:
-        return None
-    if user:
-        pair = base64.b64encode(f"{user}:{token}".encode()).decode("ascii")
-        return f"Basic {pair}"
-    return f"Bearer {token}"
 
 
 def _split(key: str) -> tuple[str, str | None]:

@@ -1,6 +1,6 @@
 # 001 — Source connectors
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R1.1 – R1.21
 
 ## Purpose
@@ -596,7 +596,7 @@ so the two cannot drift apart.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`)
 - **Proved by:** `tests/unit/test_R001_21__a_confluence_source_authenticates_as_jira_does.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
