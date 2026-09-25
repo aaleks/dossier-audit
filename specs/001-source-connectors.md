@@ -485,7 +485,7 @@ as readily as pages. An attachment is reached through the page that carries it
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`)
 - **Proved by:** `tests/unit/test_R001_15__a_confluence_source_lists_the_pages_its_query_matches.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
