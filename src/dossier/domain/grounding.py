@@ -39,18 +39,34 @@ def normalise_whitespace(text: str) -> str:
     return _WHITESPACE.sub(" ", text).strip()
 
 
+# Typographic quotes, apostrophes and dashes, as the plain forms a keyboard types
+# (R6.18). A typesetter writes `CHF 48’200`; a model quoting it types
+# `CHF 48'200`. Every entry is punctuation standing for punctuation: nothing
+# here reaches a letter or a digit, so `48,200` is still not `48'200`.
+_TYPOGRAPHIC = str.maketrans(
+    {
+        **dict.fromkeys("‘’‛′", "'"),
+        **dict.fromkeys("“”„‟″", '"'),
+        **dict.fromkeys("‐‑‒–—―−", "-"),
+    }
+)
+
+
 def fold(text: str) -> str:
     """`text` with what a reader cannot tell apart made the same (spec 006).
 
     Applied to both the span and the document, as whitespace normalisation is and
     for the same reason: either side may be where the difference came from.
 
-    Unicode compatibility forms first (R6.17): NFKC is the normalisation whose
-    purpose this is -- `ﬁ` is `fi`, a full-width `Ｃ` is `C`, and a decomposed
-    accent is the one a keyboard types. It folds no letter into another and
-    never touches case.
+    Unicode compatibility forms (R6.17): NFKC is the normalisation whose purpose
+    this is -- `ﬁ` is `fi`, a full-width `Ｃ` is `C`, and a decomposed accent is
+    the one a keyboard types. It folds no letter into another and never touches
+    case. Typographic quotes and dashes are folded on either side of it
+    (R6.18), because NFKC writes a double prime `″` as two single ones, which
+    would otherwise fold to `''` rather than `"`.
     """
-    return normalise_whitespace(unicodedata.normalize("NFKC", text))
+    compatible = unicodedata.normalize("NFKC", text.translate(_TYPOGRAPHIC))
+    return normalise_whitespace(compatible.translate(_TYPOGRAPHIC))
 
 
 def locate_span(span: str, *, document_text: str) -> bool:

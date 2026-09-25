@@ -508,7 +508,7 @@ keyboard types.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.grounding.locate_span`)
 - **Proved by:** `tests/unit/test_R006_18__typographic_quotes_and_dashes_are_folded.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
