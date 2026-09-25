@@ -52,7 +52,9 @@ against a server, and the web UI in the JavaScript it ships:
 | A trace list filtered on a tag: `` tags.`dossier.review` = 'needed' `` | yes, and the filter is kept in the URL, so a queue is a link | the queue (R15.2) |
 | A trace list filtered on a verdict: `` feedback.`severity` = 'false' ``, `` expectation.`severity` `` | yes | a second queue, for what reviewers disagreed with |
 | Adding feedback (a boolean, number or string, with a rationale) and expectations (the same, or JSON) from a trace | yes | R15.3, R15.4 |
-| Editing or deleting one's own verdict; overriding another's, which writes a new one naming it and marks the old one invalid | yes | only valid verdicts are read (R15.3) |
+| Editing a verdict from the trace view | only one whose author is `User` -- the page's own user, and so every verdict left through it -- and in place: the same id, with no record of the value it replaced or of who replaced it. A verdict under any other name shows no Edit | a committed `feedback.jsonl` is the history the server does not keep (R15.3) |
+| Overriding a verdict: a new one naming it, the old one marked invalid | from the trace view, only feedback no person left, such as a judge's; any verdict through the API (`mlflow.override_feedback`) | only valid verdicts are read (R15.3) |
+| Deleting a verdict from the trace view | yes, whoever left it | a candidate is rejected for good where it was left |
 | Editing a trace's tags from the trace list | yes | a reviewer may clear `dossier.review` once done |
 | **Who left a verdict** | the trace view records **`User`**, a fixed string, whoever is logged in | reported as recorded, never guessed; gold is signed by the maintainer who applies it (R15.4) |
 | Labeling sessions and the Review App, MLflow's assigned queues that record the logged-in user | **Databricks only**: `Supported URI schemes are: ['databricks']` | not used |
@@ -68,6 +70,15 @@ that records its users, carries a real name, and `dossier` reports whichever it
 finds. Neither is a signature a gold set can rest on (R7.7), so an expected value
 enters gold under the name of the maintainer who applied it, with the trace and
 the recorded author kept in its reason.
+
+The same fixed string decides what Edit does. The page compares a verdict's
+author with its own user, which is always `User`: a verdict left through the page
+is everyone's to edit, and an edit replaces it where it stands, so the server
+keeps no earlier value and no name for the change. An override -- the new verdict
+naming the old, which R15.3 reads in its place -- comes from the API, or from the
+page on a judge's feedback. Corrected after the rules were written, from the
+page's JavaScript and a live edit, which kept the verdict's id and wrote no
+override.
 
 ## Names a reviewer uses
 
