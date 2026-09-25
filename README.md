@@ -13,8 +13,8 @@ see "How this is built" below. Where the rules stand is printed by
 behind. This README can fall behind, so its figure carries a date. On 2026-09-25:
 
 ```
-specs: 256 rules across 16 specs | 242 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSEDED
-       253 deterministic, 3 evaluated
+specs: 259 rules across 16 specs | 245 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSEDED
+       256 deterministic, 3 evaluated
 ```
 
 ## Layout
@@ -38,8 +38,8 @@ specs: 256 rules across 16 specs | 242 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSE
 ## Installing
 
 ```bash
-pip install dossier            # markdown-text, text-plain, png-pages, jira-issue-markdown,
-                               # confluence-page-markdown
+pip install dossier            # markdown-text, text-plain, text-csv, html-markdown, png-pages,
+                               # jira-issue-markdown, confluence-page-markdown
 pip install dossier[pdf]       # and pdf-markdown, pdf-images, jpeg-pages
 pip install dossier[tracking]  # and MLflow runs, traces and metrics
 pip install dossier[docling]   # and docling-markdown: a PDF with no text layer, read by OCR

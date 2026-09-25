@@ -13,6 +13,35 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+An HTML page or a CSV file someone exported no longer stops its source (spec
+008 R8.21 – R8.23). Synced from Apache's Jira, `KAFKA-20416` carries a CSV, a
+JSON-lines dump and two files Jira labels `text/html`. Nothing claimed either
+pair, so R8.5 stopped every document in the source, the issue included.
+`html-markdown` reads an HTML file with the reader `confluence-page-markdown`
+uses, now shared as `converters/_html.py`. Refactoring onto it left both live
+cwiki notes byte-identical, so that converter's version stayed. It takes out
+the `<head>` as well as `<style>`, `<script>` and `<template>`. Otherwise
+markdownify writes the `<title>` as a line of its own above the heading that
+repeats it. An image is its alt text and file name (R8.22). The red row showed
+markdownify writing a `data:` URI's whole base64 into the note. The converter
+decodes UTF-8 itself: handed bytes, BeautifulSoup guesses the encoding with
+`charset-normalizer`, which MLflow installs, so output would have depended on a
+machine's extras. `text-csv` writes a CSV as its own text. A markdown table was
+rejected because it rewrites every row a model then quotes. A page's breadcrumb
+stays in its note. Telling navigation from content by class name is the
+heuristic `trafilatura` was rejected for, and R8.21's first row, which said the
+note opens with the heading, was corrected rather than bent.
+
+Checked live on `KAFKA-20416`: the 40 MB CSV and both "HTML" files convert.
+One of those files is a JSON log dump and the other a plain-text topology,
+uploaded without extensions, so reading them as HTML costs the topology its
+indentation, which grounding's whitespace fold absorbs. The source is still
+stopped by its three `.jsonl` files, reported as `application/octet-stream`.
+Whether an attachment nothing claims should stop its whole source at all is
+spec 008's open question 7, a change to R8.5 left for a decision.
+
+---
+
 A Confluence space can be audited (spec 001 R1.15 – R1.21, spec 008 R8.19 –
 R8.20). Spec 001 had said a page would be exported as a PDF, because its images
 carry meaning the storage format loses. A real server disagreed: the export is a
