@@ -13,8 +13,8 @@ see "How this is built" below. Where the rules stand is printed by
 behind. This README can fall behind, so its figure carries a date. On 2026-09-25:
 
 ```
-specs: 259 rules across 16 specs | 245 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSEDED
-       256 deterministic, 3 evaluated
+specs: 266 rules across 16 specs | 248 MET, 0 IN PROGRESS, 4 NOT MET, 14 SUPERSEDED
+       263 deterministic, 3 evaluated
 ```
 
 ## Layout
@@ -123,6 +123,24 @@ search is the wrong instrument for it (R6.15). `dossier eval` puts such a field
 to a judge with the document's pages in place of a transcript, and that judge is
 calibrated and gated on its own threshold, separately from the one that reads
 text (R7.20–R7.24).
+
+A calibration reports more than its agreement, because the agreement figure hides
+three things (R7.26–R7.29):
+
+- how sure the figure is: 20 of 20 is 100%, and twenty cases support no more than
+  83.9%;
+- how much of it chance would give: a judge that calls every case supported
+  scores 60% on a 12-to-8 sample, and its kappa is 0;
+- which half of the sample the judge gets wrong.
+
+```
+root_cause         100.0% agreement over 20 cases · openai:gpt-5.4-mini
+                   lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
+```
+
+The same figures go to the calibration file and the MLflow calibrate run. The
+gate still compares the agreement. Whether it should compare the lower bound
+instead is a threshold, and a threshold is for a person to agree.
 
 A step may be asked with its own model instead of the pipeline's -- a cheap one to
 extract, a strong one to verify:

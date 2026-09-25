@@ -43,6 +43,7 @@ run 20260922T055408Z-2071 · …/runs/20260922T055408Z-2071/manifest.json
 recorded to MLflow: dossier-audit/incident-audit/run · run 20260922T055408Z-2071
   extract: 5 document(s) · 0 from cache · 0 failed
 root_cause         100.0% agreement over 20 cases · openai:gpt-5.4-mini
+                   lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
 recorded to MLflow: dossier-audit/incident-audit/calibrate
 ```
 

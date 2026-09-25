@@ -120,6 +120,7 @@ The argument, which is the part that matters:
 ```console
 $ dossier calibrate incident-audit --gold gold/incidents
 root_cause         100.0% agreement over 20 cases · openai:gpt-5.4-mini
+                   lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
 ```
 
 ```console
@@ -127,16 +128,27 @@ $ cat gold/incidents/calibrations/root_cause.json
 {
   "agreement": 1.0,
   "judge_model": "openai:gpt-5.4-mini",
+  "kappa": 1.0,
+  "lower_bound": 0.8388748419471806,
   "prompt_hash": "1a7cde3cdf30c254ff747b7ab01f5266aa4b2fe867716286985e17f48de0eef2",
   "rubric_hash": "0443845ad5177750b66557482058e1750fca26147d5cf9139f3645a35c152b70",
-  "sample_size": 20
+  "sample_size": 20,
+  "supported": {
+    "agreed": 12,
+    "cases": 12
+  },
+  "unsupported": {
+    "agreed": 8,
+    "cases": 8
+  }
 }
 ```
 
-Five fields, and three of them are the measurement's *provenance*: an agreement
-figure without them says a judge agreed with a human, without saying which judge
-or on what question. `judge_model`, `rubric_hash` and `prompt_hash` are what go
-stale in task 5.
+Three of these fields are the measurement's *provenance*: an agreement figure
+without them says a judge agreed with a human, without saying which judge or on
+what question. `judge_model`, `rubric_hash` and `prompt_hash` are what go stale in
+task 5. `agreement` and `sample_size` are the measurement; the other four are
+what the agreement does not say, and task 7 reads them.
 
 `judge.yaml` was not touched, and cannot be: `calibrate` writes what it measured
 and never the bar it is measured against (R7.14). In this repository an assistant
@@ -246,15 +258,17 @@ field measured at the bar.
 ## Task 6 — make the judge wrong, on purpose
 
 ```console
-$ # one flipped verdict in replies-judge.json, calibration and judge cache deleted
+$ # rc-04 flipped in a copy of replies-judge.json, calibration and judge cache deleted
 $ dossier calibrate incident-audit --gold gold/incidents
-root_cause          95.0% agreement over 20 cases · openai:gpt-5.4-mini
+root_cause         95.0% agreement over 20 cases · openai:gpt-5.4-mini
+                   lower bound 76.4% · kappa 0.89 · supported 12 of 12 · unsupported 7 of 8
 $ dossier eval incident-audit --gold gold/incidents | tail -1
   root_cause         100.0%   (4 judged)
 
-$ # a second flipped verdict
+$ # rc-01 flipped as well
 $ dossier calibrate incident-audit --gold gold/incidents
-root_cause          90.0% agreement over 20 cases · openai:gpt-5.4-mini
+root_cause         90.0% agreement over 20 cases · openai:gpt-5.4-mini
+                   lower bound 69.9% · kappa 0.79 · supported 11 of 12 · unsupported 7 of 8
 $ dossier eval incident-audit --gold gold/incidents | tail -1
   root_cause             -- agreement 0.9 is below the agreed 0.95
 ```
@@ -264,6 +278,52 @@ setting the bar at 1.00: at N=20 a single hard case — and every corpus has the
 would withhold the field forever, and the pressure would then be on the *sample*
 rather than on the judge. Which is the failure the hook in this repository exists
 to prevent.
+
+The eval still scores 100% with `rc-04` flipped, and that is right. `rc-04` is a
+candidate in the sample, not one of the run's answers, so the judge was never
+asked about it during the eval. Changing the judge's reply to it moved the
+calibration and nothing else.
+
+## Task 7 — what the agreement does not say
+
+The three second lines, side by side:
+
+```
+100%   lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
+ 95%   lower bound 76.4% · kappa 0.89 · supported 12 of 12 · unsupported 7 of 8
+ 90%   lower bound 69.9% · kappa 0.79 · supported 11 of 12 · unsupported 7 of 8
+```
+
+**Is the judge below your bar?** By its lower bound, yes: 83.9% is under 0.95,
+and so is every lower bound this sample can produce. Twenty cases cannot show
+better than 83.9%, however well the judge does. The gate compares the agreement
+(R7.5), and the lower bound is reported beside it, never gated (R7.26 row 4).
+Gating on it at 0.95 would withhold this field until the sample grew to 73 cases,
+all of them agreed. That may be the right demand, and it may not. It is a
+statement about how much evidence a score needs, which makes it a threshold, and
+a threshold is agreed by a person (R7.11), not chosen by a tool.
+
+**Which flip moved which half.** `rc-04` is a candidate the reviewer marked
+unsupported, and flipping it let an invented cause through: `unsupported 7 of 8`.
+`rc-01` is one the reviewer marked supported, and flipping it rejected a true
+cause: `supported 11 of 12`. The first kind of mistake is the one that matters.
+A judge that rejects a true cause costs a point of score. A judge that accepts an
+invented one reports a wrong answer as right, which is the one outcome the judge
+exists to prevent (R7.12). Agreement counts the two as the same five points; the
+second line does not.
+
+**A judge that says "supported" to everything** agrees on 12 of 20, which is 60%.
+Its kappa is 0.00, and its counts are `supported 12 of 12 · unsupported 0 of 8`.
+Every agreement it has is one chance would give it, and it catches nothing. Sixty
+per cent reads like a weak judge. Kappa and the unsupported count say it is no
+judge at all (R7.27 row 2, R7.28 row 2).
+
+**All supported, and nothing to measure.** With no unsupported case, the
+unsupported half has no rate: `no unsupported case`. Printing 8 of 8, or 0 of 0 as
+100%, would credit the judge for a test it never sat. Kappa has nothing left to
+correct for once the reviewer has used a single verdict, so it would come out 0 or
+undefined whatever the judge did. `kappa not measurable` says so instead of
+printing a number that looks like a measurement (R7.27 row 4, R7.28 row 4).
 
 ---
 

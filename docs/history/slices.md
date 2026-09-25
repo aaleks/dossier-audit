@@ -13,6 +13,39 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A judge's calibration now says what its agreement figure hides (spec 007,
+R7.26 – R7.29, from analysis.md §4.8). The gate had been comparing one number,
+`agreement >= threshold` over twenty cases, and three things were invisible
+behind it:
+
+- 20 of 20 supports a 95% lower bound of only 83.9%, the figure R7.11's own
+  threshold note had to argue from by hand;
+- a judge that calls everything supported scores 60% on R7.11's sample and
+  has a kappa of 0;
+- a judge can hide a weak unsupported half behind a strong supported one,
+  though catching unsupported claims is its whole job (R7.12).
+
+The Wilson lower bound, Cohen's kappa and the two halves as "agreed of cases"
+are now worked out in `domain/judges.py` with `math` and `statistics`. That
+was a recorded choice over statsmodels and scikit-learn: `domain/` imports
+only the standard library and pydantic. The figures go wherever the agreement
+already went: a second terminal line in plain words, the calibration file,
+and the calibrate run's metrics and description, rounded as printed. A figure
+that cannot be measured is said in words and sent as no metric, because
+MLflow has no null and a 0 would be charted as a judge that scored 0.
+
+The figures are reported only. What the gate compares is a threshold, and it
+waits for a person who has seen them. Each rule went NOT MET → MET in one PR.
+Live against MLflow 3.15.1, the terminal, the file, the six metrics and the
+description agreed.
+
+The same live run found something no rule covers. A calibrate stopped by an
+unreachable model left its MLflow run RUNNING, empty, forever. `dossier run`
+closes a stopped run as FAILED, but only in code; no spec states the rule for
+any command.
+
+---
+
 An HTML page or a CSV file someone exported no longer stops its source (spec
 008 R8.21 – R8.23). Synced from Apache's Jira, `KAFKA-20416` carries a CSV, a
 JSON-lines dump and two files Jira labels `text/html`. Nothing claimed either

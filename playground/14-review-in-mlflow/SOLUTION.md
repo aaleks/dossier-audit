@@ -79,6 +79,7 @@ incidents-manual  0 known · 0 changed · 5 new -> 5 fetched
 ledger updated · 5 new snapshots · 0 tombstoned
 
 root_cause         100.0% agreement over 20 cases · openai:gpt-5.4-mini
+                   lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
 recorded to MLflow: dossier-audit/incident-audit/calibrate
 ```
 

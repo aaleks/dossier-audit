@@ -226,8 +226,15 @@ Two samples, one per state, and `calibrate` measures each against its own:
 ```console
 $ dossier calibrate observability-audit --gold gold/observability
 root_cause         100.0% agreement over 20 cases · openai:gpt-5.4-mini
+                   lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
 root_cause.described 100.0% agreement over 20 cases · openai:gpt-5.4-mini
+                     lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
 ```
+
+Each judge gets its own second line: the lower bound, the kappa and the two halves
+that its agreement does not show (R7.29, and exercise 07's task 7). The described
+line is indented further because its name is longer; each second line starts
+where its own agreement figure does.
 
 ```console
 $ ls gold/observability/calibrations/
@@ -294,13 +301,17 @@ whose `root_cause` is described. Its verdict is keyed on the pages rather than o
 a transcript, so the same candidate judged against a different rendering would be
 a different entry rather than a cache hit (R7.18, R7.21).
 
-Now the judge is made wrong on purpose — two described verdicts flipped,
-`calibrations/` and `.dossier/cache/judge/` deleted, recalibrated:
+Now the judge is made wrong on purpose. Two described verdicts are flipped,
+`rd-17` and `rd-20`, both of which the reviewer marked not supported; then
+`calibrations/` and `.dossier/cache/judge/` are deleted and the judge is
+recalibrated:
 
 ```console
 $ dossier calibrate observability-audit --gold gold/observability
 root_cause         100.0% agreement over 20 cases · openai:gpt-5.4-mini
+                   lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
 root_cause.described 90.0% agreement over 20 cases · openai:gpt-5.4-mini
+                     lower bound 69.9% · kappa 0.78 · supported 12 of 12 · unsupported 6 of 8
 
 $ dossier eval observability-audit --gold gold/observability
   root_cause         100.0%   (6 judged)
@@ -308,12 +319,20 @@ $ dossier eval observability-audit --gold gold/observability
 
 Exactly at the bar, and reported: the bound is inclusive, and that is a decision
 rather than an accident — a threshold somebody agreed to is a threshold that may
-be met. Flip a third:
+be met. Look at the second line, though. At the bar, this judge has let two claims
+through that the reviewer marked not supported (`unsupported 6 of 8`), and its
+kappa is 0.78. Exercise 07's judge was also at 90% (one miss in each half) and
+had a kappa of 0.79. The agreement is the same; what the judge gets wrong is not
+(R7.28).
+
+Flip a third, `rd-19`, which the reviewer marked supported:
 
 ```console
 $ dossier calibrate observability-audit --gold gold/observability
 root_cause         100.0% agreement over 20 cases · openai:gpt-5.4-mini
+                   lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
 root_cause.described 85.0% agreement over 20 cases · openai:gpt-5.4-mini
+                     lower bound 64.0% · kappa 0.68 · supported 11 of 12 · unsupported 6 of 8
 
 $ dossier eval observability-audit --gold gold/observability
 6 documents · 4 fields · overall 100.0%
