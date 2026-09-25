@@ -1,6 +1,6 @@
 # 015 — Review in MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R15.1 – R15.5
 
 ## Purpose
@@ -234,7 +234,7 @@ artifact or score.
 - **Kind:** deterministic
 - **Layer:** architecture, application (`dossier.application.review`)
 - **Proved by:** `tests/architecture/test_R015_5__only_review_pull_reads_a_verdict.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
