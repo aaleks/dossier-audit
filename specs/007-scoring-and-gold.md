@@ -833,7 +833,7 @@ machine (R0.4).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.judges`)
 - **Proved by:** `tests/unit/test_R007_26__a_calibration_reports_the_lower_bound_on_its_agreement.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
