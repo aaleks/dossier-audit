@@ -790,7 +790,7 @@ wherever they are.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.text_csv`)
 - **Proved by:** `tests/unit/test_R008_23__a_csv_file_converts_to_its_text.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

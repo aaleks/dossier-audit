@@ -55,6 +55,7 @@ ONE_PIXEL_PNG = base64.b64decode(
 PAYLOADS = {
     "text/markdown": b"# INC-4821\n\nTotal exposure CHF 48'200 on page 3.\n",
     "text/plain": b"INC-4821\n\nTotal exposure CHF 48'200 on page 3.\n",
+    "text/csv": b"key,opened,recorded_loss_chf\nINC-4821,2026-07-30,48200\n",
     "image/png": ONE_PIXEL_PNG,
     # A Jira issue as the connector holds it (R1.14): small enough for the
     # subprocess probe's command line, with wiki markup and a comment, so the
