@@ -13,6 +13,44 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A Confluence space can be audited (spec 001 R1.15 – R1.21, spec 008 R8.19 –
+R8.20). Spec 001 had said a page would be exported as a PDF, because its images
+carry meaning the storage format loses. A real server disagreed: the export is a
+user-interface action, not a REST route, and `cwiki.apache.org` and
+`confluence.ecmwf.int` refuse it (`403`) while serving the page's JSON. So a
+page is held as Confluence renders it for export
+(`expand=body.export_view,version,space`), labelled
+`application/vnd.dossier.confluence-page+json`. It is keyed by its id, never its
+title, with the marker `v37`. Its files are `<page id>/<file>`, marked by
+attachment id *and* version, because each alone misses a case. The PDF became
+an addition rather than the whole: `export: pdf` also holds `<page id>.pdf`,
+whose marker digests the page's files' markers too, since an image replaced in
+place changes the PDF but not the page. A refused export fails that document by
+name and holds the watermark back (R1.20). A PDF missing without a word would
+read exactly like a page with none, and R1.12 had already ruled out probing
+around a refusal. `confluence-page-markdown` writes the note with `markdownify`
+and BeautifulSoup, both pinned: no escapes, and no table of contents, which
+repeats the headings and carries its render time in a class name, so no two
+fetches of a page are the same bytes. Images are written by file name. Jira's
+header decision moved to `connectors/atlassian.py`, so both connectors
+authenticate one way. `atlassian-python-api` was rejected: it is built on
+`requests`, and its hundreds of write methods would end R1.1's "the write is
+absent".
+
+The fakes found one real bug before any server did. httpx *replaces* a URL's
+query with `params`, so `params={}` stripped `?version=2` from a file's download
+link, which would have fetched the latest version rather than the one the
+marker named. The live checks found the rest of the facts the spec now records:
+`confluence.atlassian.com` exports only with `X-Atlassian-Token: no-check`, and
+serves the redirected file only to the session cookie that asked. Two exports
+of one version differ in the trailer's random `/ID`. Synced from cwiki, two KIP
+pages came with 66 images, and both notes came out clean. What is left is
+spec 001's open questions (Cloud, comments, included pages) and spec 008's
+question 5: `convert:` is per source, so `page_images` of an export would be
+asked of its page too.
+
+---
+
 Reviewers review in MLflow. The people who can say whether an answer is right
 rarely run `dossier`, so the daily run's record became the place they review it
 (spec 015). Every trace now opens with the document it read and closes with the

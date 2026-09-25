@@ -13,8 +13,8 @@ see "How this is built" below. Where the rules stand is printed by
 behind. This README can fall behind, so its figure carries a date. On 2026-09-25:
 
 ```
-specs: 247 rules across 16 specs | 233 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSEDED
-       244 deterministic, 3 evaluated
+specs: 256 rules across 16 specs | 242 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSEDED
+       253 deterministic, 3 evaluated
 ```
 
 ## Layout
@@ -26,6 +26,7 @@ specs: 247 rules across 16 specs | 233 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSE
 | `docs/architecture.md` | The two boundaries and the layer contracts |
 | `docs/dossier-design-deck.pdf` | Background: the proposal this came from |
 | `docs/jira-connector.md` | A tour of the Jira connector: what you write, and what a sync does |
+| `docs/confluence-connector.md` | The same for Confluence: pages rendered for export, their files, a PDF where the server allows it, and the note a stage reads |
 | `docs/review-in-mlflow.md` | Reviewing a run's answers in MLflow, for reviewers who never run `dossier`, and bringing their verdicts back |
 | `docs/history/` | How it came to be: `slices.md`, what each slice changed and why, newest first; the first session's kickoff prompt; and the brainstorm that led to page images |
 | `src/dossier/` | The package: `domain/`, `application/`, `infrastructure/`, `config/`, `cli/` |
@@ -37,7 +38,8 @@ specs: 247 rules across 16 specs | 233 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSE
 ## Installing
 
 ```bash
-pip install dossier            # markdown-text, text-plain, png-pages, jira-issue-markdown
+pip install dossier            # markdown-text, text-plain, png-pages, jira-issue-markdown,
+                               # confluence-page-markdown
 pip install dossier[pdf]       # and pdf-markdown, pdf-images, jpeg-pages
 pip install dossier[tracking]  # and MLflow runs, traces and metrics
 pip install dossier[docling]   # and docling-markdown: a PDF with no text layer, read by OCR

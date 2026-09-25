@@ -94,9 +94,9 @@ session needs:
 - The project's default model is `gemini:gemini-3.5-flash-lite` through a local
   OpenWebUI (`.env.example`).
 - A fake of someone else's service is a claim about it. When a slice talks to
-  MLflow, Jira or a model provider, run the real call once before calling the
-  slice done: four spec-012 bugs and R11.16's missing assessments were green in
-  the suite and wrong against a real server.
+  MLflow, Jira, Confluence or a model provider, run the real call once before
+  calling the slice done: four spec-012 bugs and R11.16's missing assessments
+  were green in the suite and wrong against a real server.
 
 ## The skills
 
