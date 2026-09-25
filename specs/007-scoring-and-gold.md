@@ -858,7 +858,7 @@ measurement.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.judges`)
 - **Proved by:** `tests/unit/test_R007_27__a_calibration_reports_kappa.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
