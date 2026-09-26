@@ -13,6 +13,34 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+What playground exercise 15 found, fixed (R2.23, R2.24, R6.21, R8.20 row 7,
+R1.18 row 6). Writing an exercise against a real Confluence turned up two
+things the suite had called MET. Sync asks for a page's files only when the
+listing returns the page. So a refused export was reported once, and then the
+next windowed sync had nothing to fail on and moved the watermark past it.
+Adding or removing `export:` did nothing until `--full`. R1.19 row 6 and R1.20
+row 3 were green because their fake Confluence ignored the CQL window. Both went
+back to NOT MET. Two rules followed. A key whose fetch failed is recorded in the
+ledger's `owed` table, and its item is visited at every sync until the key is
+stored, its item stops carrying it, or a complete listing drops the item (R2.23).
+A change to any key of the source's own is recorded as a hash, and the next
+listing is complete without refetching unchanged items (R2.24). That also means
+a narrowed Jira query tombstones what it no longer matches, rather than waiting
+for `--full`. Both fakes now honour the window, and with either mechanism
+switched off, the test that depends on it fails. Checked on cwiki: with
+`export: pdf` added, the 403 comes back at every sync, and the watermark holds
+until it is fixed. The second finding was worse: a text step was asked about
+every picture with an empty document. Every picture then had the key of `""`,
+and the second one was served the first's answer, naming the first. R6.13's
+reasoning described exactly this and its rule did not cover it. R6.21 does, and
+replay makes the same decision. R8.19's acceptance test had pinned the bug, by
+asserting two model calls where the second was that empty call. The shared HTML
+reader now keeps a non-breaking space at the edge of bold, which markdownify
+dropped, so both HTML converters are at 1.1.0. A page's files are listed once
+per sync, where each file fetched had listed them again.
+
+---
+
 A judge's calibration now says what its agreement figure hides (spec 007,
 R7.26 – R7.29, from analysis.md §4.8). The gate had been comparing one number,
 `agreement >= threshold` over twenty cases, and three things were invisible
