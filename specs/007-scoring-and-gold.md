@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.29
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.31
 
 ## Purpose
 
@@ -124,10 +124,10 @@ three things, each of which can make a judge look better than it is
   whole job (R7.12). Agreement pools the supported cases with the unsupported
   ones, so a judge strong on the first can hide a weak second.
 
-These figures are reported, not gated. Whether the bar should compare the lower
-bound, or set a separate bar for unsupported cases, is a threshold, and a
-threshold is a person's to agree (R7.11). These figures are what that person
-needs to see first.
+The lower bound and kappa are reported, not gated. The unsupported half can be
+gated: a gold set may give it a bar of its own, beside the agreement bar
+(R7.30, R7.31). That was agreed after these figures had been seen on real
+calibrations, because a threshold is a person's to agree (R7.11).
 
 ## Existing options considered
 
@@ -912,3 +912,65 @@ every new figure in it is optional, and the gate reads the agreement (R7.5).
 | 3 | a `per_part` pipeline, both samples measured | the same figures for `root_cause.described`, in its own file and under its own metric names (R7.22) |
 | 4 | a sample the reviewer marked all supported, 20 of 20 agreed | `kappa not measurable` and `no unsupported case` in the terminal; `kappa` `null` and `unsupported` `{"agreed": 0, "cases": 0}` in the file; no `kappa` or `unsupported` metric |
 | 5 | *counter-example* — a `calibrations/root_cause.json` written before R7.26 | loads, and `dossier eval` withholds or reports `root_cause` exactly as before (R7.15); the gate reads the agreement alone |
+
+### R7.30 — `judge.yaml` may declare, per grounding state, the share of unsupported cases a judge must catch
+
+R7.28 reports the two halves of a sample apart, because agreement pools them. A
+judge at 90% can have let two invented causes through, and R7.5 compares only
+the 90%. Catching an unsupported claim is the judge's whole job (R7.12), so that
+half may carry a bar of its own.
+
+It goes where every bar goes: in `gold/<name>/judge.yaml`, agreed by a person,
+never in the field declaration (R7.13). It is declared per grounding state,
+because a text judge and a page judge are two judges (R7.20), and it is optional.
+A state's scalar still means its agreement bar, so every file written before
+this rule loads unchanged and declares no unsupported bar.
+
+For `root_cause`, the bar agreed by `a.aleks` on 2026-09-26 is 0.875: out of
+R7.11's eight unsupported cases, no more than one let through. It is written as
+a share rather than a count, so a sample of forty unsupported cases is held to
+the same rate and not to "at most one".
+
+- **Kind:** deterministic
+- **Layer:** config (`dossier.config.load.load_judge_thresholds`)
+- **Proved by:** `tests/unit/test_R007_30__a_state_may_declare_an_unsupported_bar.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `root_cause: {grounded: {agreement: 0.95, unsupported: 0.875}}` | both bars read for `grounded` |
+| 2 | `root_cause: {grounded: 0.95, described: {agreement: 0.90, unsupported: 0.875}}` | `grounded` has an agreement bar only; `described` has both |
+| 3 | `root_cause: 0.95`, a scalar | the agreement bar for `grounded`, and no unsupported bar; the file loads as it did (R7.20 row 2) |
+| 4 | `{grounded: {agreement: 0.95, unsupported: 87.5}}` | load-time error naming the field, the state and `unsupported`; a proportion is a proportion (R7.13 row 3) |
+| 5 | `{grounded: {agreement: 0.95, supported: 0.9}}` | load-time error naming `supported` and the two bars that exist; a bar under a name nothing reads gates nothing |
+| 6 | *counter-example* — `{grounded: {unsupported: 0.875}}` | load-time error: a state declares its agreement bar, and the unsupported bar is in addition to it, never instead |
+
+### R7.31 — a judged field is withheld when its judge caught fewer of the unsupported cases than the bar asks
+
+With an unsupported bar declared, a state's calibration is compared on that half
+as well as on its agreement. The share caught must be at or above the bar. The
+bound is inclusive, as R7.5's is: 7 of 8 meets 0.875.
+
+The half must hold at least 8 cases, the number in R7.11's sample, before the
+share means anything. Below that, the field is withheld as not measurable, as
+R7.11 row 3 treats an agreement over fewer than 20 cases. 1 of 1 is 100%, and it
+shows nothing. A calibration from before R7.26 has no counts, so it has nothing
+to compare and is withheld until it is measured again.
+
+A withheld field names the state, the count, the share and the bar. "Below the
+bar" is not enough here: the fix is a better judge, or more unsupported cases in
+the sample, and the message has to say which.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.judges.withholding`)
+- **Proved by:** `tests/unit/test_R007_31__a_judge_that_lets_claims_through_is_withheld.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | unsupported bar 0.875, a calibration at 95.0% against 0.95 with unsupported 7 of 8 | reported; 7 of 8 is exactly the bar |
+| 2 | exercise 10's described judge: 90.0% against 0.90, unsupported 6 of 8, bar 0.875 | withheld: `unsupported 6 of 8 (75.0%) is below the agreed 87.5%`; its agreement cleared its bar, and it still lets claims through |
+| 3 | bar 0.875, a sample holding 7 unsupported cases, all caught | withheld, naming the 7 and the 8 it needs; not measurable, never 100% |
+| 4 | bar 0.875, a calibration file written before R7.26 | withheld: measured before its unsupported cases were counted -- run `dossier calibrate` |
+| 5 | bar declared, agreement below its own bar | withheld on the agreement, as today; R7.15's order holds, with the unsupported half checked after it |
+| 6 | *counter-example* — no unsupported bar declared | gated on the agreement alone, exactly as before (R7.5) |
