@@ -28,8 +28,20 @@ from dossier.domain.confluence_page import note
 from dossier.domain.conversion import CONFLUENCE_PAGE
 from dossier.infrastructure.converters import _html
 
-# What a reader of the page never sees, taken out before anything is written.
-UNSEEN = "div.toc-macro, style, script"
+# What a reader of the page never sees, taken out before anything is written:
+# the table of contents, styles and scripts, and the placeholders a Jira issue
+# macro is exported with for a browser to fill in -- "Getting issue details..."
+# and a `STATUS` lozenge (R8.20 row 8). Only placeholders: a macro exported with
+# its details in it keeps them (row 9).
+UNSEEN = ", ".join(
+    (
+        "div.toc-macro",
+        "style",
+        "script",
+        "span.jira-issue:has(.issue-placeholder) > .summary",
+        "span.jira-issue .issue-placeholder",
+    )
+)
 
 
 class ConfluencePageMarkdownConverter:
@@ -40,7 +52,8 @@ class ConfluencePageMarkdownConverter:
     # including when the pin on markdownify or beautifulsoup4 moves, since the
     # libraries' versions are not in the key and this one is (R5.4, R8.2).
     # 1.1.0: a non-breaking space at the edge of emphasis is kept (R8.20 row 7).
-    version = "1.1.0"
+    # 1.2.0: a Jira macro's placeholders are taken out (R8.20 row 8).
+    version = "1.2.0"
     media_type = CONFLUENCE_PAGE
     kind = "markdown"
 

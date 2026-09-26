@@ -22,6 +22,17 @@ from dossier.infrastructure.converters.confluence_page_markdown import (
 
 PAGE = Path(__file__).resolve().parents[1] / "fixtures" / "confluence" / "81920114.json"
 
+# A single-issue Jira macro as Confluence Data Center 9.2 exports it (cwiki's
+# KIP-1279), placeholders and all: the details are fetched by a browser.
+JIRA_MACRO = (
+    '<p><strong>JIRA</strong>: <span class="jira-issue" data-jira-key="KAFKA-20186">'
+    '<a href="https://issues.apache.org/jira/browse/KAFKA-20186" class="jira-issue-key">'
+    '<span class="aui-icon aui-icon-wait issue-placeholder"></span>KAFKA-20186</a> - '
+    '<span class="summary">Getting issue details...</span> '
+    '<span class="aui-lozenge aui-lozenge-subtle aui-lozenge-default issue-placeholder">'
+    "STATUS</span></span></p>"
+)
+
 
 def converted(body: str | None = None) -> str:
     """`OPS-114`, with its body replaced where given, as the converter writes it."""
@@ -91,3 +102,23 @@ class TestAPagesBodyIsWrittenAsMarkdown:
         written = converted("<p><strong>Released:&nbsp;</strong>0.10.0.0</p>")
 
         assert "**Released:** 0.10.0.0" in written
+
+    def test_a_jira_macros_placeholders_are_not_in_the_note(self):
+        """Row 8: the one where the page says `STATUS` until a browser fills it in."""
+        written = converted(JIRA_MACRO)
+
+        assert "[KAFKA-20186](https://issues.apache.org/jira/browse/KAFKA-20186)" in written
+        assert "Getting issue details" not in written
+        assert "STATUS" not in written
+
+    def test_a_jira_macro_rendered_in_full_is_kept(self):
+        """Counter-example, row 9: the one where the details are what a reader sees."""
+        rendered = (
+            JIRA_MACRO.replace(" issue-placeholder", "")
+            .replace("Getting issue details...", "Cluster mirroring")
+            .replace(">STATUS<", ">RESOLVED<")
+        )
+
+        written = converted(rendered)
+
+        assert "Cluster mirroring" in written and "RESOLVED" in written
