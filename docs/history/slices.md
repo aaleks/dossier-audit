@@ -13,6 +13,35 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+Spec 008's open question 2 has an answer, and it is not the one the spike
+expected. `docling-markdown` converted the same three PDFs on Windows 11 and in
+`python:3.12-slim` on Linux (x86_64). Every package was at the lock's version,
+and the inputs were byte-identical on both sides:
+
+- **The photocopy and `PLAY-2002` came out identical.** A page that is a picture
+  renders to the same pixels everywhere. The layout model, TableFormer and
+  RapidOCR read those pixels the same way on both machines.
+- **The half-photocopy did not.** On Linux, page 1, the one read from its text
+  layer, lost a heading, and two of its tables merged their header row into
+  their first row. Pages 2 and 3 matched.
+
+The text layer was the same on both machines, but the page image Docling's
+models look at was not. The postmortem embeds none of its fonts, so PDFium draws
+Helvetica with Windows' fonts on one machine and with its own fallbacks on the
+other, and about a tenth of each page's pixels differ. That is R8.1 row 3's
+"font file outside its input", read by PDFium on the converter's behalf.
+
+- `pdf-images` renders the same way, and its bytes differ even on the photocopy,
+  where the pixels match: Pillow's Windows wheel compresses PNGs with zlib-ng,
+  and its Linux wheel with zlib.
+- `tests/scans.py` builds a different photocopy on each machine for the same
+  reason, which is why the Linux side converted the Windows-built bytes.
+
+A replay still reads the cached artifact (R4.7). What R8.1 should say about a
+machine's fonts is left for a spec change.
+
+---
+
 Conversion has an automatic case, and who chose a document's kind now decides
 what happens when nothing can read it (spec 008, R8.24 – R8.27). A source that
 declares no `convert:` leaves both choices to `dossier`: the kind from the
