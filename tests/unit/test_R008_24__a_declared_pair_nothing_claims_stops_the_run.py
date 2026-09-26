@@ -188,9 +188,7 @@ class TestADeclaredPairNothingClaimsStopsEverything:
 class TestAPairClaimedTwiceIsNotAMissingConverter:
     """R8.24 row 5 — two claimants stop the run, and say so."""
 
-    def test_a_tie_is_refused_once_naming_both_and_the_way_to_settle_it(
-        self, workspace: Path
-    ):
+    def test_a_tie_is_refused_once_naming_both_and_the_way_to_settle_it(self, workspace: Path):
         """Counter-example (row 5): the one where a second HTML converter is installed.
 
         The run stops however the kind was chosen: this is an installation to
