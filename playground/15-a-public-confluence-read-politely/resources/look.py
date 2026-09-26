@@ -7,6 +7,7 @@
     look.py revisions KEY          every snapshot KEY has held, oldest first
     look.py ground KEY SPAN        whether SPAN is found in KEY's note, as a run decides it
     look.py watermarks             where each source's next sync will ask from
+    look.py owed                   each key whose fetch failed, and is asked again (R2.23)
 
 It only reads. The ledger is SQLite, the snapshots and the converted artifacts
 are files, and none of it needs `dossier` to be read -- except `ground`, which
@@ -40,6 +41,7 @@ def main(argv: list[str]) -> int:
         "revisions": revisions,
         "ground": ground,
         "watermarks": watermarks,
+        "owed": owed,
     }
     if command not in commands:
         print(__doc__, file=sys.stderr)
@@ -129,6 +131,22 @@ def ground(key: str, span: str) -> int:
 def watermarks() -> int:
     for source, at in _db().execute("select * from watermarks order by source_id"):
         print(f"{source:15} {at}")
+    return 0
+
+
+def owed() -> int:
+    """What the ledger is owed: each key whose fetch failed, until it is stored.
+
+    A failed fetch leaves the key's own row as it was, or absent (R1.9), so this
+    table is the only record that the failure happened. The item beside each key
+    is the one a sync visits to ask for it again, listed or not (R2.23). The time
+    is the latest failure, rewritten each time the key is asked and refused.
+    """
+    rows = _db().execute(
+        "select source_id, key, item_key, failed_at from owed order by source_id, key"
+    )
+    for source, key, item, failed_at in rows:
+        print(f"{source:15} {key:16} carried by {item or key:10} last failed {failed_at}")
     return 0
 
 

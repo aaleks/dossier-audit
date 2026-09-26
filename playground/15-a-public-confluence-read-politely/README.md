@@ -9,8 +9,9 @@ its PDF export beside it.
 by its id and versioned by its number. The files it carries are documents of
 their own. The page is kept as Confluence rendered it, and the note a stage reads
 is made from that. You will see what `export: pdf` costs, what a server that
-refuses it looks like, and what happens where a source's documents meet a step
-that reads only one kind of them.
+refuses it looks like, and how a sync keeps asking for what it was refused.
+You will also see what happens where a source's documents meet a step that
+reads only one kind of them.
 
 **Needs network access, and reads servers that belong to other people. Uses the
 stub model; no key, no licence, no Docker.**
@@ -32,9 +33,12 @@ You are a guest on both, and behaving like one is part of the exercise:
   That space is thousands of pages, most of them with images, and a first sync
   fetches every one.
 - **A sync of an unchanged source is one request.** Task 2 shows why. The whole
-  exercise makes fewer than forty.
-- **Two tasks make a server render a PDF** (tasks 6 and 7). Rendering is real
-  work on someone else's machine. Run each of those syncs once.
+  exercise makes about forty.
+- **Two tasks ask for a PDF export** (tasks 6 and 7). cwiki refuses it, and
+  refusing costs little. confluence.atlassian.com renders one, which is real
+  work on someone else's machine. Run each sync the README gives you once, and
+  don't add syncs of your own to task 6 while the export is in the source:
+  every sync then asks cwiki again, which is the point of the task.
 - **Nothing you run can change a page.** Every request is a `GET`, and the
   connector has no method for anything else (R1.1). You cannot rename a page
   either. Task 3 is about a rename you cannot make.
@@ -154,8 +158,9 @@ moves. That sync made one request. An incremental listing adds
 `AND lastmodified >= "<since>"` to the query (R1.4, R1.15 row 2). Neither page
 has changed in years, so the search returned nothing, and nothing else was asked
 for. Absence in that listing says nothing about deletion, which is why the
-connector declares `lists_everything = False` (R1.11). Keep this in mind for
-tasks 6 and 7.
+connector declares `lists_everything = False` (R1.11). A window that returns
+nothing also asks nothing about what a page carries. Keep this in mind for tasks
+6 and 7, which are about what a sync does for a page its window cannot see.
 
 ## Task 3 — what was held, and what a stage will read
 
@@ -205,57 +210,50 @@ grounding (R6.4):
 
 ```bash
 $L ground 67637330 '**Released**: 2.1.0'
-$L ground 62694040 '**Released:**0.10.0.0'
+$L ground 62694040 '**Released:** 0.10.0.0'
 ```
 
-**Checkpoint.** Both are `grounded`. Now quote KIP-57's release the way a
-browser shows it, `Released: 0.10.0.0`, and it is `ungrounded`. The same span
-written for KIP-110 is grounded. Find the difference in the two payloads and
-say which step lost what. That step is not grounding.
+**Checkpoint.** Both are `grounded`, and so is each release quoted the way a
+browser shows it, `Released: 2.1.0` and `Released: 0.10.0.0`. Now find how the
+two payloads write that line. They differ, and in KIP-57's the space a reader
+sees is not an ordinary one. Read R8.20 row 7: this exercise found that line
+turning into `**Released:**0.10.0.0` in the note, so that the quote from the
+browser did not ground. What changed in `confluence-page-markdown` to fix it,
+and what did the change do to every convert key the converter had written
+(R5.4)?
 
-Do the same for KIP-57's Jira issue. The note links it as
+Now the Jira issue. The note links KIP-57's as
 `[here](https://issues.apache.org/jira/browse/KAFKA-3160)`. Try the spans
 `KAFKA-3160`, `JIRA: here`, and the reply file's span with the issue number
 changed to `KAFKA-9999`. Read R6.20 and say what a span quoting a link is
 checked against.
 
-Now run it:
+Now plan it, and run it:
 
 ```bash
+dossier run kip-audit --plan
 dossier run kip-audit
 ```
 
-**Checkpoint.** It stops, with exit code 2:
+**Checkpoint.** The plan says `4 document(s)`, and the run says
+`extract: 2 document(s) · 0 from cache · 0 failed`. `calls.jsonl` has two
+lines, and the run's `extract/` folder holds an answer for each page and nothing
+for either PNG. Work out why from three rules:
 
-```
-kip-audit: POST http://127.0.0.1:8099/api/chat/completions answered 422 Unprocessable Content
-```
+- `extract` reads bare `documents`, which means `documents@markdown` (R3.11).
+- A PNG converts to `page_images`, never to `markdown` (R8.10).
+- A step does not run for a document that holds nothing of any kind it reads
+  (R6.21).
 
-The stub answers 422 when no rule matches. Read `calls.jsonl` to find which call
-that was. Its `prompt_chars` is the length of the prompt file with nothing in
-place of `{{documents}}`. Work out which documents the step was called for, what
-it was shown, and why (R3.11, R8.10). Then restart the stub with task 4's second
-reply file in front of the first:
+The manifest still lists all four documents, because the run read all four,
+and one step had nothing to ask about two of them.
 
-```bash
-.venv/bin/python playground/toolkit/stub_model.py \
-    --replies playground/15-a-public-confluence-read-politely/resources/replies-no-document.json \
-    --replies playground/15-a-public-confluence-read-politely/resources/replies.json \
-    --port 8099 --log playground/work/15/calls.jsonl
-```
+R6.21 exists because this exercise found the step doing otherwise. Before it,
+`extract` was called for each PNG with an empty document. Read the rule's
+opening paragraph, then `resources/proposal.md`, which is what the exercise
+proposed at the time. Say where the rule that landed differs from the proposal.
 
-```bash
-dossier run kip-audit
-```
-
-**Checkpoint.** `extract: 4 document(s) · 3 from cache · 0 failed`, and the log
-grows by one line, not two. Account for all three answers served from cache.
-Then open both PNGs' `.meta.json` under the run's `extract/67637330/`, and then
-`zstd-1.3.4.png.json`. Which document does that answer say it is about? Read
-R6.13 and write down what you would propose. `resources/proposal.md` has one
-answer, but write yours first.
-
-Run it once more. All four are served from cache, and the log does not grow
+Run it once more. Both answers are served from cache, and the log does not grow
 (R5.5).
 
 ## Task 5 — the same version, fetched twice
@@ -290,21 +288,18 @@ dossier run kip-audit
 **Checkpoint.** `2 converted · 2 cached`. The pages are converted again because
 their snapshots are new, and the PNGs are not. The notes are the same bytes. The
 run warns that the source has moved since the last run. Then every answer is
-served from cache, and the log does not grow. The stage key holds the note, not
+served from cache, and the log still has two lines. The stage key holds the note, not
 the snapshot. Read "Two consequences, accepted" in spec 001's section "A
 Confluence page", and say what this would cost against a space of a thousand
 pages.
 
 ## Task 6 — an export the server refuses
 
-Add `export: pdf` to `kafka-kips`, sync, and check the watermark.
-
-**Checkpoint.** Nothing happens: `0 fetched`, no failure, and the watermark
-moves. Explain why from task 2's checkpoint. Which pages did that sync ask
-`attachments()` of? Then ask for the whole listing:
+Check the watermark, add `export: pdf` to `kafka-kips`, and sync:
 
 ```bash
-dossier sync kip-audit --full
+$L watermarks
+dossier sync kip-audit
 $L watermarks
 $L ledger
 ```
@@ -319,12 +314,35 @@ The pages and the PNGs are still held, and the watermark did not move (R1.20
 row 1, R2.8). Say why a refused export is a failure and not a skip. What would a
 PDF that went missing without a word look like in the ledger?
 
-Now sync again, without `--full`.
+Then explain why the exports were asked for at all. Neither page has changed in
+years, and task 2 showed a plain sync listing neither. Read R2.24: which key
+changed, and what did that change make this sync do?
 
-**Checkpoint.** Read R1.20 row 3 first and predict the result. Then compare
-what happened with what the row says, and explain the difference from task 2.
+Now look at what the ledger remembers, and sync again, without changing
+anything:
 
-Take `export: pdf` out of `kafka-kips` before you go on.
+```bash
+$L owed
+dossier sync kip-audit
+$L watermarks
+$L owed
+```
+
+**Checkpoint.** The listing was windowed this time (R2.24 row 4), and it
+returned neither page. Both exports were still asked for, refused, and
+reported, and the watermark is still where it was before the export was added.
+Read R2.23, and find in `$L owed` what told the sync to visit each page anyway.
+What would the next sync have reported if nothing had remembered the failure?
+
+Take `export: pdf` out of `kafka-kips`, and sync once more.
+
+**Checkpoint.** Exit code 0, nothing owed, and the watermark moves on. The PDFs
+were never held, so there is nothing to tombstone either (R2.23 row 4).
+
+R2.23 and R2.24 exist because this exercise found a sync that never asked again,
+and a key change that nothing noticed. The second proposal in
+`resources/proposal.md` is what the exercise suggested at the time. Say how
+each rule is wider than the part of the proposal it came from.
 
 ## Task 7 — an export the server allows
 
@@ -353,13 +371,14 @@ those digits yourself from R1.19, using the file's marker. Then read the page's
 note and the PDF's (`$L note 792498257.pdf`). Where is the image in each, and
 why does the export's marker have to move when the image does?
 
-Take `export: pdf` out of `atlassian-docs`, and sync. Then sync with `--full`.
-Then put `export: pdf` back, and sync with `--full` once more.
+Take `export: pdf` out of `atlassian-docs`, and sync. Sync again. Then put
+`export: pdf` back, and sync once more. None of these needs `--full`.
 
-**Checkpoint.** R1.19 row 6 says that taking `export:` away tombstones every
-`<page id>.pdf` at the next sync. Say which of those three syncs tombstoned it,
-and why that one. Then look at the third sync: the PDF is active again, and
-`0 fetched`. What decided that the server did not need to render it again?
+**Checkpoint.** The first sync tombstones `792498257.pdf` (R1.19 row 6), because
+a changed key lists the source whole (R2.24 row 2), and a page no longer carries
+its export. The second sync is windowed again and does nothing (R2.24 row 4).
+After the third, the PDF is active again, and `0 fetched`. What decided that
+the server did not need to render it again?
 
 ## Task 8 — one `convert:` for a whole source
 
@@ -376,8 +395,8 @@ as notes. Try asking for that in `sources.yaml`, one line at a time under
 **Checkpoint.** All three are refused, each naming the documents it cannot
 convert. The only setting that converts everything is no `convert:` at all,
 where each media type gets its default kind (R8.10). Read spec 008's open
-question 5. Then connect it to task 4: which question is the proposal there
-answering, and which is it not?
+question 5. Then connect it to task 4: which question does R6.21 answer, and
+which does it leave open?
 
 Take the line out again.
 
@@ -388,11 +407,13 @@ Take the line out again.
 - two pages became four documents, and you can say why each key and each marker
   has the form it has;
 - you can say where a rename of KIP-110 would show up and where it would not;
-- the audit grounds its spans. You can say why one quote from the browser did
-  not ground, and what the step reading `documents` was asked about the PNGs;
+- the audit grounds its spans. You can say why a quote from the browser once
+  did not ground, why a value that lives only in a link cannot be quoted, and
+  why the step reading `documents` was never asked about the PNGs;
 - you saw one page version fetched twice as two snapshots and one note;
-- you saw an export refused and one held. You can say which syncs asked for the
-  export, and why the others did not.
+- you saw an export refused and one held. You can say why a sync asked for the
+  refused export when its window returned no page, and why taking `export:`
+  away needed no `--full`.
 
 ## Cleaning up
 

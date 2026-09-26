@@ -11,8 +11,8 @@ steps:
     prompt: prompts/01_extract.md
     # Bare `documents` means `documents@markdown` (R3.11): the notes the pages
     # convert to. The PNGs the ZStandard page carries convert to `page_images`
-    # (R8.10), so this step has no text for them -- and is still called for
-    # them, with an empty document. Task 4 is about that.
+    # (R8.10), so this step has nothing to read for them, and does not run for
+    # them (R6.21). Task 4 shows it.
     input: documents
     mode: per_file
     output: schemas/kip.yaml

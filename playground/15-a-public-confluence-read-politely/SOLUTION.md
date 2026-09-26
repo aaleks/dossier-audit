@@ -10,21 +10,24 @@ exercise 11's are:
 | **[shape]** | What to expect, and what to check. Not a transcript. |
 
 Nearly everything is **[run]**. The tasks were run in order, in one pass, on
-2026-09-25, against `cwiki.apache.org` (Confluence Data Center 9.2.21) and
-`confluence.atlassian.com`. Tasks 1 to 4, up to the first `dossier run`, were run
-a second time, on a fresh workspace and a later commit of `main`, and gave the
-same output. Only the snapshot addresses and the render times differed. The
-liberties taken in showing it:
+2026-09-26, against `cwiki.apache.org` (Confluence Data Center 9.2.21) and
+`confluence.atlassian.com`. They ran at the commit of `main` that made
+`confluence-page-markdown` 1.1.0 (#417), which came after R2.23, R2.24 and
+R6.21. The liberties taken in showing it:
 
 - `$L` stands for `python .../resources/look.py`, as the README's setup defines
   it. A `dossier run` line's absolute path is shortened to `…/runs/<id>/`.
 - Where a message lists every claimed pair, the list is cut to `[…]`.
-- Where a command only saved a file, its file name is the README's.
+
+Three things this exercise found were fixed after it found them, and tasks 4, 6
+and 7 show dossier as it is now. What each one did before is marked
+**[derived]**: it is taken from this exercise's first pass, and from the opening
+paragraph of the rule that fixed it, not from a run of the current code.
 
 What will differ in yours:
 
 - **Snapshot addresses of pages.** A page is never fetched as the same bytes
-  twice (task 5), so `36/6f/366fa4ea…` is this pass's KIP-110 and no one else's.
+  twice (task 5), so `dd/0f/dd0f9582…` is this pass's KIP-110 and no one else's.
   The PNGs' addresses will match, because a file's bytes do not change between
   fetches.
 - **Times.** The watermarks, the `rbtoc` digits and the run ids.
@@ -33,11 +36,10 @@ What will differ in yours:
 
 ## Run the prepared answer
 
-Terminal 1, from the repository root, starts the stub with both reply files:
+Terminal 1, from the repository root, starts the stub:
 
 ```bash
 .venv/bin/python playground/toolkit/stub_model.py \
-    --replies playground/15-a-public-confluence-read-politely/resources/replies-no-document.json \
     --replies playground/15-a-public-confluence-read-politely/resources/replies.json \
     --port 8099 --log playground/work/15/calls.jsonl
 ```
@@ -60,11 +62,23 @@ $D convert export-check
 
 Sixteen requests, one of which makes `confluence.atlassian.com` render a PDF.
 
-**[run]** The syncs and conversions were run from this block as written, on a
-fresh workspace, and gave the counts tasks 2, 3 and 7 show. **[derived]** The
-`run` was not run from here. With both reply files loaded from the start,
-expect `extract: 4 document(s) · 1 from cache · 0 failed`: three calls, and the
-second PNG served the first PNG's answer. Task 4 explains why.
+**[run]** Run as written, on a fresh workspace, one commit before the pass
+below (#416). The converter's 1.1.0 changes no count here:
+
+```console
+kafka-kips  0 known · 0 changed · 4 new -> 4 fetched
+ledger updated · 4 new snapshots · 0 tombstoned
+kafka-kips  4 held · 4 converted · 0 cached
+cache updated · 4 converted · 0 cached
+run 20260926T042935Z-9144 · …/runs/20260926T042935Z-9144/manifest.json
+  extract: 2 document(s) · 0 from cache · 0 failed · tokens not reported
+atlassian-docs  0 known · 0 changed · 3 new -> 3 fetched
+ledger updated · 3 new snapshots · 0 tombstoned
+atlassian-docs  3 held · 3 converted · 0 cached
+cache updated · 3 converted · 0 cached
+```
+
+Two calls in `calls.jsonl`, one per page. Task 4 says why not four.
 
 ---
 
@@ -168,25 +182,26 @@ source at a space full of screenshots.
 
 ```console
 $ $L watermarks
-kafka-kips      2026-09-25T11:59:35.207041+00:00
+kafka-kips      2026-09-26T04:39:22.133285+00:00
 $ dossier sync kip-audit
 kafka-kips  4 known · 0 changed · 0 new -> 0 fetched
 ledger updated · 0 new snapshots · 0 tombstoned
 $ $L watermarks
-kafka-kips      2026-09-25T11:59:39.967300+00:00
+kafka-kips      2026-09-26T04:39:26.412605+00:00
 ```
 
 One request. **[derived]** The search went out as
 
 ```
-(space = KAFKA AND title in (…)) AND type = page AND lastmodified >= "2026-09-23 11:59"
+(space = KAFKA AND title in (…)) AND type = page AND lastmodified >= "2026-09-24 04:39"
 ```
 
 That is the watermark, less the 24-hour overlap (R2.4), less one more day,
 because CQL reads a bare time in the server's own zone (R1.4, R1.15 row 2). A
 page last modified in 2018 is not in that window, so the listing was empty. An
 empty listing asks nothing else: `attachments()` is called for each **listed**
-page, and there were none. That matters in tasks 6 and 7.
+page, and there were none. Tasks 6 and 7 are about the two ways a sync now
+reaches a page its window leaves out.
 
 The connector says of itself that an empty listing proves nothing:
 
@@ -206,10 +221,10 @@ kafka-kips  4 held · 4 converted · 0 cached
 cache updated · 4 converted · 0 cached
 
 $ P=$($L payload 67637330); echo $P; wc -c < $P
-.dossier/snapshots/36/6f/366fa4eae0be0b1f6c0389fd5ab045ec93f431fcc92439d6a758a2bbfca2b464
+.dossier/snapshots/dd/0f/dd0f9582a9f675e2d88b97ee19ba7c44f7557bd25bb2f3800160b3c479069c1f
 20747
 $ $L note 67637330 > kip-110.md; wc -c < kip-110.md
-8922
+8904
 $ python -c "import json,sys; p=json.load(open(sys.argv[1],encoding='utf-8')); print(sorted(p))" $P
 ['_expandable', '_links', 'body', 'extensions', 'id', 'position', 'space', 'status', 'title', 'type', 'version']
 ```
@@ -222,13 +237,13 @@ two `page_images` containers from `png-pages`. A PNG's default kind is
 
 ```console
 $ grep -o "rbtoc[0-9]*" $P | sort -u
-rbtoc1790337576015
+rbtoc1790397563972
 $ grep -c "rbtoc\|toc-macro\|_links\|_expandable" kip-110.md
 0
 ```
 
-`1790337576015` milliseconds after 1970 is `2026-09-25 11:59:36 UTC`, one second
-after the sync started. Confluence draws the macro with a CSS class named after
+`1790397563972` milliseconds after 1970 is `2026-09-26 04:39:23 UTC`, under two
+seconds after the sync started. Confluence draws the macro with a CSS class named after
 the moment it drew it, and puts a `<style>` block for that class in front of it.
 The converter removes `div.toc-macro`, `style` and `script` before anything is
 written (R8.20 row 5), so each heading is in the note once, where it stands:
@@ -312,8 +327,8 @@ The note still writes them as `![name](name)`, exactly like the two it does
 carry. R8.20 writes an image as the file it shows *because* "the file is its own
 document (R1.18)". For an external image that reason does not hold. A reader
 of the note, whether a person or a model, cannot tell a file this workspace
-holds from one it never saw. That is a finding. It has been reported, and it is
-not settled here.
+holds from one it never saw. That is an observation, reported and not settled
+here.
 
 **[run]** Text a reader never sees:
 
@@ -366,7 +381,7 @@ The page's author put the table of contents *inside* a heading, so the payload
 opens:
 
 ```html
-<h1 id="KIP57InteroperableLZ4Framing-/*&lt;![CDATA[*/div.rbtoc1790337579302{padding:0px;}div.rbtoc1790337579302ul{margin-left:0px;}div.rbtoc1790337579302li{margin-left:0px;padding-left:0px;}/*]]&gt;*/#KIP57InteroperableLZ4Framing-
+<h1 id="KIP57InteroperableLZ4Framing-/*&lt;![CDATA[*/div.rbtoc1790397565647{padding:0px;}div.rbtoc1790397565647ul{margin-left:0px;}div.rbtoc1790397565647li{margin-left:0px;padding-left:0px;}/*]]&gt;*/
 ```
 
 The render time is in the heading's `id` too. The converter removes the macro,
@@ -390,27 +405,26 @@ $ $L ground 62694040 '**Current state**: *Accepted*'
 grounded  62694040  '**Current state**: *Accepted*'
 $ $L ground 62694040 '**JIRA**: [here](https://issues.apache.org/jira/browse/KAFKA-3160)'
 grounded  62694040  '**JIRA**: [here](https://issues.apache.org/jira/browse/KAFKA-3160)'
-$ $L ground 62694040 '**Released:**0.10.0.0'
-grounded  62694040  '**Released:**0.10.0.0'
+$ $L ground 62694040 '**Released:** 0.10.0.0'
+grounded  62694040  '**Released:** 0.10.0.0'
 ```
 
-`**Current state**: *Accepted*` is found although the note has a non-breaking
-space after the colon. Grounding folds compatibility characters (R6.17) and the
-markdown around words (R6.20) on both sides.
+Grounding folds the markdown around words on both sides (R6.20), so the spans
+keep the note's `**` and still match.
 
-**[run]** The same fields, quoted as a browser shows them:
+**[run]** The same fields, quoted as a browser shows them, and one span as an
+older note had it:
 
 ```console
 $ $L ground 67637330 'Released: 2.1.0'
 grounded  67637330  'Released: 2.1.0'
 $ $L ground 62694040 'Released: 0.10.0.0'
-ungrounded  62694040  'Released: 0.10.0.0'
-$ $L note 62694040 | grep Released
-**Released:**0.10.0.0
+grounded  62694040  'Released: 0.10.0.0'
+$ $L ground 62694040 '**Released:**0.10.0.0'
+ungrounded  62694040  '**Released:**0.10.0.0'
 ```
 
-The note has no space between `**Released:**` and `0.10.0.0`, but the page
-does. The two payloads show why:
+The two payloads write that line differently:
 
 ```console
 $ grep -o '<strong>Released[^/]*/strong>[^<]*' $($L payload 67637330)
@@ -419,32 +433,48 @@ $ grep -o '<strong>Released[^/]*/strong>[^<]*' $($L payload 62694040) | od -c | 
 0000000   <   s   t   r   o   n   g   >   R   e   l   e   a   s   e   d
 0000020   : 302 240   <   /   s   t   r   o   n   g   >   0   .   1   0
 0000040   .   0   .   0  \n
+$ $L note 62694040 | grep Released
+**Released:** 0.10.0.0
 ```
 
-KIP-57 has a non-breaking space (`302 240`, U+00A0) *inside* the bold.
-`markdownify` moves whitespace at the edge of an emphasis outside its markers
-(`chomp`). It strips every kind of whitespace from the edge, but it only puts
-back a space if the edge was an ASCII one. The non-breaking space is stripped
-and never written out, so two words a reader sees apart are joined in the note.
+KIP-57 has a non-breaking space (`302 240`, U+00A0) *inside* the bold. KIP-110
+has an ordinary space outside it. The note writes both as a reader sees them.
 **[run]** Checked on the converter alone:
 
 ```console
 $ python - <<'PY'
-from dossier.infrastructure.converters.confluence_page_markdown import markdown
+from dossier.infrastructure.converters.confluence_page_markdown import ConfluencePageMarkdownConverter, markdown
+print(ConfluencePageMarkdownConverter.version)
 for html in ["<p><strong>Released:\xa0</strong>0.10.0.0</p>", "<p><strong>Released: </strong>0.10.0.0</p>"]:
     print(repr(markdown(html)))
 PY
-'**Released:**0.10.0.0'
+1.1.0
+'**Released:** 0.10.0.0'
 '**Released:** 0.10.0.0'
 ```
 
-Grounding is doing its job here. A model is shown the note, not the page, and a
-model quoting the note grounds. The lesson for writing reply files, and gold
-answers, is to copy spans from the note. The defect is in the converter, and it
-has been reported. Confluence's editor puts non-breaking spaces everywhere, so
-it will not be rare. `html-markdown` reads an HTML file with the same reader
-(R8.21, `converters/_html.py`), and given the same `<strong>Released:&nbsp;</strong>`
-it writes the same `**Released:**0.10.0.0`.
+**This exercise found that line broken.** **[derived]** With
+`confluence-page-markdown` 1.0.0, KIP-57's note said `**Released:**0.10.0.0`.
+`markdownify` moves whitespace at the edge of an emphasis outside its markers
+(`chomp`). It strips every kind of whitespace from the edge, but it puts back a
+space only if the edge was an ASCII one. So the non-breaking space was dropped,
+and two words a reader sees apart were joined. `Released: 0.10.0.0`, copied
+from the page, was `ungrounded`, and the reply file had to say
+`**Released:**0.10.0.0`. R8.20 row 7 now says the space is kept. The shared
+reader writes every non-breaking space as a space before `markdownify` sees it,
+and `html-markdown` reads HTML with the same reader, so it was fixed there too.
+
+Grounding had been doing its job all along. A model is shown the note, not the
+page, and a model quoting the note grounds. The lesson for writing reply files
+and gold answers still stands: copy spans from the note, and check them with
+`locate_span`.
+
+The fix moved the converter to 1.1.0. The version is in every convert key
+(R5.4), so every page any workspace had converted with 1.0.0 converts again on
+its next `dossier convert`. A note whose bytes changed has a new stage key, and
+its stage asks the model again. That is how a converter's fix reaches an answer.
+It is also why a reply file, or gold, written from the old note can stop
+matching: `**Released:**0.10.0.0` above is now `ungrounded`.
 
 **[run]** A value that lives only in a link:
 
@@ -463,9 +493,9 @@ never compares. `KAFKA-3160` alone cannot be found. A span quoting the link
 grounds on the word `here`, whatever issue it names. The reply file's span is
 right, and a span naming `KAFKA-9999` would pass just as well. Keep that in mind
 when a value on a wiki page is only ever a link. This is R6.20 working as
-written. It is noted in the report, not called a defect.
+written, not a defect.
 
-**[run]** The run, with only `replies.json` loaded:
+**[run]** The run:
 
 ```console
 $ dossier run kip-audit --plan
@@ -474,129 +504,71 @@ no previous run to compare against
 ! extract: new
 1 of 1 step(s) would run · nothing written
 $ dossier run kip-audit
-kip-audit: POST http://127.0.0.1:8099/api/chat/completions answered 422 Unprocessable Content
-$ echo $?
-2
+run 20260926T043932Z-0d67 · …/runs/20260926T043932Z-0d67/manifest.json
+  extract: 2 document(s) · 0 from cache · 0 failed · tokens not reported
 $ cat calls.jsonl
-{"at": "2026-09-25T12:01:15.672054+00:00", "image_sha256": [], "images": 0, "matched": true, "model": "gpt-5.4-mini", "prompt_chars": 5944, "prompt_first_line": "Extract the requested fields from the Kafka Improvement Proposal below.", "schema": true}
-{"at": "2026-09-25T12:01:15.684476+00:00", "image_sha256": [], "images": 0, "matched": true, "model": "gpt-5.4-mini", "prompt_chars": 9251, "prompt_first_line": "Extract the requested fields from the Kafka Improvement Proposal below.", "schema": true}
-{"at": "2026-09-25T12:01:15.699800+00:00", "image_sha256": [], "images": 0, "matched": false, "model": "gpt-5.4-mini", "prompt_chars": 310, "prompt_first_line": "Extract the requested fields from the Kafka Improvement Proposal below.", "schema": true}
-$ wc -c < pipelines/kip-audit/prompts/01_extract.md
-323
+{"at": "2026-09-26T04:39:32.156912+00:00", "image_sha256": [], "images": 0, "matched": true, "model": "gpt-5.4-mini", "prompt_chars": 5945, "prompt_first_line": "Extract the requested fields from the Kafka Improvement Proposal below.", "schema": true}
+{"at": "2026-09-26T04:39:32.170011+00:00", "image_sha256": [], "images": 0, "matched": true, "model": "gpt-5.4-mini", "prompt_chars": 9250, "prompt_first_line": "Extract the requested fields from the Kafka Improvement Proposal below.", "schema": true}
+$ find runs/20260926T043932Z-0d67 -type f | sort
+runs/20260926T043932Z-0d67/extract/62694040.json
+runs/20260926T043932Z-0d67/extract/62694040.meta.json
+runs/20260926T043932Z-0d67/extract/67637330.json
+runs/20260926T043932Z-0d67/extract/67637330.meta.json
+runs/20260926T043932Z-0d67/manifest.json
+$ find .dossier/cache/stage -name '*.meta.json' | wc -l
+2
+$ python -c "import json,sys; [print(d['key'], d['media_type']) for d in json.load(open(sys.argv[1]))['plan']['documents']]" $(ls -d runs/* | head -1)/manifest.json
+62694040 application/vnd.dossier.confluence-page+json
+67637330 application/vnd.dossier.confluence-page+json
+67637330/zstd-1.3.3-vs-4.png image/png
+67637330/zstd-1.3.4.png image/png
 ```
 
-The plan counts **4** documents, and the third call's prompt is 310
-characters. That is the 323-byte prompt file, less the 13 characters of
-`{{documents}}`, with nothing in their place. The model was asked to extract
-fields from `<source_document></source_document>`.
+The plan and the manifest hold four documents. `extract` ran for two, made two
+calls, and wrote two answers and two cache entries. For the PNGs there is
+nothing at all.
 
-Keys are taken in order, so the calls were `62694040`, `67637330`, and then
-`67637330/zstd-1.3.3-vs-4.png`. The run's documents are every document that
-converted, whatever kind it converted to. `ConvertReport.present` says so, and
-says why: R6.15 once found a `page_images`-only source running no step at all.
-`extract` reads bare `documents`, which is `documents@markdown` (R3.11). A PNG
-has only `page_images` (R8.10). For a document with no artifact of the kind it
-reads, the step renders an empty string and calls the model anyway:
+- **`extract` reads bare `documents`**, which is `documents@markdown` (R3.11).
+- **A PNG converts to `page_images`** and never to `markdown` (R8.10). The run's
+  documents are every document that converted, whatever kind it converted to,
+  which is why the manifest has four.
+- **A step does not run for a document that holds nothing of any kind it reads**
+  (R6.21). The check is in `application/run.py`, `_reads_nothing`, and a replay
+  asks it too, so that a replay never looks for an answer the run never wrote
+  (R4.7).
 
-```python
-content = source.get(document)
-return "" if content is None else _wrapped(document, content)
-```
+The step line does not mention the PNGs, and that is deliberate. A document a
+step never had anything to read in is not a failure, and not news either.
 
-**[run]** With `replies-no-document.json` in front:
+**R6.21 exists because this exercise found the step doing otherwise.** Before
+it, `extract` was called for each PNG, and each prompt had nothing between
+`<source_document>` and `</source_document>`. The log's third line had
+`"prompt_chars": 310`: the 323-byte prompt file, less the 13 characters of
+`{{documents}}`. The stub, which had no rule for an empty prompt, answered 422,
+and the run stopped. Given a rule, it went on, and the cost showed. Both PNGs
+had one stage key, because their input was the same `""` (SHA-256
+`e3b0c442…`). The second PNG was served the first one's answer, and the file
+under `extract/67637330/zstd-1.3.4.png.json` said
+`"document": "67637330/zstd-1.3.3-vs-4.png"`. That paragraph is **[derived]**,
+as the opening note says: the current code no longer does it.
 
-```console
-$ dossier run kip-audit
-run 20260925T120135Z-5453 · …/runs/20260925T120135Z-5453/manifest.json
-  extract: 4 document(s) · 3 from cache · 0 failed · tokens not reported
-$ wc -l < calls.jsonl
-4
-$ find runs/20260925T120135Z-5453 -type f | sort
-runs/20260925T120135Z-5453/extract/62694040.json
-runs/20260925T120135Z-5453/extract/62694040.meta.json
-runs/20260925T120135Z-5453/extract/67637330.json
-runs/20260925T120135Z-5453/extract/67637330.meta.json
-runs/20260925T120135Z-5453/extract/67637330/zstd-1.3.3-vs-4.png.json
-runs/20260925T120135Z-5453/extract/67637330/zstd-1.3.3-vs-4.png.meta.json
-runs/20260925T120135Z-5453/extract/67637330/zstd-1.3.4.png.json
-runs/20260925T120135Z-5453/extract/67637330/zstd-1.3.4.png.meta.json
-runs/20260925T120135Z-5453/manifest.json
-$ grep -h '"cache_key"\|"hash"' runs/20260925T120135Z-5453/extract/67637330/*.png.meta.json
-  "cache_key": "bead5e726d744d43954269caf2ec161ebac4a1b254a996220a8775fae16feceb",
-    "hash": "3f5f7ad268a342882333359c9163d09bc095f4873dab386e86b360426972be05"
-      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "hash": "529518f0e3911f4e95cd871f5121b347950e410288f4e914775beb7ac38c4411",
-    "hash": "3a02c31cfc61b3b6ae39d4c44cd4e5a5f1c28537fae8dfdbc7a7d4242c2506d8",
-  "cache_key": "bead5e726d744d43954269caf2ec161ebac4a1b254a996220a8775fae16feceb",
-    "hash": "3f5f7ad268a342882333359c9163d09bc095f4873dab386e86b360426972be05"
-      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "hash": "529518f0e3911f4e95cd871f5121b347950e410288f4e914775beb7ac38c4411",
-    "hash": "3a02c31cfc61b3b6ae39d4c44cd4e5a5f1c28537fae8dfdbc7a7d4242c2506d8",
-$ head -2 runs/20260925T120135Z-5453/extract/67637330/zstd-1.3.4.png.json
-{
-  "document": "67637330/zstd-1.3.3-vs-4.png",
-```
-
-The answer filed as `zstd-1.3.4.png` says it is about `zstd-1.3.3-vs-4.png`.
-The three answers served from cache are these:
-
-1. **Both pages.** The failed run asked for both before it reached the PNG, and
-   each answer was cached as it arrived, before the third call stopped the run.
-2. **One PNG**, answered from the entry the *other* PNG's call had just
-   written. Both calls had the same input, the empty string, whose SHA-256 is
-   `e3b0c442…`. They had the same prompt, schema and model too, so they had one
-   stage key, `bead5e72…`. The second PNG's answer was never asked for. It is
-   the first PNG's answer, filed under the second PNG's name and still naming
-   the first.
-
-So one call about nothing was paid for, where there should have been none, and
-one answer in the run says it is about a different document from the one it is
-filed under. Neither is grounding's fault, because no span was involved. R6.13
-already names every part of this in its reasoning, for a document an earlier
-step produced nothing for: "asks a model about a document nobody read, pays for
-the call, and caches an answer under a key whose input hash is the hash of
-`""`". It does not cover a document that has no artifact of the kind a step
-reads. `resources/proposal.md` proposes that it should.
-
-The two recent KIPs this exercise could have used instead carry 66 PNGs
-between them. Against those, the first PNG in key order is asked about nothing,
-and the other 65 are served its answer, each naming that first PNG.
-
-The answer for a page is what you would expect. The run records the key it
-processed, and the three spans are the reply file's:
-
-```json
-{
-  "document": "62694040",
-  "fields": [
-    {
-      "field": "current_state",
-      "value": "accepted",
-      "currency": null,
-      "reason": null,
-      "confidence": "high",
-      "source": {
-        "document": "62694040",
-        "span": "**Current state**: *Accepted*",
-        "page": null
-      }
-    },
-    …
-  ]
-}
-```
+`resources/proposal.md` is what the exercise proposed at the time. Where R6.21
+differs from it: the proposal wanted the skipped documents reported by name,
+and the rule counts only what the step ran for. The proposal would have
+extended R6.13, and the rule stands beside it, saying per mode why `per_part`
+and `aggregate` were already right.
 
 **[run]** Once more:
 
 ```console
 $ dossier run kip-audit
-run 20260925T120135Z-e7bd · …/runs/20260925T120135Z-e7bd/manifest.json
-  extract: 4 document(s) · 4 from cache · 0 failed
+run 20260926T043932Z-d456 · …/runs/20260926T043932Z-d456/manifest.json
+  extract: 2 document(s) · 2 from cache · 0 failed
 $ wc -l < calls.jsonl
-4
+2
 ```
 
-Four from cache and no new call (R5.5).
+Both from cache, and no new call (R5.5).
 
 ## Task 5 — the same version, fetched twice
 
@@ -605,19 +577,19 @@ Four from cache and no new call (R5.5).
 ```console
 $ dossier sync kip-audit        # fields: [id, title, space, version, body]
 kafka-kips  4 known · 2 changed · 0 new -> 2 fetched
-      62694040  2ca88e46931a77c8db6ae63a1b78d71589ab07a3e72fb70d2effcbfbaaf44626 -> ede194aae921b3013295cef98a6192012813678c497a3c4873cad9b4e08345b4
-      67637330  366fa4eae0be0b1f6c0389fd5ab045ec93f431fcc92439d6a758a2bbfca2b464 -> 3a9de5173532bca487036e6a9dfe71633368d7aa52987e85d2322608a8ac08da
+      62694040  b6c4f5b17756ae11b526352273394e2a07060589d92818ff24bdc9bb863a8b52 -> 2f0b9302582fa7320478b4805902cfc8534ade4e2d26b0380e5b25b963fd5162
+      67637330  dd0f9582a9f675e2d88b97ee19ba7c44f7557bd25bb2f3800160b3c479069c1f -> 7140d15a5def90e99cea46cd565ef8f7a0810b46a49133819ce220aeac4a7cda
 ledger updated · 2 new snapshots · 0 tombstoned
 $ $L revisions 67637330
-2026-09-25T11:59:35.207041+00:00  .dossier/snapshots/36/6f/366fa4eae0be0b1f6c0389fd5ab045ec93f431fcc92439d6a758a2bbfca2b464
-2026-09-25T12:02:01.900793+00:00  .dossier/snapshots/3a/9d/3a9de5173532bca487036e6a9dfe71633368d7aa52987e85d2322608a8ac08da
+2026-09-26T04:39:22.133285+00:00  .dossier/snapshots/dd/0f/dd0f9582a9f675e2d88b97ee19ba7c44f7557bd25bb2f3800160b3c479069c1f
+2026-09-26T04:39:33.594992+00:00  .dossier/snapshots/71/40/7140d15a5def90e99cea46cd565ef8f7a0810b46a49133819ce220aeac4a7cda
 $ for s in $($L revisions 67637330 | cut -d" " -f3); do wc -c < $s; grep -o "rbtoc[0-9]*" $s | sort -u; done
 20747
-rbtoc1790337576015
+rbtoc1790397563972
 20747
-rbtoc1790337722573
+rbtoc1790397575012
 $ cmp -l $($L revisions 67637330 | cut -d" " -f3) | wc -l
-24
+16
 ```
 
 Both pages are fetched again, and the PNGs are not. A declared or changed
@@ -626,10 +598,10 @@ and never projected, so there is nothing about it to re-evaluate. Each page is
 repointed, and the old snapshot is still there. A new content is a new path,
 never an overwrite (R0.2).
 
-The two snapshots of `v15` are the same length and differ in 24 bytes. The 13
-digits of the render time appear four times in the payload, once in the macro's
-`<div>` and three times in its `<style>`, and 6 of the 13 differ between
-`…576015` and `…722573`: `4 × 6 = 24`. **[derived]**
+The two snapshots of `v15` are the same length and differ in 16 bytes.
+**[derived]** The render time appears four times in the payload: once in the
+macro's `<div>`, and three times in its `<style>`. Of its 13 digits, 4 differ
+between `…563972` and `…575012`, and `4 × 4 = 16`.
 
 **[run]**
 
@@ -640,11 +612,11 @@ cache updated · 2 converted · 2 cached
 $ $L note 67637330 > kip-110-now.md; cmp kip-110.md kip-110-now.md && echo "the same note"
 the same note
 $ dossier run kip-audit
-warning: the source has moved since run 20260925T120135Z-e7bd: 62694040 re-snapshotted, 67637330 re-snapshotted
-run 20260925T120204Z-ce39 · …/runs/20260925T120204Z-ce39/manifest.json
-  extract: 4 document(s) · 4 from cache · 0 failed
+warning: the source has moved since run 20260926T043932Z-d456: 62694040 re-snapshotted, 67637330 re-snapshotted
+run 20260926T043937Z-cbb8 · …/runs/20260926T043937Z-cbb8/manifest.json
+  extract: 2 document(s) · 2 from cache · 0 failed
 $ wc -l < calls.jsonl
-4
+2
 ```
 
 The same was true of KIP-57's note. The chain is:
@@ -663,31 +635,18 @@ matter.
 **[derived]** Against a space of a thousand pages, a change to `fields:` is a
 thousand page fetches and a thousand new snapshots, each about as large as the
 last. It is also a thousand conversions, and no model call at all. Only a change
-to `fields:` does this. An unchanged version is never fetched otherwise (R2.1).
+to `fields:` does this. An unchanged version is never fetched otherwise (R2.1),
+and a change to any other key of the source lists it whole without fetching
+(R2.24, task 6).
 
 ## Task 6 — an export the server refuses
 
 **[run]**
 
 ```console
-$ dossier sync kip-audit        # export: pdf added
-kafka-kips  4 known · 0 changed · 0 new -> 0 fetched
-ledger updated · 0 new snapshots · 0 tombstoned
 $ $L watermarks
-kafka-kips      2026-09-25T12:02:19.925469+00:00
-```
-
-Nothing happened, for task 2's reason. The listing was windowed, neither page
-was in the window, and `attachments()`, which is where a page's export is
-listed, is only asked of a listed page. Adding `export:` does not force a
-re-evaluation the way a change to `fields:` does. The source configuration hash
-covers the projection and nothing else (`domain/sync.py`,
-`source_config_hash`, R2.3).
-
-**[run]**
-
-```console
-$ dossier sync kip-audit --full
+kafka-kips      2026-09-26T04:39:33.594992+00:00
+$ dossier sync kip-audit        # export: pdf added
 kafka-kips  4 known · 0 changed · 0 new -> 0 fetched
   kafka-kips: 67637330.pdf failed: GET https://cwiki.apache.org/confluence/spaces/flyingpdf/pdfpageexport.action?pageId=67637330 answered 403 Forbidden: `export: pdf` asks for an export this server refuses. Take `export:` out of the source, or have the export permission granted.
   kafka-kips: 62694040.pdf failed: GET https://cwiki.apache.org/confluence/spaces/flyingpdf/pdfpageexport.action?pageId=62694040 answered 403 Forbidden: `export: pdf` asks for an export this server refuses. Take `export:` out of the source, or have the export permission granted.
@@ -696,7 +655,7 @@ ledger updated · 0 new snapshots · 0 tombstoned
 $ echo $?
 1
 $ $L watermarks
-kafka-kips      2026-09-25T12:02:19.925469+00:00
+kafka-kips      2026-09-26T04:39:33.594992+00:00
 $ $L ledger
 kafka-kips      62694040                         v11                  application/vnd.dossier.confluence-page+json  active
 kafka-kips      67637330                         v15                  application/vnd.dossier.confluence-page+json  active
@@ -716,36 +675,80 @@ workspace saying the server exports. When it does not, the fix is in
 Skipped quietly, the ledger would show a page with no `<page id>.pdf`, which is
 exactly what a page looks like in a source with no `export:`.
 
-**[run]** Then, without `--full`:
+**Why the exports were asked for at all.** Neither page changed, and task 2's
+window returns neither. `export` is a key the connector declares, so adding it
+changed the hash of the source's own keys, recorded at the last sync. A sync
+that finds that hash changed lists without a window, as `--full` would (R2.24).
+Every page was listed, and so asked what it carries: its files, and now its
+export. It is a complete listing and not a re-evaluation, so `0 fetched`: no
+page and no PNG was fetched, their markers being unchanged (R2.1). That was
+five requests: one search, one listing of files per page, and one export per
+page.
+
+**[run]** What the ledger remembers, and the next sync:
 
 ```console
+$ $L owed
+kafka-kips      62694040.pdf     carried by 62694040   last failed 2026-09-26T04:39:38.496919+00:00
+kafka-kips      67637330.pdf     carried by 67637330   last failed 2026-09-26T04:39:38.496919+00:00
 $ dossier sync kip-audit
+kafka-kips  4 known · 0 changed · 0 new -> 0 fetched
+  kafka-kips: 62694040.pdf failed: GET https://cwiki.apache.org/confluence/spaces/flyingpdf/pdfpageexport.action?pageId=62694040 answered 403 Forbidden: `export: pdf` asks for an export this server refuses. Take `export:` out of the source, or have the export permission granted.
+  kafka-kips: 67637330.pdf failed: GET https://cwiki.apache.org/confluence/spaces/flyingpdf/pdfpageexport.action?pageId=67637330 answered 403 Forbidden: `export: pdf` asks for an export this server refuses. Take `export:` out of the source, or have the export permission granted.
+ledger updated · 0 new snapshots · 0 tombstoned
+2 item(s) failed: 62694040.pdf, 67637330.pdf
+$ echo $?
+1
+$ $L watermarks
+kafka-kips      2026-09-26T04:39:33.594992+00:00
+$ $L owed
+kafka-kips      62694040.pdf     carried by 62694040   last failed 2026-09-26T04:39:41.372137+00:00
+kafka-kips      67637330.pdf     carried by 67637330   last failed 2026-09-26T04:39:41.372137+00:00
+```
+
+This sync's listing was windowed. The last one had answered under the new keys,
+failures or not, so the hash matched (R2.24 row 4). The window returned neither
+page. Both exports were still asked for, once each, refused, and reported, and
+the watermark is where it was before `export:` was added (R1.20 row 3).
+
+`owed` is what did it (R2.23). A fetch that fails leaves the key's own ledger
+row as it was, and here there was no row, since the PDF was never held (R1.9).
+So the failure is recorded apart from the rows, with the item carrying the key.
+At the next sync, each owed key's item is visited whether the listing returned
+it or not. For an owed file, the item's files are listed again and the file is
+asked for, and the item itself is not fetched, its marker being unchanged. The
+`last failed` time moved: each refusal rewrites it.
+
+**[derived]** Without that table, the second sync would have had nothing to
+fail on. It would have exited 0 and moved the watermark past the failure, and
+no later sync without `--full` would have mentioned the exports again. This
+exercise's first pass saw exactly that against cwiki.apache.org, and R2.23's
+opening paragraph cites it. The unit tests for R1.20 row 3 had passed, because
+their stand-in server returned the page whatever the window said. The tests for
+R2.23 and R2.24 use one that honours the window.
+
+**[run]** `export: pdf` taken out:
+
+```console
+$ dossier sync kip-audit        # export: taken out
 kafka-kips  4 known · 0 changed · 0 new -> 0 fetched
 ledger updated · 0 new snapshots · 0 tombstoned
 $ echo $?
 0
 $ $L watermarks
-kafka-kips      2026-09-25T12:02:22.361272+00:00
+kafka-kips      2026-09-26T04:39:45.109017+00:00
+$ $L owed
+$ dossier sync kip-audit
+kafka-kips  4 known · 0 changed · 0 new -> 0 fetched
+ledger updated · 0 new snapshots · 0 tombstoned
 ```
 
-**This is not what R1.20 row 3 says.** The row says that at the next sync the
-refused export is "asked again as before, once … not dropped from the listing:
-a PDF missing without a word reads exactly like a page that has none". Here it
-was not asked. Nothing was reported, the exit code was 0, and the watermark
-moved past the failure. From now on no sync without `--full` will mention the
-two exports again.
-
-Task 2 explains it. Holding the watermark back only helps if the next listing
-still includes the page, and a listing windowed by `lastmodified` never includes
-a page that has not changed. The unit test for row 3 passes because its first
-sync fails *before any watermark exists*, so its second sync is unwindowed too.
-Its fake server also ignores the `lastmodified` clause, as a fake can. Against
-a real Confluence, the refusal is said once and then never again. This
-disagreement between spec and code has been reported. It is not settled here,
-and `resources/proposal.md` suggests one way to settle it.
-
-Take `export: pdf` out of `kafka-kips`. Nothing was ever held for it, so there
-is nothing to tombstone.
+The keys changed back, so this listing was complete too (R2.24). Each page was
+listed, and asked what it carries, and neither carries an export any more. An
+owed key whose item no longer carries it is owed nothing (R2.23 row 4), so
+`owed` is empty. Nothing is tombstoned, because the PDFs were never held.
+Nothing failed, so the watermark moves on. The sync after it is windowed and
+quiet again.
 
 ## Task 7 — an export the server allows
 
@@ -819,16 +822,16 @@ the page's marker alone, R2.1 would never fetch the new PDF (R1.19 row 3).
 ```console
 $ dossier sync export-check        # export: taken out
 atlassian-docs  3 known · 0 changed · 0 new -> 0 fetched
-ledger updated · 0 new snapshots · 0 tombstoned
-$ $L ledger | grep atlassian
-atlassian-docs  792498257                        v1                   application/vnd.dossier.confluence-page+json  active
-atlassian-docs  792498257.pdf                    v1+292df2727d6b      application/pdf                               active
-atlassian-docs  792498257/ellipsis.png           792498258:v1         image/png                                     active
-$ dossier sync export-check --full
-atlassian-docs  3 known · 0 changed · 0 new -> 0 fetched
       792498257.pdf  tombstoned
 ledger updated · 0 new snapshots · 1 tombstoned
-$ dossier sync export-check --full   # export: pdf put back
+$ $L ledger | grep atlassian
+atlassian-docs  792498257                        v1                   application/vnd.dossier.confluence-page+json  active
+atlassian-docs  792498257.pdf                    v1+292df2727d6b      application/pdf                               tombstoned
+atlassian-docs  792498257/ellipsis.png           792498258:v1         image/png                                     active
+$ dossier sync export-check
+atlassian-docs  2 known · 0 changed · 0 new -> 0 fetched
+ledger updated · 0 new snapshots · 0 tombstoned
+$ dossier sync export-check        # export: pdf put back
 atlassian-docs  2 known · 0 changed · 0 new -> 0 fetched
 ledger updated · 0 new snapshots · 0 tombstoned
 $ $L ledger | grep atlassian
@@ -837,20 +840,23 @@ atlassian-docs  792498257.pdf                    v1+292df2727d6b      applicatio
 atlassian-docs  792498257/ellipsis.png           792498258:v1         image/png                                     active
 ```
 
-R1.19 row 6 says that taking `export:` away tombstones every `<page id>.pdf` "at
-the next sync". Against this server, the next sync did nothing. Only `--full`
-tombstoned it, and it was tombstoned then as a file its page no longer carries
-(R2.6 row 3). The cause is task 6's: a page that is not listed is not asked what
-it carries. The row's test gets a listing from a fake that returns the page
-however the query is windowed. This is the same disagreement as task 6, and it
-was reported with it.
+The first sync tombstones the PDF, with no `--full` (R1.19 row 6). The key
+changed, so the page was listed without a window (R2.24 row 2), and asked what
+it carries. It no longer carries an export, and a file a page no longer carries
+is tombstoned (R2.6 row 3). The second sync is windowed again, and quiet (R2.24
+row 4).
 
-Put back, the export is active again without a request to render it. The page
-was listed (`--full`), and `attachments()` reported `792498257.pdf` at
+Put back, the export is active again, and nothing was rendered. The key changed
+again, so the page was listed, and `attachments()` reported `792498257.pdf` at
 `v1+292df2727d6b`. That is the marker of the snapshot the ledger still held, so
 R2.1 skipped the fetch and the row came back as it was. The marker, not the
 bytes, decided that the server need not be asked again. A new export would
 differ anyway, in the random `/ID` in its trailer.
+
+**[derived]** Before R2.24, the first sync here did nothing, and the PDF stayed
+`active` until a `sync --full`. That was this exercise's first pass, and R2.24's
+opening paragraph describes the same thing: "taken away it tombstones nothing".
+R1.19 row 6's own unit test had passed, for task 6's reason.
 
 ## Task 8 — one `convert:` for a whole source
 
@@ -884,11 +890,13 @@ only setting that works is none, where each media type gets its default kind
 
 That is spec 008's open question 5. It was written about `page_images` for a
 page's PDF export, and it applies just as well to a page's images. It asks
-which kinds each document gets. Task 4's proposal is about a different
-question: what a step does about a document that has none of the kind it reads.
-Settling the open question would not have saved task 4's call.
-`page_images` was already the PNGs' only kind, and the step reading `markdown`
-was still asked about them. The two are separate proposals.
+which kinds each document gets, and it is still open. R6.21 answered a
+different question: what a step does about a document that has none of the kind
+it reads. With both settled, a source like this one could give its PNGs
+`page_images` and its pages `markdown`, a vision step would read the first, and
+a text step the second, each running only for what it can read. Today the
+second half holds and the first is the default, which happens to be what this
+source needs.
 
 ---
 
@@ -897,10 +905,13 @@ was still asked about them. The two are separate proposals.
 That a source nobody in the room controls can be audited reproducibly. The
 evidence is in task 5. Confluence never sent the same bytes twice, and the
 ledger kept each fetch as sent. The note came out the same both times, and so
-did the stage key, and no model was asked again. Where the chain from page to
-answer *did* go wrong, it was never the network's doing. It was a converter
-that dropped a space, a step asked about a picture it could not read, and a
-listing that forgets to re-ask. Each of those could be found by reading what the
-workspace holds, which is what this exercise was.
+did the stage key, and no model was asked again.
+
+Where the chain from page to answer went wrong, it was never the network's
+doing. The first pass of this exercise found three places: a converter that
+dropped a space, a step asked about a picture it could not read, and a sync that
+never asked again for what it had been refused. They became R8.20 row 7, R6.21,
+and R2.23 with R2.24, and tasks 4, 6 and 7 now show each of them working. Each
+was found by reading what the workspace holds, which is what this exercise was.
 
 **Back to:** [the playground index](../README.md).

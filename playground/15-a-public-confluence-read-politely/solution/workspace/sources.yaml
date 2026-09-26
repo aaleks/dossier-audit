@@ -41,8 +41,8 @@ sources:
 
     # Task 6 adds `export: pdf` here and takes it away again. cwiki.apache.org
     # answers the export 403 to an anonymous reader, so leaving it here fails
-    # both pages' exports at every sync that lists them -- and only then, which
-    # is what task 6 is about.
+    # both pages' exports at every sync: each refused export is owed, and asked
+    # for again whether the listing returns its page or not (R2.23).
 
   - id: atlassian-docs
     type: confluence
