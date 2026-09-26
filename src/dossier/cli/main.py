@@ -79,6 +79,7 @@ from dossier.domain.conversion import (
     PART_TYPE,
     NoConverter,
     answering,
+    is_read,
     part_name,
     unpack_parts,
 )
@@ -598,16 +599,34 @@ def run(
     # same set the run will (R8.9) -- otherwise a plugin the corpus never needed
     # would print `converters changed` against a manifest that never named it.
     requests: list[tuple[str, Sequence[str] | None]] = []
-    with Ledger(workspace) as ledger:
-        for name in config.synced_sources:
-            if name in declared:
-                rows = ledger.rows(name)
+    available = _converters_for(workspace)
+    try:
+        with Ledger(workspace) as ledger:
+            for name in config.synced_sources:
+                if name not in declared:
+                    continue
+                convert = declared[name].convert
+                # Only what the run will read: a document left out (R8.27), or
+                # one nothing converts by default (R8.25), is pinned by no run,
+                # and counting it here promised a step the run then served from
+                # cache (R4.12).
+                rows = [
+                    row
+                    for row in ledger.rows(name)
+                    if row.state is State.TOMBSTONED
+                    or is_read(media_type=row.media_type, kinds=convert, available=available)
+                ]
                 documents.update(pinned_documents(rows))
                 requests.extend(
-                    (row.media_type, declared[name].convert)
+                    (row.media_type, convert)
                     for row in rows
                     if row.state is not State.TOMBSTONED
                 )
+    except NoConverter as error:
+        # A declared pair nothing claims, or two claimants: the run would stop
+        # before anything converts (R8.24), so the plan stops here with it.
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
 
     previous, previous_id = latest_manifest(workspace / "runs", pipeline)
 
@@ -639,9 +658,7 @@ def run(
                 PinnedConverter(
                     id=c.id, version=c.version, media_type=c.media_type, kind=c.kind
                 )
-                for c in used_converters(
-                    requests=requests, available=_converters_for(workspace)
-                )
+                for c in used_converters(requests=requests, available=available)
             ],
         )
     except ValueError as error:

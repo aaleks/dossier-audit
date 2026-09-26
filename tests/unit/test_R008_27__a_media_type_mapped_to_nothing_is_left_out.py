@@ -19,7 +19,7 @@ import pytest
 from pydantic import ValidationError
 
 from dossier.application.convert import HeldDocument, convert_source
-from dossier.domain.conversion import used
+from dossier.domain.conversion import NoConverter, is_read, used
 from dossier.domain.pipeline import SourceConfig
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.store import SnapshotStore
@@ -104,3 +104,18 @@ class TestAMediaTypeMappedToNothingIsLeftOut:
         source = SourceConfig(id="incidents-exports", type="folder", convert=LEAVE_JSON_OUT)
 
         assert source.convert == {JSON: []}
+
+    def test_a_plan_counts_only_what_a_run_reads(self):
+        """The one where `--plan` and the run agree on the documents (R4.12).
+
+        A type left out is read by nothing, and neither is a default pair
+        nothing claims (R8.25). A declared pair nothing claims still raises: it
+        stops the run, and the plan with it (R8.24).
+        """
+        html = [HtmlMarkdown()]
+
+        assert is_read(media_type="text/html", kinds=LEAVE_JSON_OUT, available=html)
+        assert not is_read(media_type=JSON, kinds=LEAVE_JSON_OUT, available=html)
+        assert not is_read(media_type=JSON, kinds=None, available=html)
+        with pytest.raises(NoConverter):
+            is_read(media_type=JSON, kinds=["markdown"], available=html)
