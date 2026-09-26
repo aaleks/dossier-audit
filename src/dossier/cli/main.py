@@ -159,6 +159,13 @@ from dossier.infrastructure.tracking.mlflow import (
 
 app = typer.Typer(add_completion=False)
 
+# A model failing, as a command meets it: nothing says where its provider is
+# served (R9.2 row 3), no installed package provides it, or a request was
+# refused or never answered after R9.17's retries (R9.12 row 4). Every command
+# that asks a model says one in a line and exits 2, as `run` always has; anything
+# else keeps the traceback that says where it happened (R9.20).
+MODEL_FAILURES = (EndpointUnset, UnknownProvider, ModelRequestFailed)
+
 
 @app.callback()
 def main() -> None:
@@ -1122,14 +1129,10 @@ def _execute(
         # Resolution failed, so nothing ran and nothing was written (R4.1).
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
-    except (EndpointUnset, UnknownProvider) as error:
-        # The first cache miss needed a model this machine cannot reach. The run
-        # stops there, before any model was asked (R9.2 row 3).
-        typer.echo(f"{pipeline}: {error}", err=True)
-        raise typer.Exit(code=2) from error
-    except ModelRequestFailed as error:
-        # The endpoint refused or could not be reached. Named by URL and status,
-        # never by key (R9.8 row 1); answers already cached stay cached.
+    except MODEL_FAILURES as error:
+        # The first cache miss needed a model this machine cannot reach, or the
+        # endpoint refused. Named by variable, or by URL and status and never by
+        # key (R9.2 row 3, R9.8 row 1); answers already cached stay cached.
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
 
@@ -1313,7 +1316,6 @@ def calibrate(
 
     directory = workspace / gold
     documents, held_parts = _held_content(workspace, config)
-    model = build_model_client(config.model)
 
     # One judge per state the pipeline can answer a field in, each measured on
     # its own sample and recorded beside the other (R7.22).
@@ -1342,7 +1344,7 @@ def calibrate(
 
     try:
         measured = calibrate_fields(
-            model,
+            build_model_client(config.model),
             directory=directory,
             samples=samples,
             documents=documents,
@@ -1368,6 +1370,11 @@ def calibrate(
         )
     except NotCalibrated as error:
         typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
+    except MODEL_FAILURES as error:
+        # The judge is a model like any stage's, and fails like one: in the line
+        # `run` prints, not a traceback (R9.20).
+        typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
 
     for field, calibration in sorted(measured.items()):
@@ -1575,21 +1582,26 @@ def eval_(
     # The judge decides only what the deterministic scorers left, and only for
     # a field it may be quoted on: a withheld field is not judged at all, since
     # nothing is measured for a number nobody may print (R7.17).
-    scores = judge_scores(
-        scores,
-        report=scored,
-        judging=_judging(
-            workspace,
-            config=config,
-            pipeline_dir=path.parent,
-            declaration=path.parent / step.output,
-            documents=text,
-            pages=pages,
-            withheld=withheld,
-            run_id=run_dir,
-            tracker=tracker,
-        ),
-    )
+    try:
+        scores = judge_scores(
+            scores,
+            report=scored,
+            judging=_judging(
+                workspace,
+                config=config,
+                pipeline_dir=path.parent,
+                declaration=path.parent / step.output,
+                documents=text,
+                pages=pages,
+                withheld=withheld,
+                run_id=run_dir,
+                tracker=tracker,
+            ),
+        )
+    except MODEL_FAILURES as error:
+        # A judge nobody can reach, said as `run` says a stage's (R9.20).
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
     totals = per_field(scores, declared=list(kinds))
 
     # The overall covers exactly the fields it reported. Folding a withheld field
@@ -1734,20 +1746,26 @@ def _compare_runs(
     totals: list[tuple] = []
     for run, manifest in zip(runs, manifests, strict=True):
         scored, text, pages = _reproduced(workspace, manifest, step)
-        scores = judge_scores(
-            score_run(report=scored, gold=gold_documents, kinds=kinds),
-            report=scored,
-            judging=_judging(
-                workspace,
-                config=config,
-                pipeline_dir=pipeline_dir,
-                declaration=declaration,
-                documents=text,
-                pages=pages,
-                withheld=withheld,
-                run_id=run,
-            ),
-        )
+        try:
+            scores = judge_scores(
+                score_run(report=scored, gold=gold_documents, kinds=kinds),
+                report=scored,
+                judging=_judging(
+                    workspace,
+                    config=config,
+                    pipeline_dir=pipeline_dir,
+                    declaration=declaration,
+                    documents=text,
+                    pages=pages,
+                    withheld=withheld,
+                    run_id=run,
+                ),
+            )
+        except MODEL_FAILURES as error:
+            # As an eval says it (R9.20). Nothing is recorded: a comparison
+            # opens its run only once both sides are scored (R11.8 row 4).
+            typer.echo(f"{pipeline}: {error}", err=True)
+            raise typer.Exit(code=2) from error
         totals.append(per_field(scores, declared=list(kinds)))
     before, after = totals
     before = tuple(total for total in before if total.field not in withheld)
