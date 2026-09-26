@@ -76,6 +76,27 @@ class TestAKindNoSourceProducesStopsTheRun:
         assert "incidents-manual" in result.output
         assert "convert" in result.output, "the message must say what grants the kind"
 
+    def test_the_plan_refuses_what_the_run_refuses(
+        self, asks_for_page_images: Path, monkeypatch
+    ):
+        """Example 1 through `--plan`: the one where the plan knew nothing either.
+
+        R4.13 is knowable from the two configuration files alone, and `--plan`
+        reads nothing else. It printed `1 of 1 step(s) would run` and exited 0
+        for a pipeline the run then refused: a plan promising work that will not
+        happen (R4.12). Found by playground exercise 04.
+        """
+        _sources(asks_for_page_images, convert=None)
+        assert _cli(asks_for_page_images, monkeypatch, "sync", PIPELINE).exit_code == 0
+
+        result = _cli(asks_for_page_images, monkeypatch, "run", PIPELINE, "--plan")
+
+        assert result.exit_code == 2, result.output
+        assert "describe" in result.output
+        assert "page_images" in result.output
+        assert "incidents-manual" in result.output
+        assert "would run" not in result.output
+
     def test_nothing_ran_and_no_run_directory_was_created(
         self, asks_for_page_images: Path, monkeypatch
     ):
