@@ -751,6 +751,8 @@ converting it (R8.1).
 | 5 | *counter-example* — the table of contents macro, its `<style>` and its `div.toc-macro` | neither is in the note. The headings it lists are there once, where they stand |
 | 6 | *counter-example* — text inside an expand macro, hidden until a reader clicks it | kept. A reader who opens the page can read it, so a stage can too |
 | 7 | `<strong>Released:&nbsp;</strong>0.10.0.0`, a non-breaking space at the edge of bold | `**Released:** 0.10.0.0`. The space a reader sees is kept: markdownify drops a non-breaking space at the edge of emphasis, and `Released: 0.10.0.0` copied from the page would not be found. Every non-breaking space is written as a space, which the span check's fold does anyway (R6.17) |
+| 8 | a Jira issue macro, exported as the key `KAFKA-20186` with its link, then `Getting issue details...` and a `STATUS` lozenge, both marked `issue-placeholder` for a browser to fill in | `[KAFKA-20186](…/browse/KAFKA-20186)`, and neither placeholder. A reader never sees them once the page has loaded. `STATUS` is not the issue's status, and a stage could report it as one |
+| 9 | *counter-example* — the same macro with its details rendered, no `issue-placeholder` in it | the summary and status are kept: they are what a reader sees |
 
 ### R8.21 — `html-markdown` converts an HTML file to markdown of what a reader sees on the page, unescaped
 
