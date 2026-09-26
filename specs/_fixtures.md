@@ -90,16 +90,18 @@ written back as a picture, and nothing else of the page is kept.
 
 ## Exports
 
-Three files under `tests/fixtures/documents/exports/`, promoted from the
+Four files under `tests/fixtures/documents/exports/`, promoted from the
 playground corpus as the scans were. They are what an attachment often is: a
-page someone saved from a wiki, and a register someone saved from a
-spreadsheet. Nothing claimed either pair until R8.21 and R8.23.
+page someone saved from a wiki, a register someone saved from a spreadsheet,
+and alerts someone exported from a tool. Nothing claimed the first two pairs
+until R8.21 and R8.23, and nothing claims the JSON's (R8.25).
 
 | Key | File | State |
 |---|---|---|
 | `PLAY-4001` | `PLAY-4001-payment-retries.html` | a wiki page saved as HTML: a `<title>`, CSS in the `<head>`, a breadcrumb, then an `<h1>` repeating the title, three field lines, `## Timeline` and a root cause |
 | `PLAY-4003` | `PLAY-4003-latency-dashboard-export.html` | a Grafana panel shared as a page: its whole body is one `<img>` of `panel-checkout-p99.png`, with no alt text |
 | `PLAY-4004` | `PLAY-4004-incident-register.csv` | a header row and one row per incident, `PLAY-4001` first, commas and no quoting |
+| `PLAY-4006` | `PLAY-4006-indexer-alerts.json` | two Alertmanager alerts for `search-indexer`, exported as JSON: `application/json`, a pair no converter claims |
 
 ## A Jira issue as Jira sends it
 

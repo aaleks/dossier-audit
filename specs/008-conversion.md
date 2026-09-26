@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.23
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.25
 
 ## Purpose
 
@@ -67,11 +67,22 @@ They look similar and behave differently, on purpose.
 
 | What happened | Blast radius | Because |
 |---|---|---|
-| no converter claims a media type | the whole run stops | the pipeline is not configured to read what it was pointed at. Nothing about the run is well-defined, and the fix is an installation, not a retry |
+| no converter claims a pair the source declared in `convert:` | the whole run stops | the pipeline asks for something this installation cannot make. Nothing about the run is well-defined, and the fix is an installation or a correction to `convert:`, not a retry (R8.24) |
 | a converter fails on one document | that document only | the configuration is right and one input is bad. An audit over nine of ten documents is useful, provided it says which one is missing |
 
 The first is `UnknownSourceType`'s shape (spec 001), reported before any work
 starts. The second is R6.9's shape, reported per document with a non-zero exit.
+
+A source that declares no `convert:` leaves both choices to `dossier`: the kind
+comes from the default table (R8.10) and the converter from what is installed
+(R8.13). That is the automatic case, and declaring either is an override. When
+the automatic choice finds no converter for a document, nobody asked for
+anything this installation cannot do: the file is one somebody attached, or
+dropped in a folder. So it is the second kind of failure, not the first. The
+document is reported with the pair nothing claims, and the rest of its source
+converts (R8.25). Two installed converters claiming one pair stop the run
+however the kind was chosen. That is an installation to settle, and no
+document is the problem.
 
 ## The command
 
@@ -394,7 +405,17 @@ is misconfigured, and the fix is an installation rather than a retry.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.convert`)
 - **Proved by:** `tests/unit/test_R008_5__an_unclaimed_media_type_is_a_configuration_error.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R8.24
+
+> Superseded because it made no difference who chose the pair. A kind a source
+> declares is configuration, and an installation that cannot honour it is a
+> pipeline asking for something it cannot have: that still stops the run
+> (R8.24). A kind nobody declared was `dossier`'s own choice from the default
+> table (R8.10), for a file somebody attached or dropped in a folder. Stopping
+> every other document over it let one attachment decide whether a space could
+> be audited at all -- `KAFKA-20416`'s `.jsonl` stopped Apache's source. That
+> document now fails on its own (R8.25). Row 1 is the case that moved: a `.zip`
+> from a source declaring no `convert:` is R8.25's.
 
 | # | Given | Then |
 |---|-------|------|
@@ -504,7 +525,7 @@ that results, and it names a pair a reader can act on either way.
 | 1 | `audit-note.pdf`, `application/pdf`, its source declaring no `convert:` | `markdown`; the answer R8.3 row 3 already gives, unchanged |
 | 2 | `INC-5720-checkout-latency-postmortem.png`, `image/png`, its source declaring no `convert:` | `page_images`; an image has no text layer, so the kind a stage reads is the one it cannot be given |
 | 3 | `text/csv`, which the table has no entry for, its source declaring no `convert:` | `markdown`; a media type nobody has agreed a default for gets the one every text format already had, rather than no kind at all |
-| 4 | that screenshot, with no converter installed for its pair | R8.5 stops the run naming `(image/png, page_images)` — the default decides *which* pair must be claimed, never whether one is |
+| 4 | that screenshot, with no converter installed for its pair | the screenshot fails naming `(image/png, page_images)` (R8.25) — the default decides *which* pair must be claimed, never whether one is |
 | 5 | *counter-example* — that screenshot, from a source declaring `convert: [markdown]` | `markdown`; a declared kind wins and the table is not consulted at all (R8.3) |
 
 ### R8.11 — a conversion that produces several parts produces one artifact, a deterministic container
@@ -554,9 +575,9 @@ that a platform fills in.
 | 2 | Is `docling-markdown`'s artifact byte-identical on another machine? It was identical across runs, thread counts and two inference backends on one Windows machine | OPEN — needs the photocopy converted on a second machine, Linux, and the two artifact hashes compared. A run stays reproducible either way, because a replay reads the artifact the run cached and never converts again (R4.7) |
 | 3 | Should a source, rather than the workspace, choose the converter for a pair? | OPEN — needs a corpus mixing scans with born-digital PDFs where Docling's cost on the digital ones matters. Until then `docling-markdown` reads a digital page from its text layer anyway (R8.14) |
 | 4 | Which custom fields belong in a Jira issue's note? The payload names them `customfield_10042`, and what a person calls them comes only with `expand=names`, which changes every payload the connector stores | OPEN — needs a real incident project where a custom field holds what a stage must read. Until then the note holds none (R8.16 row 6) |
-| 5 | Should a source declare kinds per media type? `convert:` applies to every document a source holds. So `page_images` for a Confluence page's PDF export (R1.19) is asked of the page JSON too, and nothing claims that pair (R8.5) | OPEN — a change to spec 003's `convert:`, and not this story's to make. Until then the export converts to `markdown` (R8.10), and a vision stage reads a page's images as the files they are (R1.18) |
+| 5 | Should a source declare kinds per media type? `convert:` applies to every document a source holds. So `page_images` for a Confluence page's PDF export (R1.19) is asked of the page JSON too, and nothing claims that pair (R8.24) | OPEN — a change to spec 003's `convert:`, and not this story's to make. Until then the export converts to `markdown` (R8.10), and a vision stage reads a page's images as the files they are (R1.18) |
 | 6 | Should a CSV saved by Excel in Windows-1252, or an HTML page declaring a legacy `charset`, be read? | OPEN — needs one in a real source. Until then each fails naming UTF-8 (R8.21 row 4, R8.23 row 3), and guessing the encoding is exactly what R8.1 rules out |
-| 7 | Should a file nothing claims stop its whole source (R8.5), or only itself? `KAFKA-20416`'s `.jsonl` still stops Apache's source after R8.21–R8.23 | OPEN — a change to R8.5, which says the fix is an installation. A file a person attached is not configuration, so it is a real question, and not this story's |
+| 7 | Should a file nothing claims stop its whole source (R8.5), or only itself? `KAFKA-20416`'s `.jsonl` still stops Apache's source after R8.21–R8.23 | RESOLVED by R8.24 and R8.25 — only itself when its kind was the default, and the run when a source declared it |
 
 ### R8.12 — an image converts to `page_images` as a container of one part, and every part is a PNG
 
@@ -588,7 +609,7 @@ only work this converter does.
 | 1 | `INC-5720-checkout-latency-postmortem.png`, its source declaring no `convert:` | one `page_images` artifact holding one part, `page-001.png`, byte-identical to the source |
 | 2 | a `image/jpeg` source | one part named `page-001.png`, re-encoded; `page_images` parts are PNG so that the type the provider is told is the type it is sent |
 | 3 | the same PNG converted twice on two machines | the same artifact bytes; a copy is deterministic, and so is Pillow's PNG encoder on its documented defaults (R8.1 row 2) |
-| 4 | *counter-example* — a PNG from a source declaring `convert: [markdown]` | R8.5 stops the run naming `(image/png, markdown)`; this converter claims one pair and a declared kind is not it (R8.3) |
+| 4 | *counter-example* — a PNG from a source declaring `convert: [markdown]` | R8.24 stops the run naming `(image/png, markdown)`; this converter claims one pair and a declared kind is not it (R8.3) |
 | 5 | *counter-example* — a truncated JPEG | that document fails with a reason and the others convert (R8.6); a bad input is not a misconfigured pipeline |
 
 ### R8.13 — a pair is answered by the converter `sources.yaml` names for it, and otherwise by the one claimant that is not opt-in
@@ -801,3 +822,49 @@ wherever they are.
 | 1 | `PLAY-4004-incident-register.csv` | the artifact is the file's bytes, header row first |
 | 2 | *counter-example* — the row `PLAY-4001,2026-04-17,major,payments-worker,…` | written with its commas, and no `|` is added: a quote from the row is found in the note as the file has it |
 | 3 | *counter-example* — a CSV saved by Excel in Windows-1252 | that document fails, naming `text-csv` and UTF-8 (R8.6) |
+
+### R8.24 — a pair nothing claims stops the run only when the source declared its kind
+
+R8.5's half that still holds. A kind written in `convert:` is a promise the
+installation has to keep, and one it cannot keep is known before any work
+starts. Every such document is named in one refusal. A kind the source left to
+the default table is R8.25's.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.convert`)
+- **Proved by:** `tests/unit/test_R008_24__a_declared_pair_nothing_claims_stops_the_run.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `OPS-114`, `application/pdf`, with `pdf-markdown` installed and nothing claiming `page_images`, its source declaring `convert: [page_images]` | the run stops before anything converts. The error names `OPS-114`, `(application/pdf, page_images)`, the claimed pairs and the `dossier.converters` entry point group |
+| 2 | `PLAY-4006-indexer-alerts.json` from a folder source declaring `convert: [markdown]` | the same stop, naming `(application/json, markdown)`: `markdown` was asked of every document the source holds, this one included |
+| 3 | the same folder also holding `PLAY-4001-payment-retries.html` | no artifact is written, for the HTML either, and no stage runs; the failure is total, like a resolution failure (R4.1) |
+| 4 | *counter-example* — `PLAY-4006-indexer-alerts.json` from a folder source declaring no `convert:` | the run does not stop. That document fails on its own (R8.25) |
+| 5 | *counter-example* — a second installed converter claiming `(text/html, markdown)` beside `html-markdown`, neither named, the source declaring no `convert:` | the run stops, naming the pair, both converters and `converters:` in `sources.yaml` (R8.13 row 6). It is not reported as documents with no converter: the pair is claimed twice, and no document is at fault |
+
+### R8.25 — a document whose default kind nothing converts fails on its own, and the rest of its source converts
+
+The automatic case. A source declaring no `convert:` gets each document's kind
+from the default table (R8.10) and its converter from what is installed
+(R8.13). When nothing answers the pair that gives, the document is reported the
+way one a converter failed on is (R8.6): named, with a reason that names the
+pair, the claimed pairs and the `dossier.converters` entry point group.
+
+The exit is non-zero, as for any document that failed. An audit covering less
+than its source holds must not be quotable as a clean one by anything reading
+`$?`. The cost is that a source holding a file no converter will ever read
+exits non-zero on every run, until the file is gone or a converter is
+installed. Where a source says which files it wants read is open question 5.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.conversion.select`)
+- **Proved by:** `tests/unit/test_R008_25__a_default_pair_nothing_claims_fails_its_document.py`, `tests/acceptance/test_R008_25__a_file_nothing_converts_no_longer_stops_its_source.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a folder source declaring no `convert:`, holding `PLAY-4001-payment-retries.html`, `PLAY-4004-incident-register.csv` and `PLAY-4006-indexer-alerts.json` | `dossier convert` reports `3 held · 2 converted · 0 cached` and `PLAY-4006-indexer-alerts.json` failed. Its reason names `(application/json, markdown)`, the claimed pairs and the `dossier.converters` entry point group, and the exit is non-zero |
+| 2 | `dossier run` over the same | the stages read the two notes, and `PLAY-4006-indexer-alerts.json` is named as not converted (R8.6). The manifest pins `html-markdown` and `text-csv`, and nothing for the JSON (R8.9) |
+| 3 | the same command again, after a package claiming `(application/json, markdown)` is installed | the JSON converts, and the two notes are served from cache. What failed was the installation, and nothing about it was cached |
+| 4 | *counter-example* — the same folder declaring `convert: [markdown]` | the run stops before anything converts (R8.24) |
