@@ -934,7 +934,7 @@ the same rate and not to "at most one".
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load.load_judge_thresholds`)
 - **Proved by:** `tests/unit/test_R007_30__a_state_may_declare_an_unsupported_bar.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -62,6 +62,7 @@ __all__ = [
     "load_output_schemas",
     "load_pipeline",
     "load_sources",
+    "load_unsupported_bars",
 ]
 
 
@@ -526,9 +527,46 @@ def load_judge_thresholds(directory: Path) -> dict[str, dict[str, float]]:
     measure the same (R6.15, R7.20). A scalar is the `grounded` bar, so a gold
     set written before that was true loads unchanged.
     """
+    return {
+        field: {state: agreement for state, (agreement, _) in states.items()}
+        for field, states in _judge_bars(directory).items()
+    }
+
+
+def load_unsupported_bars(directory: Path) -> dict[str, dict[str, float]]:
+    """The share of unsupported cases each judge must catch, where one is declared (R7.30).
+
+    Beside a state's agreement bar, never instead of it, and optional: a state
+    that declares none is gated on its agreement alone, as every gold set was
+    before there was an unsupported bar to declare (R7.31).
+    """
+    bars: dict[str, dict[str, float]] = {}
+    for field, states in _judge_bars(directory).items():
+        declared = {
+            state: unsupported
+            for state, (_, unsupported) in states.items()
+            if unsupported is not None
+        }
+        if declared:
+            bars[field] = declared
+    return bars
+
+
+# The bars a state may declare in its mapping form (R7.30). Only the unsupported
+# half has one of its own: a judge that rejects a true cause costs a point of
+# score, and one that accepts an invented cause reports a wrong answer as right.
+_BARS = ("agreement", "unsupported")
+
+
+def _judge_bars(directory: Path) -> dict[str, dict[str, tuple[float, float | None]]]:
+    """Every bar in `judge.yaml`: per field, per state, the agreement and the unsupported share.
+
+    One parse for both loaders, so a file one of them accepts the other cannot
+    refuse.
+    """
     document = _read_yaml(directory / JUDGE_FILE)
 
-    thresholds: dict[str, dict[str, float]] = {}
+    bars: dict[str, dict[str, tuple[float, float | None]]] = {}
     for field, declared in document.items():
         name = str(field)
         if isinstance(declared, dict):
@@ -547,29 +585,62 @@ def load_judge_thresholds(directory: Path) -> dict[str, dict[str, float]]:
         else:
             states = {GROUNDED: declared}
 
-        thresholds[name] = {
-            state: _threshold(value, field=name, state=state) for state, value in states.items()
+        bars[name] = {
+            state: _state_bars(value, field=name, state=state)
+            for state, value in states.items()
         }
-    return thresholds
+    return bars
 
 
-def _threshold(value: object, *, field: str, state: str) -> float:
+def _state_bars(value: object, *, field: str, state: str) -> tuple[float, float | None]:
+    """One state's bars: a scalar is its agreement bar; a mapping may add the unsupported one.
+
+    The agreement bar is required in either form (R7.30 row 6). An unsupported
+    bar standing alone would gate a judge on the half it is best at hiding and
+    leave the whole of its agreement ungated.
+    """
+    if not isinstance(value, dict):
+        return _threshold(value, field=field, state=state), None
+    unknown = sorted(str(bar) for bar in value if str(bar) not in _BARS)
+    if unknown:
+        raise ConfigError(
+            f"{JUDGE_FILE}: {field!r} {state} declares a {unknown[0]!r} bar, which "
+            f"nothing reads. A state declares {' and '.join(_BARS)} (R7.30)."
+        )
+    if "agreement" not in value:
+        raise ConfigError(
+            f"{JUDGE_FILE}: {field!r} {state} declares no agreement bar. An unsupported "
+            "bar is in addition to the agreement bar, never instead of it (R7.30)."
+        )
+    unsupported = value.get("unsupported")
+    return (
+        _threshold(value["agreement"], field=field, state=state),
+        None
+        if unsupported is None
+        else _threshold(unsupported, field=field, state=state, bar="unsupported"),
+    )
+
+
+def _threshold(value: object, *, field: str, state: str, bar: str = "agreement") -> float:
     """One declared figure, checked as R7.13 row 3 checked it.
 
     The shape moved a level deeper and the checks moved with it. A shape change
     that quietly stopped checking the numbers would be a worse regression than
     the shape was an improvement.
     """
+    # Named only when it is not the agreement bar, so every message R7.13 and
+    # R7.20 already word reads as it did.
+    where = f"{field!r} {state}" if bar == "agreement" else f"{field!r} {state} {bar}"
     # `bool` first: it is an `int` in Python, and `root_cause: true` is a
     # mistake worth naming rather than silently reading as 1.0.
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise ConfigError(
-            f"{JUDGE_FILE}: {field!r} {state} is {value!r}, and an agreement "
+            f"{JUDGE_FILE}: {where} is {value!r}, and an {bar} "
             "threshold is a number between 0 and 1"
         )
     if not 0.0 <= value <= 1.0:
         raise ConfigError(
-            f"{JUDGE_FILE}: {field!r} {state} is {value!r}; an agreement threshold is a "
+            f"{JUDGE_FILE}: {where} is {value!r}; an {bar} threshold is a "
             "proportion between 0 and 1. A threshold of 95 rather than 0.95 makes "
             "every judge ineligible forever, and reads like strict configuration "
             "rather than a typo."
