@@ -13,8 +13,8 @@ see "How this is built" below. Where the rules stand is printed by
 behind. This README can fall behind, so its figure carries a date. On 2026-09-26:
 
 ```
-specs: 273 rules across 16 specs | 258 MET, 0 IN PROGRESS, 0 NOT MET, 15 SUPERSEDED
-       270 deterministic, 3 evaluated
+specs: 274 rules across 16 specs | 259 MET, 0 IN PROGRESS, 0 NOT MET, 15 SUPERSEDED
+       271 deterministic, 3 evaluated
 ```
 
 ## Layout

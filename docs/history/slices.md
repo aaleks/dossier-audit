@@ -13,6 +13,27 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A model that fails now stops every command that asks one in the same line (R9.20).
+`dossier run` always printed `incident-audit: POST <url> failed: ... (after 3
+attempts)` and exited 2. `calibrate` and `eval`, with and without `--compare`,
+ask the judge, and let the same failure out as a Python traceback. A live
+calibration during R11.23 printed one. The three failures `run` caught are now
+named once, as `MODEL_FAILURES` in `cli/main.py`: an unset endpoint, a provider
+nobody installed, and a request refused or never answered after R9.17's retries.
+Anything else keeps its traceback, because a bug turned into a line would read as
+something the user could fix.
+
+Writing it showed that R11.23 was wrong about `eval`. The rule said an eval opens
+its MLflow run once its work is done. In fact it opens the run before it asks the
+judge, so the judge's traces sit inside it (R7.18 row 5), and a judge nobody could
+reach left the run `RUNNING`. R11.23 now names three commands, and the eval's run
+is closed `FAILED` by the same `failed_if_stopped` the other two use (rows 7–9).
+Checked live against MLflow 3.15.1 with the stub stopped: `calibrate` and `eval`
+each printed the one line with exit 2, and both runs ended `FAILED`. Exercise 07
+gained a task 8 that walks through it.
+
+---
+
 Spec 008's open question 2 has an answer, and it is not the one the spike
 expected. `docling-markdown` converted the same three PDFs on Windows 11 and in
 `python:3.12-slim` on Linux (x86_64). Every package was at the lock's version,
