@@ -832,7 +832,7 @@ the default table is R8.25's.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.convert`)
-- **Proved by:** `tests/unit/test_R008_24__a_declared_pair_nothing_claims_stops_the_run.py`
+- **Proved by:** `tests/unit/test_R008_24__a_declared_pair_nothing_claims_stops_the_run.py`, `tests/acceptance/test_R008_24__a_refusal_in_one_source_converts_nothing_in_another.py`
 - **Status:** MET
 
 | # | Given | Then |

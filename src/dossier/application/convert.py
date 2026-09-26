@@ -240,6 +240,29 @@ def convert_source(
     return ConvertReport(source_id=source_id, documents=conversions, left_out=left_out)
 
 
+def refuse_unconvertible(
+    sources: Sequence[tuple[Mapping[str, HeldDocument], Convert]],
+    *,
+    converters: Sequence[Converter],
+) -> None:
+    """Refuse the run before anything converts, in any source (R8.24).
+
+    `convert_source` refuses its own source before converting it. A command
+    converts source by source, so checked there alone, a declared pair nothing
+    claims in the second source was refused after the first had written its
+    artifacts -- and nothing said so. Every source is resolved here first, and
+    every unclaimed document of every source is named in one refusal.
+    """
+    claims(converters)
+    unclaimed = [
+        line
+        for documents, kinds in sources
+        for line in _resolve(documents=documents, kinds=kinds, converters=converters)[2]
+    ]
+    if unclaimed:
+        raise NoConverter(_refusal(unclaimed))
+
+
 def _resolve_converters(
     *,
     documents: Mapping[str, HeldDocument],
@@ -249,9 +272,10 @@ def _resolve_converters(
     """Which converters answer for each document, or refuse the source (R8.24).
 
     Every document is resolved before any is converted, and one declared pair
-    nothing claims stops all of them. The alternative -- discovering it partway through -- would
-    leave a source half converted for a reason that was knowable before any work
-    started.
+    nothing claims stops all of them. The alternative -- discovering it partway
+    through -- would leave a source half converted for a reason that was
+    knowable before any work started. Across sources, `refuse_unconvertible`
+    makes the same promise.
 
     Every unclaimed document is named, not just the first. Someone who pointed a
     pipeline at a folder of mixed files wants the list, not one example and
@@ -265,7 +289,19 @@ def _resolve_converters(
     # any document is and whoever chose its kind: refused once, as that, and
     # not as every document of the source having no converter (R8.24 row 5).
     claims(converters)
+    plan, unread, unclaimed = _resolve(documents=documents, kinds=kinds, converters=converters)
+    if unclaimed:
+        raise NoConverter(_refusal(unclaimed))
+    return plan, unread
 
+
+def _resolve(
+    *,
+    documents: Mapping[str, HeldDocument],
+    kinds: Convert,
+    converters: Sequence[Converter],
+) -> tuple[dict[str, list[Converter]], dict[str, str], list[str]]:
+    """Each document's converters, the defaulted ones nothing reads, and the refused."""
     plan: dict[str, list[Converter]] = {}
     unread: dict[str, str] = {}
     unclaimed: list[str] = []
@@ -280,12 +316,12 @@ def _resolve_converters(
         except NoConverter as error:
             unclaimed.append(f"  {key} ({documents[key].media_type}): {error}")
 
-    if unclaimed:
-        raise NoConverter(
-            f"{len(unclaimed)} document(s) have no converter:\n" + "\n".join(unclaimed)
-        )
+    return plan, unread, unclaimed
 
-    return plan, unread
+
+def _refusal(unclaimed: Sequence[str]) -> str:
+    """Every unclaimed document, of however many sources, in one refusal (R8.24)."""
+    return f"{len(unclaimed)} document(s) have no converter:\n" + "\n".join(unclaimed)
 
 
 def _convert_one(

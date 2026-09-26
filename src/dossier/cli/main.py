@@ -20,6 +20,7 @@ from dossier.application.convert import (
     ConvertReport,
     HeldDocument,
     convert_source,
+    refuse_unconvertible,
 )
 from dossier.application.datasets import EmptyGoldSet, publish_gold
 from dossier.application.eval import (
@@ -88,7 +89,9 @@ from dossier.domain.grounding import GROUNDED, judge_name, judged_states
 from dossier.domain.hashing import short, text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
+from dossier.domain.pipeline import SourceConfig
 from dossier.domain.ports import (
+    Converter,
     DatasetRegistry,
     ImagePart,
     ModelClient,
@@ -727,15 +730,9 @@ def convert(
     reports: list[ConvertReport] = []
 
     with Ledger(workspace) as ledger:
-        for name in config.synced_sources:
-            source = declared.get(name)
-            if source is None:
-                continue
-            held = {
-                row.key: HeldDocument(snapshot=row.snapshot, media_type=row.media_type)
-                for row in ledger.rows(name)
-                if row.state is not State.TOMBSTONED
-            }
+        holdings = _holdings(ledger, config.synced_sources, declared)
+        _refuse_unconvertible(holdings, converters)
+        for name, source, held in holdings:
             try:
                 reports.append(
                     convert_source(
@@ -818,6 +815,43 @@ def convert(
         # converted nothing indistinguishable from one that had nothing to do
         # (R8.6, R1.9's shape).
         raise typer.Exit(code=1)
+
+
+def _holdings(
+    ledger: Ledger, names: Sequence[str], declared: Mapping[str, SourceConfig]
+) -> list[tuple[str, SourceConfig, dict[str, HeldDocument]]]:
+    """Each synced source's live documents, read once for both passes (R8.24)."""
+    holdings = []
+    for name in names:
+        source = declared.get(name)
+        if source is None:
+            continue
+        held = {
+            row.key: HeldDocument(snapshot=row.snapshot, media_type=row.media_type)
+            for row in ledger.rows(name)
+            if row.state is not State.TOMBSTONED
+        }
+        holdings.append((name, source, held))
+    return holdings
+
+
+def _refuse_unconvertible(
+    holdings: Sequence[tuple[str, SourceConfig, Mapping[str, HeldDocument]]],
+    converters: Sequence[Converter],
+) -> None:
+    """Stop before anything converts, in any source, over a declared pair (R8.24).
+
+    A configuration error, not a per-document one: the pipeline is not set up to
+    read what it was pointed at, so nothing converts -- in the sources that could
+    be read either -- and the fix is an installation or a `convert:` line.
+    """
+    try:
+        refuse_unconvertible(
+            [(held, source.convert) for _, source, held in holdings], converters=converters
+        )
+    except NoConverter as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
 
 
 def _convert_line(report: ConvertReport) -> str:
@@ -949,15 +983,9 @@ def _execute(
     unreadable: list[tuple[str, str, str]] = []
 
     with Ledger(workspace) as ledger:
-        for name in config.synced_sources:
-            source = declared.get(name)
-            if source is None:
-                continue
-            held = {
-                row.key: HeldDocument(snapshot=row.snapshot, media_type=row.media_type)
-                for row in ledger.rows(name)
-                if row.state is not State.TOMBSTONED
-            }
+        holdings = _holdings(ledger, config.synced_sources, declared)
+        _refuse_unconvertible(holdings, converters)
+        for name, source, held in holdings:
             try:
                 converted = convert_source(
                     source_id=name,
@@ -1198,15 +1226,9 @@ def _held_content(workspace: Path, config) -> tuple[dict[str, str], dict[str, li
     text: dict[str, str] = {}
     pages: dict[str, list[ImagePart]] = {}
     with Ledger(workspace) as ledger:
-        for name in config.synced_sources:
-            source = declared.get(name)
-            if source is None:
-                continue
-            held = {
-                row.key: HeldDocument(snapshot=row.snapshot, media_type=row.media_type)
-                for row in ledger.rows(name)
-                if row.state is not State.TOMBSTONED
-            }
+        holdings = _holdings(ledger, config.synced_sources, declared)
+        _refuse_unconvertible(holdings, converters)
+        for name, source, held in holdings:
             try:
                 report = convert_source(
                     source_id=name,
