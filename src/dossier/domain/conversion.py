@@ -86,7 +86,17 @@ class NoConverter(ValueError):
 
     A `ValueError` because a caller can fix it -- by installing a package or by
     correcting a source's `convert:` list. The application turns it into a
-    stopped run (R8.5); the domain only knows that the pair is unclaimed.
+    stopped run (R8.24); the domain only knows that the pair is unclaimed.
+    """
+
+
+class UnclaimedDefault(NoConverter):
+    """Nothing claims the pair a document's *default* kind gives it (R8.25).
+
+    A `NoConverter` still, so that everything catching one keeps catching it.
+    Its own type because who chose the kind decides the blast radius: nobody
+    asked for this file to be read, so it is that document's failure and not
+    the run's -- where a kind the source declared is configuration (R8.24).
     """
 
 
@@ -279,15 +289,19 @@ def select(
     written by a person and the artifacts it produces should read back against
     it. Order among *equals* is never in play, because a pair matches at most one
     converter.
+
+    An unclaimed pair raises `UnclaimedDefault` when the kind was the default and
+    `NoConverter` when the source declared it (R8.24, R8.25).
     """
     wanted = [default_kind(media_type)] if kinds is None else list(kinds)
+    unclaimed = NoConverter if kinds is not None else UnclaimedDefault
     claimed = _claims(available)
 
     chosen: list[Converter] = []
     for kind in wanted:
         converter = claimed.get((media_type, kind))
         if converter is None:
-            raise NoConverter(
+            raise unclaimed(
                 f"nothing converts ({media_type!r}, {kind!r}). "
                 f"Claimed pairs: {_claimed_pairs(available)}. "
                 "A converter is added by installing a package that declares a "
