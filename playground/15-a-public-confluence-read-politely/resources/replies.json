@@ -1,0 +1,92 @@
+{
+  "_comment": [
+    "What the stub model answers, one rule per page. First match wins.",
+    "",
+    "Two pages from the KAFKA space on cwiki.apache.org. `document` is the ledger",
+    "key, and a Confluence page's key is its id, never its title (R1.16): a stage",
+    "is shown the key it must carry back (R3.13), so these numbers are not",
+    "decoration. `match` finds each page by its note's first line, which the",
+    "converter writes from the page's title (R8.19).",
+    "",
+    "Every `span` was copied out of the NOTE, not out of the page in a browser.",
+    "The note is what the model is shown and what grounding searches (R6.4), and",
+    "the two are not the same text. Task 4 finds a place where they used to",
+    "differ: KIP-57's release line was `**Released:**0.10.0.0` in the note until",
+    "`confluence-page-markdown` 1.1.0 kept the space the page shows (R8.20 row 7).",
+    "A note converted by 1.0.0 needs the old span.",
+    "",
+    "The spans keep the note's markdown -- `**JIRA**:`, the link -- because that",
+    "is what a model shown the note would quote. Grounding folds it away on both",
+    "sides (R6.20), so `JIRA: KAFKA-4514` would be found as well.",
+    "",
+    "The two PNGs the ZStandard page carries have no rule here, and need none.",
+    "A PNG converts to `page_images` (R8.10), `extract` reads `markdown` (R3.11),",
+    "and a step does not run for a document holding nothing it reads (R6.21).",
+    "Before R6.21 it did, with an empty document, and this file needed a rule",
+    "for that call. Task 4 says what it cost.",
+    "",
+    "If Apache edits one of these pages, its version moves, sync fetches it again,",
+    "and a span here may stop matching. Check it against the note you hold with",
+    "`look.py ground`."
+  ],
+  "rules": [
+    {
+      "match": ["# KIP-110: Add Codec for ZStandard Compression"],
+      "reply": {
+        "document": "67637330",
+        "fields": [
+          {
+            "field": "current_state",
+            "value": "accepted",
+            "confidence": "high",
+            "source": {"document": "67637330", "span": "**Current state**: *Accepted*"}
+          },
+          {
+            "field": "jira_issue",
+            "value": "KAFKA-4514",
+            "confidence": "high",
+            "source": {
+              "document": "67637330",
+              "span": "**JIRA**: [KAFKA-4514](https://issues.apache.org/jira/browse/KAFKA-4514)"
+            }
+          },
+          {
+            "field": "released_in",
+            "value": "2.1.0",
+            "confidence": "high",
+            "source": {"document": "67637330", "span": "**Released**: 2.1.0"}
+          }
+        ]
+      }
+    },
+    {
+      "match": ["# KIP-57 - Interoperable LZ4 Framing"],
+      "reply": {
+        "document": "62694040",
+        "fields": [
+          {
+            "field": "current_state",
+            "value": "accepted",
+            "confidence": "high",
+            "source": {"document": "62694040", "span": "**Current state**: *Accepted*"}
+          },
+          {
+            "field": "jira_issue",
+            "value": "KAFKA-3160",
+            "confidence": "high",
+            "source": {
+              "document": "62694040",
+              "span": "**JIRA**: [here](https://issues.apache.org/jira/browse/KAFKA-3160)"
+            }
+          },
+          {
+            "field": "released_in",
+            "value": "0.10.0.0",
+            "confidence": "high",
+            "source": {"document": "62694040", "span": "**Released:** 0.10.0.0"}
+          }
+        ]
+      }
+    }
+  ]
+}

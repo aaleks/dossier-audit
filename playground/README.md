@@ -1,27 +1,31 @@
 # The dossier playground
 
-Fourteen hands-on exercises for learning `dossier` by running it: syncing a source,
+Fifteen hands-on exercises for learning `dossier` by running it: syncing a source,
 converting documents, defining a pipeline, grounding an answer, scoring against a gold
 set, calibrating a judge, reading the whole thing back in MLflow, auditing documents
 whose evidence is a chart rather than a sentence, auditing a real Jira running on
 your own machine, publishing a gold set and a pipeline's prompts to MLflow, so a
-regression can be followed to the words that caused it, and finally letting people
-who never run `dossier` review its answers in MLflow, and bringing what they say
-back into the gold set under a maintainer's name.
+regression can be followed to the words that caused it, letting people who never
+run `dossier` review its answers in MLflow, and bringing what they say back into
+the gold set under a maintainer's name, and finally reading a public Confluence
+that belongs to someone else, without leaning on it.
 
 **Exercises 01 to 10 run offline, in seconds, at zero cost.** No API key, no
 model bill, no network. A stub model server in `toolkit/` answers the same
 OpenAI-compatible route a real endpoint would, from a file of rules you can read
 and edit — so the code path is the real one and the answers are yours to control.
 
-**Exercise 11 is the exception, deliberately.** It brings up a Jira Data Center
-in Docker, which costs an evaluation licence, about 4 GB of RAM and an
-interactive setup wizard. Its model is still the stub; only the source is real.
-It is last because everything it teaches — a named credential, someone else's
-version marker, a listing that cannot report a deletion, a payload that is
-mostly machinery — only exists once a source is remote. Its `SOLUTION.md` marks each
-block as run, derived or shape, because a live Jira cannot produce the
-reproducible transcript the other ten promise.
+**Exercises 11 and 15 are the exceptions, deliberately.** Exercise 11 brings up
+a Jira Data Center in Docker, which costs an evaluation licence, about 4 GB of
+RAM and an interactive setup wizard. Exercise 15 needs network access instead:
+it reads two public Confluence servers anonymously, and asks them for three
+pages, because the servers belong to someone else. In both, the model is still
+the stub; only the source is real. They come late because everything they
+teach — a named credential, someone else's version marker, a listing that
+cannot report a deletion, a payload that is mostly machinery — only exists once
+a source is remote. Their `SOLUTION.md` files mark each block as run, derived or
+shape, because a live server cannot produce the reproducible transcript the
+others promise.
 
 > This folder is practice material. It is **not** part of `dossier` and nothing
 > under `src/`, `tests/` or `specs/` refers to it. It adds no rule, changes no
@@ -62,6 +66,7 @@ when you want the reasoning behind what you just saw.
 | 12 | [A dataset, and the change gate](12-a-dataset-and-the-change-gate/) | publishing a gold set as an MLflow evaluation dataset, what a record holds, a publish that sends nothing, a stale dataset, and a comparison recorded as per-field deltas | R12.1, R12.2, R12.3, R12.4, R12.5, R11.7, R11.8, R11.9, R11.10 |
 | 13 | [Prompts and pipeline versions in MLflow](13-prompts-and-pipeline-versions-in-mlflow/) | publishing prompts and rubrics, a publish that sends nothing, which record links which prompt, links found by hash rather than recency, what a pipeline version is made of, one namespace for prompts and datasets, and a registry nothing reads back | R14.1, R14.2, R14.3, R14.4, R14.5, R14.7, R14.9, R14.11, R14.12, R10.13, R10.14, R10.15, R13.1, R13.2 |
 | 14 | [Review in MLflow](14-review-in-mlflow/) | what a trace shows a reviewer, a review queue that is a filter in a URL, verdicts left by hand and through the API, what MLflow records about who left one, pulling them back as files `git` can diff, an override, candidates refused all at once, gold signed by a maintainer, and a run no verdict can move | R15.1, R15.2, R15.3, R15.4, R15.5, R7.7, R6.4, R7.4, R10.8 |
+| 15 | [A public Confluence, read politely](15-a-public-confluence-read-politely/) | a CQL query, a page keyed by its id and versioned by its number, a page's files as documents of their own, the page as rendered and the note made from it, one version fetched as two snapshots and one note, a step that does not run for a document it cannot read, a refused export asked for again at every sync, and a changed key that lists a source whole | R1.15, R1.16, R1.17, R1.18, R1.19, R1.20, R1.21, R8.19, R8.20, R2.3, R2.23, R2.24, R1.11, R3.11, R6.21, R6.20 |
 
 ## How an exercise folder is laid out
 

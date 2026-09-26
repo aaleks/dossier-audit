@@ -1,0 +1,9 @@
+# What `extract` asks of a Kafka Improvement Proposal (R6.10).
+#
+# Every KIP opens with a Status section: its current state, the Jira issue that
+# tracks it, and the release it shipped in. Three fields, each stated once, near
+# the top, in a sentence a span can quote.
+fields:
+  current_state: {kind: enum, values: [accepted, discarded, under discussion]}
+  jira_issue:    {kind: reference}
+  released_in:   {kind: reference}
