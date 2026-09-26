@@ -892,8 +892,8 @@ a converter (R8.3), and a file extension never does.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.conversion.kinds_for`)
-- **Proved by:** `tests/unit/test_R008_26__convert_maps_a_media_type_to_its_kinds.py`, `tests/acceptance/test_R008_26__a_vision_step_reads_the_pdfs_of_a_mixed_source.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/acceptance/test_R008_26__a_vision_step_reads_the_pdfs_of_a_mixed_source.py`
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
