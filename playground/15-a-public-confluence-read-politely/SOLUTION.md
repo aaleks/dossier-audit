@@ -120,13 +120,14 @@ decided by one function both connectors call, `connectors/atlassian.py`.
 as it is for a Jira source (R1.8):
 
 ```console
-sources.yaml, line 6: in 'kafka-kips', 'token' holds a credential, and this file is committed to git. Name the variable instead, as `token_env: JIRA_TOKEN`, and set its value in the environment (R1.8).
+sources.yaml, line 6: in 'kafka-kips', 'token' holds a credential, and this file is committed to git. Name the variable instead, as `token_env: DOSSIER_CONFLUENCE_TOKEN`, and set its value in the environment (R1.8).
 ```
 
-The suggestion names `JIRA_TOKEN` for a Confluence source. That name has no
-`DOSSIER_` prefix, so written only in `.env` it would not be read (R9.11 row 4).
-The message is shared by every source type, and the name in it was written
-when Jira was the only one.
+The suggested name is built from the source's type, and it carries the
+`DOSSIER_` prefix, so it is read from `.env` as well as from the shell (R9.11
+row 4). **[derived]** When this exercise was first written, the message
+suggested `JIRA_TOKEN` to every source. That name has no prefix, so it is not
+read from `.env`. This exercise found it, and R1.8 row 7 fixed it.
 
 **[run]** With the source right:
 

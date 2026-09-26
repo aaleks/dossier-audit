@@ -212,8 +212,20 @@ def _reject_credentials(entry: dict, index: int, path: Path) -> None:
     raise ConfigError(
         f"{_name(path)}{where}:{owner} {written[0]!r} holds a credential, and this "
         f"file is committed to git. Name the variable instead, as "
-        f"`{TOKEN_ENV}: JIRA_TOKEN`, and set its value in the environment (R1.8)."
+        f"`{TOKEN_ENV}: {_suggested_variable(entry.get('type'))}`, and set its "
+        "value in the environment (R1.8)."
     )
+
+
+def _suggested_variable(source_type: object) -> str:
+    """A variable name to offer in place of a written token (R1.8 row 7).
+
+    Named for the source's own type, and with the prefix `.env` is read for, so
+    that following the suggestion word for word works from `.env` as well as
+    the shell (R9.11 row 4). It once said `JIRA_TOKEN` to every source.
+    """
+    kind = "".join(c if c.isalnum() else "_" for c in str(source_type or "")).upper()
+    return f"DOSSIER_{kind}_TOKEN" if kind else "DOSSIER_TOKEN"
 
 
 def _source_error(

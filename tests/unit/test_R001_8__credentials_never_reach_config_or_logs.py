@@ -123,6 +123,28 @@ class TestCredentialsNeverReachConfigOrLogs:
         assert "token" in message
         assert TOKEN not in message
 
+    def test_the_refusal_suggests_a_variable_named_for_the_sources_type(self, tmp_path: Path):
+        """Example 7: the one where a Confluence source writes its token down.
+
+        The suggestion carries the source's type and the `DOSSIER_` prefix, so
+        following it word for word works from `.env` too (row 6, R9.11 row 4).
+        """
+        path = write_sources(
+            tmp_path,
+            "sources:\n"
+            "  - id: procedures-confluence\n"
+            "    type: confluence\n"
+            f"    token: {TOKEN}\n",
+        )
+
+        with pytest.raises(ConfigError) as error:
+            load(path)
+
+        message = str(error.value)
+        assert "`token_env: DOSSIER_CONFLUENCE_TOKEN`" in message
+        assert "JIRA" not in message
+        assert TOKEN not in message
+
     def test_naming_the_variable_is_allowed(self, tmp_path: Path):
         """Counter-example (row 4): the one written as `token_env: JIRA_TOKEN`.
 

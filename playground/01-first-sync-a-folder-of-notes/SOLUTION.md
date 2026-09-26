@@ -241,8 +241,8 @@ what a folder is (R1.10).
 ```console
 $ dossier sync incident-audit     # with `token: hunter2` in sources.yaml
 sources.yaml, line 5: in 'incidents-manual', 'token' holds a credential, and this file
-is committed to git. Name the variable instead, as `token_env: JIRA_TOKEN`, and set its
-value in the environment (R1.8).
+is committed to git. Name the variable instead, as `token_env: DOSSIER_FOLDER_TOKEN`, and
+set its value in the environment (R1.8).
 exit 2
 ```
 
