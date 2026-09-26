@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.31
 
 ## Purpose
@@ -964,7 +964,7 @@ the sample, and the message has to say which.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.judges.withholding`)
 - **Proved by:** `tests/unit/test_R007_31__a_judge_that_lets_claims_through_is_withheld.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

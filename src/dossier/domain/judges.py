@@ -29,6 +29,11 @@ from pydantic import BaseModel, ConfigDict
 # percentage. Twenty is the spec's number, not one chosen here.
 MINIMUM_SAMPLE = 20
 
+# Below this many unsupported cases, the share a judge caught is not a
+# measurement (R7.31): 1 of 1 is 100% and shows nothing. Eight is the count in
+# R7.11's sample, agreed by a.aleks on 2026-09-26, not a number chosen here.
+MINIMUM_UNSUPPORTED = 8
+
 # The two-sided 95% z, taken rather than typed as 1.96 (R7.26): the bound is
 # then a function of its two counts alone, and the same on every machine.
 _Z = NormalDist().inv_cdf(0.975)
@@ -169,6 +174,7 @@ def withholding(
     prompt_hash: str,
     threshold: float | None,
     threshold_file: str = "judge.yaml",
+    unsupported: float | None = None,
 ) -> str | None:
     """Why a judged field may not be reported, or `None` when it may (R7.15).
 
@@ -181,6 +187,9 @@ def withholding(
     one below the bar wants a better judge or a figure somebody agrees to
     lower. Stale is checked before the bar, because a figure measured against
     something else is not a figure to compare with anything.
+
+    `unsupported` is the share of unsupported cases the judge must catch, where
+    the gold set declares one (R7.30), checked after the agreement (R7.31).
     """
     if calibration is None:
         return "never measured -- run `dossier calibrate`"
@@ -203,6 +212,35 @@ def withholding(
             return f"agreement {calibration.agreement} is below the agreed {threshold}"
     except NotCalibrated as error:
         return str(error)
+    if unsupported is None:
+        return None
+    return _unsupported_withheld(calibration.unsupported, bar=unsupported)
+
+
+def _unsupported_withheld(half: Tally | None, *, bar: float) -> str | None:
+    """Why the unsupported half keeps a field out of the report, or `None` (R7.31).
+
+    Three different fixes, so three different messages: a calibration from
+    before the halves were counted wants measuring again; a half too small to
+    mean anything wants more unsupported cases in the sample; and a judge below
+    the bar wants a better judge. The bound is inclusive, as R7.5's is.
+    """
+    if half is None:
+        return (
+            "measured before its unsupported cases were counted -- run `dossier calibrate` "
+            "(R7.26)"
+        )
+    if half.cases < MINIMUM_UNSUPPORTED:
+        return (
+            f"the sample holds {half.cases} unsupported case(s), and {MINIMUM_UNSUPPORTED} "
+            "is the minimum at which the unsupported bar means anything (R7.31)"
+        )
+    caught = half.agreed / half.cases
+    if caught < bar:
+        return (
+            f"unsupported {half.agreed} of {half.cases} ({caught:.1%}) is below the "
+            f"agreed {bar:.1%}"
+        )
     return None
 
 
