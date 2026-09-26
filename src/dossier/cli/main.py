@@ -46,6 +46,7 @@ from dossier.application.plan import (
     pinned_documents,
 )
 from dossier.application.prompts import publish_prompts
+from dossier.application.recording import failed_if_stopped
 from dossier.application.review import apply_candidates, pull_reviews
 from dossier.application.run import (
     MissingFromReplay,
@@ -1554,162 +1555,166 @@ def eval_(
     # round trip through the model would hide a change that only altered how a
     # file was written (R11.3 row 2).
     gold_files = {p.name: p.read_bytes() for p in sorted((workspace / gold).glob("*.json"))}
-    if tracker is not None:
-        # Asked for before the run opens, because whether the dataset is stale is
-        # a tag, and a tag is set when a run starts (R11.7 row 2).
-        # Not `scored`: that name holds the reproduced step result a few lines up.
-        scored_hash = gold_set_hash(gold_files)
-        published = _published_dataset(workspace, gold=gold)
-        was = published.tags.get("dossier.gold_hash") if published is not None else None
-        stale = was is not None and was != scored_hash
-        # Opened before the judge is asked, so its traces sit inside the run
-        # (R7.18 row 5); closed below with the figures the report printed.
-        scored_version = start_eval(
-            tracker,
-            experiment=experiment or "",
-            pipeline=pipeline,
-            run_id=Path(run_dir).name,
-            model=config.model,
-            gold=gold,
-            gold_files=gold_files,
-            judges=judges,
-            withheld=withheld,
-            dataset_stale=stale,
-            environ=environment(workspace),
-            started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
-            label=label_for(label, environment(workspace)),
-            plan=manifest.plan,
-            dossier_version=manifest.dossier_version,
-            scored_at=manifest.started_at.isoformat().replace("+00:00", "Z"),
-            versions=versions,
-            version_experiment=_version_experiment(workspace, pipeline),
-            # Unverified and best-effort, as the run's is (R14.7): a server
-            # with no prompt store costs the link and never the score.
-            prompt_registry=_prompt_registry_for(workspace),
-            rubric_hashes={
-                field: text_hash(path.parent / named)
-                for field, named in load_judge_rubrics(path.parent / step.output).items()
-            },
-            prompt_prefix=environment(workspace).get(NAMESPACE, ""),
-        )
-        if published is not None:
-            tracker.log_dataset(
-                name=published.name,
-                dataset_id=published.dataset_id,
-                digest=published.digest,
-            )
-        if stale:
-            # Named, not fixed. Republishing here would have an eval quietly
-            # mutate shared tracking state, and refusing would let a stale
-            # dataset block a score computed entirely from local files (R12.4).
-            typer.echo(
-                f"dataset {published.name} is stale: "
-                f"published {was[:8]}, scored {scored_hash[:8]}"
-            )
-            typer.echo("  run `dossier dataset publish` to refresh it")
-    # The judge decides only what the deterministic scorers left, and only for
-    # a field it may be quoted on: a withheld field is not judged at all, since
-    # nothing is measured for a number nobody may print (R7.17).
-    try:
-        scores = judge_scores(
-            scores,
-            report=scored,
-            judging=_judging(
-                workspace,
-                config=config,
-                pipeline_dir=path.parent,
-                declaration=path.parent / step.output,
-                documents=text,
-                pages=pages,
-                withheld=withheld,
-                run_id=run_dir,
-                tracker=tracker,
-            ),
-        )
-    except MODEL_FAILURES as error:
-        # A judge nobody can reach, said as `run` says a stage's (R9.20).
-        typer.echo(f"{pipeline}: {error}", err=True)
-        raise typer.Exit(code=2) from error
-    totals = per_field(scores, declared=list(kinds))
-
-    # The overall covers exactly the fields it reported. Folding a withheld field
-    # back into the headline would hand over the number R7.5 just refused, in the
-    # figure most people read first -- and would make the terminal disagree with
-    # MLflow about one run, which spec 011 exists to prevent (R11.3 row 4).
-    reported = [total for total in totals if total.field not in withheld]
-    summed = overall(reported)
-    if summed is not None:
-        # The overall figure opens the report and never closes it: every field's
-        # own line follows, so it can never be all that is printed (R7.2).
-        typer.echo(
-            f"{_count(len(scores), 'document')} · {_count(len(reported), 'field')} · "
-            f"overall {summed.percentage:.1f}%"
-        )
-    lowest = weakest(reported)
-    scored = {total.field: total for total in totals}
-    # Walked over the *declared* fields, as `--compare` is (R7.8). A withheld
-    # field whose every verdict went to the judge has nothing deterministic to
-    # total, so a report written from the totals dropped it -- silently, and
-    # exactly where the withholding matters most (R7.15 row 5).
-    for field in kinds:
-        if field in withheld:
-            # Named, not omitted. A line that simply vanished would read as a
-            # field nobody verified (R7.3 row 4), which is a different problem
-            # and wants different work (R7.15).
-            typer.echo(f"  {field:<18}     -- {withheld[field]}")
-            continue
-        total = scored.get(field)
-        if total is None:
-            # Nothing verified this field, so there is nothing to report and
-            # nothing was refused. Absent is not withheld (R7.3 row 4).
-            continue
-        marker = "   <- weakest" if field in lowest else ""
-        # A judged field says how many of its verdicts the judge decided. A
-        # percentage over an unknown mix of abstention and judged verdicts is
-        # the silent subset R7.17 replaced.
-        judged = f"   ({total.judged} judged)" if kinds[field].needs_a_judge else ""
-        typer.echo(f"  {field:<18} {total.percentage:5.1f}%{judged}{marker}")
-        # What the percentage above does not say (R7.25). A field at 0.0% is a
-        # prompt citing nothing locatable, or a model reading the wrong figure,
-        # or a gold set that moved -- three different problems told apart by the
-        # detail and not by reading the figure again (R7.4 row 2).
-        #
-        # In `scores` order, which is the run's document order, so two evals of
-        # one run read identically (R0.4). Only the misses: a correct verdict
-        # has no detail worth a line.
-        for score in scores:
-            for result in score.scored:
-                if result.field == field and not result.correct:
-                    typer.echo(f"    {score.document:<14} {result.detail or 'incorrect'}")
-
-    if tracker is not None:
-        # The figures the lines above printed, recorded once rather than computed
-        # a second way (R11.3).
-        finish_eval(
-            tracker,
-            totals=totals,
-            withheld=withheld,
-            # Built from the figures the lines above printed, by the command that
-            # printed them. MLflow is a second place to read them (R11.12).
-            description=eval_description(
-                run_id=Path(run_dir).name,
+    # From the moment the run may open to the moment it closes: a judge that
+    # fails, or an interrupt, closes it FAILED rather than leaving it RUNNING
+    # (R11.23). A tracker of None makes this nothing.
+    with failed_if_stopped(tracker):
+        if tracker is not None:
+            # Asked for before the run opens, because whether the dataset is stale is
+            # a tag, and a tag is set when a run starts (R11.7 row 2).
+            # Not `scored`: that name holds the reproduced step result a few lines up.
+            scored_hash = gold_set_hash(gold_files)
+            published = _published_dataset(workspace, gold=gold)
+            was = published.tags.get("dossier.gold_hash") if published is not None else None
+            stale = was is not None and was != scored_hash
+            # Opened before the judge is asked, so its traces sit inside the run
+            # (R7.18 row 5); closed below with the figures the report printed.
+            scored_version = start_eval(
+                tracker,
+                experiment=experiment or "",
                 pipeline=pipeline,
+                run_id=Path(run_dir).name,
                 model=config.model,
-                pipeline_hash=manifest.plan.pipeline_hash,
-                gold=Path(gold).name,
-                gold_hash=gold_set_hash(gold_files),
-                documents=len(manifest.plan.documents),
-                totals=reported,
+                gold=gold,
+                gold_files=gold_files,
+                judges=judges,
                 withheld=withheld,
-            ),
-            # The per-document lines printed just above, which nothing else
-            # keeps (R11.14).
-            detail=scores_artifact(scores, withheld=withheld),
-            # The accuracy this eval measured, recorded against the version it
-            # scored as well as against this run (R13.3).
-            version_id=scored_version,
-        )
-        typer.echo(f"recorded to MLflow: {experiment}")
+                dataset_stale=stale,
+                environ=environment(workspace),
+                started=f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}",
+                label=label_for(label, environment(workspace)),
+                plan=manifest.plan,
+                dossier_version=manifest.dossier_version,
+                scored_at=manifest.started_at.isoformat().replace("+00:00", "Z"),
+                versions=versions,
+                version_experiment=_version_experiment(workspace, pipeline),
+                # Unverified and best-effort, as the run's is (R14.7): a server
+                # with no prompt store costs the link and never the score.
+                prompt_registry=_prompt_registry_for(workspace),
+                rubric_hashes={
+                    field: text_hash(path.parent / named)
+                    for field, named in load_judge_rubrics(path.parent / step.output).items()
+                },
+                prompt_prefix=environment(workspace).get(NAMESPACE, ""),
+            )
+            if published is not None:
+                tracker.log_dataset(
+                    name=published.name,
+                    dataset_id=published.dataset_id,
+                    digest=published.digest,
+                )
+            if stale:
+                # Named, not fixed. Republishing here would have an eval quietly
+                # mutate shared tracking state, and refusing would let a stale
+                # dataset block a score computed entirely from local files (R12.4).
+                typer.echo(
+                    f"dataset {published.name} is stale: "
+                    f"published {was[:8]}, scored {scored_hash[:8]}"
+                )
+                typer.echo("  run `dossier dataset publish` to refresh it")
+        # The judge decides only what the deterministic scorers left, and only for
+        # a field it may be quoted on: a withheld field is not judged at all, since
+        # nothing is measured for a number nobody may print (R7.17).
+        try:
+            scores = judge_scores(
+                scores,
+                report=scored,
+                judging=_judging(
+                    workspace,
+                    config=config,
+                    pipeline_dir=path.parent,
+                    declaration=path.parent / step.output,
+                    documents=text,
+                    pages=pages,
+                    withheld=withheld,
+                    run_id=run_dir,
+                    tracker=tracker,
+                ),
+            )
+        except MODEL_FAILURES as error:
+            # A judge nobody can reach, said as `run` says a stage's (R9.20).
+            typer.echo(f"{pipeline}: {error}", err=True)
+            raise typer.Exit(code=2) from error
+        totals = per_field(scores, declared=list(kinds))
+
+        # The overall covers exactly the fields it reported. Folding a withheld field
+        # back into the headline would hand over the number R7.5 just refused, in the
+        # figure most people read first -- and would make the terminal disagree with
+        # MLflow about one run, which spec 011 exists to prevent (R11.3 row 4).
+        reported = [total for total in totals if total.field not in withheld]
+        summed = overall(reported)
+        if summed is not None:
+            # The overall figure opens the report and never closes it: every field's
+            # own line follows, so it can never be all that is printed (R7.2).
+            typer.echo(
+                f"{_count(len(scores), 'document')} · {_count(len(reported), 'field')} · "
+                f"overall {summed.percentage:.1f}%"
+            )
+        lowest = weakest(reported)
+        scored = {total.field: total for total in totals}
+        # Walked over the *declared* fields, as `--compare` is (R7.8). A withheld
+        # field whose every verdict went to the judge has nothing deterministic to
+        # total, so a report written from the totals dropped it -- silently, and
+        # exactly where the withholding matters most (R7.15 row 5).
+        for field in kinds:
+            if field in withheld:
+                # Named, not omitted. A line that simply vanished would read as a
+                # field nobody verified (R7.3 row 4), which is a different problem
+                # and wants different work (R7.15).
+                typer.echo(f"  {field:<18}     -- {withheld[field]}")
+                continue
+            total = scored.get(field)
+            if total is None:
+                # Nothing verified this field, so there is nothing to report and
+                # nothing was refused. Absent is not withheld (R7.3 row 4).
+                continue
+            marker = "   <- weakest" if field in lowest else ""
+            # A judged field says how many of its verdicts the judge decided. A
+            # percentage over an unknown mix of abstention and judged verdicts is
+            # the silent subset R7.17 replaced.
+            judged = f"   ({total.judged} judged)" if kinds[field].needs_a_judge else ""
+            typer.echo(f"  {field:<18} {total.percentage:5.1f}%{judged}{marker}")
+            # What the percentage above does not say (R7.25). A field at 0.0% is a
+            # prompt citing nothing locatable, or a model reading the wrong figure,
+            # or a gold set that moved -- three different problems told apart by the
+            # detail and not by reading the figure again (R7.4 row 2).
+            #
+            # In `scores` order, which is the run's document order, so two evals of
+            # one run read identically (R0.4). Only the misses: a correct verdict
+            # has no detail worth a line.
+            for score in scores:
+                for result in score.scored:
+                    if result.field == field and not result.correct:
+                        typer.echo(f"    {score.document:<14} {result.detail or 'incorrect'}")
+
+        if tracker is not None:
+            # The figures the lines above printed, recorded once rather than computed
+            # a second way (R11.3).
+            finish_eval(
+                tracker,
+                totals=totals,
+                withheld=withheld,
+                # Built from the figures the lines above printed, by the command that
+                # printed them. MLflow is a second place to read them (R11.12).
+                description=eval_description(
+                    run_id=Path(run_dir).name,
+                    pipeline=pipeline,
+                    model=config.model,
+                    pipeline_hash=manifest.plan.pipeline_hash,
+                    gold=Path(gold).name,
+                    gold_hash=gold_set_hash(gold_files),
+                    documents=len(manifest.plan.documents),
+                    totals=reported,
+                    withheld=withheld,
+                ),
+                # The per-document lines printed just above, which nothing else
+                # keeps (R11.14).
+                detail=scores_artifact(scores, withheld=withheld),
+                # The accuracy this eval measured, recorded against the version it
+                # scored as well as against this run (R13.3).
+                version_id=scored_version,
+            )
+            typer.echo(f"recorded to MLflow: {experiment}")
 
 
 def _compare_runs(
