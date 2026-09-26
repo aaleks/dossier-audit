@@ -115,6 +115,8 @@ class ConfluenceConnector:
         # Each listed page's marker, kept so that an export's marker does not
         # cost a request for a version the listing already said (R1.19).
         self._versions: dict[str, str | None] = {}
+        # Each page's files as listed this sync, by page (R1.18 row 6).
+        self._files: dict[str, list[dict]] = {}
 
     def list(self, since: datetime | None = None) -> Iterator[ItemRef]:
         """Every page the query matches, a page of results at a time (R1.15).
@@ -260,10 +262,21 @@ class ConfluenceConnector:
             self._versions[key] = _version_of(answer.json())
         return self._versions[key]
 
-    def _attachments_of(self, key: str) -> Iterator[dict]:
-        yield from self._results(
-            f"{self._base}{CONTENT}/{key}/child/attachment", {"expand": "version"}
-        )
+    def _attachments_of(self, key: str) -> list[dict]:
+        """The files page `key` carries, listed once for this connector (R1.18 row 6).
+
+        A connector is built for one sync, so the list is that sync's. Listing
+        it again for every file fetched cost KIP-1279's 66 images about 130
+        requests on cwiki, to find download links the first listing already
+        held.
+        """
+        if key not in self._files:
+            self._files[key] = list(
+                self._results(
+                    f"{self._base}{CONTENT}/{key}/child/attachment", {"expand": "version"}
+                )
+            )
+        return self._files[key]
 
     def _attachment(self, key: str, filename: str | None) -> dict:
         for attachment in self._attachments_of(key):

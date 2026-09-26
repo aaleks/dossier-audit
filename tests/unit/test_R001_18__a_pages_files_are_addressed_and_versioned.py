@@ -132,6 +132,23 @@ class TestAPagesFilesAreAddressedAndVersioned:
         assert [ref.key for ref in refs] == [f"{PAGE}/shot-{n:02}.png" for n in range(30)]
         assert sum("/child/attachment" in url for url in server.asked) == 2
 
+    def test_a_pages_files_are_listed_once_however_many_are_fetched(self):
+        """Example 6: the one where every file of a page is fetched in one sync.
+
+        Listed once by `attachments`, as sync asks, and not again for each file
+        whose download link `fetch` needs. 30 files, 25 to a page of results:
+        two listing requests, and thirty downloads.
+        """
+        files = [attachment(f"shot-{n:02}.png", str(81920400 + n), 1) for n in range(30)]
+        server = Confluence(files, per=25)
+        wiki = connector(server)
+
+        for ref in list(wiki.attachments(PAGE)):
+            wiki.fetch(ref.key)
+
+        assert sum("/child/attachment" in url for url in server.asked) == 2
+        assert sum("/download/attachments/" in url for url in server.asked) == 30
+
     def test_a_file_deleted_and_uploaded_again_has_a_new_marker(self):
         """Counter-example, row 5: the one where the version reads `v1` both times."""
         before = Confluence([attachment("escalation-matrix.png", "81920301", 1)])
