@@ -303,6 +303,12 @@ all of them agreed. That may be the right demand, and it may not. It is a
 statement about how much evidence a score needs, which makes it a threshold, and
 a threshold is agreed by a person (R7.11), not chosen by a tool.
 
+The one figure a gold set *can* gate on, beside the agreement, is the unsupported
+half: `unsupported: 0.875` under a state in `judge.yaml` (R7.30, R7.31). Here it
+would change nothing, because `rc-04` leaves 7 of 8 caught, which is exactly
+0.875, and the second flip is withheld on the agreement first. Exercise 10's task
+5 shows a judge it does withhold: one that cleared its agreement bar.
+
 **Which flip moved which half.** `rc-04` is a candidate the reviewer marked
 unsupported, and flipping it let an invented cause through: `unsupported 7 of 8`.
 `rc-01` is one the reviewer marked supported, and flipping it rejected a true

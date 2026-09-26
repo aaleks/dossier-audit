@@ -150,12 +150,33 @@ not one extra call, because a verdict is an artifact keyed on its evidence — a
 for a described verdict that evidence is the pages, so the same candidate judged
 against a different rendering is a different entry (R7.18, R7.21).
 
-Now make the vision judge wrong on purpose. Flip **two** `supported` values for
-described cases in `resources/replies-judge.json`, delete `calibrations/` and
-`.dossier/cache/judge/`, and calibrate again.
+Now make the vision judge wrong on purpose. In a copy of
+`resources/replies-judge.json`, flip the `supported` values for **two** described
+cases the reviewer marked not supported, `rd-17` and `rd-20`. Point the stub at the
+copy, delete `calibrations/` and `.dossier/cache/judge/`, and calibrate again.
 
-**Checkpoint.** 90.0% — exactly the bar, and the field is still reported. Flip a
-third and it is not:
+**Checkpoint.** 90.0% — exactly the bar, and the field is still reported. Now read
+the line under the described judge's agreement: `unsupported 6 of 8`. It cleared
+its bar while letting through two causes nobody wrote down. That half can have a
+bar of its own (R7.30). Agree one in `gold/observability/judge.yaml`:
+
+```yaml
+root_cause:
+  grounded: 0.95
+  described: {agreement: 0.90, unsupported: 0.875}
+```
+
+**Checkpoint.** Eval again, and the field is withheld:
+
+```
+  root_cause             -- described: unsupported 6 of 8 (75.0%) is below the agreed 87.5%
+```
+
+Why is 0.875 a share and not "at most one"? What would 7 of 8 do, and a sample
+with only seven unsupported cases, all caught? (R7.31.)
+
+Flip a third, `rd-19`, which the reviewer marked supported, and the field is
+withheld on its agreement before the unsupported half is looked at:
 
 ```
   root_cause             -- described: agreement 0.85 is below the agreed 0.9

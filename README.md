@@ -13,8 +13,8 @@ see "How this is built" below. Where the rules stand is printed by
 behind. This README can fall behind, so its figure carries a date. On 2026-09-26:
 
 ```
-specs: 266 rules across 16 specs | 252 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSEDED
-       263 deterministic, 3 evaluated
+specs: 269 rules across 16 specs | 255 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSEDED
+       266 deterministic, 3 evaluated
 ```
 
 ## Layout
@@ -139,8 +139,19 @@ root_cause         100.0% agreement over 20 cases · openai:gpt-5.4-mini
 ```
 
 The same figures go to the calibration file and the MLflow calibrate run. The
-gate still compares the agreement. Whether it should compare the lower bound
-instead is a threshold, and a threshold is for a person to agree.
+gate compares the agreement, and a gold set may add a bar for the half that
+matters most: the share of unsupported cases a judge must catch, declared per
+state beside the agreement bar (R7.30, R7.31):
+
+```yaml
+root_cause:
+  grounded: 0.95
+  described: {agreement: 0.90, unsupported: 0.875}
+```
+
+A judge at 90% that let two of eight invented causes through is then withheld:
+`described: unsupported 6 of 8 (75.0%) is below the agreed 87.5%`. The lower
+bound and kappa are reported only.
 
 A step may be asked with its own model instead of the pipeline's -- a cheap one to
 extract, a strong one to verify:

@@ -33,6 +33,13 @@
 #     write 0.95 -- but then the first genuine disagreement on a chart withholds
 #     the field, and that is the trade you are making.
 #
+# Each state may also carry a bar for the half of its sample the judge exists
+# for: the share of unsupported cases it must catch, beside the agreement bar
+# and never instead of it (R7.30). It is left out here on purpose, because task
+# 5 has you add it once you have seen what it catches:
+#
+#   described: {agreement: 0.90, unsupported: 0.875}
+#
 # root_cause: agreed by <your name> on <today's date>.
 root_cause:
   grounded: 0.95
