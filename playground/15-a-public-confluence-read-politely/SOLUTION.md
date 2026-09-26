@@ -24,6 +24,12 @@ and 7 show dossier as it is now. What each one did before is marked
 **[derived]**: it is taken from this exercise's first pass, and from the opening
 paragraph of the rule that fixed it, not from a run of the current code.
 
+A fourth thing was an open question, and task 8 used to end on it. It was
+answered after the pass, by R8.26 and R8.27, and task 8's `convert:` maps were
+never run against either server. Their blocks are **[derived]**. The one
+**[run]** block among them was run on a folder standing in for
+`atlassian-docs`, and says so.
+
 What will differ in yours:
 
 - **Snapshot addresses of pages.** A page is never fetched as the same bytes
@@ -859,9 +865,9 @@ differ anyway, in the random `/ID` in its trailer.
 opening paragraph describes the same thing: "taken away it tombstones nothing".
 R1.19 row 6's own unit test had passed, for task 6's reason.
 
-## Task 8 — one `convert:` for a whole source
+## Task 8 — one `convert:` for a whole source, or one per media type
 
-**[run]**
+**[run]** The three lists, and none:
 
 ```console
 $ dossier convert kip-audit        # convert: [page_images]
@@ -884,22 +890,94 @@ cache updated · 0 converted · 4 cached
 ```
 
 Each is refused, and all at once, before anything converts (R8.24). A kind
-written in `convert:` is one the installation has to supply for every document
-the source holds. A page is JSON with nothing to draw, and a PNG has no text.
-`convert:` asks every document in the source for the same kinds, so no list fits
-a source that holds both. The only setting that works is none, where each media
-type gets its default kind (R8.10). A default pair nothing claimed would fail
-only its own document (R8.25), but here every default pair is claimed.
+written in a `convert:` list is one the installation has to supply for every
+document the source holds. A page is JSON with nothing to draw, and a PNG has no
+text, so no list fits a source that holds both. With no `convert:` at all, each
+media type gets its default kind (R8.10), and here every default pair is
+claimed.
 
-That is spec 008's open question 5. It was written about `page_images` for a
-page's PDF export, and it applies just as well to a page's images. It asks
-which kinds each document gets, and it is still open. R6.21 answered a
-different question: what a step does about a document that has none of the kind
-it reads. With both settled, a source like this one could give its PNGs
-`page_images` and its pages `markdown`, a vision step would read the first, and
-a text step the second, each running only for what it can read. Today the
-second half holds and the first is the default, which happens to be what this
-source needs.
+**[derived]** The map:
+
+```console
+$ dossier convert kip-audit        # convert: {image/png: [page_images]}
+kafka-kips  4 held · 0 converted · 4 cached
+cache updated · 0 converted · 4 cached
+```
+
+A media type the map names gets the kinds it lists, and one it does not name
+gets its default (R8.26). So the PNGs get `page_images`, which was their default
+anyway, and the pages get `markdown`. Every artifact is the one the last convert
+wrote: a convert key holds the snapshot, the converter and its options, and not
+whether the kind was written down or looked up. What did change is who answers
+for it. `(image/png, page_images)` is now declared, so an installation that
+could not make it would stop the run (R8.24) instead of failing each PNG on its
+own (R8.25).
+
+That block was not printed against cwiki.apache.org, and neither are the ones
+below. The same map was run on a copy of a workspace synced from cwiki earlier,
+holding two other KIPs and the 66 PNGs one of them carries. It printed
+`68 held · 0 converted · 68 cached`, and the lists above were refused there as
+they are here.
+
+**[derived]** `atlassian-docs`, with the export:
+
+```console
+$ dossier convert export-check        # convert: [markdown, page_images]
+2 document(s) have no converter:
+  792498257 (application/vnd.dossier.confluence-page+json): nothing converts ('application/vnd.dossier.confluence-page+json', 'page_images'). Claimed pairs: […]. …
+  792498257/ellipsis.png (image/png): nothing converts ('image/png', 'markdown'). Claimed pairs: […]. …
+$ dossier convert export-check        # convert: {application/pdf: [markdown, page_images]}
+atlassian-docs  3 held · 1 converted · 3 cached
+cache updated · 1 converted · 3 cached
+```
+
+**[run]**, on a folder standing in for `atlassian-docs`: `PLAY-1001.md` for the
+page's note, `PLAY-2001-terminal-scan.pdf` for its export, and
+`terminal-display.png` for the file it carries, all from `playground/corpus/`:
+
+```console
+$ dossier sync stand-in
+stand-in  0 known · 0 changed · 3 new -> 3 fetched
+ledger updated · 3 new snapshots · 0 tombstoned
+$ dossier convert stand-in        # no convert:
+stand-in  3 held · 3 converted · 0 cached
+cache updated · 3 converted · 0 cached
+$ dossier convert stand-in        # convert: [markdown, page_images]
+2 document(s) have no converter:
+  PLAY-1001.md (text/markdown): nothing converts ('text/markdown', 'page_images'). Claimed pairs: […]. A converter is added by installing a package that declares a dossier.converters entry point.
+  terminal-display.png (image/png): nothing converts ('image/png', 'markdown'). Claimed pairs: […]. A converter is added by installing a package that declares a dossier.converters entry point.
+$ echo $?
+2
+$ dossier convert stand-in        # convert: {application/pdf: [markdown, page_images]}
+stand-in  3 held · 1 converted · 3 cached
+cache updated · 1 converted · 3 cached
+```
+
+The counts are artifacts, not documents. Under the map the export makes two, its
+text and its pages, and the other two documents make one each: four in all, and
+only the export's pages are new. The list asks `page_images` of the page, which
+has nothing to draw, and `markdown` of the picture, which has no text, and is
+refused. That is what spec 008's open question 5 was: it was written about
+`page_images` for a page's PDF export, and it applies just as well to a page's
+images. R8.26 resolved it. A media type the map names is declared, and one it
+does not name keeps its default. A copy of a workspace synced from
+confluence.atlassian.com earlier, holding another page with its export and one
+PNG, printed the same two answers as the stand-in.
+
+A key is a media type, never an extension: `{pdf: [page_images]}` is refused at
+load, naming `pdf` (R8.26 row 6). And a media type mapped to `[]` is not read at
+all (R8.27). Exercise 04's task 4 uses that, and shows what it costs.
+
+R6.21 answered the other half: what a step does about a document with nothing of
+the kind it reads. With both, a step reading `documents@page_images` over
+`atlassian-docs` resolves, because the source was told to make `page_images`
+(R4.13). It is asked about the export's pages and about `ellipsis.png`, whose
+default kind is `page_images` too, and not about the page, which has none. A
+text step reading `documents` is asked about the page's note and the export's
+text. Each runs only for what it can read. **[derived]** from R4.13, R6.21 and
+R8.10. On the stand-in, a step reading `documents@page_images` was refused
+with no `convert:` (R4.13), and with the map it resolved and asked the stub
+about the scan's page, one picture in the call.
 
 ---
 

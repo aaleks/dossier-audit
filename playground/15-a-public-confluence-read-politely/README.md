@@ -11,7 +11,8 @@ their own. The page is kept as Confluence rendered it, and the note a stage read
 is made from that. You will see what `export: pdf` costs, what a server that
 refuses it looks like, and how a sync keeps asking for what it was refused.
 You will also see what happens where a source's documents meet a step that
-reads only one kind of them.
+reads only one kind of them, and how a source says which kinds each of its
+media types is wanted as.
 
 **Needs network access, and reads servers that belong to other people. Uses the
 stub model; no key, no licence, no Docker.**
@@ -380,7 +381,7 @@ its export. The second sync is windowed again and does nothing (R2.24 row 4).
 After the third, the PDF is active again, and `0 fetched`. What decided that
 the server did not need to render it again?
 
-## Task 8 — one `convert:` for a whole source
+## Task 8 — one `convert:` for a whole source, or one per media type
 
 A vision step would read the PNGs as pictures, and a text step reads the pages
 as notes. Try asking for that in `sources.yaml`, one line at a time under
@@ -393,10 +394,42 @@ as notes. Try asking for that in `sources.yaml`, one line at a time under
 ```
 
 **Checkpoint.** All three are refused, each naming the documents it cannot
-convert. The only setting that converts everything is no `convert:` at all,
-where each media type gets its default kind (R8.10). Read spec 008's open
-question 5. Then connect it to task 4: which question does R6.21 answer, and
-which does it leave open?
+convert. A list asks every document in the source for every kind in it, and no
+list fits a source holding both pages and pictures.
+
+`convert:` has a second form: a map from a media type to the kinds it is wanted
+as (R8.26). Try it under `kafka-kips`, and convert again:
+
+```yaml
+    convert:
+      image/png: [page_images]
+```
+
+**Checkpoint.** Nothing is refused, and nothing is converted again. The map
+names `image/png`, so the PNGs get what it says. It does not name the pages'
+media type, so they get their default kind, as they did with no `convert:` at
+all (R8.10).
+
+Now the source the question was first asked about. Task 7's export is a PDF, so
+it can be read as pages as well as text, and the page it came from is JSON with
+nothing to draw. Take the map out of `kafka-kips`. Then add each of these to
+`atlassian-docs` in turn, and run `dossier convert export-check` after each.
+Neither makes a request, because `convert` reads only what the workspace holds:
+
+```yaml
+    convert: [markdown, page_images]
+
+    convert:
+      application/pdf: [markdown, page_images]
+```
+
+**Checkpoint.** The list is refused, naming the page and the PNG. The map
+converts, and one artifact is new: the export's pages. Read spec 008's open
+question 5, and the rules that resolved it. Then connect it to task 4: R6.21
+says what a step does about a document with nothing of the kind it reads. Which
+question does R8.26 answer that R6.21 does not? With both, which documents
+would a step reading `documents@page_images` over `atlassian-docs` be asked
+about?
 
 Take the line out again.
 
@@ -413,7 +446,9 @@ Take the line out again.
 - you saw one page version fetched twice as two snapshots and one note;
 - you saw an export refused and one held. You can say why a sync asked for the
   refused export when its window returned no page, and why taking `export:`
-  away needed no `--full`.
+  away needed no `--full`;
+- you can say why no `convert:` list fits a source holding pages, their files
+  and their exports, and which kinds each document gets under a map.
 
 ## Cleaning up
 
