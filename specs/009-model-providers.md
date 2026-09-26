@@ -1,7 +1,7 @@
 # 009 — Model providers
 
-**Status:** Implemented
-**Rules:** R9.1 – R9.19
+**Status:** Partially implemented
+**Rules:** R9.1 – R9.20
 
 ## Purpose
 
@@ -523,3 +523,39 @@ one a run at `N = 1` stops with.
 | 7 | *counter-example* — `--concurrency 0`, `-1` or `four`, or `DOSSIER_CONCURRENCY=2.5` | refused before any work, naming where the value came from -- `DOSSIER_CONCURRENCY is '2.5'; it takes a whole number of at least 1.` -- with exit 2 and nothing asked |
 | 8 | *counter-example* — `concurrency: 3` in `pipeline.yaml` | refused at load time as a key the format does not have (R3.1): how fast a pipeline is run is not part of what it is |
 | 9 | *counter-example* — one `per_part` document of four pages, `--concurrency 4` | its four pages asked one after another: `N` counts (step, document) pairs, not parts |
+
+### R9.20 — a model that cannot be reached, or refuses, stops any command asking it in one line naming the pipeline, never a traceback
+
+`dossier run` says it in one line and exits 2:
+`incident-audit: POST http://localhost:8080/api/chat/completions failed: ... (after 3 attempts)`.
+`calibrate` and `eval` ask a model too, the judge, and let the same failure out
+as a Python traceback: dozens of lines, with the one that matters at the bottom.
+A live calibration against a stub that was not running printed one (R11.23). It
+is the same failure, and a person fixes it the same way: start the server, set
+the variable, or correct the key. So it gets the same line.
+
+A model fails in the ways `run` already catches: no endpoint is set for its
+provider (R9.2 row 3), or a request is refused or never answered, after R9.17's
+retries (R9.12 row 4). The line is the pipeline's name and then the error the
+client raised. The client already names the URL and the status and never the key
+(R9.8 row 1), and the command adds nothing to that.
+
+Nothing else is turned into a line. An exception that is not a model's, such as
+a bug, still prints its traceback. This rule is for a failure a person can act
+on from one sentence, and hiding one nobody expected would make it harder to
+find.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.main`)
+- **Proved by:** `tests/acceptance/test_R009_20__a_model_that_fails_stops_a_command_in_one_line.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier calibrate incident-audit --gold gold/incidents`, the judge at `http://localhost:8080/api` with nothing listening | `incident-audit: POST http://localhost:8080/api/chat/completions failed: ... (after 3 attempts)` on standard error, exit 2, and no traceback; no file under `calibrations/` |
+| 2 | `dossier eval incident-audit --gold gold/incidents`, a `root_cause` verdict not in the cache, and the judge answering `401` | `incident-audit: POST http://localhost:8080/api/chat/completions answered 401 Unauthorized`, and exit 2; the key is not in it (R9.8 row 1) |
+| 3 | `dossier eval incident-audit --gold gold/incidents --compare 20260806T142203Z-4f1a 20260907T090000Z-bbbb`, nothing listening | the line of row 1, and exit 2 |
+| 4 | `dossier calibrate` of a pipeline whose `model:` is `hf:Qwen/Qwen2.5-7B-Instruct@1c0f8e6b`, with `DOSSIER_HF_URL` unset | `incident-audit: DOSSIER_HF_URL is not set, ...`, naming the variable, and exit 2 |
+| 5 | `dossier run incident-audit`, nothing listening | the line of row 1, and exit 2 -- already true, and now stated |
+| 6 | *counter-example* — `dossier eval`, every verdict served from the cache, nothing listening | completes, exit 0: no judge is asked (R7.18), so no model can fail it |
+| 7 | *counter-example* — an exception that is not a model's, raised while the judge is asked | its traceback, as before: only a failure a person can act on from the line is turned into one |
