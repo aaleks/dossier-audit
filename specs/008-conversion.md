@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.27
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.29
 
 ## Purpose
 
@@ -608,7 +608,7 @@ only work this converter does.
 |---|-------|------|
 | 1 | `INC-5720-checkout-latency-postmortem.png`, its source declaring no `convert:` | one `page_images` artifact holding one part, `page-001.png`, byte-identical to the source |
 | 2 | a `image/jpeg` source | one part named `page-001.png`, re-encoded; `page_images` parts are PNG so that the type the provider is told is the type it is sent |
-| 3 | the same PNG converted twice on two machines | the same artifact bytes; a copy is deterministic, and so is Pillow's PNG encoder on its documented defaults (R8.1 row 2) |
+| 3 | the same PNG converted twice on two machines | the same artifact bytes; a copy is deterministic. A part that is re-encoded is compressed by one pinned deflate, because Pillow's encoder is deterministic only per build (R8.29) |
 | 4 | *counter-example* — a PNG from a source declaring `convert: [markdown]` | R8.24 stops the run naming `(image/png, markdown)`; this converter claims one pair and a declared kind is not it (R8.3) |
 | 5 | *counter-example* — a truncated JPEG | that document fails with a reason and the others convert (R8.6); a bad input is not a misconfigured pipeline |
 
@@ -928,3 +928,26 @@ source, "read nothing" is almost always a mistake.
 | 2 | `dossier run` over the same | two model calls, exit 0. The manifest pins neither the JSON nor a converter for it |
 | 3 | *counter-example* — the same folder declaring no `convert:` | `PLAY-4006-indexer-alerts.json` fails, and the exit is non-zero (R8.25). Leaving a file out is something a source says |
 | 4 | *counter-example* — `convert: []` | refused at load, as it always was |
+
+### R8.29 — a PNG a converter writes is compressed by one pinned deflate, so its bytes are a function of its pixels
+
+R8.12 row 3 used to say that Pillow's PNG encoder is deterministic on its
+documented defaults. It is, per build. Pillow's Windows wheel compresses with zlib-ng and
+its Linux wheel with zlib, so the same pixels become different bytes. The
+standard library's `zlib` is no better, because CPython on Windows links
+zlib-ng too. `dossier` writes each PNG part itself: one row filter,
+and the image data compressed by libdeflate (the `deflate` package, pinned).
+libdeflate's output depends on its input and its level, and on nothing about
+the machine.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.converters._png`)
+- **Proved by:** `tests/unit/test_R008_29__a_png_is_a_function_of_its_pixels.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4830`'s page 1, rendered, encoded on Windows 11 and on Linux | byte-identical PNGs. The suite pins the hash, and CI is the second machine |
+| 2 | a JPEG source (R8.12 row 2) | its one part re-encoded the same way, and the same bytes on both machines |
+| 3 | a part written and read back | the same pixels, size and mode: the PNG is one any reader, and any provider, decodes |
+| 4 | *counter-example* — a PNG source (R8.12 row 1) | copied as it is, not re-encoded: its bytes are the input's already |
