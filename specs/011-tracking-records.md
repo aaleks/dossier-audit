@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.22
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.23
 
 ## Purpose
 
@@ -602,3 +602,34 @@ the rest (R11.11).
 | 3 | `extract`'s model changed to `hf:Qwen/Qwen2.5-7B-Instruct@1c0f8e6b` | another version: the version hash moves, though the pipeline's `model:` and every prompt hash did not (R13.1) |
 | 4 | `dossier eval` of row 1's run | the eval's params carry `model/extract`, read off the manifest (R11.11) |
 | 5 | *counter-example* — no step names a model | no `model/` param on the run or the version, and the version hash is the one computed before this rule |
+
+### R11.23 — a command that stops after opening its MLflow run closes it as FAILED
+
+A run left `RUNNING` reads as a command still at work. In the list it looks the
+same as a run that is still going, and it stays that way forever. A live
+calibration against MLflow 3.15.1 left one: the model was unreachable on the
+first case, the exception left `calibrate_fields` with the run open, and the
+server kept an empty run named as if it were measuring. `dossier run` already
+closes a stopped run as FAILED, but only in code, and no rule said any command
+must.
+
+"Stops" means anything that leaves the command before its run is closed: an
+exception from a model, a connector or a converter, or an interrupt. The run is
+closed `FAILED`, and whatever stopped the command then goes on exactly as
+before. The command exits with the same error and the same code, because the
+record is about the command, and closing it never changes what the command
+did.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.calibrate_fields`, `dossier.application.run.execute`), cli (`dossier.cli.main`)
+- **Proved by:** `tests/unit/test_R011_23__a_stopped_command_closes_its_run_as_failed.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier calibrate incident-audit --gold gold/incidents`, the judge unreachable on the first case | the calibrate run ends `FAILED`; the command still fails with the model's error |
+| 2 | `dossier sync incident-audit`, interrupted inside a source | the sync run ends `FAILED`, and the interrupt goes on |
+| 3 | `dossier convert incident-audit`, interrupted inside a converter | the convert run ends `FAILED`, and the interrupt goes on |
+| 4 | `dossier run incident-audit`, the model unreachable | the run ends `FAILED` -- already true of the code, and now stated |
+| 5 | *counter-example* — `dossier calibrate` on a 19-case sample | no run at all: refused before one was opened (R11.5 row 4), so there is nothing to close |
+| 6 | *counter-example* — closing the run fails too, the server gone | the command's own error is the one it fails with; a lost record never changes a command's outcome (R10.6) |
