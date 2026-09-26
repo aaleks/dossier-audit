@@ -13,6 +13,40 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+Conversion has an automatic case, and who chose a document's kind now decides
+what happens when nothing can read it (spec 008, R8.24 – R8.27). A source that
+declares no `convert:` leaves both choices to `dossier`: the kind from the
+default table (R8.10), and the converter from what is installed (R8.13).
+
+- **R8.5 is superseded.** It stopped the whole run over any unclaimed pair, so
+  one `.jsonl` attached to `KAFKA-20416` stopped Apache's source.
+- **Nobody declared the kind (R8.25).** The document fails on its own, with R8.6's
+  shape: it is named with the pair, the rest converts, and the exit is 1.
+- **The source declared the kind (R8.24).** It is configuration, and it still
+  stops the run with exit 2. A tie between two installed converters is now
+  refused once, as a tie, instead of as every document "having no converter".
+- **Kinds per media type (R8.26).** `convert:` may be a map, such as
+  `{application/pdf: [markdown, page_images]}`, so a Confluence space can ask for
+  pictures of its PDF exports without asking them of each page's JSON.
+- **A type left out on purpose (R8.27).** A media type mapped to `[]` is held and
+  read by nothing, and counted as `left out`. This is the way out of R8.25's cost,
+  a source exiting non-zero on every run over a file nobody wants read.
+- **Leaving out is never a default.** A new kind of attachment still fails the
+  first time it arrives.
+
+Two things the playground found while the transcripts were re-run:
+
+- **The stop was not total across sources.** Each command converted source by
+  source, so when the second source was refused, the first had already written
+  its artifacts. `refuse_unconvertible` now resolves every source before any
+  converts.
+- **A source choosing its own converter (open question 3) was not built.** A
+  manifest pins one converter per pair, and a replay finds a document's
+  converter by its pair (R4.7). So two sources answering one pair differently is
+  a change to spec 004's manifest, and there is no corpus asking for it yet.
+
+---
+
 The half of a sample a judge exists for now has a bar of its own (spec 007,
 R7.30 and R7.31). The figures of R7.26 – R7.29 were meant to be seen before
 anyone decided what to gate on, and once they had been seen, the decision was

@@ -59,7 +59,8 @@ class PdfMarkdownConverter:
         entry point loads -- and `check_declared` can read this class's four
         attributes -- on an installation without the `pdf` extra. A converter
         that cannot be listed cannot be reported as claiming a pair, and an
-        unclaimed pair's message (R8.24, R8.25) would then be missing the very converter that answers it.
+        unclaimed pair's message (R8.24, R8.25) would then be missing the very
+        converter that answers it.
         """
         try:
             import pypdfium2 as pdfium
