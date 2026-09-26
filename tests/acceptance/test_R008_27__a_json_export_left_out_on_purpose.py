@@ -102,3 +102,24 @@ class TestAJsonExportLeftOutOnPurpose:
             "html-markdown",
             "text-csv",
         ]
+
+    def test_the_plan_after_a_run_promises_what_the_run_did(self, synced: Path, monkeypatch):
+        """Row 2 through `--plan`: the one where the plan reads what the run reads.
+
+        After a run, `--plan` says every step is cached. It counted the JSON as a
+        document the run would read, so it reported it as `new` and promised a
+        step that the next run then served from cache (R4.12).
+        """
+        from tests.fakes import FakeModelClient
+
+        import dossier.cli.main as cli
+
+        model = FakeModelClient(responses=[_answer(PAGE), _answer(REGISTER)])
+        monkeypatch.setattr(cli, "build_model_client", lambda model_id: model, raising=False)
+        _cli(synced, monkeypatch, "run", PIPELINE)
+
+        planned = _cli(synced, monkeypatch, "run", PIPELINE, "--plan")
+
+        assert planned.exit_code == 0, planned.output
+        assert ALERTS not in planned.output, planned.output
+        assert "documents changed" not in planned.output

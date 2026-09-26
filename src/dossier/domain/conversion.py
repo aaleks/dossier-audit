@@ -335,6 +335,22 @@ def select(
     return chosen
 
 
+def is_read(*, media_type: str, kinds: Convert, available: Sequence[Converter]) -> bool:
+    """Whether a run converts a document of this media type at all.
+
+    Not when its source maps the type to `[]` (R8.27), and not when nothing
+    claims the pair its default kind gives it (R8.25): either way the run pins
+    no such document. A plan asks this of every held row, so that the documents
+    it counts are the ones the run will read, and `cached` stays a promise the
+    run keeps (R4.12). A declared pair nothing claims still raises, because it
+    stops the run (R8.24).
+    """
+    try:
+        return bool(select(media_type=media_type, kinds=kinds, available=available))
+    except UnclaimedDefault:
+        return False
+
+
 def used(
     *,
     requests: Iterable[tuple[str, Convert]],
