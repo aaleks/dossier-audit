@@ -65,7 +65,8 @@ dossier convert incident-audit
 command converts nothing and caches four. Find the converted artifacts under
 `.dossier/cache/convert/` and read one. For a markdown source the conversion is
 nearly a no-op — which makes this the right moment to understand why the step
-exists at all, before exercise 03 points it at a format nothing claims.
+exists at all, before exercise 03 points it at wiki exports and has you write a
+converter of your own.
 
 `convert` is optional: `run` converts what it needs anyway. It exists so the text
 a stage will actually see can be inspected before a single model call is made.

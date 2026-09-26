@@ -54,7 +54,7 @@ when you want the reasoning behind what you just saw.
 |---|---|---|---|
 | 01 | [First sync of a folder of notes](01-first-sync-a-folder-of-notes/) | workspace layout, `sources.yaml`, the ledger, the snapshot store, incremental sync | R2.14, R2.15, R2.11, R1.8, R3.1 |
 | 02 | [A pipeline end to end on markdown](02-a-pipeline-end-to-end-on-markdown/) | `pipeline.yaml`, prompts, field declarations, `convert` / `run --plan` / `run` / `--replay` | R3.6, R6.10, R4.7, R5.5 |
-| 03 | [Wiki exports, and a converter you write](03-html-exports-and-a-converter-you-write/) | the `(media type, kind)` pair, writing and registering a converter, two claims in one package, version bumps | R8.5, R8.7, R8.2, R5.4 |
+| 03 | [Wiki exports, and a converter you write](03-html-exports-and-a-converter-you-write/) | the `(media type, kind)` pair, the two kinds of conversion failure, writing and registering a converter for a pair `dossier` already answers, naming it and opt-in, a note that survives a page moving, why a register is not a table, version bumps and a cache that lies without one | R8.5, R8.6, R8.7, R8.2, R8.13, R8.21, R8.22, R8.23, R6.4, R5.4 |
 | 04 | [Media types, default kinds, and the file dossier will not read](04-media-types-and-the-file-dossier-will-not-read/) | where a media type comes from, why an image's default kind is not `markdown`, and what the honest fix is for a file nothing recognises | R2.16, R8.10, R8.5, R2.21 |
 | 05 | [A gold set and `dossier eval`](05-a-gold-set-and-dossier-eval/) | writing verified answers, per-field scoring, normalisation, `--compare` between two runs | R7.2, R7.1, R7.3, R7.8 |
 | 06 | [Grounding, abstention and the one retry](06-grounding-abstention-and-the-one-retry/) | ungrounded spans, bare nulls, the single retry, a document that fails | R6.4, R6.5, R6.2, R6.9, R7.4 |
@@ -106,11 +106,14 @@ pipeline, the prompt and the field declaration are identical in both — so what
 is left different between the two exercises is exactly what a remote source
 costs, and nothing else.
 
-`corpus/exports/` is exercise 03's, and is the only material here that `dossier`
-cannot read out of the box: `text/html` and `text/csv` are in `MEDIA_TYPES` and
-no installed converter claims either pair, which is the gap that exercise fills
-by installing a package. `PLAY-4003` is a dashboard shared as a page whose body
-is one `<img>` — it converts to nothing at all, on purpose.
+`corpus/exports/` is exercise 03's: three wiki pages exported as HTML and a
+register exported as CSV. `dossier` reads both formats out of the box, with
+`html-markdown` and `text-csv` (R8.21, R8.23), so the exercise is about a
+converter you write for a pair that is already answered. `PLAY-4003` is a
+dashboard shared as a page whose body is one `<img>`, with no alt text, and it
+holds no sentence at all, on purpose. `html-markdown` writes it as the name of
+its image and nothing else (R8.22). Three of the four files are also test
+fixtures, under `tests/fixtures/documents/exports/`.
 
 `corpus/observability/` is exercise 10's, and is the only material here whose
 evidence is drawn rather than written: an APM latency chart, a Grafana JVM
@@ -209,25 +212,16 @@ uv pip uninstall dossier-jira-playground  # exercise 11
 docker compose -f playground/11-a-real-jira-on-your-machine/docker-compose.yml down -v
 ```
 
-**The uninstalls are not optional if you share the environment with the test
-suite.** Exercises 03 and 11 each install a converter package, and a converter is
-resolved from the installed environment. With exercise 03's installed,
-`tests/unit/test_R008_1__conversion_is_a_pure_function_of_its_input.py` fails on
+**Uninstall them if you share the environment with the test suite.** Exercises
+03 and 11 each install a converter package, and a converter is resolved from the
+installed environment. Both packages claim a pair `dossier` already answers. The
+suite runs its R8.1 purity rows over every installed converter it has a sample
+payload for, and it has one for HTML, CSV and a Jira issue, so both packages'
+converters are checked for purity, and pass.
 
-```
-AssertionError: ['text/csv', 'text/html'] has no sample payload, so every
-converter claiming it is silently skipped by the rows above
-```
-
-The suite runs its R8.1 purity rows over every installed converter, skips any
-whose media type it has no sample payload for, and then asserts that every skip
-is a *named* exemption — because a converter quietly exempted from the purity
-check is the one outcome nobody would notice.
-
-Exercise 11's package passes that check, because the suite has a sample Jira
-issue. It fails more widely: it claims the pair `jira-issue-markdown` already
-claims, none of the workspaces the suite builds names either converter, and so
-every test that converts stops on
+What decides the rest is opt-in. Exercise 11's package is not opt-in. None of
+the workspaces the suite builds names either converter, so every test that
+converts stops on
 
 ```
 two converters claim the same pair, and picking either would be picking by
@@ -236,8 +230,14 @@ installation order:
 jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
 ```
 
+Exercise 03's solution package declares both its converters opt-in. They answer
+only in a workspace that names them, and the suite is green with it installed.
+A package you wrote for exercise 03 without `opt_in = True` fails as exercise
+11's does, over `(text/html, markdown)`.
+
 Uninstall the package, or install it into a throwaway virtualenv, and `pytest`
-is green again.
+is green again. Do it for exercise 03's too: a converter belongs to the
+workspace that names it, not to the environment the repository is tested in.
 
 `.dossier/`, `runs/`, `mlruns/` and `.env` are already ignored by the
 repository's `.gitignore`, wherever they appear.

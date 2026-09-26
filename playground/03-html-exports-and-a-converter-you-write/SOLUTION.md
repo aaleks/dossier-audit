@@ -1,7 +1,31 @@
 # 03 · Solution
 
-Every command below was run against this repository. The output shown is the
-output it produced.
+Every block below is marked, as exercises 11 and 15 mark theirs:
+
+| Mark | Means |
+|---|---|
+| **[run]** | Run against this repository. The output is what it produced. |
+| **[derived]** | Worked out from the code or the spec, not printed by a command. |
+| **[shape]** | What to expect, and what to check. Not a transcript. |
+
+Nearly everything is **[run]**. The tasks were run in order, in one pass, on
+2026-09-26, at the commit of `main` that followed #422, with `dossier` installed
+with its `pdf` and `tracking` extras. The liberties taken in showing it:
+
+- `dossier` is the repository's CLI, run from `playground/work/03/`, and
+  `artifacts.py` is `python ../../03-html-exports-and-a-converter-you-write/resources/artifacts.py`,
+  run from the same place.
+- Tasks 2 to 5 were run with the solution's package as it stood at each task:
+  at `0.1.0` with no image rule until task 5, not opt-in until the end of
+  task 2, and without its CSV converter until task 4. `solution/` holds where
+  it ends.
+- The stub model ran on port 8093 rather than 8099, and logged to a file of its
+  own. Where a model is served is in no key (R9.2).
+- A run's absolute path is shortened to `…/runs/<id>/`.
+
+Everything here is deterministic apart from run ids and times. Your snapshot
+hashes and counts should match these exactly, and so should the artifact hashes
+wherever the converter is `dossier`'s or the solution's.
 
 ## Run the prepared answer
 
@@ -21,13 +45,33 @@ cd playground/work/03
 ../../../.venv/bin/dossier convert incident-audit
 ```
 
-`--no-deps` because this package has none — it is standard library only, and
-`--no-deps` keeps `uv` from resolving anything at all, which keeps the install
-offline.
+**[run]**
+
+```console
+postmortems-mixed  0 known · 0 changed · 6 new -> 6 fetched
+ledger updated · 6 new snapshots · 0 tombstoned
+postmortems-mixed  6 held · 6 converted · 0 cached
+cache updated · 6 converted · 0 cached
+
+$ python ../../03-html-exports-and-a-converter-you-write/resources/artifacts.py
+PLAY-2001-terminal-scan.pdf               snapshot 89d790a8  pdf-markdown        1.1.0    274 bytes  sha256 d728a34f1c22
+PLAY-2002-photocopy-no-text-layer.pdf     snapshot f82d92a3  pdf-markdown        1.1.0     15 bytes  sha256 f4aaa0b27c8b
+PLAY-4001-payment-retries.html            snapshot db6997e7  play-html-markdown  0.2.0   1225 bytes  sha256 8a5412c93b1d
+PLAY-4002-dns-resolver-flap.html          snapshot 99f12e5e  play-html-markdown  0.2.0   1227 bytes  sha256 0c3c2d0a930c
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  play-html-markdown  0.2.0     49 bytes  sha256 7c03eb701064
+PLAY-4004-incident-register.csv           snapshot 00f25086  text-csv            1.0.0    464 bytes  sha256 00f2508608e2
+```
+
+`--no-deps` because this package has none. It is standard library only, and
+`--no-deps` keeps `uv` from resolving anything at all. The workspace names
+`play-html-markdown` in `sources.yaml`, so the line needs the package: without
+it, every command that plans or converts refuses the name.
 
 ---
 
-## Task 1 — the refusal
+## Task 1 — a mixed folder, and the two ways convert fails
+
+**[run]**
 
 ```console
 $ dossier sync incident-audit
@@ -35,24 +79,86 @@ postmortems-mixed  0 known · 0 changed · 6 new -> 6 fetched
 ledger updated · 6 new snapshots · 0 tombstoned
 
 $ dossier convert incident-audit
-4 document(s) have no converter:
-  PLAY-4001-payment-retries.html (text/html): nothing converts ('text/html', 'markdown').
-  Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)',
-  '(image/jpeg, page_images)', '(image/png, page_images)', '(text/markdown, markdown)',
-  '(text/plain, markdown)']. A converter is added by installing a package that declares a
-  dossier.converters entry point.
-  PLAY-4002-dns-resolver-flap.html (text/html): …
-  PLAY-4003-latency-dashboard-export.html (text/html): …
-  PLAY-4004-incident-register.csv (text/csv): …
-exit 2
+postmortems-mixed  6 held · 6 converted · 0 cached
+cache updated · 6 converted · 0 cached
+
+$ artifacts.py
+PLAY-2001-terminal-scan.pdf               snapshot 89d790a8  pdf-markdown        1.1.0    274 bytes  sha256 d728a34f1c22
+PLAY-2002-photocopy-no-text-layer.pdf     snapshot f82d92a3  pdf-markdown        1.1.0     15 bytes  sha256 f4aaa0b27c8b
+PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.1.0   1302 bytes  sha256 ec8a656a0b6d
+PLAY-4002-dns-resolver-flap.html          snapshot 99f12e5e  html-markdown       1.1.0   1308 bytes  sha256 55f07f33dbcc
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.1.0     50 bytes  sha256 5bfd3d4bcc44
+PLAY-4004-incident-register.csv           snapshot 00f25086  text-csv            1.0.0    464 bytes  sha256 00f2508608e2
 ```
 
-Sync did not care. It fetched bytes, hashed them, recorded a media type from the
-extension table and wrote six snapshots — everything it promises to do, with no
-opinion about what any of them contains.
+Six documents, three converters, one kind. The `.meta.json` beside each artifact
+is what makes that table possible: an artifact without a provenance record is not
+a cache entry at all (R0.3), and the record is what gets you from a key back to a
+snapshot and a converter. `artifacts.py` reads nothing else.
 
-Convert did care, and stopped **everything**, including the two scans that are
-claimed twice over and would have converted without complaint:
+The register's row is the one to keep. Its artifact's `sha256` is
+`00f2508608e2`, and so is its snapshot's: `text-csv` wrote the file back byte for
+byte (R8.23 row 1). Task 4 is about why.
+
+The two extra files, and what the folder connector made of them:
+
+**[run]**
+
+```console
+$ dossier sync incident-audit
+postmortems-mixed  6 known · 0 changed · 2 new -> 8 fetched
+ledger updated · 2 new snapshots · 0 tombstoned
+
+$ python -c "import sqlite3; ..."      # key, media_type from the ledger's items
+PLAY-4005-connection-pool-exhaustion.html text/html
+PLAY-4006-indexer-alerts.json application/json
+
+$ dossier convert incident-audit
+1 document(s) have no converter:
+  PLAY-4006-indexer-alerts.json (application/json): nothing converts ('application/json', 'markdown'). Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)', '(application/vnd.dossier.confluence-page+json, markdown)', '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)', '(image/png, page_images)', '(text/csv, markdown)', '(text/html, markdown)', '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by installing a package that declares a dossier.converters entry point.
+$ echo $?
+2
+```
+
+`.json` is in `MEDIA_TYPES`, so the ledger holds a real media type, and nothing
+claims `(application/json, markdown)`. `jira-issue-markdown` and
+`confluence-page-markdown` read JSON, but each claims a type of its own
+(`application/vnd.dossier.jira-issue+json`, for one), because `application/json` is every
+JSON document any source holds (R1.14). That makes this a pair problem, not a
+media-type one. Exercise 04's `.log` is the other kind: an extension nobody
+recognises at all.
+
+The Windows-1252 page is not in the message. Neither are the six documents
+already converted, although their artifacts are sitting in the cache. Every
+document is resolved before any is converted (`_resolve_converters` in
+`src/dossier/application/convert.py`), and one unclaimed pair stops all of them.
+Nothing was read, so nothing about the page's bytes could be known yet.
+
+**[run]**
+
+```console
+$ rm inbox/postmortems/PLAY-4006-indexer-alerts.json
+$ dossier sync incident-audit
+postmortems-mixed  8 known · 0 changed · 0 new -> 7 fetched
+      PLAY-4006-indexer-alerts.json  tombstoned
+ledger updated · 0 new snapshots · 1 tombstoned
+
+$ dossier convert incident-audit
+postmortems-mixed  7 held · 0 converted · 6 cached · 1 failed
+    PLAY-4005-connection-pool-exhaustion.html: ValueError: html-markdown was given bytes that are not valid UTF-8 (invalid start byte at byte 81)
+cache updated · 0 converted · 6 cached
+$ echo $?
+1
+```
+
+Byte 81 is the en dash in the page's `<title>`. Windows-1252 writes it as the
+single byte `0x96`, which cannot begin a character in UTF-8. `html-markdown` decodes UTF-8
+itself and never guesses. Handed bytes, BeautifulSoup would guess with whatever
+detector the machine has installed, so the same file could convert differently
+on two machines (R8.1, R8.21 row 4). The page declares `charset="windows-1252"`,
+and that is not read either. Whether it should be is spec 008's open question 6.
+
+Two runs, two failures, and the table in spec 008 is the whole difference:
 
 | What happened | Blast radius | Because |
 |---|---|---|
@@ -60,313 +166,641 @@ claimed twice over and would have converted without complaint:
 | a converter fails on one document | that document only | the configuration is right and one input is bad. An audit over nine of ten documents is useful, provided it says which one is missing |
 
 Collapsing those one way turns an installation problem into nine mysterious
-per-document errors; the other way turns one corrupt export into a run that
-produced nothing. The message lists the claimed pairs because that turns the
-error into its own fix: you can see immediately that `markdown` is claimed for
-four media types and that nothing has claimed `text/html` at all.
+per-document errors. The other way turns one corrupt export into a run that
+produced nothing. The first message lists every claimed pair because that turns
+the error into its own fix. The second exits 1, not 2, and names the one
+document.
 
-Two details in that list are worth a second look.
-
-- **Both PDF pairs are there**, from `dossier[pdf]`. The format that used to be
-  this exercise's subject now ships — through the entry-point group you are about
-  to use, behind an extra, with no special case anywhere in the core (R8.7
-  counter-example 3). `src/dossier/infrastructure/converters/pdf_markdown.py` is
-  the reference implementation for what you are writing.
-- **`image/png` resolves to `page_images`, not to `markdown`.** That is R8.10,
-  and it is exercise 04.
-
-## Task 2 — the converter
+## Task 2 — a converter of your own
 
 `solution/dossier_html_playground/` is a complete package:
 
 ```
 pyproject.toml
 src/dossier_html_playground/__init__.py
-src/dossier_html_playground/html_export.py   (text/html, markdown)
-src/dossier_html_playground/csv_table.py     (text/csv, markdown)
+src/dossier_html_playground/html_export.py   (text/html, markdown)  play-html-markdown
+src/dossier_html_playground/csv_table.py     (text/csv, markdown)   play-csv-table
 ```
 
 The registration, in `pyproject.toml`:
 
 ```toml
-[project.entry-points."dossier.converters"]
-html-markdown = "dossier_html_playground.html_export:HtmlMarkdownConverter"
-csv-markdown = "dossier_html_playground.csv_table:CsvMarkdownConverter"
-
 dependencies = []
+
+[project.entry-points."dossier.converters"]
+play-html-markdown = "dossier_html_playground.html_export:HtmlMarkdownConverter"
+play-csv-table = "dossier_html_playground.csv_table:CsvTableConverter"
 ```
 
-Note what is *not* here: no edit to any file under `src/dossier/`, and no match
-statement anywhere (R8.7, and `tests/architecture/` has a test that fails if one
-appears). And note that the dependency list is empty. The entry-point mechanism
-is usually argued for with a large dependency — `dossier`'s own PDF pair is
-behind an extra precisely because PDFium has its own release cadence — but it
-costs nothing when the converter is forty lines of `html.parser`, and a mechanism
-you only reach for when it hurts is a mechanism nobody learns.
+No file under `src/dossier/` changed, and there is no match statement anywhere
+(R8.7). `tests/architecture/` has a test that fails if one appears. The
+dependency list is empty. `html-markdown` reads HTML with markdownify and
+BeautifulSoup, both pinned exactly, because what a library writes is inside the
+artifact. This converter is `html.parser` from the standard library, so it pins
+nothing, and its version has to cover the interpreter instead (task 5).
 
-The converter's contract, in the three things it does not do, each of them R8.1:
-it reads no clock, it opens no file other than the bytes it was handed, and it
-asks nothing over the network. `K_convert` claims an artifact is determined by
-the snapshot hash, the converter id, its version and its options. If a converter
-consults anything else, the key is a lie — the cache serves text that no longer
-matches what the converter would produce today, nothing detects it, and every
-stage above inherits the error with a provenance record that looks correct.
+What makes it this workspace's converter is one constant:
 
-There is a fourth thing in this one, and it is the interesting one:
+```python
+# What this wiki's exporter wraps around every page, by class. ...
+CHROME = frozenset({"breadcrumb"})
+```
+
+An element carrying that class is skipped with everything inside it. The parser
+counts nesting of the same tag, so a `<div>` inside the breadcrumb does not end
+the skip early. It never starts a skip on a void element such as `<img>`, which
+has no end tag to close one.
+
+The rest is the contract, and each part is R8.1. It reads no clock, opens no file
+other than the bytes it was handed, and asks nothing over the network.
+`K_convert` claims an artifact is determined by the snapshot hash, the converter
+id, its version and its options. A converter that consulted anything else would
+make that key a lie. It decodes UTF-8 strictly, for the reason `html-markdown`
+does. And it collapses whitespace inside each block:
 
 ```python
 # `split()` on no argument collapses every run of whitespace to one space
 text = " ".join("".join(self._text).split())
 ```
 
-An exporter's indentation is not information about the document. Two exports of
-the same wiki page with different wrapping must hash the same, or a cosmetic
-change to a template invalidates a whole corpus (R5.6). The same reasoning is why
-`csv_table.py` refuses to use `csv.Sniffer`: sniffing makes the artifact a
-function of how much of the file the sniffer happened to look at, so a register
-would convert one way today and another way after a row was appended — under the
-same key.
+An exporter's line wrapping is not information about the document. A page
+exported again with different wrapping converts to the same bytes through this
+converter, so no step asks about it again (R5.6). `html-markdown` keeps the
+wrapping (task 3).
 
-`options` is accepted and unused. Taking the argument keeps every converter
-called the same way, and options are part of the key, so an option nobody reads
-still produces its own cache entry rather than quietly sharing one.
-
-With the HTML converter installed and the CSV one not yet written:
+**[run]** Installed, at `0.1.0`, not yet opt-in:
 
 ```console
-$ dossier convert incident-audit
-1 document(s) have no converter:
-  PLAY-4004-incident-register.csv (text/csv): nothing converts ('text/csv', 'markdown').
-  Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)',
-  '(image/jpeg, page_images)', '(image/png, page_images)', '(text/html, markdown)',
-  '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by
-  installing a package that declares a dossier.converters entry point.
-exit 2
-```
-
-Three exports left the list and `(text/html, markdown)` joined the claimed pairs
-— and the run still produced nothing at all, over one CSV. Every document is
-resolved before any is converted (`_resolve_converters` in
-`src/dossier/application/convert.py`), which is what makes R8.5 a property of the
-*run* rather than a per-document error that happens to be common.
-
-## Task 3 — what a stage would actually see
-
-```console
-$ python - <<'PY'
-import json, pathlib, sqlite3
-names = dict(sqlite3.connect(".dossier/ledger.db").execute("select content_hash, key from items"))
-for meta in sorted(pathlib.Path(".dossier/cache/convert").rglob("*.meta.json")):
-    m = json.loads(meta.read_text(encoding="utf-8"))
-    art = meta.parent / meta.name[: -len(".meta.json")]
-    print(f"{names[m['snapshot']]:42} {m['converter_id']:14} {art.stat().st_size:>6} bytes")
-PY
-PLAY-4002-dns-resolver-flap.html           html-markdown    1287 bytes
-PLAY-4001-payment-retries.html             html-markdown    1285 bytes
-PLAY-4003-latency-dashboard-export.html    html-markdown       0 bytes
-PLAY-2002-photocopy-no-text-layer.pdf      pdf-markdown       15 bytes
-PLAY-4004-incident-register.csv            csv-markdown      571 bytes
-PLAY-2001-terminal-scan.pdf                pdf-markdown      274 bytes
-```
-
-The mapping is the point of the `.meta.json` beside each artifact: an artifact
-without a provenance record is not a cache entry at all (R0.3), and the record is
-what lets you go from a key back to a snapshot and a converter.
-
-`PLAY-4001` reads back as text a stage can ground a span in:
-
-```console
-$ head -c 220 .dossier/cache/convert/23/bb/23bb8cfa2f65…
-Spaces / Site Reliability / Postmortems / 2026 / PLAY-4001
-
-# PLAY-4001 — Duplicate payment retries after a queue redelivery
-
-Severity: major
-
-Resolved: 2026-04-18
-
-Systems affected: payments-worker, orders-api
-```
-
-`PLAY-4003` reads back as nothing at all:
-
-```console
-$ wc -c < .dossier/cache/convert/2e/ef/2eef475618db…
-0
-```
-
-Zero bytes. That export is a Grafana panel shared as a page whose body is one
-`<img>`, a `<style>` block and a `<script>` — and none of that is text a person
-wrote.
-
-The photocopy is fifteen of them, and nobody in this exercise wrote the converter
-that produced it:
-
-```console
-$ cat .dossier/cache/convert/6f/c9/6fc9997cf483…
-<!-- page 1 -->
-```
-
-`pdf-markdown` reads a PDF's text layer, and that scan has none. It did not fail
-either — it introduced the page by its anchor, which is what makes `source.page` a
-fact derived from the document rather than a number the model asserted (R6.14),
-and then had nothing to put under it. Two formats, two converters written by two
-people, the same answer: the document converted, and what it contains is the
-finding.
-
-**Should the converter have failed instead?** No — and the reasoning is worth
-keeping:
-
-- The bytes genuinely carry no text. Raising an error would report the *document*
-  as broken when the document is fine and the expectation was wrong.
-- An empty artifact is visible here, cheaply, before a single model call. That is
-  what `dossier convert` is for, and it is exactly why the command exists as
-  something you can run early even though `run` converts anyway.
-- If such a document reaches a stage, the failure is honest and specific: the
-  model has nothing to cite, so any value it returns is ungrounded and is scored
-  incorrect (R6.4, R7.4). Exercise 06 shows that outcome directly.
-
-What the *pipeline* should do about a page with no text — render it and look at
-it, exclude it, or fail the run — is a question for whoever owns the corpus.
-Note that `dossier` has since answered exactly this question for images, in
-exactly the form this repository accepts: a spec amendment, R8.10 and R8.11,
-then the code. Exercise 10 is the result.
-
-## Task 4 — a second pair from the same package
-
-```console
-$ python -c "
-from dossier.infrastructure.converters.registry import installed_converters
-for c in installed_converters(): print(c.id, c.version, c.media_type, c.kind)"
+$ python -c "from dossier.infrastructure.converters.registry import installed_converters; ..."
+docling-markdown 1.0.0 application/pdf markdown
 pdf-markdown 1.1.0 application/pdf markdown
 pdf-images 1.0.0 application/pdf page_images
+confluence-page-markdown 1.2.0 application/vnd.dossier.confluence-page+json markdown
+jira-issue-markdown 1.0.0 application/vnd.dossier.jira-issue+json markdown
 jpeg-pages 1.0.0 image/jpeg page_images
 png-pages 1.0.0 image/png page_images
-csv-markdown 0.1.0 text/csv markdown
-html-markdown 0.1.0 text/html markdown
+text-csv 1.0.0 text/csv markdown
+html-markdown 1.1.0 text/html markdown
+play-html-markdown 0.1.0 text/html markdown
 markdown-text 1.0.0 text/markdown markdown
 text-plain 1.0.0 text/plain markdown
 
 $ dossier convert incident-audit
-postmortems-mixed  6 held · 6 converted · 0 cached
-cache updated · 6 converted · 0 cached
+6 document(s) have no converter:
+  PLAY-2001-terminal-scan.pdf (application/pdf): two converters claim the same pair, and picking either would be picking by installation order:
+  (text/html, markdown) is claimed by both html-markdown 1.1.0 and play-html-markdown 0.1.0
+A workspace settles it by naming one under converters: in sources.yaml (R8.13).
+  PLAY-2002-photocopy-no-text-layer.pdf (application/pdf): …
+  PLAY-4001-payment-retries.html (text/html): …
+  PLAY-4002-dns-resolver-flap.html (text/html): …
+  PLAY-4003-latency-dashboard-export.html (text/html): …
+  PLAY-4004-incident-register.csv (text/csv): …
+$ echo $?
+2
+```
+
+Six for six, the scans and the register included. `select` checks every
+installed claim (`_claims` in `src/dossier/domain/conversion.py`) before it looks
+up the pair it was asked about, so a tie anywhere stops every document.
+`_claims` refuses rather than choosing, and its docstring says why: the winner's
+id and version go into `K_convert`, so settling the tie by installation order
+would give two machines with the same packages two different keys, and every
+stage key above them would differ too (R5.6).
+
+`docling-markdown` claims `(application/pdf, markdown)` too and caused none of
+this, because it is opt-in. An opt-in converter is left out before claims are
+counted, unless the workspace names it (`answering`, same file).
+
+The id matters for the same reason. `_claims` tells two claims apart by id and
+version, and treats the same pair from the same id and version as one claim made
+twice. A copy calling itself `html-markdown` at `1.1.0` would be taken for the
+shipped converter, and which of the two wrote an artifact would turn on
+installation order, under a key saying it made no difference.
+
+**[run]** Settled by the workspace, misspelt once:
+
+```console
+$ dossier convert incident-audit        # converters: [play-html-markdwn]
+sources.yaml names play-html-markdwn under converters:, and no installed package provides it. Installed: confluence-page-markdown, docling-markdown, html-markdown, jira-issue-markdown, jpeg-pages, markdown-text, pdf-images, pdf-markdown, play-html-markdown, png-pages, text-csv, text-plain. A converter is added by installing a package that declares a dossier.converters entry point.
+$ echo $?
+2
+
+$ dossier convert incident-audit        # converters: [play-html-markdown]
+postmortems-mixed  6 held · 3 converted · 3 cached
+cache updated · 3 converted · 3 cached
 
 $ dossier convert incident-audit
 postmortems-mixed  6 held · 0 converted · 6 cached
 cache updated · 0 converted · 6 cached
 ```
 
-Eight converters, three of them used, one kind between them. `csv-markdown`
-shares `markdown` with `html-markdown`, `markdown-text`, `text-plain` and
-`pdf-markdown` and collides with none of them, because the pair is two halves and
-only the media type moved. The register reads back as a table:
+Three exports converted under a key that names `play-html-markdown`. The scans
+and the register are cached, because their converters, and so their keys, did not
+change. The choice sits in `sources.yaml`, beside `sources:`, because a manifest
+pins one converter per pair (R8.9) and a replay recomposes every conversion from
+that pin (R4.7). One converter per pair per workspace keeps both true.
+
+**[run]** With `opt_in = True` added to the class:
 
 ```console
-$ cat .dossier/cache/convert/76/5c/765cceb5e566…
-| key | opened | severity | system | root_cause | recorded_loss_chf |
-| --- | --- | --- | --- | --- | --- |
-| PLAY-4001 | 2026-04-17 | major | payments-worker | redelivered messages charged twice with no idempotency key | 1240 |
-| PLAY-4002 | 2026-05-08 | minor | internal-dns | one resolver replica running an eight-month-old image | 0 |
-| PLAY-4005 | 2026-06-21 | major | orders-api | connection pool exhausted by a report query holding transactions open | 9800 |
-| PLAY-4006 | 2026-07-02 | minor | search-indexer | indexer restarted mid-batch and skipped a shard | 0 |
+$ dossier convert incident-audit        # converters: [play-html-markdown]
+postmortems-mixed  6 held · 0 converted · 6 cached
+cache updated · 0 converted · 6 cached
+
+$ dossier convert incident-audit        # no converters: line
+postmortems-mixed  6 held · 0 converted · 6 cached
+cache updated · 0 converted · 6 cached
 ```
 
+Neither refuses. Named, `play-html-markdown` answers, from the artifacts it just
+made. Unnamed, `html-markdown` answers, from the artifacts it made in task 1.
+
+**Should it be opt-in?** Yes, and the solution's converters both are. Opt-in
+saved every other workspace on the machine, and the repository's test suite,
+from a refusal over a converter they never asked for (see "Before you finish").
+What it costs: someone who installs the package and expects it to answer gets
+`html-markdown` instead, silently, until they name it. Nothing warns that an
+installed converter is being passed over. For a converter whose whole reason is
+one workspace's exporter, that is the right way round. A converter meant to
+replace the shipped one everywhere would be a different argument, and a spec
+amendment rather than a package.
+
+## Task 3 — what a stage would actually see
+
+**[run]**
+
+```console
+$ artifacts.py PLAY-4001 --cat
+PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.1.0   1302 bytes  sha256 ec8a656a0b6d
+  .dossier/cache/convert/b6/c1/b6c18f49610620574ae9e45d54cd6f259ca3a165c46ab0b72f9fa3f0bc0bacf2
+    Spaces / Site Reliability / Postmortems / 2026 / PLAY-4001
+
+    # PLAY-4001 — Duplicate payment retries after a queue redelivery
+
+    **Severity:** major
+    **Resolved:** 2026-04-18
+    **Systems affected:** payments-worker, orders-api
+
+    ## Timeline
+
+    - 2026-04-17 21:06 UTC — the payments worker is restarted during a routine
+      node drain while 1,900 messages are in flight.
+    …
+
+PLAY-4001-payment-retries.html            snapshot db6997e7  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
+  .dossier/cache/convert/59/da/59da064a2b35addcb478b1cbc34b752747e0a007435c2df7f5537d3d4446c073
+    # PLAY-4001 — Duplicate payment retries after a queue redelivery
+
+    Severity: major
+
+    Resolved: 2026-04-18
+
+    Systems affected: payments-worker, orders-api
+
+    ## Timeline
+
+    - 2026-04-17 21:06 UTC — the payments worker is restarted during a routine node drain while 1,900 messages are in flight.
+    …
+```
+
+Both artifacts are in the cache. Naming a converter deleted nothing, because the
+cache is addressed by the key of the computation that made an entry.
+
+Three differences, and only the first was the point:
+
+- **The breadcrumb** is gone from yours.
+- **The bold labels.** `html-markdown` writes `**Severity:** major`, and yours
+  writes `Severity: major`. A span quoted from either is found in the other,
+  because the span check folds the markdown a converter wrote around words
+  (R6.20).
+- **The wrapping.** `html-markdown` keeps the exporter's line breaks inside a
+  paragraph, and yours joins them. A span that crosses a line break is still
+  found, because the check collapses whitespace on both sides. What differs is
+  the hash: re-wrap the export and `html-markdown`'s note changes, while yours
+  does not.
+
+**[run]**
+
+```console
+$ artifacts.py PLAY-4003 --cat
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.1.0     50 bytes  sha256 5bfd3d4bcc44
+  .dossier/cache/convert/54/d4/54d4637de69c3239520778e93cbc111c9d7a0c2c4707b5968b1e827079dac159
+    ![panel-checkout-p99.png](panel-checkout-p99.png)
+
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  play-html-markdown  0.1.0      0 bytes  sha256 e3b0c44298fc
+  .dossier/cache/convert/2b/e1/2be1c9d44496c796ff0487e32f2f628122954d6547663df2ce78b7b601900db3
+    (nothing)
+
+$ artifacts.py PLAY-2002 --cat
+PLAY-2002-photocopy-no-text-layer.pdf     snapshot f82d92a3  pdf-markdown        1.1.0     15 bytes  sha256 f4aaa0b27c8b
+  .dossier/cache/convert/6f/c9/6fc9997cf483a96973a49b9918896af26e821b1ac827991a6e43618d18cb67ec
+    <!-- page 1 -->
+```
+
+`e3b0c44298fc` is the start of the SHA-256 of nothing at all. Yours converted
+`PLAY-4003` to zero bytes. The page is a Grafana panel shared as one `<img>`, a
+`<style>` and a `<script>`, and none of that is text a person wrote.
+
+**Should the converter have failed instead?** No. The bytes are a valid page
+that carries no sentence, and raising would report the *document* as broken when
+the expectation was wrong. `pdf-markdown` reached the same conclusion for the
+photocopy: it introduced the page by its anchor, which is what makes
+`source.page` a fact derived from the document rather than a number a model
+asserted (R6.14), and then had nothing to put under it.
+
+**Should it have written nothing?** That is where the shipped converter
+disagrees with yours, and the question to settle it is whether a step runs for an
+empty note. It does. `_reads_nothing` in `src/dossier/application/run.py` asks
+whether a document holds an artifact *of the kind the step reads*, not whether
+the artifact holds anything. R6.21 skips a PNG for a step reading `markdown`,
+because the PNG has no `markdown` artifact at all. An empty `markdown` artifact
+is still one. So with `0.1.0` named, a model is asked about a document with
+nothing in it. The optional stub run below makes that call. Its log records each
+prompt's length, and `PLAY-4003`'s is the shortest of the six, at 400
+characters: 13 fewer than the photocopy's, whose note is only its page anchor.
+
+**[derived]** So the answer the solution reaches is the third one. Write what the
+page states about its picture: its alt text, and failing that the name of its
+file, and never a URL or a `data:` URI (R8.22). That is not made-up text. The
+file's name is on the page, and the model sees a note that says, truthfully, that
+this document is a picture called `panel-checkout-p99.png` and nothing else.
+Task 5 is that change.
+
+The move:
+
+**[run]**
+
+```console
+$ sed -i 's#Spaces / Site Reliability / Postmortems#Spaces / Payments / Postmortems#' \
+    inbox/postmortems/PLAY-4001-payment-retries.html
+$ dossier sync incident-audit
+postmortems-mixed  6 known · 1 changed · 0 new -> 6 fetched
+      PLAY-4001-payment-retries.html  db6997e7472c386585ceb5f9de70941af59525cbef2b310519c03eeffa513d9e -> b16b34b4945f7d4757241b012ead41a3b6afe32ac54a9247891276f801102513
+ledger updated · 1 new snapshots · 0 tombstoned
+
+$ dossier convert incident-audit
+postmortems-mixed  6 held · 1 converted · 5 cached
+cache updated · 1 converted · 5 cached
+
+$ artifacts.py PLAY-4001
+PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.1.0   1302 bytes  sha256 ec8a656a0b6d
+PLAY-4001-payment-retries.html            snapshot b16b34b4  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
+PLAY-4001-payment-retries.html            snapshot db6997e7  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
+
+$ dossier convert incident-audit        # no converters: line
+postmortems-mixed  6 held · 1 converted · 5 cached
+cache updated · 1 converted · 5 cached
+
+$ artifacts.py PLAY-4001
+PLAY-4001-payment-retries.html            snapshot b16b34b4  html-markdown       1.1.0   1294 bytes  sha256 d84843e2bdbc
+PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.1.0   1302 bytes  sha256 ec8a656a0b6d
+PLAY-4001-payment-retries.html            snapshot b16b34b4  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
+PLAY-4001-payment-retries.html            snapshot db6997e7  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
+```
+
+One snapshot changed, so one document converted under a new key, as it must: the
+key is over the snapshot. Your converter wrote the same 1225 bytes for it.
+`html-markdown` wrote 1294 new ones. `K_stage` covers the hashes of the inputs a
+step reads, not the snapshot behind them (spec 005). So a step over your note is
+served from cache, and a step over `html-markdown`'s asks the model again. Across
+a wiki reorganisation that moves four hundred pages, that is the difference
+between no calls and four hundred.
+
+**[run]** The optional check, with `converters: [play-html-markdown]` back in
+place and the stub answering from `resources/replies.json`:
+
+```console
+$ dossier run incident-audit
+run 20260926T101423Z-e10d · …/runs/20260926T101423Z-e10d/manifest.json
+  extract: 6 document(s) · 0 from cache · 0 failed · tokens not reported
+$ wc -l < /tmp/dossier-calls-03.jsonl
+6
+
+$ sed -i 's#Spaces / Payments / Postmortems#Spaces / Finance / Postmortems#' \
+    inbox/postmortems/PLAY-4001-payment-retries.html
+$ dossier sync incident-audit
+postmortems-mixed  6 known · 1 changed · 0 new -> 6 fetched
+      PLAY-4001-payment-retries.html  b16b34b4945f7d4757241b012ead41a3b6afe32ac54a9247891276f801102513 -> 7e557d1c7d5fc17ce83d63aa1f1e4514536f2cb450697bf2612d7b666ae0d97b
+ledger updated · 1 new snapshots · 0 tombstoned
+
+$ dossier run incident-audit
+warning: the source has moved since run 20260926T101423Z-e10d: PLAY-4001-payment-retries.html re-snapshotted
+run 20260926T101425Z-ab68 · …/runs/20260926T101425Z-ab68/manifest.json
+  extract: 6 document(s) · 6 from cache · 0 failed
+$ wc -l < /tmp/dossier-calls-03.jsonl
+6
+```
+
+The run warns that the source moved, which is true, and asks nothing, which is
+the point. The first run's six calls include `PLAY-4003`, asked about an empty
+note.
+
+**What did leaving the breadcrumb out cost?** The note no longer says which space
+a postmortem lives in, so a question like "which team's postmortems cite a
+retry storm" cannot be answered from the notes. The decision is also a fact
+about one exporter. Point this converter at a wiki that writes its trail as
+`<nav>`, and the trail is kept, silently. That is exactly the heuristic spec 008
+declined to make for every workspace, made here for one.
+
+## Task 4 — a register as a table
+
+**[run]** The second converter, opt-in from the start, installed and then named:
+
+```console
+$ uv pip install --no-deps -e …/dossier_html_playground      # the new entry point
+$ python -c "…installed_converters…"
+…
+text-csv 1.0.0 text/csv markdown
+play-csv-table 0.1.0 text/csv markdown
+html-markdown 1.1.0 text/html markdown
+play-html-markdown 0.1.0 text/html markdown
+…
+
+$ dossier convert incident-audit        # converters: [play-html-markdown]
+postmortems-mixed  6 held · 0 converted · 6 cached
+cache updated · 0 converted · 6 cached
+
+$ dossier convert incident-audit        # converters: [play-html-markdown, play-csv-table]
+postmortems-mixed  6 held · 1 converted · 5 cached
+cache updated · 1 converted · 5 cached
+
+$ artifacts.py PLAY-4004 --cat
+PLAY-4004-incident-register.csv           snapshot 00f25086  play-csv-table      0.1.0    571 bytes  sha256 9ea6235dc1c7
+  .dossier/cache/convert/da/71/da71399bb2f95d34a5107a72a8a63d721f6233028613d8e73346445f20174aea
+    | key | opened | severity | system | root_cause | recorded_loss_chf |
+    | --- | --- | --- | --- | --- | --- |
+    | PLAY-4001 | 2026-04-17 | major | payments-worker | redelivered messages charged twice with no idempotency key | 1240 |
+    | PLAY-4002 | 2026-05-08 | minor | internal-dns | one resolver replica running an eight-month-old image | 0 |
+    | PLAY-4005 | 2026-06-21 | major | orders-api | connection pool exhausted by a report query holding transactions open | 9800 |
+    | PLAY-4006 | 2026-07-02 | minor | search-indexer | indexer restarted mid-batch and skipped a shard | 0 |
+
+PLAY-4004-incident-register.csv           snapshot 00f25086  text-csv            1.0.0    464 bytes  sha256 00f2508608e2
+  …
+```
+
+Installing it changed nothing, because it is opt-in. Named, it converted exactly
+one document. `play-csv-table` shares `markdown` with `play-html-markdown` and
+collides with nothing of its own, because a pair is two halves and only the media
+type moved.
+
+**[run]** The argument, tested:
+
+```console
+$ python - <<'PY'
+from pathlib import Path
+
+from dossier.domain.grounding import locate_span
+from dossier.infrastructure.converters.registry import installed_converters
+
+by_id = {c.id: c for c in installed_converters()}
+csv_bytes = Path("inbox/postmortems/PLAY-4004-incident-register.csv").read_bytes()
+table = by_id["play-csv-table"].convert(csv_bytes, {}).decode()
+text = by_id["text-csv"].convert(csv_bytes, {}).decode()
+
+spans = {
+    "one cell": "connection pool exhausted by a report query holding transactions open",
+    "a row, as the table shows it": "| PLAY-4005 | 2026-06-21 | major | orders-api |",
+    "a row, as the file has it": "PLAY-4005,2026-06-21,major,orders-api",
+}
+print(f"{'':32} {'in the table':>13} {'in the file':>12}")
+for name, span in spans.items():
+    print(
+        f"{name:32} {locate_span(span, document_text=table)!s:>13} "
+        f"{locate_span(span, document_text=text)!s:>12}"
+    )
+
+piped = b"key,root_cause\nPLAY-4007,retries | no backoff\n"
+piped_table = by_id["play-csv-table"].convert(piped, {}).decode()
+print()
+print(piped_table)
+span = "retries | no backoff"
+print(f"{span!r} in the table: {locate_span(span, document_text=piped_table)}")
+print(f"{span!r} in the file:  {locate_span(span, document_text=piped.decode())}")
+PY
+                                  in the table  in the file
+one cell                                  True         True
+a row, as the table shows it              True        False
+a row, as the file has it                False         True
+
+| key | root_cause |
+| --- | --- |
+| PLAY-4007 | retries \| no backoff |
+'retries | no backoff' in the table: False
+'retries | no backoff' in the file:  True
+```
+
+A single cell grounds either way. That is most of what a model quotes, and it is
+why a table looks harmless. The rows show what grounding actually promises. A
+span is grounded when it occurs in the text the step was shown (R6.4). With a
+table, that text is something this converter wrote, so a row quoted from it is
+"grounded" and cannot be found in the register. A reviewer who opens the CSV to
+check the evidence finds nothing. With `text-csv` the note *is* the file, so
+grounded in one means found in the other.
+
+The pipe is worse, because it fails inside `dossier`'s own check. The table has to
+escape `|` or the cell splits in two, and the backslash is a character the
+register does not hold. A model that quotes the cell the way a person reads it has
+quoted a span the note does not contain. The field is ungrounded, and scored
+incorrect however right its value is (R7.4). The note is also 571 bytes where the
+file is 464.
+
+**[run]** So the solution leaves it installed and unnamed:
+
+```console
+$ dossier convert incident-audit        # converters: [play-html-markdown]
+postmortems-mixed  6 held · 0 converted · 6 cached
+cache updated · 0 converted · 6 cached
+```
+
+`text-csv`'s artifact from task 1 is still in the cache, so nothing converts.
+
 **Could you have claimed `(text/html, page_images)` and rendered the page
-instead?** You can register the pair; what you cannot do is decide what a step
+instead?** You can register the pair. What you cannot do is decide what a step
 receives for it. `PART_TYPE` in `src/dossier/domain/conversion.py` is
-`image/png`, and the composition root labels every part of a non-`markdown` kind
-with it as it unpacks — so a step reading `documents@page_images` sends your
-parts to the model as PNGs, and a container that is not `pack_parts` output
-raises before it gets there (R8.11). A kind is not a free-form label: it is a
-contract about what the bytes are, agreed in a spec. Exercise 10 is that contract
-being used.
+`image/png`, and every part of a non-`markdown` kind is labelled with it as it is
+unpacked. A step reading `documents@page_images` sends your parts to the model as
+PNGs, and a container that is not `pack_parts` output raises before it gets there
+(R8.11). A kind is not a free-form label. It is a contract about what the bytes
+are, agreed in a spec. Exercise 10 is that contract being used.
 
 ## Task 5 — the promise a version makes
 
+**[run]** The image rule added, and `0.1.0` raised to `0.2.0`:
+
 ```console
-$ # version = "0.2.0" in html_export.py
 $ dossier convert incident-audit
 postmortems-mixed  6 held · 3 converted · 3 cached
 cache updated · 3 converted · 3 cached
 
-$ # version back to "0.1.0"
+$ artifacts.py play-html-markdown
+PLAY-4001-payment-retries.html            snapshot 7e557d1c  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
+PLAY-4001-payment-retries.html            snapshot b16b34b4  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
+PLAY-4001-payment-retries.html            snapshot db6997e7  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
+PLAY-4001-payment-retries.html            snapshot 7e557d1c  play-html-markdown  0.2.0   1225 bytes  sha256 8a5412c93b1d
+PLAY-4002-dns-resolver-flap.html          snapshot 99f12e5e  play-html-markdown  0.1.0   1227 bytes  sha256 0c3c2d0a930c
+PLAY-4002-dns-resolver-flap.html          snapshot 99f12e5e  play-html-markdown  0.2.0   1227 bytes  sha256 0c3c2d0a930c
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  play-html-markdown  0.1.0      0 bytes  sha256 e3b0c44298fc
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  play-html-markdown  0.2.0     49 bytes  sha256 7c03eb701064
+```
+
+Exactly three converted: the three `play-html-markdown` produced. `pdf-markdown`
+and `text-csv` did not move, so their three were served from cache. (`PLAY-4001`
+has three `0.1.0` rows because the page moved twice, once in task 3's optional
+check. Without it you will see two.) A version
+invalidates every artifact that converter produced and nothing else (R5.4). Two
+of the three came back byte for byte, because neither page has an image. Only
+`PLAY-4003`'s note changed, and a step's key is over the note, so a run after the
+bump asks about one document rather than three. The run at the end of this task
+shows it.
+
+**[run]** The version put back to `0.1.0`, the new code kept:
+
+```console
+$ dossier convert incident-audit
+postmortems-mixed  6 held · 0 converted · 6 cached
+cache updated · 0 converted · 6 cached
+
+$ artifacts.py PLAY-4003 --cat
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.1.0     50 bytes  sha256 5bfd3d4bcc44
+  .dossier/cache/convert/54/d4/54d4637de69c3239520778e93cbc111c9d7a0c2c4707b5968b1e827079dac159
+    ![panel-checkout-p99.png](panel-checkout-p99.png)
+
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  play-html-markdown  0.1.0      0 bytes  sha256 e3b0c44298fc
+  .dossier/cache/convert/2b/e1/2be1c9d44496c796ff0487e32f2f628122954d6547663df2ce78b7b601900db3
+    (nothing)
+
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  play-html-markdown  0.2.0     49 bytes  sha256 7c03eb701064
+  .dossier/cache/convert/61/24/612447887b4084b2c598f886ea456bef07adacf694e5b76c0a4c763b7f7a2f1a
+    ![panel-checkout-p99.png](panel-checkout-p99.png)
+```
+
+Nothing converted, and a step reading `PLAY-4003` now gets the empty note. The
+code installed would write 49 bytes for that page, and the cache served zero,
+under a key that says `play-html-markdown 0.1.0` made them. That was true once.
+Nothing reported it and nothing could: the only evidence is the code itself, and
+no key covers code, only the version its author declared.
+
+**[run]** `0.2.0` again:
+
+```console
 $ dossier convert incident-audit
 postmortems-mixed  6 held · 0 converted · 6 cached
 cache updated · 0 converted · 6 cached
 ```
 
-Exactly three re-converted: the three `html-markdown` produced. `csv-markdown`
-and `pdf-markdown` did not move, so their three artifacts were served from cache — a
-version invalidates "every artifact that converter produced and nothing else"
-(R5.4).
+Nothing converted, because the `0.2.0` artifacts were never deleted. Two versions
+of one converter sit side by side in the cache, which is what makes going back
+cheap.
 
-Reverting the version served the *original* entries again, because nothing was
-deleted. The cache is addressed by the key of the computation that made an entry,
-not by content, so two versions of one converter coexist happily.
+**[run]** With the stub from task 3's optional check started again, on a fresh
+call log. The last run before this one was task 3's, at `0.1.0`:
 
-**Is a change to `DROPPED` a version bump?** Yes. It decides what text reaches
-the artifact, and the obligation is on output, not on how large the edit felt.
+```console
+$ dossier run incident-audit
+run 20260926T101947Z-5b63 · …/runs/20260926T101947Z-5b63/manifest.json
+  extract: 6 document(s) · 5 from cache · 0 failed · tokens not reported
+$ wc -l < /tmp/dossier-calls-03.jsonl
+1
+```
 
-**Is a change to `html.parser` a version bump?** The same answer, and an
-uncomfortable one: your converter's behaviour includes the behaviour of
-everything it calls, and here that is the interpreter you happen to be running.
-`dossier`'s own PDF converters say so out loud — "it covers the *pinned* PDFium
-too" — and pin accordingly. A standard-library parser is a defensible thing not
-to pin; pretending it cannot change the artifact is not.
+One call, for `PLAY-4003`, which now reads as the name of its picture. The other
+two exports were converted again under `0.2.0` and served from the step's cache,
+because their notes did not change.
 
-## Before you finish — what installing a converter changed
+**Is a change to `CHROME` a version bump?** Yes. It decides what text reaches the
+artifact, and the obligation is on output, not on how large the edit felt.
+
+**Is a new `html.parser` a version bump?** The same answer, and an uncomfortable
+one. Your converter's behaviour includes everything it calls, and here that is
+the interpreter you happen to run. `html-markdown` pins markdownify and
+beautifulsoup4 exactly for this reason, and the comment on its version says it is
+raised when "the pin on markdownify or beautifulsoup4 moves". A standard-library
+parser is a defensible thing not to pin. Pretending it cannot change the artifact
+is not.
+
+---
+
+## Before you finish
+
+**[run]** Two names for one pair:
+
+```console
+$ dossier convert incident-audit        # converters: [play-html-markdown, html-markdown]
+sources.yaml names two converters for one pair under converters:, and either would be picking by the order the list was written in:
+  (text/html, markdown) is claimed by both html-markdown and play-html-markdown
+$ echo $?
+2
+```
+
+R8.13 row 5. A list in YAML has an order, and deciding by it would make the
+converter a fact about how someone typed a line rather than a decision anyone
+made.
+
+**[run]** The suite, with the solution's package installed and both converters
+opt-in:
 
 ```console
 $ pytest -q
-FAILED tests/unit/test_R008_1__conversion_is_a_pure_function_of_its_input.py::
-TestEveryMediaTypeInTheSampleIsCoveredOrNamed::
-test_every_installed_converter_is_either_covered_or_a_named_exemption
+…
+$ echo $?
+0
 
-AssertionError: ['text/csv', 'text/html'] has no sample payload, so every converter
-claiming it is silently skipped by the rows above
+$ pytest -o addopts="" -rA tests/unit/test_R008_1__conversion_is_a_pure_function_of_its_input.py | grep play-
+PASSED …::TestEveryConverterIsPure::test_converting_twice_produces_identical_bytes[play-csv-table-0.1.0]
+PASSED …::TestEveryConverterIsPure::test_converting_twice_produces_identical_bytes[play-html-markdown-0.2.0]
+PASSED …::TestEveryConverterIsPure::test_two_processes_with_different_environments_agree[play-csv-table-0.1.0]
+PASSED …::TestEveryConverterIsPure::test_two_processes_with_different_environments_agree[play-html-markdown-0.2.0]
+PASSED …::TestEveryConverterIsPure::test_the_artifact_is_not_the_input_object[play-csv-table-0.1.0]
+PASSED …::TestEveryConverterIsPure::test_the_artifact_is_not_the_input_object[play-html-markdown-0.2.0]
+PASSED …::TestEveryConverterIsPure::test_declaring_an_option_produces_its_own_artifact[play-csv-table-0.1.0]
+PASSED …::TestEveryConverterIsPure::test_declaring_an_option_produces_its_own_artifact[play-html-markdown-0.2.0]
 ```
 
-Nothing is wrong. The suite runs its R8.1 conformance rows over *every installed
-converter*, skipping any whose media type it has no sample payload for — and the
-test above exists because a silent skip is the one outcome nobody would notice. A
-converter that drops out of the purity check has to be named, with a note saying
-where it is proved instead. Yours is not named, so the guard fires.
+Green, and not because the suite ignored the package. The R8.1 rows are a
+conformance check over every installed converter whose media type the file has a
+sample payload for. `text/html` and `text/csv` both have one since `html-markdown`
+and `text-csv` shipped, so both of yours were converted twice in one process, and
+once each in two processes with different `PYTHONHASHSEED`, `LC_ALL`, `TZ` and
+working directory, and gave the same bytes every time. A converter that read the
+clock or the locale would fail here, in someone else's test suite, the day it was
+installed.
 
-Both sides of that are load-bearing:
+**[run]** Then with `opt_in` taken off `play-html-markdown`:
 
-- The **suite is right**: what a run reads depends on the environment it ran in,
-  and a test that shrugged at an unknown converter would let one arrive that is
-  never checked for purity at all.
-- The **package is right**: it is a workspace's dependency, and it has no
-  business in the environment that runs the repository's tests.
+```console
+$ pytest -q tests/acceptance
+EEEEEEEEEEEEE.................................F...FFFFFFFFFFF..FEEEE..F. [ 17%]
+…
+$ echo $?
+1
+```
+
+156 failures and 136 errors, in 82 of the 95 acceptance files. Nearly all of them
+are a `convert` or a `run` exiting 2 where the test expected 0, and the output
+behind that is one refusal. The rest are what follows from it: a model asked
+nothing, a tracker that saw no run.
+
+```
+INC-4821 (text/markdown): two converters claim the same pair, and picking either would be picking by installation order:
+(text/html, markdown) is claimed by both html-markdown 1.1.0 and play-html-markdown 0.2.0
+A workspace settles it by naming one under converters: in sources.yaml (R8.13).
+```
+
+`INC-4821` is a markdown note, and most of those tests never see an HTML file.
+They fail because `select` refuses on any tie among installed claims before it
+looks at the pair it was asked about, and none of the workspaces the suite builds
+names either converter. The suite is right: what a run reads depends on the
+environment it ran in, and a test that shrugged at a tie would let a machine's
+installation order decide keys. The package is right too, once it is opt-in.
+What was wrong was where it was installed.
 
 ```bash
 VIRTUAL_ENV=$PWD/.venv uv pip uninstall dossier-html-playground
-pytest -q     # green
 ```
 
-And then the failure that is not about tests. Claiming a pair that is already
-claimed:
-
-```console
-$ # media_type = "text/markdown" in csv_table.py, reinstalled
-$ dossier convert incident-audit
-6 document(s) have no converter:
-  PLAY-2001-terminal-scan.pdf (application/pdf): two converters claim the same
-  pair, and picking either would be picking by installation order:
-  (text/markdown, markdown) is claimed by both markdown-text 1.0.0 and csv-markdown 0.1.0
-  PLAY-2002-photocopy-no-text-layer.pdf (application/pdf): …
-  PLAY-4001-payment-retries.html (text/html): …
-  …
-exit 2
-```
-
-Six for six, including two scans that have nothing to do with either converter
-and an HTML export claimed by the other half of your own package. `_claims` in
-`src/dossier/domain/conversion.py` refuses rather than choosing, and the comment
-says why: the winner's id and version go into `K_convert`, so resolving the tie by
-installation order would give two machines with the same packages two different
-keys — and every stage key above them (R5.6).
+Then take the `converters:` line out of `playground/work/03/sources.yaml`, or
+every command there refuses the name. A converter is a workspace's dependency. It
+has no business in the environment that tests the repository, opt-in or not.
 
 ---
 
@@ -376,10 +810,15 @@ keys — and every stage key above them (R5.6).
   installs, never a case in a match statement in the core.
 - Separate "we cannot read this kind of thing" from "we could not read this
   thing". They want different fixes and deserve different blast radii.
+- When two things can answer, make the choice something a person writes down,
+  where it is read once and pinned. Refuse the tie rather than settle it by
+  installation order, and let a newcomer arrive opt-in so that installing it
+  decides nothing.
+- A general tool should not guess what is chrome. A workspace that knows its
+  source can decide, and should say in its converter that it did.
+- "Grounded" is only as good as the relation between the note and the document.
+  A converter that rewrites text moves the evidence somewhere nobody will look.
 - A converter version is a cache invalidation key wearing a semver hat. Treat a
-  dependency bump — including the standard library's — as a behaviour change
-  unless you can show it is not.
-- Refuse ambiguity at registration rather than resolving it at use. "Two of these
-  claim the same thing" is a sentence a person can act on; picking one silently
-  is a bug that surfaces months later as a cache that misses on one machine.
+  dependency bump, including the standard library's, as a behaviour change unless
+  you can show it is not.
 - Look at the converted text before you spend a model call on it.

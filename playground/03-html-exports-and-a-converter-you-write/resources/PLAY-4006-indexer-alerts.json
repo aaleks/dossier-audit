@@ -1,0 +1,21 @@
+{
+  "incident": "PLAY-4006",
+  "exported_from": "alertmanager",
+  "alerts": [
+    {
+      "alertname": "IndexerRestarted",
+      "service": "search-indexer",
+      "severity": "info",
+      "startsAt": "2026-07-02T07:41:00Z",
+      "summary": "search-indexer restarted while a batch was in flight"
+    },
+    {
+      "alertname": "IndexerShardLag",
+      "service": "search-indexer",
+      "severity": "warning",
+      "startsAt": "2026-07-02T08:14:00Z",
+      "endsAt": "2026-07-02T09:02:00Z",
+      "summary": "shard 7 has not been indexed for 30 minutes"
+    }
+  ]
+}

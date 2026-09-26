@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="windows-1252">
+  <title>PLAY-4005 – Connection pool exhausted by a report query</title>
+</head>
+<body>
+  <div class="breadcrumb">Spaces / Site Reliability / Postmortems / 2026 / PLAY-4005</div>
+  <h1>PLAY-4005 – Connection pool exhausted by a report query</h1>
+
+  <p><strong>Severity:</strong> major<br>
+     <strong>Resolved:</strong> 2026-06-21<br>
+     <strong>Systems affected:</strong> orders-api</p>
+
+  <h2>Root cause</h2>
+  <p>A month-end report query held its transactions open for as long as the export
+     ran, and the orders-api connection pool – forty connections – was exhausted
+     within four minutes.</p>
+
+  <h2>Impact</h2>
+  <p>Orders placed through the Zürich storefront between 09:14 and 09:52 failed.
+     The recorded loss is CHF 9'800.</p>
+</body>
+</html>

@@ -1,15 +1,28 @@
-# One folder holding two formats: PDFs dossier already reads, and wiki exports
-# it does not.
+# One folder holding three formats: PDFs, wiki pages exported as HTML, and a
+# register exported as CSV. `dossier` reads all three without being told
+# anything.
 #
 # `convert:` is omitted on purpose, so every document gets the default kind for
 # whatever media type it turns out to be (R8.10). For all of these that is
-# `markdown` -- a PDF's text layer, an export's text, a register's rows -- which
+# `markdown` -- a PDF's text layer, a page's text, a register's rows -- which
 # is the fallback whenever a media type has no row of its own. An image would
 # resolve to `page_images` instead, and that is exercise 04.
 #
 # An empty list is refused rather than read as "convert to nothing": absent and
 # empty are different declarations, and reading one as the other would give a
 # source the opposite of what it asked for, silently (R3.9).
+#
+# `converters:` names the converter that answers a pair more than one claims
+# (R8.13). `play-html-markdown` is in `solution/dossier_html_playground/`, and it
+# is opt-in, so it answers here only because it is named. The line needs that
+# package installed: a name no installed package provides is refused by every
+# command that plans or converts.
+#
+# `play-csv-table` is installed beside it and deliberately not named, so
+# `text-csv` reads the register as the text it is. Task 4 is the reason: a span
+# quoted from a table is not a quote from the register.
+converters: [play-html-markdown]
+
 sources:
   - id: postmortems-mixed
     type: folder

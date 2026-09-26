@@ -1,7 +1,11 @@
-"""Two converters for formats `dossier` recognises and does not read.
+"""Two converters for pairs `dossier` already answers, answering only where named.
 
-`text/html` and `text/csv` are both in `MEDIA_TYPES`, so a snapshot of either
-gets a real media type in the ledger -- and nothing installed claims either pair,
-so `dossier convert` stops the run and names them (R8.5). That is the gap this
-package fills, and filling it is an installation rather than a patch (R8.7).
+`html-markdown` and `text-csv` ship in `dossier` and answer `(text/html,
+markdown)` and `(text/csv, markdown)` by default (R8.21, R8.23). This package
+claims both pairs again, for a reason of this workspace's own: the wiki's
+breadcrumb, and a register someone wants as a table. Two claims on one pair are
+refused rather than settled by installation order, so both converters are
+opt-in, and a workspace chooses one by naming it under `converters:` in
+`sources.yaml` (R8.13). Claiming a pair is an installation, never a patch to
+`dossier` (R8.7).
 """
