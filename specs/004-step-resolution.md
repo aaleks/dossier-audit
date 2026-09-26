@@ -333,8 +333,8 @@ R3.11 lets a step name a kind. This is what happens when it names one nothing
 will produce: the run stops before any model call, naming the step, the kind and
 the sources that were asked for it.
 
-Resolution's shape rather than conversion's (R8.5), because the two failures have
-different fixes and different blast radii. R8.5 is "nothing converts this pair",
+Resolution's shape rather than conversion's (R8.24), because the two failures have
+different fixes and different blast radii. R8.24 is "nothing converts this pair",
 fixed by an installation. This is "your pipeline asked a source for something it
 was never told to make", fixed by a line in `sources.yaml` — and it is knowable
 from the configuration alone, before a single byte is fetched.

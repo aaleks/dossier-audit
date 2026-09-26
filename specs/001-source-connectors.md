@@ -173,7 +173,7 @@ reading it is served from cache.
 
 A source's `convert:` applies to every document it holds. The export converts to
 `markdown` by default (R8.10). Asking for `page_images` for the source asks for
-it for the page JSON too, and nothing claims that pair (R8.5). Spec 008's open
+it for the page JSON too, and nothing claims that pair (R8.24). Spec 008's open
 question 5 says what would change that.
 
 **Existing options considered**, before writing the connector:
