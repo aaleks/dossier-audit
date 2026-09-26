@@ -18,6 +18,7 @@ from dataclasses import field as _default
 from pathlib import Path
 
 from dossier.application.prompts import link_published
+from dossier.application.recording import failed_if_stopped
 from dossier.application.run import StepReport
 from dossier.domain.gold import CalibrationCase, GoldDocument, gold_set_hash
 from dossier.domain.grounding import DESCRIBED, GROUNDED, FieldVerdict, judge_name
@@ -1027,19 +1028,23 @@ def calibrate_fields(
     params: dict[str, str] = {}
     metrics: dict[str, float] = {}
     for name, sample in sorted(samples.items()):
-        measured[name] = calibrate_field(
-            model,
-            directory=directory,
-            field=sample.field or name,
-            cases=sample.cases,
-            rubric=sample.rubric,
-            rubric_hash=sample.rubric_hash,
-            documents=documents,
-            judge_model=judge_model,
-            state=sample.state,
-            parts=parts,
-            tracker=tracker,
-        )
+        # The run is open while the judge is asked, case by case; a judge that
+        # is unreachable, or an interrupt, closes it FAILED rather than leaving
+        # it RUNNING, empty, for ever (R11.23).
+        with failed_if_stopped(tracker):
+            measured[name] = calibrate_field(
+                model,
+                directory=directory,
+                field=sample.field or name,
+                cases=sample.cases,
+                rubric=sample.rubric,
+                rubric_hash=sample.rubric_hash,
+                documents=documents,
+                judge_model=judge_model,
+                state=sample.state,
+                parts=parts,
+                tracker=tracker,
+            )
         recorded_params, recorded_metrics = calibration_record(
             field=name, calibration=measured[name]
         )

@@ -42,6 +42,7 @@ from dossier.application.convert import MARKDOWN, convert_inputs
 from dossier.application.extract import DocumentResult, run_stage
 from dossier.application.manifest import Manifest
 from dossier.application.prompts import link_published
+from dossier.application.recording import failed_if_stopped
 from dossier.domain.conversion import PART_SUFFIX, PART_TYPE, part_name, unpack_parts
 from dossier.domain.fields import OutputSchema
 from dossier.domain.grounding import FieldCheck, FieldVerdict, check_field, with_derived_page
@@ -389,7 +390,9 @@ def execute(
                 version_id=built,
             )
 
-    try:
+    # A run that stops -- an unreachable model, an interrupt -- is recorded as
+    # failed rather than left looking as if it were still running (R11.23).
+    with failed_if_stopped(tracker):
         for step in plan.steps:
             over = [AGGREGATE_KEY] if declared[step.id].mode == "aggregate" else keys
             output = schemas.get(step.id)
@@ -544,12 +547,6 @@ def execute(
             produced[step.id] = {
                 result.document: _as_text(result) for result in results if not result.failed
             }
-    except BaseException:
-        # A run that stopped -- an unreachable model, an interrupt -- is recorded
-        # as failed rather than left looking as if it were still running.
-        if tracker is not None:
-            tracker.end_run(status="FAILED")
-        raise
 
     report = RunReport(run_id=run_id, manifest_path=manifest, steps=tuple(steps))
     if tracker is not None:
