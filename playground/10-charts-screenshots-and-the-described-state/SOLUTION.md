@@ -82,7 +82,9 @@ $ dossier convert observability-audit
 1 document(s) have no converter:
   PLAY-3006-error-budget-screenshot.png (image/png): nothing converts ('image/png',
   'markdown'). Claimed pairs: ['(application/pdf, markdown)', '(application/pdf,
-  page_images)', '(image/jpeg, page_images)', '(image/png, page_images)',
+  page_images)', '(application/vnd.dossier.confluence-page+json, markdown)',
+  '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)',
+  '(image/png, page_images)', '(text/csv, markdown)', '(text/html, markdown)',
   '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by
   installing a package that declares a dossier.converters entry point.
 ```

@@ -520,7 +520,7 @@ ledger:
 ```console
 $ dossier convert jira-audit
 3 document(s) have no converter:
-  PLAY-1 (application/json): nothing converts ('application/json', 'markdown'). Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)', '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)', '(image/png, page_images)', '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by installing a package that declares a dossier.converters entry point.
+  PLAY-1 (application/json): nothing converts ('application/json', 'markdown'). Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)', '(application/vnd.dossier.confluence-page+json, markdown)', '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)', '(image/png, page_images)', '(text/csv, markdown)', '(text/html, markdown)', '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by installing a package that declares a dossier.converters entry point.
   PLAY-2 (application/json): …
   PLAY-3 (application/json): …
 ```
