@@ -1,6 +1,6 @@
 # 001 — Source connectors
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R1.1 – R1.21
 
 ## Purpose
@@ -577,7 +577,7 @@ refused credential.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`)
 - **Proved by:** `tests/unit/test_R001_20__a_refused_export_fails_its_document.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

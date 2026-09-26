@@ -8,7 +8,7 @@ rules be proved in milliseconds with a plain dict.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
@@ -186,6 +186,31 @@ def sync_window(
     if reevaluating or full or rescoped:
         return None
     return window_start(last_sync_at, overlap=overlap)
+
+
+def owed_items(
+    owed: Iterable[tuple[str, str | None]], *, visited: Set[str], complete: bool
+) -> list[tuple[str, bool]]:
+    """The items to visit beyond the listing, for keys whose fetch failed (R2.23).
+
+    Each owed key is `(key, item_key)`: an item owes itself, with no item key, and
+    a file owes its item. The answer is each item once, sorted, with whether the
+    item's own fetch is owed. An item owed only for a file is visited to list its
+    files again, and not fetched unless its own marker moved (R2.1).
+
+    Nothing is visited that the listing already returned, since it was just
+    handled. Nothing is visited after a complete listing either: that listing
+    answered for every item, and one it left out is gone and tombstoned (R2.7).
+    """
+    if complete:
+        return []
+    items: dict[str, bool] = {}
+    for key, item_key in owed:
+        item = item_key or key
+        if item in visited:
+            continue
+        items[item] = items.get(item, False) or item_key is None
+    return sorted(items.items())
 
 
 def listing_is_complete(*, since: datetime | None, lists_everything: bool) -> bool:

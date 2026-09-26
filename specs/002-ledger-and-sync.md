@@ -1,6 +1,6 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R2.1 – R2.24
 
 ## Purpose
@@ -542,7 +542,7 @@ owed keys and the listing, and it is made in `domain`.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync.owed_items`), applied by application (`dossier.application.sync`), recorded by infrastructure (`dossier.infrastructure.ledger`)
 - **Proved by:** `tests/unit/test_R002_23__a_failed_key_is_asked_again.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -58,6 +58,20 @@ CREATE TABLE IF NOT EXISTS source_listing (
     listing_hash TEXT NOT NULL
 );
 
+-- What a sync is owed: each key whose fetch failed, with the item carrying it
+-- (R2.23). Asked for at every sync until it is stored, or its item stops
+-- carrying it, or a complete listing drops its item. A key's ledger row is
+-- left untouched when its fetch fails (R1.9), so this is the only record that
+-- the failure happened.
+CREATE TABLE IF NOT EXISTS owed (
+    source_id TEXT NOT NULL,
+    key       TEXT NOT NULL,
+    item_key  TEXT,
+    failed_at TEXT NOT NULL,
+    error     TEXT NOT NULL,
+    PRIMARY KEY (source_id, key)
+);
+
 -- Every address a row has ever held, appended to and never updated (R2.19).
 -- `rowid` is the order: two revisions written by one sync share a
 -- `recorded_at`, and the sequence is the record, not the set of hashes.
@@ -290,6 +304,36 @@ class Ledger:
             ON CONFLICT (source_id) DO UPDATE SET listing_hash = excluded.listing_hash
             """,
             (source_id, value),
+        )
+        self._connection.commit()
+
+    def owed(self, source_id: str) -> list[tuple[str, str | None]]:
+        """Each key this source is owed, with its item, in key order (R2.23)."""
+        cursor = self._connection.execute(
+            "SELECT key, item_key FROM owed WHERE source_id = ? ORDER BY key", (source_id,)
+        )
+        return [(record["key"], record["item_key"]) for record in cursor]
+
+    def owe(
+        self, source_id: str, key: str, *, item_key: str | None, at: datetime, error: str
+    ) -> None:
+        self._connection.execute(
+            """
+            INSERT INTO owed (source_id, key, item_key, failed_at, error) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (source_id, key) DO UPDATE SET
+                item_key = excluded.item_key,
+                failed_at = excluded.failed_at,
+                error = excluded.error
+            """,
+            (source_id, key, item_key, _to_text(at), error),
+        )
+        self._connection.commit()
+
+    def settle(self, source_id: str, keys: Iterable[str]) -> None:
+        """No longer owed: stored, or no longer carried, or gone (R2.23)."""
+        self._connection.executemany(
+            "DELETE FROM owed WHERE source_id = ? AND key = ?",
+            [(source_id, key) for key in sorted(set(keys))],
         )
         self._connection.commit()
 
