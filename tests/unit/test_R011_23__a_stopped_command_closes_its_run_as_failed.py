@@ -2,9 +2,12 @@
 
 A run left `RUNNING` reads as a command still at work, forever. Found live: a
 calibration whose model was unreachable left an empty run on the server, named
-as if it were measuring. Two commands open their run before the work they
-record -- `run` and `calibrate` -- so those are the two that can stop with one
-open; the others record their work once it is done.
+as if it were measuring. Three commands open their run before the work they
+record -- `run`, `calibrate` and `eval` -- so those are the three that can stop
+with one open; the others record their work once it is done. The first two open
+and close theirs in the application layer and are proved here. An eval's are
+opened and closed by the command, so rows 7 to 9 are proved through the CLI, in
+`tests/acceptance/`.
 
 The model is scripted to fail, or to be interrupted, and the tracker is a
 `FakeTracker` that keeps each run's status. What stopped the command must still
