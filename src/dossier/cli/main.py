@@ -90,7 +90,7 @@ from dossier.domain.grounding import GROUNDED, judge_name, judged_states
 from dossier.domain.hashing import short, text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
-from dossier.domain.pipeline import SourceConfig
+from dossier.domain.pipeline import PipelineConfig, SourceConfig
 from dossier.domain.ports import (
     Converter,
     DatasetRegistry,
@@ -594,6 +594,10 @@ def run(
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
 
+    # What the run refuses from the configuration alone, the plan refuses too:
+    # a plan promising a step the run will not take is R4.12 broken (R4.13).
+    _check_kinds_or_stop(pipeline, config, declared)
+
     documents: dict[str, str] = {}
     # The same requests a run would make of the converters, so the plan pins the
     # same set the run will (R8.9) -- otherwise a plugin the corpus never needed
@@ -668,6 +672,21 @@ def run(
 
     for line in _plan_lines(report):
         typer.echo(line)
+
+
+def _check_kinds_or_stop(
+    pipeline: str, config: PipelineConfig, declared: Mapping[str, SourceConfig]
+) -> None:
+    """Stop, naming the step, if it reads a kind no source was told to make (R4.13)."""
+    try:
+        check_kinds(
+            steps=config.steps,
+            sources=[declared[name] for name in config.sources if name in declared],
+            reference=[declared[name] for name in config.reference if name in declared],
+        )
+    except ValueError as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
 
 
 def _plan_lines(report: Plan) -> list[str]:
@@ -961,15 +980,7 @@ def _execute(
     # came through here, but by then conversion has already run -- and R8.24
     # would report the same pipeline as an installation problem, which is the
     # other failure with the other fix.
-    try:
-        check_kinds(
-            steps=config.steps,
-            sources=[declared[name] for name in config.sources if name in declared],
-            reference=[declared[name] for name in config.reference if name in declared],
-        )
-    except ValueError as error:
-        typer.echo(f"{pipeline}: {error}", err=True)
-        raise typer.Exit(code=2) from error
+    _check_kinds_or_stop(pipeline, config, declared)
 
     tracker, experiment = _tracking_for(workspace, pipeline, kind="run")
     capture = _capture_for(workspace, pipeline) if tracker is not None else "full"
