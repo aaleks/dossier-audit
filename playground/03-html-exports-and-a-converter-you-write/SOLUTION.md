@@ -9,21 +9,23 @@ Every block below is marked, as exercises 11 and 15 mark theirs:
 | **[shape]** | What to expect, and what to check. Not a transcript. |
 
 Nearly everything is **[run]**. The tasks were run in order, in one pass, on
-2026-09-26, at the commit of `main` that followed #420, with `dossier` installed
+2026-09-26, at the commit of `main` that followed #422, with `dossier` installed
 with its `pdf` and `tracking` extras. The liberties taken in showing it:
 
 - `dossier` is the repository's CLI, run from `playground/work/03/`, and
   `artifacts.py` is `python ../../03-html-exports-and-a-converter-you-write/resources/artifacts.py`,
   run from the same place.
-- Tasks 2 to 5 were run with the package as it stood at each task: at `0.1.0`
-  with no image rule, not opt-in until the end of task 2, and without its CSV
-  converter until task 4. `solution/` holds where it ends.
-- The stub model ran on port 8093 rather than 8099. Where a model is served is
-  in no key (R9.2).
+- Tasks 2 to 5 were run with the solution's package as it stood at each task:
+  at `0.1.0` with no image rule until task 5, not opt-in until the end of
+  task 2, and without its CSV converter until task 4. `solution/` holds where
+  it ends.
+- The stub model ran on port 8093 rather than 8099, and logged to a file of its
+  own. Where a model is served is in no key (R9.2).
 - A run's absolute path is shortened to `…/runs/<id>/`.
 
-Everything here is deterministic apart from run ids and times: your snapshot
-hashes, artifact hashes and counts should match these exactly.
+Everything here is deterministic apart from run ids and times. Your snapshot
+hashes and counts should match these exactly, and so should the artifact hashes
+wherever the converter is `dossier`'s or the solution's.
 
 ## Run the prepared answer
 
@@ -50,6 +52,14 @@ postmortems-mixed  0 known · 0 changed · 6 new -> 6 fetched
 ledger updated · 6 new snapshots · 0 tombstoned
 postmortems-mixed  6 held · 6 converted · 0 cached
 cache updated · 6 converted · 0 cached
+
+$ python ../../03-html-exports-and-a-converter-you-write/resources/artifacts.py
+PLAY-2001-terminal-scan.pdf               snapshot 89d790a8  pdf-markdown        1.1.0    274 bytes  sha256 d728a34f1c22
+PLAY-2002-photocopy-no-text-layer.pdf     snapshot f82d92a3  pdf-markdown        1.1.0     15 bytes  sha256 f4aaa0b27c8b
+PLAY-4001-payment-retries.html            snapshot db6997e7  play-html-markdown  0.2.0   1225 bytes  sha256 8a5412c93b1d
+PLAY-4002-dns-resolver-flap.html          snapshot 99f12e5e  play-html-markdown  0.2.0   1227 bytes  sha256 0c3c2d0a930c
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  play-html-markdown  0.2.0     49 bytes  sha256 7c03eb701064
+PLAY-4004-incident-register.csv           snapshot 00f25086  text-csv            1.0.0    464 bytes  sha256 00f2508608e2
 ```
 
 `--no-deps` because this package has none. It is standard library only, and
@@ -113,7 +123,7 @@ $ echo $?
 `.json` is in `MEDIA_TYPES`, so the ledger holds a real media type, and nothing
 claims `(application/json, markdown)`. `jira-issue-markdown` and
 `confluence-page-markdown` read JSON, but each claims a type of its own
-(`application/vnd.dossier.jira-issue+json`), because `application/json` is every
+(`application/vnd.dossier.jira-issue+json`, for one), because `application/json` is every
 JSON document any source holds (R1.14). That makes this a pair problem, not a
 media-type one. Exercise 04's `.log` is the other kind: an extension nobody
 recognises at all.
@@ -141,8 +151,8 @@ $ echo $?
 1
 ```
 
-Byte 81 is the en dash in the page's `<title>`, which Windows-1252 writes as
-`0x96`, and UTF-8 never begins a character with. `html-markdown` decodes UTF-8
+Byte 81 is the en dash in the page's `<title>`. Windows-1252 writes it as the
+single byte `0x96`, which cannot begin a character in UTF-8. `html-markdown` decodes UTF-8
 itself and never guesses. Handed bytes, BeautifulSoup would guess with whatever
 detector the machine has installed, so the same file could convert differently
 on two machines (R8.1, R8.21 row 4). The page declares `charset="windows-1252"`,
@@ -225,7 +235,7 @@ $ python -c "from dossier.infrastructure.converters.registry import installed_co
 docling-markdown 1.0.0 application/pdf markdown
 pdf-markdown 1.1.0 application/pdf markdown
 pdf-images 1.0.0 application/pdf page_images
-confluence-page-markdown 1.1.0 application/vnd.dossier.confluence-page+json markdown
+confluence-page-markdown 1.2.0 application/vnd.dossier.confluence-page+json markdown
 jira-issue-markdown 1.0.0 application/vnd.dossier.jira-issue+json markdown
 jpeg-pages 1.0.0 image/jpeg page_images
 png-pages 1.0.0 image/png page_images
@@ -461,7 +471,7 @@ place and the stub answering from `resources/replies.json`:
 
 ```console
 $ dossier run incident-audit
-run 20260926T052153Z-fdf3 · …/runs/20260926T052153Z-fdf3/manifest.json
+run 20260926T101423Z-e10d · …/runs/20260926T101423Z-e10d/manifest.json
   extract: 6 document(s) · 0 from cache · 0 failed · tokens not reported
 $ wc -l < /tmp/dossier-calls-03.jsonl
 6
@@ -474,8 +484,8 @@ postmortems-mixed  6 known · 1 changed · 0 new -> 6 fetched
 ledger updated · 1 new snapshots · 0 tombstoned
 
 $ dossier run incident-audit
-warning: the source has moved since run 20260926T052153Z-fdf3: PLAY-4001-payment-retries.html re-snapshotted
-run 20260926T052154Z-9aea · …/runs/20260926T052154Z-9aea/manifest.json
+warning: the source has moved since run 20260926T101423Z-e10d: PLAY-4001-payment-retries.html re-snapshotted
+run 20260926T101425Z-ab68 · …/runs/20260926T101425Z-ab68/manifest.json
   extract: 6 document(s) · 6 from cache · 0 failed
 $ wc -l < /tmp/dossier-calls-03.jsonl
 6
@@ -634,11 +644,14 @@ PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  play-html-markdown 
 ```
 
 Exactly three converted: the three `play-html-markdown` produced. `pdf-markdown`
-and `text-csv` did not move, so their three were served from cache. A version
+and `text-csv` did not move, so their three were served from cache. (`PLAY-4001`
+has three `0.1.0` rows because the page moved twice, once in task 3's optional
+check. Without it you will see two.) A version
 invalidates every artifact that converter produced and nothing else (R5.4). Two
 of the three came back byte for byte, because neither page has an image. Only
 `PLAY-4003`'s note changed, and a step's key is over the note, so a run after the
-bump asks about one document rather than three.
+bump asks about one document rather than three. The run at the end of this task
+shows it.
 
 **[run]** The version put back to `0.1.0`, the new code kept:
 
@@ -678,6 +691,21 @@ cache updated · 0 converted · 6 cached
 Nothing converted, because the `0.2.0` artifacts were never deleted. Two versions
 of one converter sit side by side in the cache, which is what makes going back
 cheap.
+
+**[run]** With the stub from task 3's optional check started again, on a fresh
+call log. The last run before this one was task 3's, at `0.1.0`:
+
+```console
+$ dossier run incident-audit
+run 20260926T101947Z-5b63 · …/runs/20260926T101947Z-5b63/manifest.json
+  extract: 6 document(s) · 5 from cache · 0 failed · tokens not reported
+$ wc -l < /tmp/dossier-calls-03.jsonl
+1
+```
+
+One call, for `PLAY-4003`, which now reads as the name of its picture. The other
+two exports were converted again under `0.2.0` and served from the step's cache,
+because their notes did not change.
 
 **Is a change to `CHROME` a version bump?** Yes. It decides what text reaches the
 artifact, and the obligation is on output, not on how large the edit felt.
