@@ -183,3 +183,32 @@ class TestADeclaredPairNothingClaimsStopsEverything:
 
         assert len(report.failed) == 1
         assert "not decodable" in report.failed[0].error
+
+
+class TestAPairClaimedTwiceIsNotAMissingConverter:
+    """R8.24 row 5 — two claimants stop the run, and say so."""
+
+    def test_a_tie_is_refused_once_naming_both_and_the_way_to_settle_it(self, workspace: Path):
+        """Counter-example (row 5): the one where a second HTML converter is installed.
+
+        The run stops however the kind was chosen: this is an installation to
+        settle, not a document to skip. Said once, as what it is -- not as every
+        document of the source having no converter, when the problem is that its
+        pair has two.
+        """
+
+        class Rival(HtmlMarkdown):
+            id = "html-rival"
+            version = "0.1.0"
+
+        store = SnapshotStore(workspace)
+
+        with pytest.raises(NoConverter) as error:
+            convert(workspace, exports(store), kinds=None, converters=(HtmlMarkdown(), Rival()))
+
+        message = str(error.value)
+        assert "(text/html, markdown) is claimed by both" in message
+        assert "html-markdown" in message and "html-rival" in message
+        assert "converters:" in message
+        assert "have no converter" not in message
+        assert message.count("claimed by both") == 1
