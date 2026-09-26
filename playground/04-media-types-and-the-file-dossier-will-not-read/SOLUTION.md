@@ -190,12 +190,23 @@ and produce something — most likely nonsense — for each. The failure you are
 trying to silence is the only thing standing between "we do not know what this
 is" and "we audited it anyway".
 
+### Why not just say so in `sources.yaml`
+
+Sometimes this is right, and task 4 does it. One line, no change to `dossier`,
+and the choice is printed on every convert. The catch is the key it has to be
+written under. The log has no media type of its own, only
+`application/octet-stream`, which is what every file `dossier` cannot identify
+is recorded as. So the line cannot say "we do not read logs". It says "we do not
+read anything we cannot identify". That is candidate 1's trap in a quieter form,
+and task 4 shows what else it leaves out.
+
 ### Why not just keep the logs out
 
-Sometimes this is right, and on a real corpus it often is: a second source for
-attachments, or a subfolder the audited source does not read. It costs nothing
-and needs no change to `dossier`. What it does not do is make logs auditable — if
-the log *is* the evidence, you have moved the problem rather than solved it.
+Sometimes this is right too, and on a real corpus it often is: a second source
+for attachments, or a subfolder the audited source does not read. Task 5 does it.
+It costs nothing and needs no change to `dossier`. What neither this nor the line
+above does is make logs auditable — if the log *is* the evidence, you have moved
+the problem rather than solved it.
 
 ### The amendment, if logs are evidence
 
@@ -266,25 +277,206 @@ whole of exercise 10 exists.
 An amendment that only adds a row to a table answers neither of the two questions
 that decide whether the row is worth anything.
 
-## Task 4 — the row that leaves
+## Task 4 — leaving it out, on purpose
+
+Where a message below lists every claimed pair, the list is task 2's, word for
+word, and is cut to `[…]`.
+
+The extension first, because it is the key most people write:
 
 ```console
-$ mkdir -p inbox/attachments && mv inbox/notes/PLAY-5002-gc-pauses.log inbox/attachments/
-$ dossier sync incident-audit
-shift-notes  3 known · 0 changed · 0 new -> 2 fetched
+$ dossier convert incident-audit        # convert: {.log: []}
+sources.yaml, line 5: in 'shift-notes', 'convert' -- Value error, convert: maps media types to kinds, and '.log' is not a media type. Write it as a snapshot records it, such as application/pdf: a file extension is not evidence about content (R8.3, R8.26).
+exit 2
+```
+
+Refused at load, before anything is read. A key is a media type because the
+media type is what selects a converter (R8.3), and task 1 is why `dossier` does
+not let a file's name speak for its content. The key the ledger recorded for
+the log is `application/octet-stream`:
+
+```yaml
+sources:
+  - id: shift-notes
+    type: folder
+    path: inbox/notes/
+    convert:
+      application/octet-stream: []
+```
+
+```console
+$ dossier convert incident-audit
+shift-notes  3 held · 0 converted · 2 cached · 1 left out
+cache updated · 0 converted · 2 cached
+exit 0
+
+$ python -c "
+import sqlite3; con = sqlite3.connect('.dossier/ledger.db')
+for r in con.execute('select key, media_type, state from items order by key'): print(r)"
+('PLAY-5001-shift-note.txt', 'text/plain', 'active')
+('PLAY-5002-gc-pauses.log', 'application/octet-stream', 'active')
+('terminal-display.png', 'image/png', 'active')
+```
+
+Exit 0, and the log is not a failure. It is still held: its row is `active`, and
+its snapshot is in the store. A media type mapped to no kinds is not converted,
+and no step reads it (R8.27). The note and the photograph are not named in the
+map, so each gets its default kind as before (R8.26), and both are served from
+cache. `1 left out` is counted apart from the failures, and it is on every
+convert from now on. The source said it does not read this, and the output keeps
+saying so.
+
+Now a file you did not think about:
+
+```console
+$ cp …/resources/PLAY-5003-shift-handover.docx inbox/notes/ && dossier sync incident-audit
+shift-notes  3 known · 0 changed · 1 new -> 4 fetched
+ledger updated · 1 new snapshots · 0 tombstoned
+
+$ python -c "
+import sqlite3; con = sqlite3.connect('.dossier/ledger.db')
+for r in con.execute('select key, media_type, state from items order by key'): print(r)"
+('PLAY-5001-shift-note.txt', 'text/plain', 'active')
+('PLAY-5002-gc-pauses.log', 'application/octet-stream', 'active')
+('PLAY-5003-shift-handover.docx', 'application/octet-stream', 'active')
+('terminal-display.png', 'image/png', 'active')
+
+$ dossier convert incident-audit
+shift-notes  4 held · 0 converted · 2 cached · 2 left out
+cache updated · 0 converted · 2 cached
+exit 0
+```
+
+The handover is left out too, and nothing names it. The count went from 1 to 2,
+and that is the only sign. What it says:
+
+```console
+$ python - <<'PY'
+import re, zipfile
+xml = zipfile.ZipFile("inbox/notes/PLAY-5003-shift-handover.docx").read("word/document.xml").decode()
+for para in re.findall(r"<w:p>(.*?)</w:p>", xml):
+    print(re.sub(r"<[^>]+>", "", para))
+PY
+SHIFT HANDOVER
+Service: orders-api, eu-west-1
+Date: 2026-06-14, night shift
+Between 02:12 and 02:14 the orders-api node in eu-west-1a stopped answering searches during repeated full garbage-collection pauses. The node was drained at 02:13 and traffic shifted to eu-west-1b.
+Severity: major. 37 orders were not accepted in the window; the customer desk refunded CHF 1850 in delivery fees the same morning.
+Follow-up: heap sizing review for orders-api, owner platform team.
+```
+
+A major incident with a loss in Swiss francs, which is exactly what
+`incident-audit` asks for, and no run will read it. `.docx` is not in
+`MEDIA_TYPES`, so the ledger records the handover as `application/octet-stream`,
+the same media type as the log. `convert:` is keyed by media type, so the line
+you wrote about the log was never about the log. `application/octet-stream` is
+not a type of file. It is `dossier` saying "I could not identify this", and a
+source that leaves it out leaves out every file nobody could identify: today's
+log, this handover, and next month's `.zip`, all counted and none named.
+
+That is the trade-off, stated plainly. R8.27 says that a new kind of attachment
+is reported the first time it arrives, because a file whose media type nobody
+named still fails. That holds for every media type except the one you just
+named. Once `application/octet-stream` is left out, an unidentified file is
+never new again. The line is right for a folder where unidentified files are
+noise, and wrong for one where they might be evidence. This folder is the second
+kind.
+
+The file `dossier` *can* identify behaves differently:
+
+```console
+$ cp …/03-html-exports-and-a-converter-you-write/resources/PLAY-4006-indexer-alerts.json inbox/notes/ && dossier sync incident-audit
+shift-notes  4 known · 0 changed · 1 new -> 5 fetched
+ledger updated · 1 new snapshots · 0 tombstoned
+
+$ dossier convert incident-audit
+shift-notes  5 held · 0 converted · 2 cached · 1 failed · 2 left out
+    PLAY-4006-indexer-alerts.json: nothing converts ('application/json', 'markdown'). Claimed pairs: […]. A converter is added by installing a package that declares a dossier.converters entry point.
+cache updated · 0 converted · 2 cached
+exit 1
+```
+
+`.json` is in `MEDIA_TYPES`, so the alert export is `application/json`, a media
+type the map does not name. Its kind is the default, `markdown`, nothing claims
+that pair, and it fails on its own, by name (R8.25, R8.26 row 3). It is exercise
+03's task 1 again, with a map in the source that says nothing about it. What
+separates the two new files is not the map. It is whether `dossier` could say
+what the file was.
+
+**Optional: saying what the photograph is wanted as.**
+
+```console
+$ dossier convert incident-audit        # image/png: [page_images] added to the map
+shift-notes  5 held · 0 converted · 2 cached · 1 failed · 2 left out
+    PLAY-4006-indexer-alerts.json: nothing converts ('application/json', 'markdown'). Claimed pairs: […]. A converter is added by installing a package that declares a dossier.converters entry point.
+cache updated · 0 converted · 2 cached
+exit 1
+
+$ dossier convert incident-audit        # image/png: [markdown] instead
+1 document(s) have no converter:
+  terminal-display.png (image/png): nothing converts ('image/png', 'markdown'). Claimed pairs: […]. A converter is added by installing a package that declares a dossier.converters entry point.
+exit 2
+```
+
+`page_images` is the photograph's default anyway, so writing it down re-converts
+nothing: the convert key holds the snapshot, the converter and its options, and
+not how the kind was chosen (spec 005). What changes is who chose it. The pair
+is now declared, so an installation that could not make it would stop the run
+(R8.24) rather than fail the photograph alone (R8.25).
+
+Asked for `markdown`, the photograph stops the run, and it is the only document
+named. Task 2's `convert: [markdown]` named the log as well, because a list asks
+every document for every kind. The map asks `markdown` of PNGs and of nothing
+else: the log is left out and the note keeps its default. The alert export's
+failure is not in the refusal either. It is a default-kind failure, reported
+per document while converting, and a refusal stops before anything converts.
+
+This is the part of the map that fits the exercise's lesson. Written out for
+every media type the folder holds, it is one place you own that says what each
+kind of file is wanted as, or that it is not wanted. The `application/octet-stream`
+line is the one entry in it that is not about a kind of file.
+
+## Task 5 — the row that leaves
+
+```console
+$ mkdir -p inbox/attachments
+$ mv inbox/notes/PLAY-5002-gc-pauses.log inbox/notes/PLAY-5003-shift-handover.docx \
+     inbox/notes/PLAY-4006-indexer-alerts.json inbox/attachments/
+$ dossier sync incident-audit        # convert: taken out of shift-notes
+shift-notes  5 known · 0 changed · 0 new -> 2 fetched
+      PLAY-4006-indexer-alerts.json  tombstoned
       PLAY-5002-gc-pauses.log  tombstoned
-ledger updated · 0 new snapshots · 1 tombstoned
+      PLAY-5003-shift-handover.docx  tombstoned
+ledger updated · 0 new snapshots · 3 tombstoned
+
+$ python -c "
+import sqlite3; con = sqlite3.connect('.dossier/ledger.db')
+for r in con.execute('select key, media_type, state from items order by key'): print(r)"
+('PLAY-4006-indexer-alerts.json', 'application/json', 'tombstoned')
+('PLAY-5001-shift-note.txt', 'text/plain', 'active')
+('PLAY-5002-gc-pauses.log', 'application/octet-stream', 'tombstoned')
+('PLAY-5003-shift-handover.docx', 'application/octet-stream', 'tombstoned')
+('terminal-display.png', 'image/png', 'active')
 
 $ dossier convert incident-audit
 shift-notes  2 held · 0 converted · 2 cached
 cache updated · 0 converted · 2 cached
+exit 0
 ```
 
 Green, and nothing re-converted: the two remaining documents were already in the
-cache under keys that did not move. The `.log` row is still in the ledger,
-`tombstoned`, and its snapshot is still in the store — a run that pinned it still
-resolves (R2.7) — but a tombstoned row is not an input to the next run, so
-nothing fails, and convert exits 0 for the first time since the log arrived.
+cache under keys that did not move. The three rows are still in the ledger,
+`tombstoned`, and their snapshots are still in the store — a run that pinned one
+still resolves (R2.7) — but a tombstoned row is not an input to the next run, so
+nothing fails, and the three are not even counted as held.
+
+Compare the log's row with task 4's. Left out, it was `active`: held, counted on
+every convert, and skipped because the source said so. Tombstoned, it is gone
+from the source, and the source says nothing about it or about any media type.
+So the next `.docx` somebody drops into `inbox/notes/` fails on its own, by name,
+and the exit is 1, as the log did in task 2. That is the better answer for a
+folder of notes, and the reason this solution's `sources.yaml` ends with no
+`convert:` at all.
 
 Sync could subtract here because the folder connector declares
 `lists_everything = True`: it has no change time to narrow by and returns the
@@ -316,6 +508,9 @@ a log file in a folder of notes.
 - A default is a decision, not a convenience. "What is this wanted as?" has a
   different answer for a photograph than for a note, and a single global default
   hides that until it produces a pair nobody can claim.
+- Leaving something out should be a declaration, visible in every report, and
+  never a default. Check what the declaration is keyed on: leaving out
+  "unknown" leaves out everything unknown, including what you have not seen yet.
 - When the honest fix is a change to the tool, write the proposal — including
   what does not change, and the question it forces. Half of a good amendment is
   the part that stays still.

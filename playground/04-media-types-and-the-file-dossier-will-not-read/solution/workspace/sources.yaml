@@ -1,4 +1,4 @@
-# A folder of shift notes. No `convert:` list, so every document gets the default
+# A folder of shift notes. No `convert:` at all, so every document gets the default
 # kind for *its own* media type (R8.10) -- which is not the same answer for every
 # document in the folder.
 #
@@ -12,6 +12,13 @@
 # task 2's `.log`, fail on its own while the rest convert (R8.25). Declaring
 # `convert: [markdown]` here would ask it of the photograph too, and stop the
 # run before anything converts (R8.24).
+#
+# Task 4 writes `convert:` as a map instead, `application/octet-stream: []`, and
+# the log is left out rather than failed (R8.26, R8.27). So is every other file
+# nobody could identify, because that is all `application/octet-stream` says:
+# task 4's `.docx` goes with it, unnamed. Task 5 takes the map out again and
+# moves the files that are not notes out of the folder, so the next unknown file
+# fails by name.
 #
 # The table is `DEFAULT_KINDS` in `src/dossier/domain/conversion.py`, and it is
 # four lines long. Only a media type whose answer is *not* the fallback needs a

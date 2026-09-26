@@ -76,8 +76,9 @@ never shown. That fixes the symptom and pays for the cause.
 **What it does not settle.** Spec 008's open question 5, whether a source can
 say which kind each media type converts to. That is a question about
 conversion. This one is about which documents a step is asked about, and it
-would be needed however open question 5 is answered. *(Still true: open
-question 5 is open, and task 8 shows it.)*
+would be needed however open question 5 is answered. *(Still true. Open
+question 5 was answered later, by R8.26 and R8.27, and R6.21 was needed all the
+same. Task 8 shows the two together.)*
 
 ---
 
