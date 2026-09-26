@@ -26,7 +26,7 @@ FALLBACK_KIND = "markdown"
 #
 # Only the types whose answer is *not* the fallback need a row. An image is the
 # case the table was written for: it has no text layer, so resolving it to
-# `markdown` names a pair nobody can honestly claim, and R8.5 then sends the
+# `markdown` names a pair nobody can honestly claim, and R8.25 then sends the
 # reader off to install a converter that turns a picture into text.
 DEFAULT_KINDS = {
     "image/png": "page_images",
@@ -39,8 +39,8 @@ def default_kind(media_type: str) -> str:
 
     A media type with no entry falls back to `markdown` rather than raising. A
     type nobody has agreed a default for is not in itself a reason to stop --
-    R8.5 already stops on the pair that results, and it names a pair a reader can
-    act on either way.
+    a pair nothing claims is still named, as that document's failure (R8.25),
+    and it names a pair a reader can act on either way.
     """
     return DEFAULT_KINDS.get(media_type, FALLBACK_KIND)
 
@@ -428,7 +428,8 @@ def _claimed_pairs(available: Sequence[Converter]) -> list[str]:
 # explain it (R0.4, R5.6).
 #
 # Deliberately small. An extension nobody has agreed on gets the honest answer
-# below rather than a plausible one, and R8.5 then reports it as unclaimed.
+# below rather than a plausible one, and the document is then reported as
+# unclaimed (R8.25).
 MEDIA_TYPES = {
     ".md": "text/markdown",
     ".markdown": "text/markdown",
@@ -461,8 +462,8 @@ JIRA_ISSUE = "application/vnd.dossier.jira-issue+json"
 CONFLUENCE_PAGE = "application/vnd.dossier.confluence-page+json"
 
 # What an unrecognised file is called. Not a guess: it says "bytes", which is
-# true of anything, and lets R8.5 refuse it by name rather than hand it to a
-# converter that was never meant to read it.
+# true of anything, and lets conversion report it by name (R8.25) rather than
+# hand it to a converter that was never meant to read it.
 UNKNOWN_MEDIA_TYPE = "application/octet-stream"
 
 

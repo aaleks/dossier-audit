@@ -58,8 +58,8 @@ class PdfMarkdownConverter:
         `pypdfium2` is imported here rather than at module scope so that the
         entry point loads -- and `check_declared` can read this class's four
         attributes -- on an installation without the `pdf` extra. A converter
-        that cannot be listed cannot be reported as claiming a pair, and R8.5's
-        message would then be missing the very converter that answers it.
+        that cannot be listed cannot be reported as claiming a pair, and an
+        unclaimed pair's message (R8.24, R8.25) would then be missing the very converter that answers it.
         """
         try:
             import pypdfium2 as pdfium
@@ -74,7 +74,7 @@ class PdfMarkdownConverter:
         except Exception as error:
             # R8.6's shape: one document fails with a reason and the others
             # convert. An encrypted or truncated PDF is a bad input, not a
-            # misconfigured pipeline (R8.5).
+            # misconfigured pipeline (R8.24).
             raise ValueError(f"{self.id} could not read this PDF: {error}") from error
 
         # The anchor is what makes `source.page` a derived fact rather than a
