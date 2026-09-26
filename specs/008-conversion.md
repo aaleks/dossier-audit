@@ -750,6 +750,7 @@ converting it (R8.1).
 | 4 | an image whose `src` is `…/download/attachments/embedded-page/OPS/…/escalation-matrix.png?api=v2` | `![escalation-matrix.png](escalation-matrix.png)`: the file is named, and the server's URL is not kept |
 | 5 | *counter-example* — the table of contents macro, its `<style>` and its `div.toc-macro` | neither is in the note. The headings it lists are there once, where they stand |
 | 6 | *counter-example* — text inside an expand macro, hidden until a reader clicks it | kept. A reader who opens the page can read it, so a stage can too |
+| 7 | `<strong>Released:&nbsp;</strong>0.10.0.0`, a non-breaking space at the edge of bold | `**Released:** 0.10.0.0`. The space a reader sees is kept: markdownify drops a non-breaking space at the edge of emphasis, and `Released: 0.10.0.0` copied from the page would not be found. Every non-breaking space is written as a space, which the span check's fold does anyway (R6.17) |
 
 ### R8.21 — `html-markdown` converts an HTML file to markdown of what a reader sees on the page, unescaped
 
@@ -769,6 +770,7 @@ wherever they are.
 | 3 | `<p>pool lb_acq_01 held 3*2 connections</p>` | written as it stands, with no `\_` and no `\*` (R8.17 row 3) |
 | 4 | *counter-example* — an HTML file in Windows-1252 with `é` in it | that document fails, naming `html-markdown` and UTF-8; the source's other documents convert (R8.6) |
 | 5 | *counter-example* — a `<script>` in the body holding `var rota = 'on call'` | not in the note; the paragraphs either side of it are |
+| 6 | `<p>Released<em>&nbsp;now</em></p>` | `Released *now*`, the space kept, as R8.20 row 7 keeps it |
 
 ### R8.22 — an image in an HTML file is written as its alt text and the name of its file, and never as its URL or its data
 

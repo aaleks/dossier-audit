@@ -39,7 +39,8 @@ class ConfluencePageMarkdownConverter:
     # Raised whenever what `convert` writes could change for the same payload --
     # including when the pin on markdownify or beautifulsoup4 moves, since the
     # libraries' versions are not in the key and this one is (R5.4, R8.2).
-    version = "1.0.0"
+    # 1.1.0: a non-breaking space at the edge of emphasis is kept (R8.20 row 7).
+    version = "1.1.0"
     media_type = CONFLUENCE_PAGE
     kind = "markdown"
 
