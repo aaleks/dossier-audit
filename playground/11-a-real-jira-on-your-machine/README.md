@@ -306,9 +306,10 @@ different form, and its note says which. Compare it with the section "A Jira
 issue" in `specs/008-conversion.md`, and work out which of its arguments
 survived.
 
-> **A workspace synced before R1.14** holds its issues as `application/json`,
-> and `convert` refuses them with `nothing converts ('application/json',
-> 'markdown')`. The label is recorded when an issue is fetched (R2.16), and an
+> **A workspace synced before R1.14** holds its issues as `application/json`.
+> `convert` converts the attachments, fails each issue on its own with
+> `nothing converts ('application/json', 'markdown')`, and exits 1. The label
+> is recorded when an issue is fetched (R2.16), and an
 > unchanged issue is not fetched again (R2.1). To force a re-fetch, declare the
 > source's `fields:` (`fields: [key, fields]`), or change it if it is already
 > declared. That re-fetches every issue (R2.3), and they come back with the
@@ -341,15 +342,14 @@ uv pip install -e playground/11-a-real-jira-on-your-machine/solution/dossier_jir
 dossier convert jira-audit
 ```
 
-**Checkpoint.** It refuses everything, the attachment included, even though
-neither converter claims the attachment's pair:
+**Checkpoint.** It converts nothing, the attachment included, even though
+neither converter claims the attachment's pair. The refusal names the pair and
+both converters, and no document:
 
 ```
-4 document(s) have no converter:
-  PLAY-1 (application/vnd.dossier.jira-issue+json): two converters claim the same pair, and picking either would be picking by installation order:
+two converters claim the same pair, and picking either would be picking by installation order:
   (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
-  …
 ```
 
 The winner's id and version go into `K_convert`. If the tie were settled by

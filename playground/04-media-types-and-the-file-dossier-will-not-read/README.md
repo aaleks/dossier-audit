@@ -2,12 +2,13 @@
 
 **You will build:** a folder holding three kinds of file, two of which `dossier`
 converts without being told anything — to two *different* kinds — and one it
-refuses outright.
+will not read at all.
 
 **You will learn:** where a media type comes from, why that table is deliberately
-small, what a default kind is and why an image's is not `markdown`, and what the
-repository's working agreement says to do when the honest fix is a change to
-`dossier` itself.
+small, what a default kind is and why an image's is not `markdown`, why a file
+nothing reads fails on its own until a source asks for its kind and then stops
+the run, and what the repository's working agreement says to do when the honest
+fix is a change to `dossier` itself.
 
 **No model is involved.** Nothing here is installed either: exercise 03 was the
 converter you write, and this one is about the decisions that happen *before* a
@@ -60,10 +61,28 @@ one artifact under one key. Exercise 10 is what a step does with it.
 
 Drop `resources/PLAY-5002-gc-pauses.log` into `inbox/notes/`, sync, and convert.
 
-**Checkpoint.** The ledger records it as `application/octet-stream`, and convert
-exits 2 over that one document while the other two — already converted, already
-cached — produce nothing at all. The pair it names is `('application/octet-stream',
-'markdown')`: a fallback kind on top of a media type that says only "bytes".
+**Checkpoint.** The ledger records it as `application/octet-stream`. Convert
+reports `3 held · 0 converted · 2 cached · 1 failed` and exits 1. The log fails
+on its own, naming the pair `('application/octet-stream', 'markdown')`: a
+fallback kind on top of a media type that says only "bytes". The other two are
+served from cache.
+
+The source asked for no kind, so `dossier` chose one from its table, for a file
+somebody dropped in a folder. Nobody asked for anything this installation cannot
+do, so the rest of the folder is audited and the log is named as missing. Now
+ask. Add `convert: [markdown]` to the source, and convert again.
+
+**Checkpoint.** Exit 2, and nothing is converted or served from cache. Two
+documents are named, not one: the log, and the photograph as
+`('image/png', 'markdown')`. A kind written in `convert:` is asked of every
+document the source holds, and one this installation cannot make is known
+before any work starts. The photograph's line also answers task 1's question: it
+is the pair an image's default would name if the default were `markdown`, and
+it sends you off to install a converter that turns a picture into text.
+
+Same file, same installation, and one line decided whether it failed alone or
+stopped everything. Find out why in spec 008's "Two kinds of failure", and in
+R8.24 and R8.25. Then take the `convert:` line out again.
 
 Before reading on, decide whether you think `.log` being absent from `MEDIA_TYPES`
 is an oversight or a decision. Count how many extensions are in the table.
@@ -119,6 +138,8 @@ tombstone without re-fetching four thousand issues (R2.22).
 
 - a ledger holding three media types, two of which you never declared anything
   about, converting to two different kinds;
+- you can say why the same `.log` failed on its own in one run and stopped the
+  next, and what changed in between;
 - a written argument for what to do about the `.log`, in the form the repository
   actually accepts, compared against the amendment that answered the same
   question for images;

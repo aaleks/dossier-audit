@@ -44,7 +44,9 @@ for r in con.execute('select key, media_type, state from items order by key'): p
 `.jpg`, `.jpeg`, `.png`, `.html`, `.htm`, `.json`, `.csv`, `.xml`, `.yaml`,
 `.yml`. Its own comment says it is "deliberately small: an extension nobody has
 agreed on gets the honest answer below rather than a plausible one, and R8.5 then
-reports it as unclaimed", and the paragraph above that says why the table is
+reports it as unclaimed". R8.5 has since been superseded, and task 2 shows by
+what: such a file is still named, but it fails on its own unless its source
+declared a kind (R8.25, R8.24). The paragraph above that says why the table is
 owned here at all: `mimetypes.guess_type` reads `/etc/mime.types` on Linux and
 `HKEY_CLASSES_ROOT` on Windows, and that answer reaches the ledger, picks the
 converter and enters `K_convert`. A host-dependent guess forks every artifact
@@ -86,9 +88,10 @@ DEFAULT_KINDS = {
 Everything else falls back to `markdown`, which is the kind a stage reads and the
 kind grounding searches (R6.4). An image gets a row of its own because it has no
 text layer: resolving it to `markdown` would name a pair nobody can honestly
-claim, and R8.5 would then send you off to install a converter that turns a
-picture into text — OCR, or a captioning model, neither of which is a pure
-function of the bytes. That is R8.10, and Task 3 is where it came from.
+claim, and the failure would then send you off to install a converter that turns
+a picture into text — OCR, or a captioning model, neither of which is a pure
+function of the bytes. Task 2 shows that failure, when a source asks for
+`markdown` by name. That is R8.10, and Task 3 is where it came from.
 
 `DOSSIER-PARTS 1\npage-001.png 103\n` is R8.11: one container holding one part per
 page, so a forty-page document is one artifact under one key rather than forty
@@ -112,7 +115,39 @@ for r in con.execute('select key, media_type from items order by key'): print(r)
 ('terminal-display.png', 'image/png')
 
 $ dossier convert incident-audit
-1 document(s) have no converter:
+shift-notes  3 held · 0 converted · 2 cached · 1 failed
+    PLAY-5002-gc-pauses.log: nothing converts ('application/octet-stream', 'markdown').
+    Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)',
+    '(application/vnd.dossier.confluence-page+json, markdown)',
+    '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)',
+    '(image/png, page_images)', '(text/csv, markdown)', '(text/html, markdown)',
+    '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by
+    installing a package that declares a dossier.converters entry point.
+cache updated · 0 converted · 2 cached
+exit 1
+```
+
+`application/octet-stream` is the honest answer. It says "bytes", which is true of
+anything, and it lets the failure name the file rather than handing it to a
+converter that was never meant to read it. The alternative — guessing
+`text/plain` from four characters of filename — would be a *claim about content*
+derived from a name, and R8.3's own counter-example is a file whose name lies
+about what it holds.
+
+The log fails, and nothing else does. The source declared no `convert:`, so
+`markdown` was `dossier`'s own choice from its default table (R8.10), made for a
+file somebody dropped in a folder. Nobody asked for anything this installation
+cannot do, so the log is reported the way a document a converter failed on is,
+and the other two are served from cache (R8.25). The exit is 1, not 0: an audit
+that covers less than its folder holds must not look clean to anything reading
+`$?`. Until the file goes, or a converter for it is installed, this source
+exits 1 on every run.
+
+With the kind declared:
+
+```console
+$ dossier convert incident-audit        # convert: [markdown] added to shift-notes
+2 document(s) have no converter:
   PLAY-5002-gc-pauses.log (application/octet-stream): nothing converts
   ('application/octet-stream', 'markdown'). Claimed pairs: ['(application/pdf, markdown)',
   '(application/pdf, page_images)', '(application/vnd.dossier.confluence-page+json, markdown)',
@@ -120,19 +155,29 @@ $ dossier convert incident-audit
   '(image/png, page_images)', '(text/csv, markdown)', '(text/html, markdown)',
   '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by installing
   a package that declares a dossier.converters entry point.
+  terminal-display.png (image/png): nothing converts ('image/png', 'markdown'). Claimed
+  pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)',
+  '(application/vnd.dossier.confluence-page+json, markdown)',
+  '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)',
+  '(image/png, page_images)', '(text/csv, markdown)', '(text/html, markdown)',
+  '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by installing
+  a package that declares a dossier.converters entry point.
 exit 2
 ```
 
-`application/octet-stream` is the honest answer. It says "bytes", which is true of
-anything, and it lets the refusal name the file rather than handing it to a
-converter that was never meant to read it. The alternative — guessing
-`text/plain` from four characters of filename — would be a *claim about content*
-derived from a name, and R8.3's own counter-example is a file whose name lies
-about what it holds.
+Now the run stops before anything converts, and the two documents cached a
+minute ago are not served either. A kind written in `convert:` is a promise the
+installation has to keep, and one it cannot keep is known before any work
+starts, so every document it fails is named in one refusal (R8.24). There are
+two, not one. `markdown` was asked of every document the source holds, the
+photograph included, and its line is task 1's question answered: the pair an
+image's default would name if the default were `markdown`, and a message
+sending you off to install a converter that turns a picture into text.
 
-Note what the refusal cost: the other two documents were already converted and
-already cached, and this run still produced nothing and exited 2. R8.5's blast
-radius is the run, not the document (exercise 03, task 1).
+So the blast radius depends on who chose the kind. A file nobody asked for fails
+alone. A kind the pipeline asked for, and cannot have, stops the run. Spec 008's
+"Two kinds of failure" says why, and exercise 03's task 1 makes the same pair of
+runs over a `.json`. The `convert:` line comes out again before task 3.
 
 ## Task 3 — choosing the fix
 
@@ -141,7 +186,7 @@ radius is the run, not the document (exercise 03, task 1).
 It would work this afternoon and be a trap by the end of the month. That pair is
 every file dossier could not identify: the `.docx` someone drops in next week, a
 `.zip`, a half-downloaded file. A converter claiming it would accept all of them
-and produce something — most likely nonsense — for each. The refusal you are
+and produce something — most likely nonsense — for each. The failure you are
 trying to silence is the only thing standing between "we do not know what this
 is" and "we audited it anyway".
 
@@ -165,8 +210,10 @@ the exercise. A sketch of what a reviewable proposal looks like:
 > `text-plain` converter claims it with no further change.
 >
 > **What does not change.** No new converter, no new kind, and no new default: a
-> log resolves to `markdown` like every other text, and R8.5 still refuses an
-> extension the table does not hold.
+> log resolves to `markdown` like every other text, and an extension the table
+> does not hold still fails as the `.log` does today: on its own when its kind
+> was the default (R8.25), and stopping the run when a source declared it
+> (R8.24).
 >
 > **The open question this forces.** A `.log` is often not one document. A rotated
 > file is a week of unrelated events and a hundred megabytes, and a stage that is
@@ -180,10 +227,13 @@ the exercise. A sketch of what a reviewable proposal looks like:
 > text is byte-identical to the payload.
 >
 > **Counter-example.** A binary `.log` written by a tool that is not logging text
-> at all: recorded as `text/plain`, handed to `text-plain`, and refused with
-> `UnicodeDecodeError` against that one document (R8.6) rather than stopping the
-> run (R8.5). That is the right blast radius, and it is worth stating that this
-> amendment moves a file from the second failure into the first.
+> at all: recorded as `text/plain`, handed to `text-plain`, and failed as one
+> document, naming `text-plain` and UTF-8 (R8.6). In a source that declares no
+> `convert:` it failed alone before the amendment too, and only its reason
+> changes. In a source declaring `convert: [markdown]` it used to stop the run
+> (R8.24) and now fails alone. That is the right blast radius, and it is worth
+> stating that this amendment moves a file from a configuration error into one
+> document's failure.
 >
 > **Testable as:** a unit test over `media_type_for(".log")`, and an acceptance
 > test that a synced `.log` converts through `text-plain` rather than being
@@ -233,8 +283,8 @@ cache updated · 0 converted · 2 cached
 Green, and nothing re-converted: the two remaining documents were already in the
 cache under keys that did not move. The `.log` row is still in the ledger,
 `tombstoned`, and its snapshot is still in the store — a run that pinned it still
-resolves (R2.7) — but a tombstoned row is not an input to the next run, so convert
-has nothing to refuse.
+resolves (R2.7) — but a tombstoned row is not an input to the next run, so
+nothing fails, and convert exits 0 for the first time since the log arrived.
 
 Sync could subtract here because the folder connector declares
 `lists_everything = True`: it has no change time to narrow by and returns the

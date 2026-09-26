@@ -73,22 +73,35 @@ folder connector will give each one (`MEDIA_TYPES` in
 `src/dossier/domain/conversion.py`) and which converter claims it. Then copy
 both into `inbox/postmortems/`, sync, and convert.
 
-**Checkpoint.** Exit 2, and one document is named: the JSON, with the pair
-nothing claims, `('application/json', 'markdown')`, and every pair that is
-claimed. The Windows-1252 page is not mentioned at all. Neither are the six
-documents converted a minute ago, although their artifacts are in the cache.
+**Checkpoint.** `8 held · 0 converted · 6 cached · 2 failed`, and exit 1. Each
+new file fails on a line of its own. The JSON names the pair nothing claims,
+`('application/json', 'markdown')`, and every pair that is claimed. The page
+names `html-markdown` and UTF-8. The six are served from cache.
 
-Take the JSON out, then sync and convert again.
+The source asked for no kind, so `dossier` chose `markdown` for the JSON from
+its default table. Nobody asked for anything this installation cannot do. Now
+ask for it. Add `convert: [markdown]` to the source, which is the kind every
+document here already has, and convert again.
+
+**Checkpoint.** Exit 2, and one document is named: the JSON, with the same pair
+and the same list. The Windows-1252 page is not mentioned at all. Neither are
+the six documents converted a minute ago, although their artifacts are in the
+cache.
+
+Take the JSON out and keep the `convert:` line. Then sync and convert again.
 
 **Checkpoint.** `7 held · 0 converted · 6 cached · 1 failed`, and exit 1. The
-page fails, naming `html-markdown` and UTF-8, and the six are served from cache.
+page fails as before, and the six are served from cache. Declaring the kind
+they already had changed none of their keys.
 
-Why does one unclaimed media type stop documents that are fine, when a
-converter that fails on one document stops only that document? And why was the
-Windows-1252 page not even read the first time? The answer is in spec 008's
-"Two kinds of failure" table. It is the difference between "this pipeline is not
-configured to read what it was pointed at" and "one input is bad". Take the page
-out too, and sync, before you go on.
+The same JSON failed on its own in one run and stopped every document in the
+next, and one line of `sources.yaml` was the only change. Why? And why was the
+Windows-1252 page not even read the second time? The answer is in spec 008's
+"Two kinds of failure", in the table and the paragraph under it. It is the
+difference between "this pipeline asks for something this installation cannot
+make" and "one input is bad". Which of the two a file nothing reads is depends
+on who chose its kind. Take the page and the `convert:` line out too, and sync,
+before you go on.
 
 ## Task 2 — a converter of your own
 
@@ -136,15 +149,14 @@ for c in installed_converters():
 
 Then convert.
 
-**Checkpoint.** Exit 2, and every document is refused, the scans and the
-register included, although your converter claims neither of their pairs:
+**Checkpoint.** Exit 2, and nothing converts, the scans and the register
+included, although your converter claims neither of their pairs. The refusal
+names the pair and both converters, and no document:
 
 ```
-6 document(s) have no converter:
-  PLAY-2001-terminal-scan.pdf (application/pdf): two converters claim the same pair, and picking either would be picking by installation order:
+two converters claim the same pair, and picking either would be picking by installation order:
   (text/html, markdown) is claimed by both html-markdown 1.1.0 and play-html-markdown 0.1.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
-  …
 ```
 
 Two claims on one pair are refused rather than settled by installation order.
@@ -376,8 +388,9 @@ runs the repository's tests has no business holding it, opt-in or not.
 
 - a converter package of your own, installed and registered by entry point, with
   two claims in it, both opt-in, and a workspace that names the one it wants;
-- you can explain why an unclaimed pair stops documents that were fine, and a bad
-  document does not;
+- you can explain why a file nothing converts fails on its own when its kind was
+  the default, and stops documents that were fine when the source declared it,
+  and why a bad document never stops the rest;
 - you can say what leaving the breadcrumb out saved, in model calls, and what it
   cost;
 - you can say why the shipped CSV converter writes no table, with a span that

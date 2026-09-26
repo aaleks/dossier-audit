@@ -173,7 +173,7 @@ class HtmlMarkdownConverter:
         try:
             # Strict rather than `errors="replace"`: an export that is not UTF-8
             # is one document's bytes being wrong, which is R8.6's failure and
-            # not R8.5's. Substituting replacement characters would convert it
+            # not R8.24's. Substituting replacement characters would convert it
             # successfully into text nobody wrote.
             text = payload.decode("utf-8")
         except UnicodeDecodeError as error:

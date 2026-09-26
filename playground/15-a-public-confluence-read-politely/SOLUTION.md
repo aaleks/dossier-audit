@@ -883,11 +883,13 @@ kafka-kips  4 held · 0 converted · 4 cached
 cache updated · 0 converted · 4 cached
 ```
 
-Each is refused, and all at once, before anything converts (R8.5). A page is
-JSON with nothing to draw, and a PNG has no text. `convert:` asks every document
-in the source for the same kinds, so no list fits a source that holds both. The
-only setting that works is none, where each media type gets its default kind
-(R8.10).
+Each is refused, and all at once, before anything converts (R8.24). A kind
+written in `convert:` is one the installation has to supply for every document
+the source holds. A page is JSON with nothing to draw, and a PNG has no text.
+`convert:` asks every document in the source for the same kinds, so no list fits
+a source that holds both. The only setting that works is none, where each media
+type gets its default kind (R8.10). A default pair nothing claimed would fail
+only its own document (R8.25), but here every default pair is claimed.
 
 That is spec 008's open question 5. It was written about `page_images` for a
 page's PDF export, and it applies just as well to a page's images. It asks
