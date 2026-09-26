@@ -544,6 +544,7 @@ the version alone would miss the second.
 | 3 | `fetch("81920114/escalation-matrix.png")` | a `GET` of the base URL joined to the attachment's `_links.download`, the bytes as sent, labelled as Confluence reports the file (R2.16) |
 | 4 | a page carrying 30 files, listed 25 at a time | both pages of the listing are read, giving 30 refs |
 | 5 | *counter-example* — the file deleted at version 1 and uploaded again at version 1 | a new id, `81920377:v1`. The version alone reads `v1` both times, and R2.1 would skip the fetch |
+| 6 | a page carrying 30 files, all of them fetched in one sync | the page's files are listed once, not once more for each file fetched. Synced from cwiki, KIP-1279's 66 images cost about 130 listing requests before this row |
 
 ### R1.19 — with `export: pdf`, a page also carries its PDF export, keyed `<page id>.pdf`
 
