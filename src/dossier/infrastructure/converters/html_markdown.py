@@ -35,7 +35,8 @@ class HtmlMarkdownConverter:
     # Raised whenever what `convert` writes could change for the same input --
     # including when `_html` changes, or the pin on markdownify or
     # beautifulsoup4 moves (R5.4, R8.2).
-    version = "1.0.0"
+    # 1.1.0: a non-breaking space at the edge of emphasis is kept (R8.21 row 6).
+    version = "1.1.0"
     media_type = "text/html"
     kind = "markdown"
 

@@ -85,3 +85,9 @@ class TestAPagesBodyIsWrittenAsMarkdown:
 
         assert "var rota" not in written
         assert "Before." in written and "After." in written
+
+    def test_a_non_breaking_space_at_the_edge_of_bold_is_kept(self):
+        """Row 7: the one where `Released: 0.10.0.0` is copied from the page."""
+        written = converted("<p><strong>Released:&nbsp;</strong>0.10.0.0</p>")
+
+        assert "**Released:** 0.10.0.0" in written

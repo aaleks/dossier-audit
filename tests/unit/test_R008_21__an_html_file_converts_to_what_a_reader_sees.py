@@ -94,3 +94,9 @@ class TestAnHtmlFileConvertsToWhatAReaderSees:
             "text/html",
             "markdown",
         )
+
+    def test_a_non_breaking_space_at_the_edge_of_emphasis_is_kept(self):
+        """Row 6: the one where the space a reader sees stays between the words."""
+        written = converted("<p>Released<em>&nbsp;now</em></p>")
+
+        assert "Released *now*" in written

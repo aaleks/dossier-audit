@@ -27,6 +27,9 @@ OPTIONS: Mapping[str, object] = {
     "escape_misc": False,
 }
 
+# A non-breaking space, written as an escape because the character is invisible.
+NBSP = "\u00a0"
+
 # How an `<img>` is written, from its attributes; `None` keeps markdownify's own.
 Image = Callable[[Mapping[str, str]], str]
 
@@ -43,6 +46,13 @@ def markdown(html: str, *, unseen: str, image: Image | None = None) -> str:
     tree = BeautifulSoup(html, "html.parser")
     for element in tree.select(unseen):
         element.decompose()
+    # A non-breaking space as a space. markdownify strips the whitespace at the
+    # edges of bold and emphasis and puts back only an ASCII space, so
+    # `<strong>Released:&nbsp;</strong>0.10.0.0` lost the space a reader sees
+    # and a quote copied from the page did not ground (R8.20 row 7). The span
+    # check folds one into the other anyway (R6.17), so nothing is lost here.
+    for text in tree.find_all(string=lambda value: NBSP in value):
+        text.replace_with(text.replace(NBSP, " "))
     return _writer(image)(**OPTIONS).convert_soup(tree)
 
 
