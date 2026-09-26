@@ -31,7 +31,7 @@ specs: 266 rules across 16 specs | 252 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSE
 | `docs/history/` | How it came to be: `slices.md`, what each slice changed and why, newest first; the first session's kickoff prompt; and the brainstorm that led to page images |
 | `src/dossier/` | The package: `domain/`, `application/`, `infrastructure/`, `config/`, `cli/` |
 | `tests/` | `architecture/`, `unit/`, `acceptance/`, `integration/`, `evals/` |
-| `playground/` | Thirteen hands-on exercises. Ten offline, seconds, zero cost; the eleventh runs a real Jira in Docker; the last two need a local MLflow server. Not part of `dossier`. |
+| `playground/` | Fifteen hands-on exercises. Ten offline, seconds, zero cost; the eleventh runs a real Jira in Docker; the twelfth to fourteenth need a local MLflow server; the fifteenth reads a public Confluence over the network. Not part of `dossier`. |
 | `.claude/` | The spec-driven toolchain: skills, agents, rules, hooks |
 | `.github/workflows/ci.yml` | The gate every pull request passes: the lock, conflict markers, ruff, the architecture tests, the default suite, and the outer loop reported beside them |
 

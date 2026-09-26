@@ -157,12 +157,12 @@ kafka-kips      67637330/zstd-1.3.3-vs-4.png     85472218:v1          image/png 
 kafka-kips      67637330/zstd-1.3.4.png          85472219:v1          image/png                                     active
 ```
 
-That was nine requests. There was one search and one listing of files per page.
-There was one fetch per page, and two requests per PNG: the page's files are
-listed again to find the one being fetched, and then it is downloaded
-(`ConfluenceConnector._attachment`). For a page with many files, that second
-listing is repeated once per file, which is worth knowing before you point a
-source at a space full of screenshots.
+That was seven requests: one search, one listing of files per page, one fetch
+per page, and one download per PNG. **[derived]** It was nine when this exercise
+was first written. Each PNG fetched listed its page's files again to find its
+download link, which on a page with many files meant one more listing for every
+file. KIP-1279's 66 images cost about 130 extra requests. A page's files are now
+listed once per sync (R1.18 row 6).
 
 - **Keys.** `67637330` is KIP-110's page id, the `pageId=` in the address bar
   under **Page Information**. A title is what a person changes when a page is
