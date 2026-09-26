@@ -70,6 +70,7 @@ from dossier.config.load import (
     load_output_schemas,
     load_pipeline,
     load_sources,
+    load_unsupported_bars,
 )
 from dossier.domain.concurrency import concurrency as concurrency_setting
 from dossier.domain.conversion import (
@@ -1373,7 +1374,10 @@ def _judge_gate(
     # Absent is its own answer: a gold set with no judge.yaml has declared no
     # bar, and a field with no bar cannot be gated. Present and malformed still
     # raises, because that is a mistake somebody has to be told about (R7.13).
-    thresholds = load_judge_thresholds(directory) if (directory / JUDGE_FILE).is_file() else {}
+    declared = (directory / JUDGE_FILE).is_file()
+    thresholds = load_judge_thresholds(directory) if declared else {}
+    # The unsupported half's bar, where the gold set declares one (R7.30, R7.31).
+    unsupported = load_unsupported_bars(directory) if declared else {}
 
     judges: dict[str, Calibration] = {}
     withheld: dict[str, str] = {}
@@ -1391,6 +1395,7 @@ def _judge_gate(
                 prompt_hash=prompt,
                 threshold=thresholds.get(field, {}).get(state),
                 threshold_file=JUDGE_FILE,
+                unsupported=unsupported.get(field, {}).get(state),
             )
             if reason is not None and field not in withheld:
                 # The first failing state wins the message. Naming the state is
