@@ -13,7 +13,7 @@ three literals.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 
 from pydantic import BaseModel, ConfigDict
 
@@ -273,17 +273,39 @@ def answering(available: Sequence[Converter], *, named: Sequence[str]) -> list[C
     ]
 
 
+# A source's `convert:` as written: a list asked of every document, a map asked
+# of the media types it names, or nothing (R8.26).
+Convert = Sequence[str] | Mapping[str, Sequence[str]] | None
+
+
+def kinds_for(convert: Convert, media_type: str) -> list[str] | None:
+    """The kinds a source declared for this media type, or `None` (R8.26).
+
+    `None` means nothing was declared for it, and the default table answers
+    (R8.10) -- which also decides that a pair nothing claims is this document's
+    failure rather than the run's (R8.25). A list is declared for every media
+    type; a map only for the ones it names.
+    """
+    if convert is None:
+        return None
+    if isinstance(convert, Mapping):
+        declared = convert.get(media_type)
+        return None if declared is None else list(declared)
+    return list(convert)
+
+
 def select(
     *,
     media_type: str,
-    kinds: Sequence[str] | None,
+    kinds: Convert,
     available: Sequence[Converter],
 ) -> list[Converter]:
     """The converters that answer for one snapshot, in declaration order.
 
-    `kinds` is the source's `convert:` list, or `None` when it declared none --
-    which is the normal case for a folder source, and means the default kind for
-    this media type.
+    `kinds` is the source's `convert:` as written -- a list, a map (R8.26), or
+    `None` when it declared none, which is the normal case for a folder source.
+    Whatever it declares for this media type is wanted; nothing declared means
+    the default kind for it.
 
     Declaration order is preserved rather than sorted: the `convert:` list is
     written by a person and the artifacts it produces should read back against
@@ -293,8 +315,9 @@ def select(
     An unclaimed pair raises `UnclaimedDefault` when the kind was the default and
     `NoConverter` when the source declared it (R8.24, R8.25).
     """
-    wanted = [default_kind(media_type)] if kinds is None else list(kinds)
-    unclaimed = NoConverter if kinds is not None else UnclaimedDefault
+    declared = kinds_for(kinds, media_type)
+    wanted = [default_kind(media_type)] if declared is None else declared
+    unclaimed = NoConverter if declared is not None else UnclaimedDefault
     claimed = claims(available)
 
     chosen: list[Converter] = []
@@ -314,7 +337,7 @@ def select(
 
 def used(
     *,
-    requests: Iterable[tuple[str, Sequence[str] | None]],
+    requests: Iterable[tuple[str, Convert]],
     available: Sequence[Converter],
 ) -> list[Converter]:
     """The converters a run used, and only those, in a stable order (R8.9).

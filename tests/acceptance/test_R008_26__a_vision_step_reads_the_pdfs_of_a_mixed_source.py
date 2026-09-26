@@ -63,7 +63,6 @@ def _mixed(workspace: Path, convert: str) -> Path:
     return workspace
 
 
-@pytest.mark.outer_loop
 class TestAVisionStepReadsThePdfsOfAMixedSource:
     """R8.26 row 2 — the map says which documents a kind is for."""
 

@@ -39,6 +39,9 @@ def is_relative_reference(reference: str) -> bool:
 # length from the one its author wrote.
 _DURATION = re.compile(r"^(\d+)h$")
 
+# A key of a `convert:` map: `type/subtype`, as a snapshot records it (R2.16).
+_MEDIA_TYPE = re.compile(r"^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$")
+
 
 class SourceConfig(BaseModel):
     """One entry under `sources:`."""
@@ -53,8 +56,9 @@ class SourceConfig(BaseModel):
     fields: list[str] | None = None
     # Which conversions this source wants (spec 003, and R8.3's `kinds`). Absent
     # means the default kind for whatever media type each document turns out to
-    # be -- which is the normal case for a folder of notes.
-    convert: list[str] | None = None
+    # be -- which is the normal case for a folder of notes. A list is asked of
+    # every document; a map only of the media types it names (R8.26).
+    convert: list[str] | dict[str, list[str]] | None = None
     # How far before its last sync a source asks from (R2.4). Shared by every
     # type, so the core checks it and no connector has to declare it (R1.10).
     # `None` is "not said", and the default applies.
@@ -65,10 +69,43 @@ class SourceConfig(BaseModel):
     # new source type would otherwise be an edit to this model (R1.7).
     options: dict[str, Any] = {}
 
+    @field_validator("convert")
+    @classmethod
+    def _media_types_as_keys(
+        cls, value: list[str] | dict[str, list[str]] | None
+    ) -> list[str] | dict[str, list[str]] | None:
+        """A map's keys are media types, never file extensions (R8.26 row 6).
+
+        The snapshot's media type selects a converter (R8.3). A key that is not
+        one would match no document, and every document it was meant for would
+        quietly get its default kind instead.
+        """
+        if not isinstance(value, dict):
+            return value
+        if not value:
+            raise ValueError(
+                "an empty map declares nothing. Omit convert: to get the default "
+                "kind for each document's media type (R8.10)."
+            )
+        for media_type, kinds in value.items():
+            if not _MEDIA_TYPE.match(media_type):
+                raise ValueError(
+                    f"convert: maps media types to kinds, and {media_type!r} is not a "
+                    "media type. Write it as a snapshot records it, such as "
+                    "application/pdf: a file extension is not evidence about content "
+                    "(R8.3, R8.26)."
+                )
+            if not kinds:
+                raise ValueError(
+                    f"convert: maps {media_type} to an empty list, which matches "
+                    "nothing. Omit it to get the default kind for that media type."
+                )
+        return value
+
     @field_validator("fields", "convert")
     @classmethod
     def _reject_empty_list(cls, value: list[str] | None) -> list[str] | None:
-        if value is not None and not value:
+        if isinstance(value, list) and not value:
             # Absent and empty are different declarations, for both of these.
             # Reading `[]` as "hash everything" or "convert to everything" gives
             # a source the opposite of what it asked for, silently (R2.10, R3.9).
