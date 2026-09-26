@@ -10,7 +10,9 @@ Every block below is marked, as exercises 11 and 15 mark theirs:
 
 Nearly everything is **[run]**. The tasks were run in order, in one pass, on
 2026-09-26, at the commit of `main` that followed #422, with `dossier` installed
-with its `pdf` and `tracking` extras. The liberties taken in showing it:
+with its `pdf` and `tracking` extras. Task 1's two extra files, task 2's tie and
+the test run in "Before you finish" were run again after R8.24 and R8.25 (#435),
+which changed what each of them prints. The liberties taken in showing it:
 
 - `dossier` is the repository's CLI, run from `playground/work/03/`, and
   `artifacts.py` is `python ../../03-html-exports-and-a-converter-you-write/resources/artifacts.py`,
@@ -114,10 +116,12 @@ PLAY-4005-connection-pool-exhaustion.html text/html
 PLAY-4006-indexer-alerts.json application/json
 
 $ dossier convert incident-audit
-1 document(s) have no converter:
-  PLAY-4006-indexer-alerts.json (application/json): nothing converts ('application/json', 'markdown'). Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)', '(application/vnd.dossier.confluence-page+json, markdown)', '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)', '(image/png, page_images)', '(text/csv, markdown)', '(text/html, markdown)', '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by installing a package that declares a dossier.converters entry point.
+postmortems-mixed  8 held · 0 converted · 6 cached · 2 failed
+    PLAY-4005-connection-pool-exhaustion.html: ValueError: html-markdown was given bytes that are not valid UTF-8 (invalid start byte at byte 81)
+    PLAY-4006-indexer-alerts.json: nothing converts ('application/json', 'markdown'). Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)', '(application/vnd.dossier.confluence-page+json, markdown)', '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)', '(image/png, page_images)', '(text/csv, markdown)', '(text/html, markdown)', '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by installing a package that declares a dossier.converters entry point.
+cache updated · 0 converted · 6 cached
 $ echo $?
-2
+1
 ```
 
 `.json` is in `MEDIA_TYPES`, so the ledger holds a real media type, and nothing
@@ -128,11 +132,40 @@ JSON document any source holds (R1.14). That makes this a pair problem, not a
 media-type one. Exercise 04's `.log` is the other kind: an extension nobody
 recognises at all.
 
+Byte 81 is the en dash in the page's `<title>`. Windows-1252 writes it as the
+single byte `0x96`, which cannot begin a character in UTF-8. `html-markdown` decodes UTF-8
+itself and never guesses. Handed bytes, BeautifulSoup would guess with whatever
+detector the machine has installed, so the same file could convert differently
+on two machines (R8.1, R8.21 row 4). The page declares `charset="windows-1252"`,
+and that is not read either. Whether it should be is spec 008's open question 6.
+
+Two files, two causes, and one blast radius. The page was read, and one input
+was bad. The JSON was never read at all, and it fails alone anyway, because its
+pair was `dossier`'s own choice: the source declared no `convert:`, so the kind
+came from the default table (R8.10). Nobody asked for anything this installation
+cannot make. The file is one somebody dropped in a folder, so it is reported
+the way the page is, and the other six are audited (R8.25). The exit is still 1:
+an audit that covers less than its source holds must not read as a clean one to
+anything checking `$?`.
+
+**[run]** The same folder, with the source declaring the kind every document in
+it already had:
+
+```console
+$ dossier convert incident-audit        # convert: [markdown]
+1 document(s) have no converter:
+  PLAY-4006-indexer-alerts.json (application/json): nothing converts ('application/json', 'markdown'). Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)', '(application/vnd.dossier.confluence-page+json, markdown)', '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)', '(image/png, page_images)', '(text/csv, markdown)', '(text/html, markdown)', '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by installing a package that declares a dossier.converters entry point.
+$ echo $?
+2
+```
+
 The Windows-1252 page is not in the message. Neither are the six documents
-already converted, although their artifacts are sitting in the cache. Every
-document is resolved before any is converted (`_resolve_converters` in
-`src/dossier/application/convert.py`), and one unclaimed pair stops all of them.
-Nothing was read, so nothing about the page's bytes could be known yet.
+already converted, although their artifacts are sitting in the cache. A kind
+written in `convert:` is a promise the installation has to keep, and one it
+cannot keep is known before any work starts. Every document is resolved before
+any is converted (`_resolve_converters` in `src/dossier/application/convert.py`),
+and one declared pair nothing claims stops all of them (R8.24). Nothing was
+read, so nothing about the page's bytes could be known yet.
 
 **[run]**
 
@@ -143,7 +176,7 @@ postmortems-mixed  8 known · 0 changed · 0 new -> 7 fetched
       PLAY-4006-indexer-alerts.json  tombstoned
 ledger updated · 0 new snapshots · 1 tombstoned
 
-$ dossier convert incident-audit
+$ dossier convert incident-audit        # convert: [markdown]
 postmortems-mixed  7 held · 0 converted · 6 cached · 1 failed
     PLAY-4005-connection-pool-exhaustion.html: ValueError: html-markdown was given bytes that are not valid UTF-8 (invalid start byte at byte 81)
 cache updated · 0 converted · 6 cached
@@ -151,25 +184,27 @@ $ echo $?
 1
 ```
 
-Byte 81 is the en dash in the page's `<title>`. Windows-1252 writes it as the
-single byte `0x96`, which cannot begin a character in UTF-8. `html-markdown` decodes UTF-8
-itself and never guesses. Handed bytes, BeautifulSoup would guess with whatever
-detector the machine has installed, so the same file could convert differently
-on two machines (R8.1, R8.21 row 4). The page declares `charset="windows-1252"`,
-and that is not read either. Whether it should be is spec 008's open question 6.
+The six are served from cache. `markdown` was the kind they had by default, so
+declaring it chose the same converters, and a convert key is the snapshot, the
+converter's id and version, and the options (R5.4). Who chose the kind is not
+in it.
 
-Two runs, two failures, and the table in spec 008 is the whole difference:
+The same JSON, the same installation, and one line of `sources.yaml` decided
+how far its failure reached. The table in spec 008 is the whole difference:
 
 | What happened | Blast radius | Because |
 |---|---|---|
-| no converter claims a pair | the whole run stops | the pipeline is not configured to read what it was pointed at. Nothing about the run is well-defined, and the fix is an installation, not a retry |
+| no converter claims a pair the source declared in `convert:` | the whole run stops | the pipeline asks for something this installation cannot make. Nothing about the run is well-defined, and the fix is an installation or a correction to `convert:`, not a retry (R8.24) |
 | a converter fails on one document | that document only | the configuration is right and one input is bad. An audit over nine of ten documents is useful, provided it says which one is missing |
 
-Collapsing those one way turns an installation problem into nine mysterious
-per-document errors. The other way turns one corrupt export into a run that
-produced nothing. The first message lists every claimed pair because that turns
-the error into its own fix. The second exits 1, not 2, and names the one
-document.
+A pair nothing claims for a kind nobody declared is the second row, not the
+first. That was the JSON in the first run. Collapsing the two rows one way
+turns a pipeline asking for what it cannot have into a list of per-document
+errors that look like bad input. The other way turns one corrupt export, or one
+stray attachment, into a run that produced nothing. Every message about the
+JSON lists every claimed pair, because that turns the error into its own fix.
+The stop exits 2 and converts nothing. A document that failed exits 1, and the
+line names that one document.
 
 ## Task 2 — a converter of your own
 
@@ -246,32 +281,29 @@ markdown-text 1.0.0 text/markdown markdown
 text-plain 1.0.0 text/plain markdown
 
 $ dossier convert incident-audit
-6 document(s) have no converter:
-  PLAY-2001-terminal-scan.pdf (application/pdf): two converters claim the same pair, and picking either would be picking by installation order:
+two converters claim the same pair, and picking either would be picking by installation order:
   (text/html, markdown) is claimed by both html-markdown 1.1.0 and play-html-markdown 0.1.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
-  PLAY-2002-photocopy-no-text-layer.pdf (application/pdf): …
-  PLAY-4001-payment-retries.html (text/html): …
-  PLAY-4002-dns-resolver-flap.html (text/html): …
-  PLAY-4003-latency-dashboard-export.html (text/html): …
-  PLAY-4004-incident-register.csv (text/csv): …
 $ echo $?
 2
 ```
 
-Six for six, the scans and the register included. `select` checks every
-installed claim (`_claims` in `src/dossier/domain/conversion.py`) before it looks
-up the pair it was asked about, so a tie anywhere stops every document.
-`_claims` refuses rather than choosing, and its docstring says why: the winner's
-id and version go into `K_convert`, so settling the tie by installation order
-would give two machines with the same packages two different keys, and every
-stage key above them would differ too (R5.6).
+Nothing converts, the scans and the register included, and no document is
+named. None is at fault: the installation holds two answers for one pair, and
+that is refused once, as what it is (R8.24 row 5). `_resolve_converters` in
+`src/dossier/application/convert.py` asks `claims` in
+`src/dossier/domain/conversion.py` about every installed claim before it
+resolves a single document, so a tie anywhere stops the run, however the kinds
+were chosen. `claims` refuses rather than choosing, and its docstring says why:
+the winner's id and version go into `K_convert`, so settling the tie by
+installation order would give two machines with the same packages two different
+keys, and every stage key above them would differ too (R5.6).
 
 `docling-markdown` claims `(application/pdf, markdown)` too and caused none of
 this, because it is opt-in. An opt-in converter is left out before claims are
 counted, unless the workspace names it (`answering`, same file).
 
-The id matters for the same reason. `_claims` tells two claims apart by id and
+The id matters for the same reason. `claims` tells two claims apart by id and
 version, and treats the same pair from the same id and version as one claim made
 twice. A copy calling itself `html-markdown` at `1.1.0` would be taken for the
 shipped converter, and which of the two wrote an artifact would turn on
@@ -775,21 +807,21 @@ $ echo $?
 1
 ```
 
-156 failures and 136 errors, in 82 of the 95 acceptance files. Nearly all of them
+158 failures and 136 errors, in 77 of the 95 acceptance files. Nearly all of them
 are a `convert` or a `run` exiting 2 where the test expected 0, and the output
 behind that is one refusal. The rest are what follows from it: a model asked
 nothing, a tracker that saw no run.
 
 ```
-INC-4821 (text/markdown): two converters claim the same pair, and picking either would be picking by installation order:
-(text/html, markdown) is claimed by both html-markdown 1.1.0 and play-html-markdown 0.2.0
+two converters claim the same pair, and picking either would be picking by installation order:
+  (text/html, markdown) is claimed by both html-markdown 1.1.0 and play-html-markdown 0.2.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
 ```
 
-`INC-4821` is a markdown note, and most of those tests never see an HTML file.
-They fail because `select` refuses on any tie among installed claims before it
-looks at the pair it was asked about, and none of the workspaces the suite builds
-names either converter. The suite is right: what a run reads depends on the
+It names no document, and most of those tests never see an HTML file: their
+workspaces hold markdown notes such as `INC-4821`. They fail because a tie among
+installed claims is refused before any document is looked at, and none of the
+workspaces the suite builds names either converter. The suite is right: what a run reads depends on the
 environment it ran in, and a test that shrugged at a tie would let a machine's
 installation order decide keys. The package is right too, once it is opt-in.
 What was wrong was where it was installed.
@@ -809,7 +841,9 @@ has no business in the environment that tests the repository, opt-in or not.
 - Register capability, do not branch on it. A new format is a package somebody
   installs, never a case in a match statement in the core.
 - Separate "we cannot read this kind of thing" from "we could not read this
-  thing". They want different fixes and deserve different blast radii.
+  thing". They want different fixes and deserve different blast radii. Then
+  ask who wanted it read: a pipeline that asked for what it cannot have is
+  misconfigured, and a stray file nobody asked about is one missing document.
 - When two things can answer, make the choice something a person writes down,
   where it is read once and pinned. Refuse the tie rather than settle it by
   installation order, and let a newcomer arrive opt-in so that installing it

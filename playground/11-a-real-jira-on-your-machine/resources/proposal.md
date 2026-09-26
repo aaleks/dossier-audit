@@ -8,7 +8,10 @@
 > `application/vnd.dossier.jira-issue+json` (R1.14), and `dossier` ships
 > `jira-issue-markdown` claiming that pair (R8.16 – R8.18), so an issue converts
 > out of the box. The reasoning, including the options that were weighed, is in
-> the section "A Jira issue" of `specs/008-conversion.md`. The text below is
+> the section "A Jira issue" of `specs/008-conversion.md`. One more thing it
+> says has changed since: that refusing the whole source was right. R8.5 is
+> superseded, and an issue whose kind was the default now fails on its own
+> while the rest of the source converts (R8.25). The text below is
 > the proposal as it was handed to review, kept unedited so that you can
 > compare the two.
 

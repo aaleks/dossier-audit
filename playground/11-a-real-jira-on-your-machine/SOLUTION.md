@@ -514,16 +514,27 @@ The three checks:
   `***Severity:***`.
 
 **[derived]** A workspace synced before R1.14 still holds its issues as
-`application/json`. The rows below were set back to that label by hand in the
-ledger:
+`application/json`, with its attachment already converted. The output below was
+produced after R8.25 by a folder source holding the same media types, three
+`application/json` payloads and one `text/markdown` file, named for the issues
+they stand for. The source declares no `convert:`, as this workspace's does not:
 
 ```console
 $ dossier convert jira-audit
-3 document(s) have no converter:
-  PLAY-1 (application/json): nothing converts ('application/json', 'markdown'). Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)', '(application/vnd.dossier.confluence-page+json, markdown)', '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)', '(image/png, page_images)', '(text/csv, markdown)', '(text/html, markdown)', '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by installing a package that declares a dossier.converters entry point.
-  PLAY-2 (application/json): …
-  PLAY-3 (application/json): …
+incidents-jira  4 held · 0 converted · 1 cached · 3 failed
+    PLAY-1: nothing converts ('application/json', 'markdown'). Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)', '(application/vnd.dossier.confluence-page+json, markdown)', '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)', '(image/png, page_images)', '(text/csv, markdown)', '(text/html, markdown)', '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by installing a package that declares a dossier.converters entry point.
+    PLAY-2: nothing converts ('application/json', 'markdown'). …
+    PLAY-3: nothing converts ('application/json', 'markdown'). …
+cache updated · 0 converted · 1 cached
+$ echo $?
+1
 ```
+
+Each issue fails on its own and the attachment is served from cache, because
+nothing here declared a kind: `markdown` was `dossier`'s default for
+`application/json` (R8.10), and a default pair nothing claims fails its own
+document (R8.25). Before R8.25 the same three issues stopped the source, and the
+attachment was not converted either.
 
 The message reads as though a converter were missing, but none is. A label is
 recorded when an issue is fetched (R2.16), and an unchanged issue is not fetched
@@ -576,7 +587,7 @@ matches the shipped note, and its docstring says why:
   there are (R8.18). The seeded issues have no comments. A Jira whose threads
   matter wants the shipped note.
 
-Its id is `play-jira-issue-markdown`, not `jira-issue-markdown`. `_claims` in
+Its id is `play-jira-issue-markdown`, not `jira-issue-markdown`. `claims` in
 `domain/conversion.py` treats two converters with the same id and version as
 "one claim made through two entry-point paths, which is untidy rather than
 ambiguous". A copy that kept the shipped id and version would be taken for the
@@ -602,28 +613,25 @@ issue depending on how Jira serialised it that day — and the convert key would
 stable while the artifact was not, which is the worst version of this failure
 because nothing would ever report it (R8.1, R0.4).
 
-**[derived]** Installed, with nothing named:
+**[run]** Installed, with nothing named. The refusal depends on what is
+installed and on no document, so it was produced with this package installed
+beside `dossier` and a workspace that names neither converter:
 
 ```console
 $ dossier convert jira-audit
-4 document(s) have no converter:
-  PLAY-1 (application/vnd.dossier.jira-issue+json): two converters claim the same pair, and picking either would be picking by installation order:
+two converters claim the same pair, and picking either would be picking by installation order:
   (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
-  PLAY-1/postmortem.md (text/markdown): two converters claim the same pair, and picking either would be picking by installation order:
-  (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
-A workspace settles it by naming one under converters: in sources.yaml (R8.13).
-  PLAY-2 (application/vnd.dossier.jira-issue+json): …
-  PLAY-3 (application/vnd.dossier.jira-issue+json): …
 $ echo $?
 2
 ```
 
-`PLAY-1/postmortem.md` is refused too, and neither converter claims
-`text/markdown`. `select` checks every installed claim before it looks up the
-pair it was asked about, so a tie anywhere stops every document. Exercise 03's
-task 2 ran into the same refusal, and so do the repository's tests (see
-below).
+Nothing converts, `PLAY-1/postmortem.md` included, and neither converter claims
+`text/markdown`. No document is named because none is at fault: two answers for
+one pair is an installation to settle, and it is refused once, as that (R8.24
+row 5). `claims` in `domain/conversion.py` is asked about every installed claim
+before any document is resolved, so a tie anywhere stops the run. Exercise 03's
+task 2 ran into the same refusal, and so do the repository's tests (see below).
 
 `solution/workspace/sources.yaml` settles it, beside `sources:` rather than
 inside the source:
@@ -724,12 +732,13 @@ been wrong.
 > claimants for one pair each of them refuses before anything converts:
 >
 > ```
-> AssertionError: 3 document(s) have no converter:
->     INC-4821.md (text/markdown): two converters claim the same pair, and picking either would be picking by installation order:
+> AssertionError: two converters claim the same pair, and picking either would be picking by installation order:
 >     (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
+>   A workspace settles it by naming one under converters: in sources.yaml (R8.13).
 > ```
 >
-> Those are notes in a folder, which have nothing to do with Jira. That is the
+> The workspaces those tests build hold notes in a folder, such as
+> `INC-4821.md`, which have nothing to do with Jira. That is the
 > refusal doing its job: a converter installed into an environment decides for
 > every workspace in it that does not decide for itself.
 >

@@ -5,8 +5,13 @@
 # `markdown` is the fallback, because a stage reads text and grounding searches
 # converted text (R6.4). An image has a row of its own and resolves to
 # `page_images`: it has no text layer, so asking for `markdown` would name a pair
-# nobody can honestly claim, and the refusal would then send the reader off to
+# nobody can honestly claim, and the message would then send the reader off to
 # install a converter that turns a picture into text.
+#
+# Leaving the kind to the table is also what lets a file nothing reads, such as
+# task 2's `.log`, fail on its own while the rest convert (R8.25). Declaring
+# `convert: [markdown]` here would ask it of the photograph too, and stop the
+# run before anything converts (R8.24).
 #
 # The table is `DEFAULT_KINDS` in `src/dossier/domain/conversion.py`, and it is
 # four lines long. Only a media type whose answer is *not* the fallback needs a

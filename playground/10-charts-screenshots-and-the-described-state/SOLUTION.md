@@ -36,8 +36,20 @@ $D eval observability-audit --gold gold/observability
 ```
 
 This exercise needs the PDF extra: `uv sync --all-extras`, or
-`pip install -e ".[pdf]"`. Without it `pdf-markdown` and `pdf-images` are not
-installed and `convert` stops naming the pair nothing claims (R8.5).
+`pip install -e ".[pdf]"`. Without it `pdf-markdown` and `pdf-images` are still
+registered, because `dossier` declares their entry points itself, but neither
+can read a page. Each PDF fails on its own, and the screenshot converts:
+
+```console
+$ dossier convert observability-audit        # dossier installed without [pdf]
+observability  5 held · 0 converted · 0 cached · 5 failed
+    PLAY-3001-checkout-latency-apm.pdf: ValueError: pdf-markdown needs the 'pdf' extra: install dossier[pdf]
+    PLAY-3002-jvm-heap-grafana.pdf: ValueError: pdf-markdown needs the 'pdf' extra: install dossier[pdf]
+    …
+screenshots  1 held · 1 converted · 0 cached
+cache updated · 1 converted · 0 cached
+exit 1
+```
 
 ---
 
@@ -89,8 +101,11 @@ $ dossier convert observability-audit
   installing a package that declares a dossier.converters entry point.
 ```
 
-That is R8.5, and the pairs it lists are the honest answer: an image resolves to
-`page_images` (R8.10) and no converter claims to turn a PNG into text. The fix is
+That is R8.24. A kind written in `convert:` is one the installation has to
+supply, and one it cannot is known before the source converts anything, so the
+command stops with exit 2 rather than reporting one document failed. The pairs
+it lists are the honest answer: no converter claims to turn a PNG into text, and
+an image left to the default table resolves to `page_images` (R8.10). The fix is
 the `convert:` list, not a converter.
 
 ## Task 2 — a step that is shown a page

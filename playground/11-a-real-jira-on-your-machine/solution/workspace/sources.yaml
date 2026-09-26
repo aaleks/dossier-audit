@@ -9,7 +9,7 @@
 # Which converter answers a pair two installed packages claim (R8.13). `dossier`
 # ships `jira-issue-markdown` for a Jira issue; task 8's package claims the same
 # pair to put the labels in the note, and with both installed and neither named,
-# `dossier convert` refuses every document rather than pick one by installation
+# `dossier convert` converts nothing rather than pick one by installation
 # order. Naming one settles it for this workspace and for no other; any other
 # workspace in the same environment still refuses until it names one too.
 #
