@@ -63,7 +63,6 @@ def synced(workspace: Path, monkeypatch) -> Path:
     return workspace
 
 
-@pytest.mark.outer_loop
 class TestAJsonExportLeftOutOnPurpose:
     """R8.27 — a file a source said it does not read is counted, not failed."""
 

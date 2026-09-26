@@ -33,6 +33,7 @@ from dossier.domain.conversion import (
     NoConverter,
     UnclaimedDefault,
     claims,
+    kinds_for,
     select,
 )
 from dossier.domain.keys import ConvertInputs, cache_key, provenance
@@ -98,10 +99,13 @@ class ConvertReport:
 
     source_id: str
     documents: tuple[DocumentConversion, ...] = ()
+    # The documents whose media type the source maps to no kinds, in key order
+    # (R8.27). Held, and read by nothing: not a failure, and not present.
+    left_out: tuple[str, ...] = ()
 
     @property
     def held(self) -> int:
-        return len(self.documents)
+        return len(self.documents) + len(self.left_out)
 
     @property
     def converted(self) -> int:
@@ -211,6 +215,11 @@ def convert_source(
     """Convert every held document, or refuse the whole source (R8.6, R8.24, R8.25)."""
     declared = dict(options or {})
     plan, unread = _resolve_converters(documents=documents, kinds=kinds, converters=converters)
+    # A media type the source maps to `[]` is read by nothing (R8.27). Its
+    # documents are counted, and kept out of every conversion and every step.
+    left_out = tuple(
+        key for key in sorted(documents) if kinds_for(kinds, documents[key].media_type) == []
+    )
 
     conversions = tuple(
         DocumentConversion(document=key, error=unread[key])
@@ -226,8 +235,9 @@ def convert_source(
             dossier_version=dossier_version,
         )
         for key in sorted(documents)
+        if key not in left_out
     )
-    return ConvertReport(source_id=source_id, documents=conversions)
+    return ConvertReport(source_id=source_id, documents=conversions, left_out=left_out)
 
 
 def _resolve_converters(

@@ -826,7 +826,11 @@ def _convert_line(report: ConvertReport) -> str:
         f"{report.source_id}  {report.held} held · {report.converted} converted · "
         f"{report.cached} cached"
     )
-    return line if not report.failed else f"{line} · {len(report.failed)} failed"
+    if report.failed:
+        line = f"{line} · {len(report.failed)} failed"
+    # Counted apart from the failures: a source said it does not read these
+    # (R8.27), and the choice should show wherever the counts do.
+    return line if not report.left_out else f"{line} · {len(report.left_out)} left out"
 
 
 def _replay(workspace: Path, directory: Path) -> None:

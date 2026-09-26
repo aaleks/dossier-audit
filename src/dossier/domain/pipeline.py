@@ -87,18 +87,14 @@ class SourceConfig(BaseModel):
                 "an empty map declares nothing. Omit convert: to get the default "
                 "kind for each document's media type (R8.10)."
             )
-        for media_type, kinds in value.items():
+        # `[]` under a key is allowed: that media type is not read (R8.27).
+        for media_type in value:
             if not _MEDIA_TYPE.match(media_type):
                 raise ValueError(
                     f"convert: maps media types to kinds, and {media_type!r} is not a "
                     "media type. Write it as a snapshot records it, such as "
                     "application/pdf: a file extension is not evidence about content "
                     "(R8.3, R8.26)."
-                )
-            if not kinds:
-                raise ValueError(
-                    f"convert: maps {media_type} to an empty list, which matches "
-                    "nothing. Omit it to get the default kind for that media type."
                 )
         return value
 

@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.27
 
 ## Purpose
@@ -919,8 +919,8 @@ source, "read nothing" is almost always a mistake.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.convert`)
-- **Proved by:** `tests/acceptance/test_R008_27__a_json_export_left_out_on_purpose.py`
-- **Status:** IN PROGRESS
+- **Proved by:** `tests/unit/test_R008_27__a_media_type_mapped_to_nothing_is_left_out.py`, `tests/acceptance/test_R008_27__a_json_export_left_out_on_purpose.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
