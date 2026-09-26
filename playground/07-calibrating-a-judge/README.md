@@ -181,6 +181,45 @@ and the same figures in the file, where `lower_bound` is not rounded.
   not `8 of 8`, and `kappa not measurable`. Why is each of those the honest
   answer? (R7.27 row 4, R7.28 row 4.)
 
+## Task 8 — a judge nobody is serving
+
+Put the judge back as it was. Restart the stub on `resources/replies-judge.json`
+rather than your copy, delete `calibrations/` and `.dossier/cache/judge/`, then
+calibrate and eval once. `root_cause` is reported at 100% again.
+
+Now stop the stub (Ctrl-C in terminal 1) and run:
+
+```bash
+dossier eval incident-audit --gold gold/incidents
+rm -rf .dossier/cache/judge
+dossier eval incident-audit --gold gold/incidents
+dossier calibrate incident-audit --gold gold/incidents
+```
+
+**Checkpoint.** The first eval completes as before. Every verdict it needs is in
+the cache, so the judge is never built (R7.18). The second eval and the
+calibration each stop with one line on standard error and exit code 2:
+
+```
+incident-audit: POST http://127.0.0.1:8099/api/chat/completions failed: [WinError 10061] No connection could be made because the target machine actively refused it (after 3 attempts)
+```
+
+That is the Windows wording. On Linux or macOS the middle reads `[Errno 111]
+Connection refused`.
+
+- The first request was refused, so why were three made? (R9.17 row 4.)
+- `dossier run` has always said this in one line. `calibrate` and `eval` used to
+  print a Python traceback for it. What does the line give you that the
+  traceback buried? And why does a bug in `dossier` still get a traceback?
+  (R9.20 row 7.)
+- Compare `calibrations/root_cause.json` with the one you had before the stub
+  stopped. What did a calibration that measured nothing write?
+- With tracking on, the record each command opened is closed `FAILED` rather
+  than left `RUNNING` (R11.23). Exercise 08 sets up MLflow, so come back and see
+  it there.
+
+Start the stub again, and both commands work as before.
+
 ---
 
 ## Done when
@@ -190,6 +229,8 @@ and the same figures in the file, where `lower_bound` is not rounded.
 - you can name what makes a calibration stale, and why each of those inputs
   belongs in the staleness check;
 - you can say what an agreement figure hides, and which half of a sample a judge
-  is failing on, from the line under it.
+  is failing on, from the line under it;
+- you can tell a judge nobody is serving from a bug in `dossier` by what the
+  terminal shows.
 
 **Next:** [08 · MLflow tracing end to end](../08-mlflow-tracing-end-to-end/).

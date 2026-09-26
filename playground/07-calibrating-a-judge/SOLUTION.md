@@ -331,6 +331,64 @@ correct for once the reviewer has used a single verdict, so it would come out 0 
 undefined whatever the judge did. `kappa not measurable` says so instead of
 printing a number that looks like a measurement (R7.27 row 4, R7.28 row 4).
 
+## Task 8 — a judge nobody is serving
+
+With the stub back on the original replies, the calibrations and the judge cache
+deleted, then a calibration and an eval, `root_cause` reads `100.0%   (4 judged)`
+again. Then, with the stub stopped:
+
+```console
+$ dossier eval incident-audit --gold gold/incidents
+5 documents · 5 fields · overall 100.0%
+  loss_amount        100.0%
+  resolution_date    100.0%
+  severity           100.0%
+  affected_systems   100.0%
+  root_cause         100.0%   (4 judged)
+$ echo $?
+0
+$ rm -rf .dossier/cache/judge
+$ dossier eval incident-audit --gold gold/incidents
+incident-audit: POST http://127.0.0.1:8099/api/chat/completions failed: [WinError 10061] No connection could be made because the target machine actively refused it (after 3 attempts)
+$ echo $?
+2
+$ dossier calibrate incident-audit --gold gold/incidents
+incident-audit: POST http://127.0.0.1:8099/api/chat/completions failed: [WinError 10061] No connection could be made because the target machine actively refused it (after 3 attempts)
+$ echo $?
+2
+```
+
+**Why the first eval completed.** It asked nothing. Its four verdicts are in the
+`judge` cache under keys made from their evidence (R7.18), and a judge is built
+only on the first miss, so no endpoint was needed. The same holds for a stage
+(R9.2 row 5).
+
+**Three attempts for one refusal.** A connection nobody answered may be answered
+next time, so it is retried like a `503`: twice more, after about 0.5 s and then
+1 s (R9.17 row 4). A `401` would have failed on the first attempt, because a key
+refused once is refused again (R9.17 row 7).
+
+**The line, and the traceback.** The line holds the three things the fix needs:
+the pipeline, the URL it tried, and what happened there. A traceback holds them
+too, at the bottom of dozens of lines of frames that say where in `dossier` the
+error passed through, which is not what you need to know to start a server. The
+rule turns exactly three failures into a line: an endpoint that is not set, a
+provider that is not installed, and a request refused or never answered (R9.20).
+Anything else keeps its traceback. An error nobody anticipated is one the frames
+are needed for, and as a line it would read as something you could fix yourself
+(R9.20 row 7).
+
+**What the calibration wrote.** Nothing. `root_cause.json` is byte for byte the
+file from before the stub stopped: the first case failed, and a calibration writes
+only what it finished measuring. The stale-calibration checks of task 5 still
+read the old one, which is right, because nothing measured since contradicts it.
+
+**Under tracking.** `calibrate` and `eval` open their MLflow run before they ask
+the judge, so the judge's traces sit inside it. A judge that stops the command
+would leave that run `RUNNING`, which reads as a command still at work. Instead
+it is closed `FAILED`, and the command still fails with the same line and exit
+code (R11.23 rows 1 and 7).
+
 ---
 
 ## What to take to your own project
