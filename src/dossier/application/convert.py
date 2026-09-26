@@ -4,11 +4,13 @@ Two phases, and the split between them is the pair of rules this module exists
 for. Every document's converter is resolved first; only then is anything
 converted.
 
-That order is what separates the two failures. A media type nobody claims means
-the pipeline is not configured to read what it was pointed at -- nothing about
-the run is well-defined, so nothing happens (R8.5). A converter that fails on one
-document's bytes means the configuration is right and one input is bad -- so the
-rest convert and the run says which one failed (R8.6).
+That order is what separates the two failures. A kind a source declared that
+nothing claims means the pipeline is not configured to read what it was pointed
+at -- nothing about the run is well-defined, so nothing happens (R8.24). A
+converter that fails on one document's bytes means the configuration is right
+and one input is bad -- so the rest convert and the run says which one failed
+(R8.6). A default kind nothing claims is the second kind: nobody asked for that
+file to be read, so it is that document that is reported (R8.25).
 
 They look alike and behave differently on purpose. Collapsing them one way turns
 an installation problem into nine mysterious per-document errors; the other way
@@ -26,7 +28,7 @@ from dataclasses import dataclass, field
 
 from pydantic import BaseModel, ConfigDict
 
-from dossier.domain.conversion import NoConverter, select
+from dossier.domain.conversion import NoConverter, UnclaimedDefault, select
 from dossier.domain.keys import ConvertInputs, cache_key, provenance
 from dossier.domain.ports import ArtifactStore, Converter, SnapshotReader
 
@@ -200,12 +202,14 @@ def convert_source(
     run_id: str = "",
     dossier_version: str = "",
 ) -> ConvertReport:
-    """Convert every held document, or refuse the whole source (R8.5, R8.6)."""
+    """Convert every held document, or refuse the whole source (R8.6, R8.24, R8.25)."""
     declared = dict(options or {})
-    plan = _resolve_converters(documents=documents, kinds=kinds, converters=converters)
+    plan, unread = _resolve_converters(documents=documents, kinds=kinds, converters=converters)
 
     conversions = tuple(
-        _convert_one(
+        DocumentConversion(document=key, error=unread[key])
+        if key in unread
+        else _convert_one(
             document=key,
             held=documents[key],
             chosen=plan[key],
@@ -225,19 +229,24 @@ def _resolve_converters(
     documents: Mapping[str, HeldDocument],
     kinds: Sequence[str] | None,
     converters: Sequence[Converter],
-) -> dict[str, list[Converter]]:
-    """Which converters answer for each document, or refuse the source (R8.5).
+) -> tuple[dict[str, list[Converter]], dict[str, str]]:
+    """Which converters answer for each document, or refuse the source (R8.24).
 
-    Every document is resolved before any is converted, and one unclaimed pair
-    stops all of them. The alternative -- discovering it partway through -- would
+    Every document is resolved before any is converted, and one declared pair
+    nothing claims stops all of them. The alternative -- discovering it partway through -- would
     leave a source half converted for a reason that was knowable before any work
     started.
 
     Every unclaimed document is named, not just the first. Someone who pointed a
     pipeline at a folder of mixed files wants the list, not one example and
     another run.
+
+    A default pair nothing claims is set aside with its reason instead: nobody
+    asked for that file to be read, so it fails alone and the rest convert
+    (R8.25).
     """
     plan: dict[str, list[Converter]] = {}
+    unread: dict[str, str] = {}
     unclaimed: list[str] = []
 
     for key in sorted(documents):
@@ -245,6 +254,8 @@ def _resolve_converters(
             plan[key] = select(
                 media_type=documents[key].media_type, kinds=kinds, available=converters
             )
+        except UnclaimedDefault as error:
+            unread[key] = str(error)
         except NoConverter as error:
             unclaimed.append(f"  {key} ({documents[key].media_type}): {error}")
 
@@ -253,7 +264,7 @@ def _resolve_converters(
             f"{len(unclaimed)} document(s) have no converter:\n" + "\n".join(unclaimed)
         )
 
-    return plan
+    return plan, unread
 
 
 def _convert_one(
