@@ -456,7 +456,8 @@ def _converters_for(workspace: Path) -> list:
 
     Every command that converts or pins converters asks here, so none of them can
     choose differently from the others. A name nothing installed carries stops
-    the command before anything converts, as an unclaimed pair does (R8.5).
+    the command before anything converts, as a declared pair nothing claims
+    does (R8.24).
     """
     try:
         named = load_converter_names(workspace / "sources.yaml")
@@ -747,7 +748,7 @@ def convert(
             except NoConverter as error:
                 # A configuration error, not a per-document one: the pipeline is
                 # not set up to read what it was pointed at, so nothing converts
-                # and the fix is an installation (R8.5).
+                # and the fix is an installation (R8.24).
                 typer.echo(str(error), err=True)
                 raise typer.Exit(code=2) from error
 
@@ -940,7 +941,7 @@ def _execute(
 
     # Before a byte is fetched, because this is knowable from the two config
     # files alone (R4.13). `execute` checks it again for a caller that never
-    # came through here, but by then conversion has already run -- and R8.5
+    # came through here, but by then conversion has already run -- and R8.24
     # would report the same pipeline as an installation problem, which is the
     # other failure with the other fix.
     try:

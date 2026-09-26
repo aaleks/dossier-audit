@@ -13,8 +13,8 @@ see "How this is built" below. Where the rules stand is printed by
 behind. This README can fall behind, so its figure carries a date. On 2026-09-26:
 
 ```
-specs: 269 rules across 16 specs | 255 MET, 0 IN PROGRESS, 0 NOT MET, 14 SUPERSEDED
-       266 deterministic, 3 evaluated
+specs: 273 rules across 16 specs | 258 MET, 0 IN PROGRESS, 0 NOT MET, 15 SUPERSEDED
+       270 deterministic, 3 evaluated
 ```
 
 ## Layout
@@ -115,6 +115,22 @@ A source declares the kinds it converts to, and a step names the kind it reads:
 kinds could be named still reads the same. `page_images` is one picture per page,
 delivered as a single container of parts (R8.11); a `per_part` step is run once
 per page, keyed and retried and cached per page (R3.12).
+
+A list asks every document for every kind in it. A map asks a kind of one media
+type only, and `[]` leaves a media type out (R8.26, R8.27):
+
+```yaml
+    convert:
+      application/pdf: [markdown, page_images]   # the scans, as pictures too
+      application/octet-stream: []               # held, and read by nothing
+```
+
+A source that declares no `convert:` is the automatic case: each document gets
+the default kind for its media type (`page_images` for an image, `markdown` for
+everything else) and the converter installed for it. A file nothing can read
+then fails on its own, and the rest of the source is audited (R8.25). A kind a
+source *declared* that nothing converts is a configuration error, and stops the
+run before anything converts (R8.24).
 
 That matters because not every document has a sentence in it. A figure drawn on a
 chart is in no text, so a field citing it is **`described`** — neither a pass nor

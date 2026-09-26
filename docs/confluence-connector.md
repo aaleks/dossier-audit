@@ -136,10 +136,16 @@ Who is on call is in [the rota](https://status.example/rota). Pool lb_acq_01 ale
 - `_links`, `_expandable`, user keys and the version message are in the payload
   and not in the note, so a model cannot find a quote in them.
 
-The PDF export converts to `markdown` by default, like any PDF (R8.10). A
-source's `convert:` applies to every document it holds, so asking for
-`page_images` asks it of the page JSON too, which nothing claims (R8.5); that is
-spec 008's open question 5.
+The PDF export converts to `markdown` by default, like any PDF (R8.10). A list
+under `convert:` applies to every document the source holds, so
+`convert: [markdown, page_images]` asks `page_images` of the page JSON too,
+which nothing claims, and the run stops (R8.24). A map asks it of the export
+alone (R8.26):
+
+```yaml
+    convert:
+      application/pdf: [markdown, page_images]
+```
 
 ## What it does not do yet
 

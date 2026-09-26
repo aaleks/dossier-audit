@@ -303,7 +303,7 @@ def check_kinds(
     """Refuse a step reading a kind its sources were not told to make (R4.13).
 
     Checked at resolution rather than at conversion, because the two failures
-    have different fixes and different blast radii. R8.5 is "nothing converts
+    have different fixes and different blast radii. R8.24 is "nothing converts
     this pair", fixed by an installation. This is "your pipeline asked a source
     for something it was never told to make", fixed by a line in `sources.yaml`
     -- and it is knowable from the configuration alone, before a byte is

@@ -201,7 +201,7 @@ class DoclingMarkdownConverter:
         except Exception as error:
             # R8.6's shape: one document fails with a reason and the others
             # convert. A truncated PDF is a bad input, not a misconfigured
-            # pipeline (R8.5).
+            # pipeline (R8.24).
             raise ValueError(f"{self.id} could not read this PDF: {error}") from error
 
         text = PAGE_SEPARATOR.join(

@@ -52,7 +52,8 @@ class PdfImagesConverter:
 
         Imported here rather than at module scope so the entry point loads on an
         installation without the `pdf` extra -- the same reasoning as
-        `pdf-markdown`, and for the same benefit to R8.5's message.
+        `pdf-markdown`, and for the same benefit to an unclaimed pair's message
+        (R8.24, R8.25).
         """
         try:
             import pypdfium2 as pdfium
@@ -67,7 +68,7 @@ class PdfImagesConverter:
         except Exception as error:
             # R8.6's shape: one document fails with a reason and the others
             # convert. An encrypted or truncated PDF is a bad input, not a
-            # misconfigured pipeline (R8.5).
+            # misconfigured pipeline (R8.24).
             raise ValueError(f"{self.id} could not render this PDF: {error}") from error
 
         return pack_parts(pages, suffix=PART_SUFFIX)
