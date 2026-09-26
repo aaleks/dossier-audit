@@ -329,10 +329,17 @@ def used(
     Sorted by identity rather than kept in request order, because two machines
     may hold the same documents in a different order and must write the same
     manifest bytes.
+
+    A document whose default pair nothing claims uses no converter: it fails on
+    its own (R8.25), and nothing read it.
     """
     chosen: dict[tuple[str, str, str, str], Converter] = {}
     for media_type, kinds in requests:
-        for converter in select(media_type=media_type, kinds=kinds, available=available):
+        try:
+            answering = select(media_type=media_type, kinds=kinds, available=available)
+        except UnclaimedDefault:
+            continue
+        for converter in answering:
             chosen[(converter.id, converter.version, converter.media_type, converter.kind)] = (
                 converter
             )

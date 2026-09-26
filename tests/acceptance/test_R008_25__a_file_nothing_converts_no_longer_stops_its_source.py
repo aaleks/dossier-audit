@@ -63,7 +63,6 @@ def synced(workspace: Path, monkeypatch) -> Path:
     return workspace
 
 
-@pytest.mark.outer_loop
 class TestAFileNothingConvertsNoLongerStopsItsSource:
     """R8.25 — the automatic choice found nothing, and only that file says so."""
 
