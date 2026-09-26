@@ -1,6 +1,6 @@
 # 009 — Model providers
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R9.1 – R9.20
 
 ## Purpose
@@ -548,7 +548,7 @@ find.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.main`)
 - **Proved by:** `tests/acceptance/test_R009_20__a_model_that_fails_stops_a_command_in_one_line.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
