@@ -100,8 +100,8 @@ assembled it.
 ```bash
 $ dossier run jira-audit --plan        # with `token: hunter2` in place of token_env
 sources.yaml, line 30: in 'incidents-jira', 'token' holds a credential, and this file is
-committed to git. Name the variable instead, as `token_env: JIRA_TOKEN`, and set its value
-in the environment (R1.8).
+committed to git. Name the variable instead, as `token_env: DOSSIER_JIRA_TOKEN`, and set its
+value in the environment (R1.8).
 
 $ dossier run jira-audit --plan        # with token_env removed, user_env kept
 sources.yaml, line 9: in 'incidents-jira', `user_env` names a user with no token: name

@@ -330,6 +330,7 @@ a credential that lives there is named with the prefix.
 | 4 | *counter-example* — the name `JIRA_TOKEN` appearing in `sources.yaml` as `token_env: JIRA_TOKEN` | allowed; naming the variable is not disclosing its value |
 | 5 | `token_env: DOSSIER_JIRA_TOKEN`, `.env` in the workspace holding `DOSSIER_JIRA_TOKEN=…`, and the shell not setting it | `dossier sync` hands the connector that value; a credential is read through the same environment an endpoint is (R9.11) |
 | 6 | *counter-example* — `token_env: JIRA_TOKEN`, with `JIRA_TOKEN=…` written only in `.env` | refused when the connector is built, naming `JIRA_TOKEN`; only `DOSSIER_` variables are read from `.env` (R9.11 row 4) |
+| 7 | `token:` written on `procedures-confluence`, a `confluence` source | row 1's refusal suggests `token_env: DOSSIER_CONFLUENCE_TOKEN`: named for the source's own type, and with the prefix `.env` is read for. It once suggested `JIRA_TOKEN` to every source, a name row 6 refuses when it lives in `.env` |
 
 ### R1.9 — a connector error leaves the ledger unchanged for that item
 
