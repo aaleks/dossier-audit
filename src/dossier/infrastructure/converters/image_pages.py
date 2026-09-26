@@ -25,6 +25,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from dossier.domain.conversion import pack_parts
+from dossier.infrastructure.converters._png import png
 
 # Every part of a `page_images` artifact is a PNG. The parts carry no media type
 # of their own -- the composition root labels each one `image/png` as it unpacks
@@ -80,9 +81,11 @@ class JpegPagesConverter(_ImagePagesConverter):
 
     id = "jpeg-pages"
     # Raise this whenever output could change for the same input. That covers
-    # the pinned Pillow underneath: it decides what the bytes are, and it cannot
-    # be discovered from the artifact afterwards.
-    version = "1.0.0"
+    # the pinned Pillow underneath -- its decoder decides the pixels -- and the
+    # pinned `deflate` that compresses them (R8.29). Neither can be discovered
+    # from the artifact afterwards. 1.1.0: written by `_png`, not Pillow's
+    # encoder, whose bytes differed between Windows and Linux.
+    version = "1.1.0"
     media_type = "image/jpeg"
 
     def _png(self, payload: bytes) -> bytes:
@@ -111,9 +114,6 @@ class JpegPagesConverter(_ImagePagesConverter):
             # pipeline (R8.24).
             raise ValueError(f"{self.id} could not read this image: {error}") from error
 
-        buffer = io.BytesIO()
-        # `optimize=False` and the documented defaults, as `pdf-images` does:
-        # Pillow writes no timestamp into a PNG, and leaving the encoder alone
-        # is what keeps two machines producing the same bytes (R8.1 row 2).
-        image.save(buffer, format="PNG", optimize=False)
-        return buffer.getvalue()
+        # Not Pillow's encoder: its bytes depend on the zlib its wheel was built
+        # with, and Windows and Linux wheels differ (R8.29).
+        return png(image)

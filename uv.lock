@@ -720,6 +720,32 @@ wheels = [
 ]
 
 [[package]]
+name = "deflate"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/99/37/6822da3fcc811eb6839f4c1165407c4f23580e6b29ea29509c9544f4e604/deflate-0.9.0.tar.gz", hash = "sha256:962e0a6f1ea3a94b900a8ea0ce138fa92bfcbafda5b86367104a259ffcd3462b", size = 221791, upload-time = "2026-08-24T14:54:30.49Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5a/41/4b4d9045577df904d5e51bee6cc7a82bb51e6d159adf683e04d2bce52436/deflate-0.9.0-cp311-abi3-macosx_10_9_x86_64.whl", hash = "sha256:d65383813faaf26aba2c5673aea7119c21c5c7b022a471028b0657d61bb39913", size = 56316, upload-time = "2026-08-24T14:54:13.677Z" },
+    { url = "https://files.pythonhosted.org/packages/8d/72/927b0fe00bf6117aa53f0b0e6c363d220b0ff9440afb769b54c563143222/deflate-0.9.0-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:a4c94e56146514f49aa36094eb2563ebde843e12e157f9226b11dd805cab6b86", size = 42856, upload-time = "2026-08-24T14:54:14.426Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/86/9d5dc8d0d3150111b0fb2d533a0fd221dc7338f93a46357a998f5df33ffa/deflate-0.9.0-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:64fc41f323ea4da8cbc6a9f6c7d369a5f0b6310ed2d02ce084c8718a9b78b2e9", size = 64906, upload-time = "2026-08-24T14:54:15.325Z" },
+    { url = "https://files.pythonhosted.org/packages/d0/5e/315011fbd60c83f064586aae3bd5388204401252c2c26e9cb219cef001e4/deflate-0.9.0-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:cfca14731727716ca0a112e26911a5a94998d31bb04eb5cc4bc268a5a308ba8a", size = 69920, upload-time = "2026-08-24T14:54:16.248Z" },
+    { url = "https://files.pythonhosted.org/packages/7b/97/0cc1af29c22aa3221045e10baa5583d80ccb3c31023fdb4b717c6a60df48/deflate-0.9.0-cp311-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:7ca51340a906517f2bd7485fd1d2ba65c116a44793c0a1be1a38f50412a47c75", size = 64974, upload-time = "2026-08-24T14:54:17.064Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/e8/0b595dc7f0f866aed01ca68f1f16c4e7391974bfecef0f23828a24ab22f5/deflate-0.9.0-cp311-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:03898c0c095d463b3a52900af5b68cb5a5f19ef01d7a3657c425c3be73e1ca52", size = 70243, upload-time = "2026-08-24T14:54:17.891Z" },
+    { url = "https://files.pythonhosted.org/packages/f2/6b/53999eff79e5c24b93abef1c210885d09b01e237ee3021097dd433f7d79a/deflate-0.9.0-cp311-abi3-win32.whl", hash = "sha256:eddd424ad44931d6ff17bf6a83fda6ccb54226e7f61d85920b9ccc3d3a6160f7", size = 44598, upload-time = "2026-08-24T14:54:18.873Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/55/249c277c4a22db006fd468c7af33cb00fed99d0842441fab38ed409036ff/deflate-0.9.0-cp311-abi3-win_amd64.whl", hash = "sha256:f45b4362d4481317111b1bb5ffedf9f3c8741654095dba51a56ceea170cdb9a9", size = 52608, upload-time = "2026-08-24T14:54:19.933Z" },
+    { url = "https://files.pythonhosted.org/packages/72/78/c2402ec7fa89032543ef56d401587ca2cf9c4e24d8164102f9465546f6f3/deflate-0.9.0-cp311-abi3-win_arm64.whl", hash = "sha256:8fe8430b6122cd0a5cd425daa30b3d4637942a3cef408a745959bb2ca6f04d2e", size = 45350, upload-time = "2026-08-24T14:54:20.96Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/91/d9c71a4919e8f8cba7257c70b918231b3b453356484ea64078ff8441ea25/deflate-0.9.0-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:ff6fcb4560d5c7a38dd2afff5745d289c86daebf9864a9c54dd74c623bc90d80", size = 56747, upload-time = "2026-08-24T14:54:21.779Z" },
+    { url = "https://files.pythonhosted.org/packages/63/5d/b9911ddd28355911e4e35348fb5f06ffbae6d4e2d96528341514a1e05c42/deflate-0.9.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:6dbbd7dfaf58dea6b1bd824961ccb3bf8638b173887eb4b4520eec984d38edba", size = 42968, upload-time = "2026-08-24T14:54:22.697Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/f6/f6a704067604c6a1d5321a6a19be2bf13058eb20e24cf4f020ad99ca221e/deflate-0.9.0-cp314-cp314t-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ecdc01d9f2b8fac87c438e893c5421c906e5b175e781a1df03932051e88bf300", size = 65026, upload-time = "2026-08-24T14:54:24.032Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/ad/df215406e38513b42a347bb6f03e502b10276dd01127c5fb0fd8ebbb4003/deflate-0.9.0-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:30f15d51dfef483078b3075cddfb4eb554e0f8b73521647b4da8255d7cacdf05", size = 70024, upload-time = "2026-08-24T14:54:25.05Z" },
+    { url = "https://files.pythonhosted.org/packages/95/9f/e84ae2b3904b6921c6d02c9d60ff178b6ba6b4dda8bbf4ab4b695b16d2e9/deflate-0.9.0-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:e7e4e724450170914b7bfb5c21e18019e5b96edfeadf46c8478b4995dcb46e64", size = 65077, upload-time = "2026-08-24T14:54:25.81Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/76/f839be9bb7ba06cc3d082fad267c42562b02c018a66ea942970433ad9c75/deflate-0.9.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:4fcf020a850954319f43849db1cf267f3c2aaffd97887fa49d37809fddc3629b", size = 70361, upload-time = "2026-08-24T14:54:26.588Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/85/15e97bb032c48112e5dc67a04b99ad87fc9db1fb1309e8b31696ace27df5/deflate-0.9.0-cp314-cp314t-win32.whl", hash = "sha256:322a6120358d51cb64f79188fa63d28b0e0e4be1508333ad398704bcdb399531", size = 45926, upload-time = "2026-08-24T14:54:27.817Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/a2/347e9092496e078e8e76ff6e9ee3e5257f877b58572cfa88a96188cc6234/deflate-0.9.0-cp314-cp314t-win_amd64.whl", hash = "sha256:95faa5f46b15e40832445270262d990b20e192823c0b793457d0218781032012", size = 54368, upload-time = "2026-08-24T14:54:28.84Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/1d/325fce53539f225a328a2d8d96e8e136ab7d8809255221364182c130f9fe/deflate-0.9.0-cp314-cp314t-win_arm64.whl", hash = "sha256:47df66a8c02864ed8e1aabd321cf966ab3188e5033a77521396a962cf3769a82", size = 47398, upload-time = "2026-08-24T14:54:29.657Z" },
+]
+
+[[package]]
 name = "defusedxml"
 version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -893,6 +919,7 @@ docling = [
     { name = "rapidocr" },
 ]
 pdf = [
+    { name = "deflate" },
     { name = "pillow" },
     { name = "pypdfium2" },
 ]
@@ -910,6 +937,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "beautifulsoup4", specifier = "==4.15.0" },
+    { name = "deflate", marker = "extra == 'pdf'", specifier = "==0.9.0" },
     { name = "docling-slim", extras = ["convert-core", "format-pdf", "models-local", "feat-ocr-rapidocr-onnx"], marker = "extra == 'docling'", specifier = "==2.130.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "jira2markdown", specifier = "==0.5.1" },

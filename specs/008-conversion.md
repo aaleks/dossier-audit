@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.29
 
 ## Purpose
@@ -943,11 +943,11 @@ the machine.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters._png`)
 - **Proved by:** `tests/unit/test_R008_29__a_png_is_a_function_of_its_pixels.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `INC-4830`'s page 1, rendered, encoded on Windows 11 and on Linux | byte-identical PNGs. The suite pins the hash, and CI is the second machine |
+| 1 | `INC-5720-checkout-latency-postmortem.png`'s pixels, encoded on Windows 11 and on Linux (`python:3.12-slim`) | byte-identical PNGs, `31439acb…`, where Pillow's own encoder gave two. The suite pins the hash, and CI is the second machine |
 | 2 | a JPEG source (R8.12 row 2) | its one part re-encoded the same way, and the same bytes on both machines |
 | 3 | a part written and read back | the same pixels, size and mode: the PNG is one any reader, and any provider, decodes |
 | 4 | *counter-example* — a PNG source (R8.12 row 1) | copied as it is, not re-encoded: its bytes are the input's already |

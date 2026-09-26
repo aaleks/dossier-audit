@@ -21,6 +21,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from dossier.domain.conversion import pack_parts
+from dossier.infrastructure.converters._png import png
 
 # Rendering scale, as a multiple of the PDF's own 72 dpi. 2.0 is 144 dpi: enough
 # for a vision model to read an axis label on a chart, and small enough that a
@@ -41,9 +42,11 @@ class PdfImagesConverter:
 
     id = "pdf-images"
     # Raise this whenever output could change for the same input. That covers
-    # SCALE above and the pinned PDFium underneath: both decide what the bytes
-    # are, and neither can be discovered from the artifact afterwards.
-    version = "1.0.0"
+    # SCALE above, the pinned PDFium underneath and the pinned `deflate` that
+    # compresses each page (R8.29): all decide what the bytes are, and none can
+    # be discovered from the artifact afterwards. 1.1.0: pages written by `_png`,
+    # not Pillow's encoder, whose bytes differed between Windows and Linux.
+    version = "1.1.0"
     media_type = "application/pdf"
     kind = "page_images"
 
@@ -75,15 +78,9 @@ class PdfImagesConverter:
 
     @staticmethod
     def _render(page: object, *, scale: float) -> bytes:
-        """One page as PNG bytes.
+        """One page as PNG bytes, written by `_png` rather than Pillow's encoder.
 
-        `optimize=False` and no ancillary chunks: Pillow writes no timestamp
-        into a PNG, and leaving the encoder on its documented defaults is what
-        keeps two machines producing the same bytes (R8.1 row 2).
+        Pillow's bytes depend on the zlib its wheel was built with, and a
+        Windows wheel and a Linux wheel wrote the same page differently (R8.29).
         """
-        import io
-
-        image = page.render(scale=scale).to_pil()  # type: ignore[attr-defined]
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG", optimize=False)
-        return buffer.getvalue()
+        return png(page.render(scale=scale).to_pil())  # type: ignore[attr-defined]

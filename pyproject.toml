@@ -49,12 +49,18 @@ tracking = ["mlflow>=2.14"]
 # no system binary; PyMuPDF was rejected on its AGPL licence, which would reach
 # everyone who installs dossier.
 # Pillow is not optional despite the name of this extra: `pdf-images` renders
-# a page through `to_pil()` and `jpeg-pages` re-encodes through `Image.save`,
+# a page through `to_pil()` and `jpeg-pages` decodes through `Image.open`,
 # and pypdfium2 declares no dependencies at all -- so `pip install
 # dossier[pdf]` shipped a converter that raised ImportError on its first page.
 # It is here rather than in the base install because nothing outside the
 # picture converters touches it.
-pdf = ["pypdfium2>=4.30", "pillow>=10.0"]
+# deflate (MIT; libdeflate, MIT) compresses every PNG part those converters
+# write. Pillow's own PNG encoder wrote different bytes for the same pixels on
+# Windows (zlib-ng) and Linux (zlib), and so does the standard library's zlib;
+# libdeflate's output depends on its input and level alone (R8.29). Pinned
+# exactly: a new libdeflate may compress differently, and every converter that
+# writes a PNG would have to raise its version with it (R5.4).
+pdf = ["pypdfium2>=4.30", "pillow>=10.0", "deflate==0.9.0"]
 # docling-markdown: a PDF with no text layer read by OCR (spec 008, R8.14).
 # MIT (Docling), Apache-2.0 (RapidOCR), MIT (onnxruntime). docling-slim with only
 # what reads a PDF; `docling` itself adds converters for Word, PowerPoint, Excel
