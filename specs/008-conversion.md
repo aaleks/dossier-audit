@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.25
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.27
 
 ## Purpose
 
@@ -575,7 +575,7 @@ that a platform fills in.
 | 2 | Is `docling-markdown`'s artifact byte-identical on another machine? It was identical across runs, thread counts and two inference backends on one Windows machine | OPEN — needs the photocopy converted on a second machine, Linux, and the two artifact hashes compared. A run stays reproducible either way, because a replay reads the artifact the run cached and never converts again (R4.7) |
 | 3 | Should a source, rather than the workspace, choose the converter for a pair? | OPEN — needs a corpus mixing scans with born-digital PDFs where Docling's cost on the digital ones matters. Until then `docling-markdown` reads a digital page from its text layer anyway (R8.14) |
 | 4 | Which custom fields belong in a Jira issue's note? The payload names them `customfield_10042`, and what a person calls them comes only with `expand=names`, which changes every payload the connector stores | OPEN — needs a real incident project where a custom field holds what a stage must read. Until then the note holds none (R8.16 row 6) |
-| 5 | Should a source declare kinds per media type? `convert:` applies to every document a source holds. So `page_images` for a Confluence page's PDF export (R1.19) is asked of the page JSON too, and nothing claims that pair (R8.24) | OPEN — a change to spec 003's `convert:`, and not this story's to make. Until then the export converts to `markdown` (R8.10), and a vision stage reads a page's images as the files they are (R1.18) |
+| 5 | Should a source declare kinds per media type? `convert:` applies to every document a source holds. So `page_images` for a Confluence page's PDF export (R1.19) is asked of the page JSON too, and nothing claims that pair (R8.24) | RESOLVED by R8.26 and R8.27 — `convert:` may map a media type to its kinds, and a media type mapped to `[]` is not read |
 | 6 | Should a CSV saved by Excel in Windows-1252, or an HTML page declaring a legacy `charset`, be read? | OPEN — needs one in a real source. Until then each fails naming UTF-8 (R8.21 row 4, R8.23 row 3), and guessing the encoding is exactly what R8.1 rules out |
 | 7 | Should a file nothing claims stop its whole source (R8.5), or only itself? `KAFKA-20416`'s `.jsonl` still stops Apache's source after R8.21–R8.23 | RESOLVED by R8.24 and R8.25 — only itself when its kind was the default, and the run when a source declared it |
 
@@ -855,7 +855,7 @@ The exit is non-zero, as for any document that failed. An audit covering less
 than its source holds must not be quotable as a clean one by anything reading
 `$?`. The cost is that a source holding a file no converter will ever read
 exits non-zero on every run, until the file is gone or a converter is
-installed. Where a source says which files it wants read is open question 5.
+installed, or the source says it does not want that media type read (R8.27).
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.conversion.select`)
@@ -868,3 +868,63 @@ installed. Where a source says which files it wants read is open question 5.
 | 2 | `dossier run` over the same | the stages read the two notes, and `PLAY-4006-indexer-alerts.json` is named as not converted (R8.6). The manifest pins `html-markdown` and `text-csv`, and nothing for the JSON (R8.9) |
 | 3 | the same command again, after a package claiming `(application/json, markdown)` is installed | the JSON converts, and the two notes are served from cache. What failed was the installation, and nothing about it was cached |
 | 4 | *counter-example* — the same folder declaring `convert: [markdown]` | the run stops before anything converts (R8.24) |
+
+### R8.26 — `convert:` may map a media type to its kinds, and a document whose media type the map does not name gets its default
+
+`convert: [markdown, page_images]` asks both kinds of every document a source
+holds. For a Confluence space exporting PDFs (R1.19) that asked `page_images`
+of each page's JSON too, and nothing claims that pair. The map says which
+documents a kind is for:
+
+```yaml
+- id: procedures-confluence
+  type: confluence
+  export: pdf
+  convert:
+    application/pdf: [markdown, page_images]
+```
+
+A media type the map names is declared, and its kinds follow R8.24: one nothing
+claims stops the run. A media type it does not name is left to the default table
+(R8.10), and follows R8.25. The list form is unchanged, and still applies to
+every document. A key is a media type because the snapshot's media type selects
+a converter (R8.3), and a file extension never does.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.conversion.kinds_for`)
+- **Proved by:** `tests/unit/test_R008_26__convert_maps_a_media_type_to_its_kinds.py`, `tests/acceptance/test_R008_26__a_vision_step_reads_the_pdfs_of_a_mixed_source.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `procedures-confluence` exporting PDFs, declaring `convert: {application/pdf: [markdown, page_images]}` | `81920114.pdf` converts to `markdown` and `page_images`, and the page `81920114` to `markdown`, its default. Under `convert: [markdown, page_images]` the page's `page_images` stopped the run (R8.24) |
+| 2 | a folder source holding `PLAY-2001-terminal-scan.pdf` and `INC-4821.md`, declaring that map, and a step reading `documents@page_images` | the step reads the scan's pages. `INC-4821.md` converts to `markdown` and the step is not asked about it (R6.21), and the run resolves (R4.13): the source was told to make `page_images` |
+| 3 | `PLAY-4006-indexer-alerts.json` in a source declaring `convert: {application/pdf: [markdown]}` | fails on its own (R8.25): the map does not name `application/json`, so its kind was the default |
+| 4 | `convert: {application/pdf: [page_images]}`, and nothing claiming `(application/pdf, page_images)` | the run stops before anything converts (R8.24): a kind the map names is declared |
+| 5 | *counter-example* — `convert: [markdown, page_images]` | every document is asked for both kinds, as it always was (R8.3 row 2) |
+| 6 | *counter-example* — `convert: {pdf: [page_images]}` | refused at load, naming `pdf`: a key is a media type such as `application/pdf`, and a file extension is not evidence about content (R8.3 row 4) |
+
+### R8.27 — a media type `convert:` maps to `[]` is not read, and its documents are reported as left out, not failed
+
+R8.25's cost is a source holding a file no converter will ever read: it exits
+non-zero on every run. Mapping that media type to no kinds says so in
+`sources.yaml`. Its documents are still synced and held (spec 002). They are not
+converted, no step reads them, and the report counts them as left out, so the
+choice stays visible in every command's output.
+
+It is a declaration and never a default: a file nobody named still fails
+(R8.25), so a new kind of attachment is reported the first time it arrives.
+`convert: []` is refused at load as it always was (R3.9's reason): for a whole
+source, "read nothing" is almost always a mistake.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.convert`)
+- **Proved by:** `tests/unit/test_R008_27__a_media_type_mapped_to_nothing_is_left_out.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a folder source holding `PLAY-4001-payment-retries.html`, `PLAY-4004-incident-register.csv` and `PLAY-4006-indexer-alerts.json`, declaring `convert: {application/json: []}` | `dossier convert` reports `3 held · 2 converted · 0 cached · 1 left out`, and exits 0 |
+| 2 | `dossier run` over the same | two model calls, exit 0. The manifest pins neither the JSON nor a converter for it |
+| 3 | *counter-example* — the same folder declaring no `convert:` | `PLAY-4006-indexer-alerts.json` fails, and the exit is non-zero (R8.25). Leaving a file out is something a source says |
+| 4 | *counter-example* — `convert: []` | refused at load, as it always was |

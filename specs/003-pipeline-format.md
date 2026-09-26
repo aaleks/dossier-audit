@@ -46,6 +46,12 @@ The keys every source takes are `id`, `type`, `fields`, `convert` and
 source's type, and its connector declares it; the loader checks a source against
 both before anything runs (R1.10).
 
+`convert` takes one of two shapes. A list of kinds is asked of every document
+the source holds. A map from a media type to its kinds is asked only of the
+documents of that type (R8.26), and a type mapped to `[]` is not read at all
+(R8.27). A document a map does not name, like every document of a source with
+no `convert`, gets the default kind for its media type (R8.10).
+
 ## `pipelines/<name>/pipeline.yaml`
 
 ```yaml

@@ -171,10 +171,11 @@ an unchanged marker is otherwise never fetched (R2.1). The converter drops the
 table of contents (R8.20). The note is therefore the same bytes, and a stage
 reading it is served from cache.
 
-A source's `convert:` applies to every document it holds. The export converts to
-`markdown` by default (R8.10). Asking for `page_images` for the source asks for
-it for the page JSON too, and nothing claims that pair (R8.24). Spec 008's open
-question 5 says what would change that.
+The export converts to `markdown` by default (R8.10). A list under `convert:`
+applies to every document a source holds, so `convert: [markdown, page_images]`
+asks `page_images` of the page JSON too, and nothing claims that pair (R8.24).
+`convert: {application/pdf: [markdown, page_images]}` asks it of the export
+alone (R8.26).
 
 **Existing options considered**, before writing the connector:
 
