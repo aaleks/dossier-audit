@@ -17,14 +17,14 @@ has no fields to project onto.
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 
 from dossier.domain.hashing import content_hash
 from dossier.domain.ledger import LedgerRow
 from dossier.domain.pipeline import SourceConfig
-from dossier.domain.ports import Connector, LedgerWriter, SnapshotWriter
+from dossier.domain.ports import Connector, ItemRef, LedgerWriter, SnapshotWriter
 from dossier.domain.store import snapshot_path
 from dossier.domain.sync import (
     Change,
@@ -37,6 +37,7 @@ from dossier.domain.sync import (
     must_refetch,
     needs_fetch,
     normalise,
+    owed_items,
     projection_changed,
     reactivated,
     repointed,
@@ -211,7 +212,34 @@ def sync_source(
     failures: list[tuple[str, str]] = []
     moved: list[Repointed] = []
 
-    for ref in connector.list(since):
+    # What earlier syncs failed to fetch, and are owed (R2.23). Read before the
+    # listing, because this sync settles and adds to it as it goes.
+    owed = ledger.owed(config.id)
+    owed_keys = {key for key, _ in owed}
+    visited: set[str] = set()
+
+    def listed_then_owed() -> Iterator[ItemRef]:
+        """The listing, then the items owed keys hang off that it did not return.
+
+        A generator so the owed items are decided only once the listing is
+        exhausted, and `visited` holds everything it returned. An item owed only
+        for a file keeps its recorded marker, so it is not fetched unless its own
+        fetch is owed too (R2.1).
+        """
+        for listed_ref in connector.list(since):
+            visited.add(listed_ref.key)
+            yield listed_ref
+        for item, item_owed in owed_items(owed, visited=visited, complete=complete):
+            recorded = held.get(item)
+            yield ItemRef(
+                key=item,
+                remote_version=None
+                if item_owed or recorded is None
+                else recorded.remote_version,
+                updated_at=None,
+            )
+
+    for ref in listed_then_owed():
         # Asked for every listed item, changed or not: an issue's own version
         # marker says nothing about the PDF hanging off it, and R2.6 is exactly
         # the case where the item is untouched and the attachment is not.
@@ -239,8 +267,27 @@ def sync_source(
             if outcome.failure is not None:
                 failed.append(outcome.failure[0])
                 failures.append(outcome.failure)
+                # Owed until it is stored, whether or not the next listing
+                # returns its item (R2.23).
+                ledger.owe(
+                    config.id,
+                    target.key,
+                    item_key=target.item_key,
+                    at=now,
+                    error=outcome.failure[1],
+                )
+            elif target.key in owed_keys:
+                ledger.settle(config.id, [target.key])
             if outcome.repointed is not None:
                 moved.append(outcome.repointed)
+
+        # A file owed but no longer carried is owed nothing: there is nothing
+        # left to fetch, and nothing held to tombstone (R2.23 row 4).
+        carried = {attachment.key for attachment in attached}
+        ledger.settle(
+            config.id,
+            [key for key, item_key in owed if item_key == ref.key and key not in carried],
+        )
 
         departed_files |= _settle_attachments(
             item_key=ref.key,
@@ -267,6 +314,12 @@ def sync_source(
         )
         ledger.set_state(config.id, departed, State.TOMBSTONED)
         departed_keys |= set(departed)
+
+        # A complete listing answers for every item: what it left out is gone,
+        # and what that item was owed is owed no longer (R2.23 row 5).
+        ledger.settle(
+            config.id, [key for key, item_key in owed if (item_key or key) not in listed]
+        )
 
         returned = reactivated(listed=listed, already_tombstoned=already)
         ledger.set_state(config.id, returned, State.ACTIVE)

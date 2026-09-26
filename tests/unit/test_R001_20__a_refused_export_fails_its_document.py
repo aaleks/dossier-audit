@@ -32,7 +32,9 @@ PAGE = "81920114"
 EXPORT = "/spaces/flyingpdf/pdfpageexport.action"
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "confluence"
 SENT = (FIXTURE / f"{PAGE}.json").read_bytes()
-SOURCE = SourceConfig(id="procedures-confluence", type="confluence", options={})
+SOURCE = SourceConfig(id="procedures-confluence", type="confluence", options={"export": "pdf"})
+BEFORE = SourceConfig(id="procedures-confluence", type="confluence", options={})
+EARLIER = datetime(2026, 8, 5, 9, 0, tzinfo=UTC)
 NOW = datetime(2026, 8, 6, 9, 0, tzinfo=UTC)
 LATER = datetime(2026, 8, 7, 9, 0, tzinfo=UTC)
 LOGIN = "<html><head><title>Log In - Confluence</title></head><body>Log in</body></html>"
@@ -50,6 +52,11 @@ class Confluence:
             self.asked.append(request)
             path = request.url.path
             if path == "/rest/api/content/search":
+                # Last edited long before any window asked here, and a window is
+                # honoured as cwiki honours it. A stand-in that ignored it was
+                # how row 3 once passed while false.
+                if "lastmodified" in request.url.params["cql"]:
+                    return httpx.Response(200, json={"results": [], "_links": {}})
                 page = {"id": PAGE, "type": "page", "version": {"number": 37}}
                 return httpx.Response(200, json={"results": [page], "_links": {}})
             if path == f"/rest/api/content/{PAGE}":
@@ -77,13 +84,18 @@ class Confluence:
         return [request for request in self.asked if request.url.path == EXPORT]
 
 
-def sync(workspace: Path, server: Confluence, *, now: datetime = NOW):
+def sync(
+    workspace: Path, server: Confluence, *, now: datetime = NOW, config: SourceConfig = SOURCE
+):
     connector = ConfluenceConnector(
-        base_url=BASE, query="space = OPS", export="pdf", transport=server.transport()
+        base_url=BASE,
+        query="space = OPS",
+        export=config.options.get("export"),
+        transport=server.transport(),
     )
     with Ledger(workspace) as ledger:
         return sync_source(
-            config=SOURCE,
+            config=config,
             connector=connector,
             store=SnapshotStore(workspace),
             ledger=ledger,
@@ -127,11 +139,14 @@ class TestARefusedExportFailsItsDocument:
     def test_the_next_sync_asks_again_once_and_the_same_way(self, tmp_path: Path):
         """Counter-example, row 3: the one where nothing is retried and nothing is dropped."""
         server = Confluence(httpx.Response(403, text="Forbidden"))
+        # Synced a day earlier, before `export:` was added: the page is held and
+        # the source has a watermark, so a plain sync after this is windowed.
+        sync(tmp_path, server, now=EARLIER, config=BEFORE)
 
-        sync(tmp_path, server)
-        again = sync(tmp_path, server, now=LATER)
+        sync(tmp_path, server)  # the export added: a complete listing (R2.24)
+        again = sync(tmp_path, server, now=LATER)  # windowed: no page returned
 
         assert [key for key, _ in again.failures] == [f"{PAGE}.pdf"]
         asked = server.exports_asked()
-        assert len(asked) == 2  # once per sync
+        assert len(asked) == 2  # once per sync, the second owed rather than listed (R2.23)
         assert all(request.headers.get("x-atlassian-token") == "no-check" for request in asked)

@@ -495,6 +495,14 @@ class LedgerWriter(Protocol):
 
     def set_listing_hash(self, source_id: str, value: str) -> None: ...
 
+    def owed(self, source_id: str) -> list[tuple[str, str | None]]: ...
+
+    def owe(
+        self, source_id: str, key: str, *, item_key: str | None, at: datetime, error: str
+    ) -> None: ...
+
+    def settle(self, source_id: str, keys: Iterable[str]) -> None: ...
+
 
 class PromptRegistry(Protocol):
     """Where a pipeline's prompts are published as versions (spec 014).
