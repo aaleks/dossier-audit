@@ -326,14 +326,17 @@ def check_kinds(
                 continue
 
             for source in sets[name]:
-                if not source.convert and KIND_SEPARATOR not in declared:
+                mapped = isinstance(source.convert, dict)
+                if (not source.convert or mapped) and KIND_SEPARATOR not in declared:
                     # Bare `documents`, which means `markdown` (R3.11), against
                     # a source that declared nothing. Every pipeline written
                     # before a kind could be named looks like this, and a text
                     # source converts to markdown by default -- so this is the
                     # case R4.13 must not refuse. An *image* source here
                     # produces `page_images` instead and the step finds no
-                    # input, which is R8.10's row 4 and R8.5's message.
+                    # input, which is R8.10's row 4 and R8.25's message. A map
+                    # leaves every media type it does not name to that same
+                    # default (R8.26), so it is not refused either.
                     continue
                 if not source.convert:
                     # A source declaring no `convert:` produces one kind per
@@ -353,12 +356,20 @@ def check_kinds(
                         f"declared: add convert: [{kind}] to that source in "
                         f"sources.yaml (R4.13)."
                     )
-                if kind not in source.convert:
+                # A map is told to make a kind when it declares it for any media
+                # type it names: which of those the source holds is not knowable
+                # before a byte is fetched (R8.26 row 2).
+                produced = (
+                    sorted({made for kinds in source.convert.values() for made in kinds})
+                    if mapped
+                    else sorted(source.convert)
+                )
+                if kind not in produced:
                     raise ValueError(
                         f"step {step.id!r} reads {declared!r}, but source "
                         f"{source.id!r} was never told to make {kind!r}. It "
-                        f"produces {sorted(source.convert)}. Add {kind!r} to that "
-                        f"source's convert: list in sources.yaml (R4.13)."
+                        f"produces {produced}. Add {kind!r} to that "
+                        f"source's convert: in sources.yaml (R4.13)."
                     )
 
 

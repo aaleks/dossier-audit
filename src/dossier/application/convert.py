@@ -28,7 +28,13 @@ from dataclasses import dataclass, field
 
 from pydantic import BaseModel, ConfigDict
 
-from dossier.domain.conversion import NoConverter, UnclaimedDefault, claims, select
+from dossier.domain.conversion import (
+    Convert,
+    NoConverter,
+    UnclaimedDefault,
+    claims,
+    select,
+)
 from dossier.domain.keys import ConvertInputs, cache_key, provenance
 from dossier.domain.ports import ArtifactStore, Converter, SnapshotReader
 
@@ -194,7 +200,7 @@ def convert_source(
     *,
     source_id: str,
     documents: Mapping[str, HeldDocument],
-    kinds: Sequence[str] | None,
+    kinds: Convert,
     converters: Sequence[Converter],
     store: SnapshotReader,
     cache: ArtifactStore,
@@ -227,7 +233,7 @@ def convert_source(
 def _resolve_converters(
     *,
     documents: Mapping[str, HeldDocument],
-    kinds: Sequence[str] | None,
+    kinds: Convert,
     converters: Sequence[Converter],
 ) -> tuple[dict[str, list[Converter]], dict[str, str]]:
     """Which converters answer for each document, or refuse the source (R8.24).
