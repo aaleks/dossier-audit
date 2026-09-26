@@ -327,7 +327,32 @@ kappa is 0.78. Exercise 07's judge was also at 90% (one miss in each half) and
 had a kappa of 0.79. The agreement is the same; what the judge gets wrong is not
 (R7.28).
 
-Flip a third, `rd-19`, which the reviewer marked supported:
+So agree a bar for that half, beside the agreement bar (R7.30):
+
+```console
+$ # described: {agreement: 0.90, unsupported: 0.875} in judge.yaml
+$ dossier eval observability-audit --gold gold/observability
+6 documents · 4 fields · overall 100.0%
+  ...
+  root_cause             -- described: unsupported 6 of 8 (75.0%) is below the agreed 87.5%
+```
+
+The agreement still clears its bar. The field is withheld on the half the judge
+exists for: two of eight invented causes accepted (R7.31). The message names the
+state, the count, the share and the bar, because the fixes differ. A judge below
+the bar wants a better judge. A sample with fewer than eight unsupported cases
+would be withheld as not measurable, never as 100%, and wants more cases in the
+sample. And a calibration from before the halves were counted wants a
+`dossier calibrate`.
+
+**Why a share.** 0.875 is seven of eight: out of R7.11's eight unsupported cases,
+no more than one let through. Written as "at most one", it would hold a sample of
+forty unsupported cases to 97.5%. Written as a share, it holds every sample to the
+same rate. 7 of 8 meets it, because the bound is inclusive, as R7.5's is.
+
+Flip a third, `rd-19`, which the reviewer marked supported. The agreement is
+checked first, so the field is withheld on it before the unsupported half is
+looked at:
 
 ```console
 $ dossier calibrate observability-audit --gold gold/observability

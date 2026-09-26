@@ -13,6 +13,40 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+The half of a sample a judge exists for now has a bar of its own (spec 007,
+R7.30 and R7.31). The figures of R7.26 – R7.29 were meant to be seen before
+anyone decided what to gate on, and once they had been seen, the decision was
+narrow:
+
+- keep the agreement bar;
+- let a gold set add, per grounding state and beside it, the share of
+  unsupported cases its judge must catch
+  (`described: {agreement: 0.90, unsupported: 0.875}`).
+
+0.875 is R7.11's eight unsupported cases with one let through, written as a
+share so a larger sample is held to the same rate. Eight is the floor below
+which the share is not a measurement. The bar is optional, so every existing
+`judge.yaml` loads and gates as it did.
+
+Run through the CLI on exercise 10's workspace, the described judge at 90%
+against its 0.90 bar had caught 6 of 8 unsupported cases. It is reported
+without the bar and withheld with it:
+`unsupported 6 of 8 (75.0%) is below the agreed 87.5%`.
+
+The same work closed the gap the R7.29 live check found (spec 011, R11.23). A
+calibration stopped by an unreachable model had left its MLflow run RUNNING, and
+empty, forever. `failed_if_stopped` now closes a stopped run FAILED for both
+commands that open theirs before their work: `dossier run`, whose own block it
+replaced, and `dossier calibrate`. A server that fails to close is swallowed, so
+it never replaces the error that stopped the command (R10.6).
+
+The spec's first draft had a sync and a convert end FAILED too. Reading the code
+before building showed that both open their run only once their work is done, so
+the rows were corrected before a line was written. Live against MLflow 3.15.1
+with the model unreachable, the calibrate run is now FAILED.
+
+---
+
 What playground exercise 15 found, fixed (R2.23, R2.24, R6.21, R8.20 row 7,
 R1.18 row 6). Writing an exercise against a real Confluence turned up two
 things the suite had called MET. Sync asks for a page's files only when the
