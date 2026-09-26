@@ -145,15 +145,20 @@ class TestConvertReportsWhatItDid:
         assert "3 failed" in result.output
         assert "unexpected end of file" in result.output
 
-    def test_an_unclaimed_media_type_stops_the_command(self, synced: Path, monkeypatch):
-        """The CLI half of R8.5: a configuration error, not a per-document one.
+    def test_an_unclaimed_declared_pair_stops_the_command(self, synced: Path, monkeypatch):
+        """The CLI half of R8.24: a configuration error, not a per-document one.
 
         The message has to survive the trip through the CLI intact -- naming the
         document, the type and the entry point group -- because that is where a
-        person actually reads it.
+        person actually reads it. The source declares its kind: a default kind
+        nothing claims fails its own document instead (R8.25).
         """
         import dossier.infrastructure.converters.registry as registry
 
+        sources = synced / "sources.yaml"
+        sources.write_text(
+            sources.read_text(encoding="utf-8") + "    convert: [markdown]\n", encoding="utf-8"
+        )
         monkeypatch.setattr(registry, "entry_points", lambda group: [])
 
         result = _run(synced, monkeypatch, "convert", PIPELINE)
