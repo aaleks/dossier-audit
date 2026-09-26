@@ -619,16 +619,20 @@ stopped the command then goes on exactly as before. The command exits with the
 same error and the same code, because the record is about the command, and
 closing it never changes what the command did.
 
-Two commands can stop with a run open, because only two open theirs before the
-work they record: `dossier run`, whose traces are written while its steps run
-(R11.1), and `dossier calibrate`, whose traces are written case by case
-(R11.5). `sync`, `convert`, `eval` and a comparison open their run once their
-work is done, to record what it came to (R11.4, R11.3). So nothing that stops
-their work can leave a run open.
+Three commands can stop with a run open, because only three open theirs before
+the work they record: `dossier run`, whose traces are written while its steps
+run (R11.1); `dossier calibrate`, whose traces are written case by case
+(R11.5); and `dossier eval`, whose judge's traces sit inside its run (R7.18 row
+5). This rule first named two, and said an eval opened its run once its work was
+done. Reading the code for R9.20 showed otherwise: an eval opens its run before
+it asks the judge, so a judge nobody could reach left the run `RUNNING`. `sync`,
+`convert` and a comparison do open their run once their work is done, to record
+what it came to (R11.4, R11.8). So nothing that stops their work can leave a run
+open.
 
 - **Kind:** deterministic
-- **Layer:** application (`dossier.application.eval.calibrate_fields`, `dossier.application.run.execute`)
-- **Proved by:** `tests/unit/test_R011_23__a_stopped_command_closes_its_run_as_failed.py`
+- **Layer:** application (`dossier.application.eval.calibrate_fields`, `dossier.application.run.execute`), cli (`dossier.cli.main.eval_`)
+- **Proved by:** `tests/unit/test_R011_23__a_stopped_command_closes_its_run_as_failed.py`, `tests/acceptance/test_R011_23__an_eval_that_stops_closes_its_run_as_failed.py`
 - **Status:** MET
 
 | # | Given | Then |
@@ -639,3 +643,6 @@ their work can leave a run open.
 | 4 | *counter-example* — `dossier sync incident-audit`, interrupted inside a source | no run at all: a sync opens its run only once its sources have answered, to record their counts (R11.4), so there is nothing to close |
 | 5 | *counter-example* — `dossier calibrate` on a 19-case sample | no run at all: refused before one was opened (R11.5 row 4) |
 | 6 | *counter-example* — closing the run fails too, the server gone | the command's own error is the one it fails with; a lost record never changes a command's outcome (R10.6) |
+| 7 | `dossier eval incident-audit --gold gold/incidents`, a `root_cause` verdict not in the cache, and the judge unreachable | the eval run ends `FAILED`; the command still fails with R9.20's line and exit 2 |
+| 8 | the same eval, interrupted while the judge is asked | the eval run ends `FAILED`, and the interrupt goes on |
+| 9 | *counter-example* — `dossier eval incident-audit --gold gold/incidents --compare 20260806T142203Z-4f1a 20260907T090000Z-bbbb`, the judge unreachable | no run at all: a comparison opens its run only once both sides are scored (R11.8 row 4), so there is nothing to close |
