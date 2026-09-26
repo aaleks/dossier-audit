@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.23
 
 ## Purpose
@@ -629,7 +629,7 @@ their work can leave a run open.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.calibrate_fields`, `dossier.application.run.execute`)
 - **Proved by:** `tests/unit/test_R011_23__a_stopped_command_closes_its_run_as_failed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
