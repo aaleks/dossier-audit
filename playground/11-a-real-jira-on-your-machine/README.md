@@ -406,7 +406,7 @@ source are the document is a fact about the source.
 > **Uninstall the package when you are done.** With it installed, two converters
 > claim one pair. Any workspace that names neither refuses to convert, and none
 > of the workspaces the test suite builds names either. Leaving it installed
-> turns the default suite red, as exercise 03's package does.
+> turns the default suite red, as exercise 03's did until it was opt-in.
 > `uv pip uninstall dossier-jira-playground`, then take the `converters:` line
 > out of this workspace's `sources.yaml`. A name that no installed package
 > provides is refused by every command that plans or converts.

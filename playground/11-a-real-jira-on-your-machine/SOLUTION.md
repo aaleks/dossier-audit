@@ -622,7 +622,7 @@ $ echo $?
 `PLAY-1/postmortem.md` is refused too, and neither converter claims
 `text/markdown`. `select` checks every installed claim before it looks up the
 pair it was asked about, so a tie anywhere stops every document. Exercise 03's
-last task ran into the same refusal, and so do the repository's tests (see
+task 2 ran into the same refusal, and so do the repository's tests (see
 below).
 
 `solution/workspace/sources.yaml` settles it, beside `sources:` rather than

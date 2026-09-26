@@ -1,29 +1,28 @@
 [project]
 name = "dossier-html-playground"
-version = "0.1.0"
-description = "Playground converters: a wiki HTML export, and a CSV register, each read as markdown."
+version = "0.2.0"
+description = "Playground converters: a wiki's HTML export without its breadcrumb, and a CSV register as a table."
 requires-python = ">=3.12"
 
-# The point of the exercise. Neither converter needs anything outside the
-# standard library, which is deliberate: the entry-point mechanism is what makes
-# a converter a package somebody installs rather than an edit to `dossier`
-# (R8.7), and it costs nothing when the converter is small. The argument for it
-# is easiest to see where the converter is *large* -- `dossier`'s own PDF pair
-# ships behind the `pdf` extra, through this same group, because PDFium has its
-# own release cadence and pinning every installation to it is the coupling R8.7
-# exists to avoid.
+# Neither converter needs anything outside the standard library, which is
+# deliberate: the entry-point mechanism is what makes a converter a package
+# somebody installs rather than an edit to `dossier` (R8.7), and it costs nothing
+# when the converter is small. `dossier`'s own `html-markdown` reads HTML with
+# markdownify and BeautifulSoup, pinned exactly because what a library writes is
+# inside the artifact. A converter built on the standard library pins nothing,
+# and its version has to cover the interpreter instead.
 dependencies = []
 
 # How dossier finds a converter: the entry point group, and nothing else. There
 # is no list inside dossier to add to, and no match statement to extend.
 #
-# Two entries, two pairs, one package. A pair matches at most one converter, so
-# claiming a pair something installed already claims is refused rather than
-# resolved by installation order -- see `_claims` in
-# `src/dossier/domain/conversion.py`, and the last task of this exercise.
+# Two entries, two pairs, one package -- and both pairs are ones `dossier`
+# already answers. Each converter therefore has an id of its own, since two
+# claims are told apart by id and version, and each is opt-in, so it answers only
+# in a workspace whose sources.yaml names it (R8.13).
 [project.entry-points."dossier.converters"]
-html-markdown = "dossier_html_playground.html_export:HtmlMarkdownConverter"
-csv-markdown = "dossier_html_playground.csv_table:CsvMarkdownConverter"
+play-html-markdown = "dossier_html_playground.html_export:HtmlMarkdownConverter"
+play-csv-table = "dossier_html_playground.csv_table:CsvTableConverter"
 
 [build-system]
 requires = ["hatchling"]

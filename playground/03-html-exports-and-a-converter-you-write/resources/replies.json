@@ -1,0 +1,19 @@
+{
+  "_comment": [
+    "For task 3's optional check, which counts model calls and reads no answers.",
+    "No rule matches anything, so every call gets the default: all four fields",
+    "null, each with a reason. A null with a reason is a valid answer (R6.5), so",
+    "nothing fails, nothing is retried, and the call log grows by exactly one line",
+    "for each document a step actually asks about."
+  ],
+  "rules": [],
+  "default": {
+    "document": "unknown",
+    "fields": [
+      {"field": "loss_amount", "value": null, "reason": "the stub reads no document", "confidence": "low"},
+      {"field": "resolution_date", "value": null, "reason": "the stub reads no document", "confidence": "low"},
+      {"field": "severity", "value": null, "reason": "the stub reads no document", "confidence": "low"},
+      {"field": "affected_systems", "value": null, "reason": "the stub reads no document", "confidence": "low"}
+    ]
+  }
+}

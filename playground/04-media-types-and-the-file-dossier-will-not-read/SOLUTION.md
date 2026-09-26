@@ -6,9 +6,10 @@ output it produced.
 ## Run the prepared answer
 
 Nothing is installed for this exercise. If you still have exercise 03's converter
-package in the environment, uninstall it first — otherwise the claimed pairs in
-every message below are two longer than what you see here, which is itself the
-last lesson of exercise 03.
+package in the environment, uninstall it first, unless both its converters are
+opt-in. One that is not claims a pair `dossier` already answers, and every
+`convert` below would then refuse, although nothing here is HTML or CSV. That is
+exercise 03's task 2.
 
 ```bash
 mkdir -p playground/work/04/inbox/notes
