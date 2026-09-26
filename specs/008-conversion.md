@@ -860,7 +860,7 @@ installed. Where a source says which files it wants read is open question 5.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.conversion.select`)
 - **Proved by:** `tests/unit/test_R008_25__a_default_pair_nothing_claims_fails_its_document.py`, `tests/acceptance/test_R008_25__a_file_nothing_converts_no_longer_stops_its_source.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

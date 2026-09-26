@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from dossier.domain.conversion import NoConverter, UnclaimedDefault, select
+from dossier.domain.conversion import NoConverter, UnclaimedDefault, select, used
 
 ALERTS = "application/json"
 
@@ -137,3 +137,26 @@ class TestTheRestOfTheSourceConverts:
         """
         with pytest.raises(NoConverter):
             _convert(tmp_path, converters=[HtmlMarkdown()], kinds=["markdown"])
+
+
+class TestAManifestPinsWhatAnswered:
+    """R8.25 row 2 — what a run pins when one document had no converter."""
+
+    def test_the_json_pins_nothing_and_the_page_pins_its_converter(self):
+        """Row 2: the one where the manifest agrees with what was read.
+
+        No converter read the JSON, so none is part of what the run depended on
+        (R8.9). Refusing here instead is what stopped `dossier run` after
+        `dossier convert` had already stopped refusing.
+        """
+        pinned = used(
+            requests=[("text/html", None), (ALERTS, None)],
+            available=[HtmlMarkdown()],
+        )
+
+        assert [converter.id for converter in pinned] == ["html-markdown"]
+
+    def test_a_declared_pair_nothing_claims_is_still_refused(self):
+        """Counter-example (row 4): the one where the kind was written down."""
+        with pytest.raises(NoConverter):
+            used(requests=[(ALERTS, ["markdown"])], available=[HtmlMarkdown()])
