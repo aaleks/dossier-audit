@@ -295,7 +295,7 @@ def select(
     """
     wanted = [default_kind(media_type)] if kinds is None else list(kinds)
     unclaimed = NoConverter if kinds is not None else UnclaimedDefault
-    claimed = _claims(available)
+    claimed = claims(available)
 
     chosen: list[Converter] = []
     for kind in wanted:
@@ -346,7 +346,7 @@ def used(
     return [chosen[identity] for identity in sorted(chosen)]
 
 
-def _claims(available: Sequence[Converter]) -> dict[tuple[str, str], Converter]:
+def claims(available: Sequence[Converter]) -> dict[tuple[str, str], Converter]:
     """One converter per pair, or a refusal naming the ones that disagree.
 
     A dict comprehension would keep the last, which is installation order on that

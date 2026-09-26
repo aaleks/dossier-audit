@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 
 from pydantic import BaseModel, ConfigDict
 
-from dossier.domain.conversion import NoConverter, UnclaimedDefault, select
+from dossier.domain.conversion import NoConverter, UnclaimedDefault, claims, select
 from dossier.domain.keys import ConvertInputs, cache_key, provenance
 from dossier.domain.ports import ArtifactStore, Converter, SnapshotReader
 
@@ -245,6 +245,11 @@ def _resolve_converters(
     asked for that file to be read, so it fails alone and the rest convert
     (R8.25).
     """
+    # Two converters claiming one pair is an installation to settle, whatever
+    # any document is and whoever chose its kind: refused once, as that, and
+    # not as every document of the source having no converter (R8.24 row 5).
+    claims(converters)
+
     plan: dict[str, list[Converter]] = {}
     unread: dict[str, str] = {}
     unclaimed: list[str] = []

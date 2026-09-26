@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.25
 
 ## Purpose
@@ -833,7 +833,7 @@ the default table is R8.25's.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.convert`)
 - **Proved by:** `tests/unit/test_R008_24__a_declared_pair_nothing_claims_stops_the_run.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
