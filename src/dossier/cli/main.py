@@ -1137,10 +1137,20 @@ def _execute(
     # (R4.9 row 4). Before any step runs, so the warning is read, not scrolled.
     previous, previous_id = latest_manifest(workspace / "runs", pipeline)
     if previous is not None:
-        moved = moved_since(previous.documents, documents)
-        if moved:
-            listed = ", ".join(f"{key} {how}" for key, how in moved.items())
-            typer.echo(f"warning: the source has moved since run {previous_id}: {listed}")
+        # The procedures too, marked as context: every call reading `reference`
+        # is shown them, so a tightened one is evidence that moved (R4.9 row 5).
+        # Named only by `--plan` and the manifest, it went unmentioned by the
+        # run, until two runs were compared.
+        listed = [
+            f"{key} {how}" for key, how in moved_since(previous.documents, documents).items()
+        ] + [
+            f"{key} {how} (reference)"
+            for key, how in moved_since(previous.reference, reference_documents).items()
+        ]
+        if listed:
+            typer.echo(
+                f"warning: the source has moved since run {previous_id}: {', '.join(listed)}"
+            )
 
     try:
         report = execute(

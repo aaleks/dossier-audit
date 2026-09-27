@@ -82,7 +82,7 @@ steps:
 
 ```console
 $ dossier run incident-verify
-run 20260927T112319Z-fc81 · runs/20260927T112319Z-fc81/manifest.json
+run 20260927T152538Z-291a · runs/20260927T152538Z-291a/manifest.json
   extract: 2 document(s) · 0 from cache · 0 failed · tokens not reported
   verify: 2 document(s) · 0 from cache · 0 failed · tokens not reported
 ```
@@ -153,17 +153,24 @@ ledger updated · 1 new snapshots · 0 tombstoned
 
 $ dossier run incident-verify --plan
 incident-verify  2 document(s) · model openai:gpt-5.4-mini
-compared against 20260927T112319Z-fc81
+compared against 20260927T152538Z-291a
   extract: cached
 ! verify: documents changed
       moved: [PLAY-6001.md changed]
 1 of 2 step(s) would run · nothing written
 
 $ dossier run incident-verify
-run 20260927T112323Z-cfa9 · runs/20260927T112323Z-cfa9/manifest.json
+warning: the source has moved since run 20260927T152538Z-291a: PLAY-6001.md re-snapshotted (reference)
+run 20260927T152541Z-e3d3 · runs/20260927T152541Z-e3d3/manifest.json
   extract: 2 document(s) · 2 from cache · 0 failed
   verify: 2 document(s) · 0 from cache · 0 failed · tokens not reported
 ```
+
+**The warning** names the procedure, marked `(reference)`, before any step
+runs. A new run reads what is held now, and this line is the one moment it
+says that two runs are no longer over the same evidence (R4.9 row 5). No
+incident moved, so a warning that compared only audited documents would have
+said nothing. It did, until R4.9 row 5.
 
 Two new calls, both `verify`'s:
 
@@ -191,25 +198,29 @@ out of `inbox/procedures/` and synced (the sync reports it `tombstoned`):
 ```console
 $ dossier run incident-verify --plan
 incident-verify  2 document(s) · model openai:gpt-5.4-mini
-compared against 20260927T112330Z-110a
+compared against 20260927T152548Z-866a
   extract: cached
 ! verify: documents changed
       moved: [PLAY-6002.md gone]
 1 of 2 step(s) would run · nothing written
+
+$ dossier run incident-verify
+warning: the source has moved since run 20260927T152548Z-866a: PLAY-6002.md gone (reference)
 ```
 
 An incident that leaves the source takes only its own keys with it, so a plan
 does not report it. A procedure was shown to every `verify` call, so every one
-of those keys moves when it goes (R4.17 row 3).
+of those keys moves when it goes (R4.17 row 3). The run's warning names it the
+same way (R4.9 row 5).
 
 ## Task 4 — replay the first run
 
 ```console
-$ dossier run --replay runs/20260927T112319Z-fc81
-replayed 20260927T112319Z-fc81 · incident-verify
+$ dossier run --replay runs/20260927T152538Z-291a
+replayed 20260927T152538Z-291a · incident-verify
   extract: 2 artifact(s) from cache
   verify: 2 artifact(s) from cache
-4 artifact(s) reproduced · no model calls · written to runs/20260927T112319Z-fc81/replays/20260927T112324Z-991d/
+4 artifact(s) reproduced · no model calls · written to runs/20260927T152538Z-291a/replays/20260927T152542Z-88fa/
 ```
 
 **The old text** came from the manifest's `reference` list, which pins
@@ -230,7 +241,7 @@ never asks the ledger (R4.16, R4.7).
 ```console
 $ rm -rf .dossier/cache/stage/
 $ dossier run incident-verify
-run 20260927T112330Z-110a · runs/20260927T112330Z-110a/manifest.json
+run 20260927T152548Z-866a · runs/20260927T152548Z-866a/manifest.json
   extract: 2 document(s) · 0 from cache · 0 failed · 2 finding(s) · tokens not reported
     PLAY-1001.md  escalation_limit: cites 'PLAY-6001.md', which was not an input to this stage. Inputs were ['PLAY-1001.md'] (R6.3).
     PLAY-1002.md  loss_amount: cites 'PLAY-1001.md', which was not an input to this stage. Inputs were ['PLAY-1002.md'] (R6.3).
@@ -268,13 +279,3 @@ the model to fill in what the procedures say applies. The model, asked for a
 procedure it was not given, would have answered from what it remembers of
 procedures in general. So the pipeline is refused when it loads, as a step
 reading a kind no source makes is (R4.13, R3.18 row 4).
-
----
-
-## What the log does not show
-
-`dossier run` warns when the source has moved since the last run
-(`warning: the source has moved since run …`, R4.9 row 4). It did not warn in
-task 3, though the procedure moved. That warning compares the audited
-documents only, and no rule yet says it should name a moved reference
-document too.
