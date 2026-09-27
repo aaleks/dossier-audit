@@ -1,6 +1,6 @@
 # 003 — Configuration format
 
-**Status:** Implemented
+**Status:** Partially implemented
 **Rules:** R3.1 – R3.16
 
 ## Purpose
@@ -86,7 +86,7 @@ steps:
 | Value | Resolves to |
 |---|---|
 | `documents` | Converted documents from `sources` |
-| `reference` | Converted documents from `reference` |
+| `reference` | Converted documents from `reference`: context shown to every call, never audited (R3.17, R3.18) |
 | `<step id>` | That step's outputs |
 | `previous` | The immediately preceding step (sugar — see spec 004) |
 | `previous(n)` | The preceding `n` steps (sugar — see spec 004) |
@@ -598,6 +598,69 @@ member's key, as it gets each member's text.
 | 2 | `report` in `aggregate` mode, `input: verify` | accepted; it reads every group's answer, each under its group's name |
 | 3 | `verify` in `per_file` mode, `input: [documents, extract]`, `extract` in `per_group` mode | a load-time error naming both steps and both modes, before any work |
 | 4 | *counter-example* — `combine` in `per_group` mode reading `extract` in `per_file` mode | accepted; each group's call holds its members' answers, each under the member's key |
+
+### R3.17 — a `reference` document is context and is never audited: no step is asked about it, and nothing is filed under its key
+
+`reference:` names the sources a pipeline reads as context, not the documents it
+audits. The example at the top of this spec verifies incidents against an
+escalation procedure. Until this rule the run put reference documents in with
+the audited ones. A `per_file` step was asked about `OPS-114` as though it were an
+incident, and filed `extract/OPS-114.json`. An `aggregate` step's `{{documents}}`
+held the procedures among the incidents. A procedure has no loss amount, so each
+of those calls answered a question nobody asked. Each was paid for, and no gold
+answer could ever score it.
+
+The audited documents are the documents of `sources:`, and a step fans out over
+them alone: per document, per part or per group. A source listed under both
+`sources:` and `reference:` is read both ways. R4.10 row 4 already allows that
+listing.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run.execute`), cli (`dossier.cli.main.run`)
+- **Proved by:** `tests/unit/test_R003_17__a_reference_document_is_never_audited.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `sources: [incidents-jira]` holding `INC-4821` and `INC-4822`, `reference: [procedures-confluence]` holding `OPS-114`, `extract` in `per_file` mode over `documents` | two model calls; `extract/INC-4821.json` and `extract/INC-4822.json`, no `extract/OPS-114.json`; `extract: 2 document(s)` |
+| 2 | `report` in `aggregate` mode over `documents` | `{{documents}}` holds `INC-4821` and `INC-4822`, and not `OPS-114` |
+| 3 | `extract` in `per_group` mode | groups `INC-4821` and `INC-4822`; `OPS-114` is in no group |
+| 4 | *counter-example* — one source listed under both `sources:` and `reference:` | its documents are audited, and are reference documents as well |
+
+### R3.18 — `{{reference}}` holds every reference document, each under its own key in key order, whatever the step's mode
+
+Context is the same for every document it is context for. `OPS-114`, the
+escalation procedure, applies to `INC-4821` and `INC-4822` alike. So every
+`verify` call is shown all of `reference`, each document wrapped as R3.13 wraps
+any input, in key order as an `aggregate` step's documents are.
+
+Until this rule, `{{reference}}` was filled from the same per-document text as
+`{{documents}}`. In a `per_file` call it held the incident a second time, under
+the incident's key. No procedure reached any call, so a prompt that said
+"check this against the procedure" was answered without one.
+
+A step that reads `reference` in a pipeline that declares no `reference:` would
+be shown nothing. Its prompt would still call that nothing the context. So it is
+refused when the pipeline loads, as a step reading a kind nothing makes is
+refused (R4.13). R3.3 row 4 still holds: `reference` is a source keyword, and
+reading it in a pipeline that declares reference sources is ordinary.
+
+Every reference document goes into every call, and a large reference set is paid
+for once per audited document. That is the price of context the model is really
+shown. Narrowing it, per group or per step, is not this rule.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`), domain (`dossier.domain.pipeline.validate_references`)
+- **Proved by:** `tests/acceptance/test_R003_18__every_call_is_shown_every_reference_document.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `verify` in `per_file` mode over `INC-4821`, `input: [documents, extract, reference]`, reference `OPS-114`, `OPS-115` and `OPS-116` | `{{reference}}` holds `<document key="OPS-114">`, then `OPS-115`, then `OPS-116`, each with its converted text |
+| 2 | the call for `INC-4822` | the same `{{reference}}` value, byte for byte |
+| 3 | `report` in `aggregate` mode, `input: [verify, reference]` | the same three documents, once, in its one call |
+| 4 | a step reading `reference` in a pipeline that declares no `reference:` | a load-time error naming the step, before any work |
+| 5 | *counter-example* — `extract` with `input: documents` | no reference document anywhere in its prompt |
 
 ## Open questions
 
