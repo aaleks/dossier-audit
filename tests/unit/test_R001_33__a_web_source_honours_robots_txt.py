@@ -1,4 +1,4 @@
-"""R1.27 — a URL the host's `robots.txt` disallows for `dossier` is neither listed nor fetched.
+"""R1.33 — a URL the host's `robots.txt` disallows for `dossier` is neither listed nor fetched.
 
 Read with protego, as RFC 9309 reads it. An absent `robots.txt` allows
 everything; an unreadable one fails the listing rather than empty it, because
@@ -25,7 +25,7 @@ def keys(site: DocsSite) -> list[str]:
 
 
 class TestAWebSourceHonoursRobotsTxt:
-    """R1.27 — what the site asks not to be read is not read."""
+    """R1.33 — what the site asks not to be read is not read."""
 
     def test_a_disallowed_directory_is_not_listed(self):
         """Example 1: the one where `/ops/drafts/` is disallowed for everyone."""

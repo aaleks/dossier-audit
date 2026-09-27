@@ -1,4 +1,4 @@
-"""R1.28 — a web page is followed through redirects only within the source's `url`.
+"""R1.34 — a web page is followed through redirects only within the source's `url`.
 
 A redirect is checked before it is followed, so a login form or another site is
 never asked, and never stored as the page that was listed.
@@ -20,7 +20,7 @@ def moved(to: str, status: int = 301) -> httpx.Response:
 
 
 class TestAWebPageRedirectsOnlyWithinItsSource:
-    """R1.28 — inside `url`, five times at most."""
+    """R1.34 — inside `url`, five times at most."""
 
     def test_a_redirect_within_the_prefix_is_followed(self):
         """Example 1: the one where `escalation` moves to `escalation/`."""

@@ -1,4 +1,4 @@
-"""R1.23 — a web source lists every URL its sitemap names under its `url`, and nothing else.
+"""R1.29 — a web source lists every URL its sitemap names under its `url`, and nothing else.
 
 A sitemap index is followed to each sitemap it names on the same host. A sitemap
 that cannot be read fails the listing: the listing is complete, and an empty one
@@ -34,7 +34,7 @@ def keys(site: DocsSite) -> list[str]:
 
 
 class TestAWebSourceListsWhatItsSitemapNames:
-    """R1.23 — the sitemap under `url` is the listing."""
+    """R1.29 — the sitemap under `url` is the listing."""
 
     def test_every_page_under_the_prefix_is_listed_sorted_by_key(self):
         """Example 1: the one where `vendor-docs` lists its pages from its sitemap."""

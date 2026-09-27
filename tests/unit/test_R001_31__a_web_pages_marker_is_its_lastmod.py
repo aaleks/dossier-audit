@@ -1,4 +1,4 @@
-"""R1.25 — a web page's marker is its sitemap `<lastmod>`, and `None` without one.
+"""R1.31 — a web page's marker is its sitemap `<lastmod>`, and `None` without one.
 
 The marker is what R2.1 compares to decide whether to fetch. It is the string
 the sitemap wrote, never parsed and never a fetch time (R1.5).
@@ -19,7 +19,7 @@ def refs(pages: dict[str, str | None]):
 
 
 class TestAWebPagesMarkerIsItsLastmod:
-    """R1.25 — `<lastmod>` as written, or nothing."""
+    """R1.31 — `<lastmod>` as written, or nothing."""
 
     def test_a_lastmod_with_a_time_is_the_marker(self):
         """Example 1: the one where `escalation` was modified at 16:02 UTC."""

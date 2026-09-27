@@ -1,4 +1,4 @@
-"""R1.24 — a web page is keyed by its URL relative to the source's `url`, with `index`
+"""R1.30 — a web page is keyed by its URL relative to the source's `url`, with `index`
 for a directory.
 
 A key is also a file name under `runs/` (R0.11), and `runbooks/` is not one. The
@@ -20,7 +20,7 @@ def everything(url: str) -> bool:
 
 
 class TestAWebPageIsKeyedByItsRelativeUrl:
-    """R1.24 — relative to `url`, and a directory is `index`."""
+    """R1.30 — relative to `url`, and a directory is `index`."""
 
     @pytest.mark.parametrize(
         ("url", "key"),

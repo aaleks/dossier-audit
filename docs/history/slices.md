@@ -13,7 +13,7 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
-A `web` source reads a website from its sitemap (R1.23 – R1.28), with
+A `web` source reads a website from its sitemap (R1.29 – R1.34), with
 documentation sites as the case it was written against. One connector for
 every site: `url` is a prefix, the sitemap is the listing, a page is keyed by
 its URL relative to the prefix and marked by its `<lastmod>`, and
@@ -24,7 +24,7 @@ Scrapy, crawl4ai, trafilatura and ultimate-sitemap-parser were considered and
 declined (spec 001 records why); `protego` reads `robots.txt`, because the
 standard library's parser misreads wildcards. Not yet run against a real site:
 the environment it was built in could not reach one. Page chrome, sites
-without a sitemap, credentials and throttling are open questions 5 – 8.
+without a sitemap, credentials and throttling are open questions 6 – 10.
 
 `eval --compare` refuses two runs whose calls were shown different reference
 documents, by key or by snapshot (R7.35). R7.8 already refused different

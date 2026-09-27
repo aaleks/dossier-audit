@@ -1,4 +1,4 @@
-"""What a web source decides without asking the network (spec 001, R1.23 - R1.25).
+"""What a web source decides without asking the network (spec 001, R1.29 - R1.31).
 
 Which URLs a source's `url` covers, what each is keyed as, and what a sitemap
 says. Each is a pure function of strings and bytes, so the connector asks and
@@ -21,7 +21,7 @@ from urllib.parse import urldefrag, urlsplit
 DIRECTORY_INDEX = "index"
 
 # The first bytes of every gzip stream. A sitemap served compressed is read
-# compressed, whatever it is named and whatever header it came with (R1.23 row 3).
+# compressed, whatever it is named and whatever header it came with (R1.29 row 3).
 GZIP_MAGIC = b"\x1f\x8b"
 
 # The most a sitemap may hold uncompressed, as the sitemaps.org protocol sets it.
@@ -49,20 +49,20 @@ class Sitemap:
 def prefix(url: str) -> str:
     """The source's `url` read as a directory: `…/ops` and `…/ops/` are one scope.
 
-    Without the slash, `…/ops` would be a prefix of `…/opsx/guide` (R1.24 row 5).
+    Without the slash, `…/ops` would be a prefix of `…/opsx/guide` (R1.30 row 5).
     """
     url = urldefrag(url.strip()).url
     return url if url.endswith("/") else f"{url}/"
 
 
 def in_scope(url: str, scope: str) -> bool:
-    """Whether `url` is a page under `scope`, a `prefix` (R1.23).
+    """Whether `url` is a page under `scope`, a `prefix` (R1.29).
 
     The scheme and host must match, and the host case-insensitively as DNS reads
     it; the path must lie under the prefix's. A URL carrying a query is out: a
     query is how a site serves one page many ways, and none of them is its
-    address (R1.23 row 5). The fragment is dropped first, since it is not part of
-    an address at all (R1.24 row 6).
+    address (R1.29 row 5). The fragment is dropped first, since it is not part of
+    an address at all (R1.30 row 6).
     """
     url = urldefrag(url.strip()).url
     page, base = urlsplit(url), urlsplit(scope)
@@ -74,7 +74,7 @@ def in_scope(url: str, scope: str) -> bool:
 
 
 def page_key(url: str, scope: str) -> str:
-    """A page's key: its URL relative to `scope`, with `index` for a directory (R1.24).
+    """A page's key: its URL relative to `scope`, with `index` for a directory (R1.30).
 
     The path is kept as the sitemap spells it, percent-escapes included.
     Decoding it would be a second decision about what the site meant, and two
@@ -93,7 +93,7 @@ def page_key(url: str, scope: str) -> str:
 
 
 def same_host(url: str, other: str) -> bool:
-    """Whether two URLs name one host, whatever their scheme (R1.23 row 7, R1.28 row 4).
+    """Whether two URLs name one host, whatever their scheme (R1.29 row 7, R1.34 row 4).
 
     Where a sitemap index may point, and where a sitemap or `robots.txt` may
     redirect. The scheme is not compared: `http` answered with its `https` form
@@ -104,7 +104,7 @@ def same_host(url: str, other: str) -> bool:
 
 @dataclass(frozen=True)
 class Listed:
-    """A page in a listing: the URL it is fetched from, and its marker (R1.25)."""
+    """A page in a listing: the URL it is fetched from, and its marker (R1.31)."""
 
     url: str
     lastmod: str | None
@@ -112,7 +112,7 @@ class Listed:
 
 @dataclass(frozen=True)
 class Listing:
-    """A web source's pages by key, and what `robots.txt` kept out of them (R1.23, R1.27)."""
+    """A web source's pages by key, and what `robots.txt` kept out of them (R1.29, R1.33)."""
 
     pages: dict[str, Listed]
     disallowed: dict[str, str]
@@ -125,8 +125,8 @@ def listing(
 
     A URL named twice is one page, and the first `<lastmod>` given for it
     stands. Two different URLs that come to one key are refused: one key cannot
-    hold two pages, and holding either would silently lose the other (R1.24
-    row 7). A fragment is dropped before either comparison (R1.24 row 6).
+    hold two pages, and holding either would silently lose the other (R1.30
+    row 7). A fragment is dropped before either comparison (R1.30 row 6).
     """
     kept: dict[str, Listed] = {}
     disallowed: dict[str, str] = {}
@@ -144,19 +144,19 @@ def listing(
         elif held.url != url:
             raise ValueError(
                 f"{held.url} and {url} are both keyed {key!r} under {scope}; "
-                "one key cannot hold two pages (R1.24)"
+                "one key cannot hold two pages (R1.30)"
             )
     return Listing(pages=kept, disallowed=disallowed)
 
 
 def robots_answer(status: int) -> Literal["read", "allow_all", "refuse"]:
-    """What a `robots.txt` answered with `status` means for a listing (R1.27).
+    """What a `robots.txt` answered with `status` means for a listing (R1.33).
 
     Read when it was served. Absent -- any `4xx` -- allows everything, as RFC
     9309 says. Anything else is unreadable, which RFC 9309 reads as disallowing
     everything; a listing that obeyed would be empty, and an empty complete
     listing tombstones every page held, so the listing is refused instead
-    (R1.27 row 5).
+    (R1.33 row 5).
     """
     if 200 <= status < 300:
         return "read"
@@ -166,7 +166,7 @@ def robots_answer(status: int) -> Literal["read", "allow_all", "refuse"]:
 
 
 def sitemap(payload: bytes) -> Sitemap:
-    """The pages or child sitemaps one sitemap document names (R1.23, R1.25).
+    """The pages or child sitemaps one sitemap document names (R1.29, R1.31).
 
     Elements are matched by local name, so a sitemap that declares the
     `sitemaps.org` namespace and one that forgets to are read alike. A `<loc>`
@@ -175,7 +175,7 @@ def sitemap(payload: bytes) -> Sitemap:
 
     Raises `ValueError` for anything that is not a sitemap: a listing built
     from a page of HTML would be empty, and an empty complete listing tombstones
-    everything the source holds (R1.23 row 6).
+    everything the source holds (R1.29 row 6).
     """
     if payload.startswith(GZIP_MAGIC):
         payload = _gunzipped(payload)
@@ -205,12 +205,12 @@ def sitemap(payload: bytes) -> Sitemap:
 
 
 def lastmod_time(lastmod: str | None) -> datetime | None:
-    """A `<lastmod>` as a time, or `None` when it does not read as one (R1.25).
+    """A `<lastmod>` as a time, or `None` when it does not read as one (R1.31).
 
     The W3C forms a sitemap uses: a date alone is midnight UTC that day, and a
     time without an offset is taken as UTC rather than as this machine's zone
     (R0.4). `updated_at` is advisory, so an unreadable one is absent, never a
-    guess; the marker itself is the string, and is never parsed (R1.25 row 5).
+    guess; the marker itself is the string, and is never parsed (R1.31 row 5).
     """
     if not lastmod:
         return None

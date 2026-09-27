@@ -1,4 +1,4 @@
-"""R1.26 — a web page is labelled with the media type its `Content-Type` header states.
+"""R1.32 — a web page is labelled with the media type its `Content-Type` header states.
 
 What the server said wins over what the URL's name suggests (R2.16), and the
 bytes are kept as sent (R1.2).
@@ -19,7 +19,7 @@ def fetched(key: str, site: DocsSite):
 
 
 class TestAWebPageIsLabelledAsItsServerSays:
-    """R1.26 — `Content-Type`, canonical, and nothing else."""
+    """R1.32 — `Content-Type`, canonical, and nothing else."""
 
     def test_an_html_page_is_text_html_and_its_bytes_as_sent(self):
         """Example 1: the one where `escalation` is served `text/html; charset=utf-8`."""

@@ -1,9 +1,9 @@
-"""The web connector: a website, read from its sitemap (spec 001, R1.23 - R1.28).
+"""The web connector: a website, read from its sitemap (spec 001, R1.29 - R1.34).
 
 One connector for every website. A site is a `url` in
 `sources.yaml`, never code: the pages under it are what its sitemap names
-(R1.23), each keyed by its URL relative to `url` (R1.24) and marked by its
-`<lastmod>` (R1.25). What a sitemap says, and which URLs a source covers, are
+(R1.29), each keyed by its URL relative to `url` (R1.30) and marked by its
+`<lastmod>` (R1.31). What a sitemap says, and which URLs a source covers, are
 decided in `dossier.domain.web`; this module asks.
 
 Reads, and only reads (R1.1). Every request is a `GET`, and there is no other
@@ -36,10 +36,10 @@ from dossier.domain.web import (
     sitemap,
 )
 
-# Who `dossier` says it is, to the server and to its `robots.txt` (R1.27).
+# Who `dossier` says it is, to the server and to its `robots.txt` (R1.33).
 USER_AGENT = "dossier"
 
-# How many redirects a request follows before it is refused (R1.28 row 2).
+# How many redirects a request follows before it is refused (R1.34 row 2).
 MAX_REDIRECTS = 5
 
 # Generous, and bounded, as the Jira connector's is: a server that never
@@ -62,7 +62,7 @@ class WebKeys(BaseModel):
     """The keys a `web` source takes beyond the shared ones (R1.10).
 
     `url` is the prefix the source covers, read as a directory whether or not it
-    ends in `/` (R1.24 row 5). `sitemap` is where its pages are listed from;
+    ends in `/` (R1.30 row 5). `sitemap` is where its pages are listed from;
     absent, it is the host's own `/sitemap.xml`.
     """
 
@@ -89,7 +89,7 @@ class WebConnector:
 
     # A sitemap names every page each time it is read, and `since` narrows
     # nothing: every listing is complete, and a page gone from it is
-    # tombstoned (R1.11, R1.23 row 4).
+    # tombstoned (R1.11, R1.29 row 4).
     lists_everything = True
 
     def __init__(
@@ -107,14 +107,14 @@ class WebConnector:
         self._robots: Any | None = None
         # Each key's URL and marker, as the last listing gave them. `fetch`
         # needs the URL, and a key alone cannot say whether `runbooks/index`
-        # was `…/runbooks/` or `…/runbooks/index` (R1.24).
+        # was `…/runbooks/` or `…/runbooks/index` (R1.30).
         self._pages: dict[str, Listed] | None = None
         # What robots.txt kept out of that listing, so that a fetch of one says
-        # why rather than that it was never there (R1.27 row 2).
+        # why rather than that it was never there (R1.33 row 2).
         self._disallowed: dict[str, str] = {}
 
     def list(self, since: datetime | None = None) -> Iterator[ItemRef]:
-        """Every page the sitemap names under `url`, sorted by key (R1.23).
+        """Every page the sitemap names under `url`, sorted by key (R1.29).
 
         `since` is accepted and ignored: a sitemap is read whole, and returning
         more than asked is always allowed (R1.4). The listing is settled before
@@ -131,7 +131,7 @@ class WebConnector:
             )
 
     def fetch(self, key: str) -> RawItem:
-        """The page at `key`, byte for byte, labelled as its server said (R1.2, R1.26).
+        """The page at `key`, byte for byte, labelled as its server said (R1.2, R1.32).
 
         A key this connector has not listed yet is looked up by listing: sync
         may ask again for a key whose fetch failed without listing it first
@@ -143,7 +143,7 @@ class WebConnector:
         if key in self._disallowed:
             raise WebRequestFailed(
                 f"{self._disallowed[key]} is disallowed for {USER_AGENT!r} by "
-                f"{self._site}/robots.txt, and is not fetched (R1.27)"
+                f"{self._site}/robots.txt, and is not fetched (R1.33)"
             )
         listed = pages.get(key)
         if listed is None:
@@ -154,7 +154,7 @@ class WebConnector:
         response = self._get(
             listed.url,
             may_follow=lambda target: in_scope(target, self._scope),
-            refused=f"outside {self._scope}, which this source covers (R1.28)",
+            refused=f"outside {self._scope}, which this source covers (R1.34)",
         )
         if not response.is_success:
             raise WebRequestFailed(
@@ -168,7 +168,7 @@ class WebConnector:
         )
 
     def attachments(self, key: str) -> Iterator[AttachmentRef]:
-        """Nothing: a web page carries no files (R1.26 row 3).
+        """Nothing: a web page carries no files (R1.32 row 3).
 
         A file it links to is an item of its own when the sitemap names it, and
         otherwise is not held.
@@ -190,7 +190,7 @@ class WebConnector:
         return listed.pages
 
     def _sitemap_pages(self):
-        """The pages of the sitemap and of every sitemap it indexes on the same host (R1.23)."""
+        """The pages of the sitemap and of every sitemap it indexes on the same host (R1.29)."""
         queue, seen = [self._sitemap], {self._sitemap}
         while queue:
             url = queue.pop(0)
@@ -203,7 +203,7 @@ class WebConnector:
                 raise WebRequestFailed(
                     f"GET {url} answered {response.status_code} {response.reason_phrase}; "
                     "a web source is listed from its sitemap, and nothing is tombstoned "
-                    "without one (R1.23)"
+                    "without one (R1.29)"
                 )
             try:
                 read = sitemap(response.content)
@@ -216,7 +216,7 @@ class WebConnector:
                     queue.append(child)
 
     def _robots_txt(self):
-        """The host's `robots.txt`, read once for this connector (R1.27).
+        """The host's `robots.txt`, read once for this connector (R1.33).
 
         Absent (`4xx`) allows everything, as RFC 9309 says. Unreadable (`5xx`,
         or no answer) fails the listing: RFC 9309 reads it as disallowing
@@ -240,7 +240,7 @@ class WebConnector:
         else:
             raise WebRequestFailed(
                 f"GET {url} answered {response.status_code} {response.reason_phrase}; "
-                "an unreadable robots.txt disallows everything, so nothing is listed (R1.27)"
+                "an unreadable robots.txt disallows everything, so nothing is listed (R1.33)"
             )
         return self._robots
 
@@ -250,7 +250,7 @@ class WebConnector:
         The only verb this connector has. httpx follows the redirects; a
         request hook sees each hop before it is sent, so a page that sends
         `dossier` to a login form or another site is refused without asking
-        either (R1.28).
+        either (R1.34).
         """
         import httpx
 
@@ -275,7 +275,7 @@ class WebConnector:
                 ) from None
             except httpx.TooManyRedirects:
                 raise WebRequestFailed(
-                    f"GET {url} redirected more than {MAX_REDIRECTS} times (R1.28)"
+                    f"GET {url} redirected more than {MAX_REDIRECTS} times (R1.34)"
                 ) from None
             except httpx.HTTPError as error:
                 raise WebRequestFailed(f"GET {url} failed: {error}") from None
@@ -287,7 +287,7 @@ class WebConnector:
         """Build from a `sources.yaml` entry (the entry-point contract).
 
         `credential` is accepted and unused: every request is anonymous (spec
-        001, open question 7). Taking the argument keeps every connector built
+        001, open question 8). Taking the argument keeps every connector built
         the same way (R1.7).
         """
         url = config.options.get("url")
