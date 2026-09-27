@@ -1,6 +1,6 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R6.1 – R6.22
 
 ## Purpose
@@ -603,9 +603,9 @@ group's and no member's is invalid rather than ungrounded, as a document the cal
 never read is (R6.3): there is no text in which a span could be found or not.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.grounding.check_source`)
+- **Layer:** domain (`dossier.domain.grounding.check_field`), application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R006_22__a_group_field_cites_a_member.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
