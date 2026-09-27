@@ -19,7 +19,7 @@
   "rules": [
     {
       "_comment": "PLAY-3001-checkout-latency-apm.pdf \u00b7 page 1 of 1 \u00b7 four grounded fields and one described",
-      "image": "8b45f6bad003",
+      "image": "40b7b9b93532",
       "reply": {
         "document": "PLAY-3001-checkout-latency-apm.pdf",
         "fields": [
@@ -69,7 +69,7 @@
     },
     {
       "_comment": "PLAY-3002-jvm-heap-grafana.pdf \u00b7 page 1 of 1 \u00b7 four grounded fields and one described",
-      "image": "58bd4966e673",
+      "image": "4fb16bec73ac",
       "reply": {
         "document": "PLAY-3002-jvm-heap-grafana.pdf",
         "fields": [
@@ -119,7 +119,7 @@
     },
     {
       "_comment": "PLAY-3003-kibana-error-spike.pdf \u00b7 page 1 of 1 \u00b7 four grounded fields and one described",
-      "image": "25a145355f1c",
+      "image": "b9c3566ad7e0",
       "reply": {
         "document": "PLAY-3003-kibana-error-spike.pdf",
         "fields": [
@@ -169,7 +169,7 @@
     },
     {
       "_comment": "PLAY-3004-batch-overlap-throughput.pdf \u00b7 page 1 of 1 \u00b7 four grounded fields and one described",
-      "image": "82df9d998b91",
+      "image": "37caf83e0114",
       "reply": {
         "document": "PLAY-3004-batch-overlap-throughput.pdf",
         "fields": [
@@ -219,7 +219,7 @@
     },
     {
       "_comment": "PLAY-3005-weekly-incident-review.pdf \u00b7 page 1 of 4 \u00b7 the summary. No panel, so no figure.",
-      "image": "8dca0848c2eb",
+      "image": "a2d2bbd691ef",
       "reply": {
         "document": "PLAY-3005-weekly-incident-review.pdf",
         "fields": [
@@ -260,7 +260,7 @@
     },
     {
       "_comment": "PLAY-3005-weekly-incident-review.pdf \u00b7 page 2 of 4 \u00b7 the latency panel. Nothing this schema asks for is on it, and an empty answer is the honest one.",
-      "image": "a596274bb96a",
+      "image": "5ae908cb70c5",
       "reply": {
         "document": "PLAY-3005-weekly-incident-review.pdf",
         "fields": []
@@ -268,7 +268,7 @@
     },
     {
       "_comment": "PLAY-3005-weekly-incident-review.pdf \u00b7 page 3 of 4 \u00b7 the memory panel. Nothing this schema asks for is on it, and an empty answer is the honest one.",
-      "image": "2b840f5b3228",
+      "image": "000b9fe7d5a9",
       "reply": {
         "document": "PLAY-3005-weekly-incident-review.pdf",
         "fields": []
@@ -276,7 +276,7 @@
     },
     {
       "_comment": "PLAY-3005-weekly-incident-review.pdf \u00b7 page 4 of 4 \u00b7 the error panel, which carries the figure",
-      "image": "2e2bbd3f3426",
+      "image": "b4599c6cc3e3",
       "reply": {
         "document": "PLAY-3005-weekly-incident-review.pdf",
         "fields": [
