@@ -157,3 +157,28 @@ class TestAPerGroupStepIsAskedOncePerGroup:
         assert sorted(shown) == [keys[:3], keys[3:]]
         (step,) = report.steps
         assert [result.document for result in step.results] == ["ACME-2024", "GLOBEX-2023"]
+
+
+class TestAPerGroupStepLineCountsGroups:
+    """R3.15 row 1 — the step line counts what the step asked about."""
+
+    def test_a_per_group_step_line_counts_groups(self):
+        """The one where four documents are two contracts, said so.
+
+        `4 document(s)` would be what the run read and not what it asked
+        about; `2 document(s)` would be neither. The line counts the unit a
+        call was made for, as it always has -- a group, here.
+        """
+        from dossier.domain.tracking import step_line
+
+        line = step_line(step="extract", documents=2, cached=0, failed=0, unit="group")
+
+        assert line == "extract: 2 group(s) · 0 from cache · 0 failed"
+
+    def test_every_other_step_line_still_counts_documents(self):
+        """A counter-example: the one where the step did not ask for groups."""
+        from dossier.domain.tracking import step_line
+
+        line = step_line(step="extract", documents=4, cached=0, failed=0)
+
+        assert line == "extract: 4 document(s) · 0 from cache · 0 failed"

@@ -115,6 +115,9 @@ class StepReport:
     # produced three of them and a replay that said "1 reproduced" would be
     # describing something that did not happen (R4.14).
     parts: tuple[DocumentResult, ...] = ()
+    # What `results` holds one of: a document, or for a `per_group` step a
+    # group, which is what its line counts (R3.15 row 1).
+    unit: str = "document"
 
     @property
     def artifacts(self) -> int:
@@ -543,7 +546,12 @@ def execute(
                 every_part.extend(parts)
                 results.append(result)
             steps.append(
-                StepReport(step=step.id, results=tuple(results), parts=tuple(every_part))
+                StepReport(
+                    step=step.id,
+                    results=tuple(results),
+                    parts=tuple(every_part),
+                    unit="group" if declared[step.id].mode == "per_group" else "document",
+                )
             )
             produced[step.id] = {
                 result.document: _as_text(result) for result in results if not result.failed
@@ -587,6 +595,7 @@ def execute(
                         described=done.described,
                         findings=len(done.findings),
                         tokens=done.tokens,
+                        unit=done.unit,
                     )
                     for done in report.steps
                 ],

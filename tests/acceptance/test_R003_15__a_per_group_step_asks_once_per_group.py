@@ -27,13 +27,10 @@ import json
 import re
 from pathlib import Path
 
-import pytest
 from tests.acceptance.conftest import URI, _cli
 from tests.fakes import FakeTracker, register_connector
 from tests.pipelines import write_pipeline
 from tests.scoring_example import FIELDS, SOURCE_TYPE, IssueTracker, abstains
-
-pytestmark = pytest.mark.outer_loop
 
 PIPELINE = "contract-renewal"
 CONTRACTS = {
