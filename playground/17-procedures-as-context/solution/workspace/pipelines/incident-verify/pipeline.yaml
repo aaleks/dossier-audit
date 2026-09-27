@@ -1,0 +1,20 @@
+# Incidents audited, procedures as context. `verify` reads `reference`, so every
+# one of its calls is shown every procedure (R3.18); `extract` does not, and is
+# shown none.
+sources: [incidents]
+reference: [procedures]
+
+model: openai:gpt-5.4-mini
+
+steps:
+  - id: extract
+    prompt: prompts/01_extract.md
+    input: documents
+    mode: per_file
+    output: schemas/incident.yaml
+
+  - id: verify
+    prompt: prompts/02_verify.md
+    input: [documents, extract, reference]
+    mode: per_file
+    output: schemas/incident.yaml

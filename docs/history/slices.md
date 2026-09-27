@@ -37,6 +37,69 @@ until its container was capped with `mem_limit`.
 
 ---
 
+A `per_group` or `aggregate` step reading a `per_group` step's answers is now
+handed them (R3.16 rows 1 and 2). Until now it was handed nothing.
+
+- **Found live, not by the suite.** Exercise 16 was re-run after its keys moved
+  to `PLAY-`. In that pass the accepted `per_group` `verify` step recorded its
+  `extract` input with the hash `e3b0c442…`, which is the SHA-256 of nothing.
+  - A group step files its answer under the group, `extract/ACME-2024.json`.
+  - A call reading a set looked earlier answers up under its members' keys
+    only, so `{{extract}}` rendered empty in every such call, and the run
+    reported success.
+  - R3.16's rows say what each call holds, but the rule was proved only at
+    load time, where a reader is admitted or refused. The exercise's own
+    transcript showed the input's path and not its hash.
+- **The fix.** A call reading a set looks answers up under its members and
+  their groups (`filed_under`). A `per_file` step's answers are under the
+  members, and a `per_group` step's under the group. Nothing outside the set can
+  match, since a group is named by its first segment. Run and replay share the
+  one function that renders a value, so a replay recomposes the same keys.
+- **What moves.** The key of every call that read a group step's output, which
+  was composed over an empty value. Such a call is asked again. A run made
+  before the fix recorded keys that nothing composes now, so a replay of it
+  stops by name (R4.14). The answers it would reproduce were made without the
+  evidence the step declared.
+
+`reference:` works as spec 003 always said it did: context, not audited (R3.17,
+R3.18, R4.16, R4.17, R5.15 and R7.34). A field now cites only what its own call
+was shown (R6.23). Both gaps were found while landing `per_group`, and neither
+was caused by it.
+
+- **What `reference:` did before.** The run put the reference sources in with
+  the audited ones. A `per_file` step was asked about each procedure as though
+  it were an incident, and filed an answer for it. `{{reference}}` was filled
+  from the same per-document map as `{{documents}}`, so it held the incident a
+  second time and never a procedure. No test had ever run a step that read
+  `reference`: the example pipeline in spec 003 declared one, and nothing
+  executed it.
+- **What it does now.** Reference documents are never audited.
+  `{{reference}}` holds every one of them, under its key, in every call of
+  every mode. A pipeline reading it with none declared is refused at load
+  time.
+- **Manifest, plan and judge.** The manifest pins reference documents under
+  their own list, so a replay shows each call the procedure as it was. A plan
+  re-runs only the steps that read `reference` when one moves. A procedure that
+  has gone is a move, since every one of those calls was shown it. A judge is
+  shown the procedures beside the document, and a described judge is calibrated
+  on that same prompt.
+- **Citations.** A `per_file` or `per_part` call's check was handed the whole
+  corpus. An answer about one incident that quoted another, with the quote
+  really there, was graded grounded. R6.3 row 2 had been proved only at the
+  domain layer, where `check_source` is right when handed the right documents.
+  `_citable` now decides what a call was shown, once, for the run and the
+  replay alike.
+- **Live.** Playground exercise 17 ran every rule against the stub. It found
+  one thing no rule covers. `dossier run`'s "the source has moved since run"
+  warning (R4.9 row 4) compares the audited documents only, so it says nothing
+  when a procedure moves. Its SOLUTION.md records it. It was left for a rule
+  of its own.
+- **Noticed, not changed.** `--plan` tests raw input names against the source
+  keywords. So a step reading `documents@page_images` never reports
+  `documents changed` or `converters changed`, though its keys move (R4.12).
+
+---
+
 What came back and what was left out now reach MLflow (spec 011, R11.24 to
 R11.26). R2.25 added `returned` to a sync's line, and R8.27 added `left out` to
 a convert's, but neither reached the record. A sync that revived `audit-note.pdf`

@@ -587,9 +587,17 @@ a `per_part` step over text is (R3.12 row 5). The other direction is sound: a
 `per_group` step reading a `per_file` step's outputs gets each member's, under the
 member's key, as it gets each member's text.
 
+What a reader admitted by this rule is handed is part of the rule, and not only
+that it is admitted: rows 1, 2 and 4 say what each call holds. Proved only at
+load time, the rule was MET while every `per_group` or `aggregate` reader of a
+group step was handed an empty `{{extract}}`, because the answers were looked up
+under the members' keys and a group step files them under the group's.
+Playground exercise 16 found it live, in an input hash that was the SHA-256 of
+nothing.
+
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.pipeline`)
-- **Proved by:** `tests/unit/test_R003_16__only_a_group_or_aggregate_step_reads_a_group_step.py`
+- **Layer:** domain (`dossier.domain.pipeline`, `dossier.domain.groups.filed_under`) plus application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R003_16__only_a_group_or_aggregate_step_reads_a_group_step.py`, `tests/unit/test_R003_16__a_step_reading_a_group_step_is_handed_its_answers.py`
 - **Status:** MET
 
 | # | Given | Then |

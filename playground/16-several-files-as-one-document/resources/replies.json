@@ -3,17 +3,17 @@
     {
       "comment": "per_group: ACME's call holds every ACME file, so it sees amendment 3's date and the master's cap",
       "match": [
-        "<document key=\"ACME-2024/amendment-1.md\">",
-        "<document key=\"ACME-2024/master.md\">"
+        "<document key=\"PLAY-ACME-2024/amendment-1.md\">",
+        "<document key=\"PLAY-ACME-2024/master.md\">"
       ],
       "reply": {
-        "document": "ACME-2024",
+        "document": "PLAY-ACME-2024",
         "fields": [
           {
             "field": "renewal_date",
             "value": "2027-03-31",
             "source": {
-              "document": "ACME-2024/amendment-3.md",
+              "document": "PLAY-ACME-2024/amendment-3.md",
               "span": "the agreement now runs until 2027-03-31"
             }
           },
@@ -22,7 +22,7 @@
             "value": 2000000.0,
             "currency": "EUR",
             "source": {
-              "document": "ACME-2024/master.md",
+              "document": "PLAY-ACME-2024/master.md",
               "span": "capped at EUR 2,000,000"
             }
           }
@@ -32,16 +32,16 @@
     {
       "comment": "per_file: the master alone still says the original term, because amendment 3 is not in this call",
       "match": [
-        "<document key=\"ACME-2024/master.md\">"
+        "<document key=\"PLAY-ACME-2024/master.md\">"
       ],
       "reply": {
-        "document": "ACME-2024/master.md",
+        "document": "PLAY-ACME-2024/master.md",
         "fields": [
           {
             "field": "renewal_date",
             "value": "2026-03-31",
             "source": {
-              "document": "ACME-2024/master.md",
+              "document": "PLAY-ACME-2024/master.md",
               "span": "The agreement runs until 2026-03-31"
             }
           },
@@ -50,7 +50,7 @@
             "value": 2000000.0,
             "currency": "EUR",
             "source": {
-              "document": "ACME-2024/master.md",
+              "document": "PLAY-ACME-2024/master.md",
               "span": "capped at EUR 2,000,000"
             }
           }
@@ -60,16 +60,16 @@
     {
       "comment": "per_file: amendment 3 alone has the new date and no cap",
       "match": [
-        "<document key=\"ACME-2024/amendment-3.md\">"
+        "<document key=\"PLAY-ACME-2024/amendment-3.md\">"
       ],
       "reply": {
-        "document": "ACME-2024/amendment-3.md",
+        "document": "PLAY-ACME-2024/amendment-3.md",
         "fields": [
           {
             "field": "renewal_date",
             "value": "2027-03-31",
             "source": {
-              "document": "ACME-2024/amendment-3.md",
+              "document": "PLAY-ACME-2024/amendment-3.md",
               "span": "the agreement now runs until 2027-03-31"
             }
           },
@@ -84,10 +84,10 @@
     {
       "comment": "per_file: amendment 1 answers neither field",
       "match": [
-        "<document key=\"ACME-2024/amendment-1.md\">"
+        "<document key=\"PLAY-ACME-2024/amendment-1.md\">"
       ],
       "reply": {
-        "document": "ACME-2024/amendment-1.md",
+        "document": "PLAY-ACME-2024/amendment-1.md",
         "fields": [
           {
             "field": "renewal_date",
@@ -105,10 +105,10 @@
     {
       "comment": "per_file: amendment 4 answers neither field",
       "match": [
-        "<document key=\"ACME-2024/amendment-4.md\">"
+        "<document key=\"PLAY-ACME-2024/amendment-4.md\">"
       ],
       "reply": {
-        "document": "ACME-2024/amendment-4.md",
+        "document": "PLAY-ACME-2024/amendment-4.md",
         "fields": [
           {
             "field": "renewal_date",
@@ -126,16 +126,16 @@
     {
       "comment": "GLOBEX is one file, so per_file and per_group ask the same question and get the same answer",
       "match": [
-        "<document key=\"GLOBEX-2023/master.md\">"
+        "<document key=\"PLAY-GLOBEX-2023/master.md\">"
       ],
       "reply": {
-        "document": "GLOBEX-2023",
+        "document": "PLAY-GLOBEX-2023",
         "fields": [
           {
             "field": "renewal_date",
             "value": "2026-12-31",
             "source": {
-              "document": "GLOBEX-2023/master.md",
+              "document": "PLAY-GLOBEX-2023/master.md",
               "span": "The agreement runs until 2026-12-31"
             }
           },
@@ -144,7 +144,7 @@
             "value": 500000.0,
             "currency": "EUR",
             "source": {
-              "document": "GLOBEX-2023/master.md",
+              "document": "PLAY-GLOBEX-2023/master.md",
               "span": "capped at EUR 500,000"
             }
           }

@@ -46,7 +46,7 @@ from dossier.application.recording import failed_if_stopped
 from dossier.domain.conversion import PART_SUFFIX, PART_TYPE, part_name, unpack_parts
 from dossier.domain.fields import OutputSchema
 from dossier.domain.grounding import FieldCheck, FieldVerdict, check_field, with_derived_page
-from dossier.domain.groups import group_of
+from dossier.domain.groups import filed_under, group_of
 from dossier.domain.hashing import content_hash
 from dossier.domain.keys import ArtifactInput, StageInputs, cache_key, provenance
 from dossier.domain.pipeline import (
@@ -1206,7 +1206,9 @@ def _one_value(
     `_replayed_input`, and the two agreeing was a thing someone had to remember.
     """
     if aggregate:
-        return _joined(source, documents)
+        # Under the groups as well as the members: an earlier `per_group`
+        # step's answers are filed there, and nowhere else (R3.16).
+        return _joined(source, filed_under(documents))
     # Wrapped exactly as the aggregate branch wraps, because the reason is the
     # same one: a stage asked to carry a document key in `source.document` has
     # to be shown that key. A stage that has to guess reads it off the note's
@@ -1262,6 +1264,37 @@ def group_evidence(texts: Mapping[str, str]) -> dict[str, str]:
     for key in texts:
         members.setdefault(group_of(key), []).append(key)
     return {group: _joined(texts, keys) for group, keys in sorted(members.items())}
+
+
+def reference_context(reference: Mapping[str, str]) -> str:
+    """Every reference document, each under its own key in key order (R3.18).
+
+    What a call reading `reference` was shown beside its own document,
+    rendered as `_input_values` rendered it, so a judge asked about the
+    answer is shown the context the stage was (R7.34).
+    """
+    return _joined(reference, list(reference))
+
+
+def judge_evidence(
+    texts: Mapping[str, str], *, mode: str, reference: Mapping[str, str]
+) -> dict[str, str]:
+    """What a judge is shown for each answer: the evidence its call read.
+
+    A document's text, as R7.17 always showed it; a group's members, each
+    under its own key (R7.33). A step that read `reference` answered from
+    that and the procedures together, so its judge is shown both: the
+    document under its own key, or the group, and then every reference
+    document (R7.34). A claim resting on the 30 minutes OPS-114 allows is
+    otherwise judged unsupported, a mistake no calibration measured.
+    """
+    evidence = group_evidence(texts) if mode == "per_group" else dict(texts)
+    if not reference:
+        return evidence
+    if mode != "per_group":
+        evidence = {key: _wrapped(key, text) for key, text in evidence.items()}
+    context = reference_context(reference)
+    return {unit: f"{text}\n{context}" for unit, text in evidence.items()}
 
 
 def _targets(declared: StepConfig, resolved: ResolvedStep) -> list[str]:

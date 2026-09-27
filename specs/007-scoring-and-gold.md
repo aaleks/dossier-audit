@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.34
 
 ## Purpose
@@ -1043,11 +1043,12 @@ out of the judge's evidence.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`), cli (`dossier.cli.main`)
 - **Proved by:** `tests/unit/test_R007_34__a_field_that_read_reference_is_judged_with_it.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
 | 1 | `root_cause` on `INC-4821` in `verify`, which reads `reference` holding `OPS-114` | the judge prompt holds `INC-4821` and `OPS-114`, each under its own key |
 | 2 | the same field after `OPS-114` moved to `v38` and the run was made again | a different verdict key, and the judge is asked again (R7.18) |
 | 3 | a calibration case for that field, naming `INC-4821` | judged against `INC-4821` and `OPS-114`, as row 1 |
-| 4 | *counter-example* — a judged field of `extract`, which reads `documents` only | shown its one document, as before (R7.17) |
+| 4 | a `described` field of a step reading `reference` | shown the pages as R7.21 shows them, then `OPS-114` under its own key; a different `OPS-114` is a different verdict key |
+| 5 | *counter-example* — a judged field of `extract`, which reads `documents` only | shown its one document, as before (R7.17) |

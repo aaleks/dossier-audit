@@ -748,6 +748,16 @@ class Judging:
     # judge is shown as text, which is every document there has ever been until
     # a `per_part` step read one.
     parts: Mapping[str, Sequence[ImagePart]] = _default(default_factory=dict)
+    # Every reference document the step read, rendered, for a field judged
+    # from its pages: shown after them, as the stage was shown them (R7.34).
+    # A field judged from text has it in `documents` already. Empty for a
+    # step that reads no `reference`, which leaves every key as it was.
+    context: str = ""
+
+
+def with_context(text: str, context: str) -> str:
+    """A judge's evidence, followed by the reference documents its step read (R7.34)."""
+    return text if not context else f"{text}\n\n{context}"
 
 
 def judge_scores(
@@ -798,11 +808,15 @@ def judge_scores(
                     # is left unscored, which is what a deferred verdict with no
                     # answer already means (R7.21 row 5).
                     continue
-                text = SHOWN_AS_PAGES
+                text = with_context(SHOWN_AS_PAGES, judging.context)
                 # The pages stand where the text hash stands, so a described
                 # verdict and a grounded one about the same candidate are two
-                # entries and neither serves the other (R7.18, R7.21).
-                evidence_hash = content_hash(b"".join(part.data for part in parts))
+                # entries and neither serves the other (R7.18, R7.21). The
+                # context beside them is evidence too: a procedure edited
+                # asks again (R7.34).
+                evidence_hash = content_hash(
+                    b"".join(part.data for part in parts) + judging.context.encode("utf-8")
+                )
             else:
                 parts = ()
                 text = judging.documents[score.document]
@@ -853,6 +867,7 @@ def calibrate_field(
     state: str = GROUNDED,
     parts: Mapping[str, Sequence[ImagePart]] | None = None,
     tracker: Tracker | None = None,
+    context: str = "",
 ) -> Calibration:
     """Measure a judge against a sample, and write what was measured (R7.14).
 
@@ -896,7 +911,13 @@ def calibrate_field(
             model,
             rubric=rubric,
             document=case.document,
-            text=SHOWN_AS_PAGES if state == DESCRIBED else documents[case.document],
+            # A described judge is measured on the prompt an eval asks it,
+            # the reference documents included (R7.22, R7.34).
+            text=(
+                with_context(SHOWN_AS_PAGES, context)
+                if state == DESCRIBED
+                else documents[case.document]
+            ),
             answer=case.answer,
             parts=shown if state == DESCRIBED else (),
         )
@@ -966,6 +987,7 @@ def calibrate_fields(
     dossier_version: str = "",
     prompt_registry: PromptRegistry | None = None,
     prompt_prefix: str = "",
+    context: str = "",
 ) -> dict[str, Calibration]:
     """Measure every judged field, as one MLflow run when there is a tracker (R11.5).
 
@@ -1044,6 +1066,7 @@ def calibrate_fields(
                 state=sample.state,
                 parts=parts,
                 tracker=tracker,
+                context=context,
             )
         recorded_params, recorded_metrics = calibration_record(
             field=name, calibration=measured[name]
