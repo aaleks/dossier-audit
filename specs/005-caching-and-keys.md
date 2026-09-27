@@ -1,6 +1,6 @@
 # 005 — Cache keys, cascade and provenance
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R5.1 – R5.14
 
 ## Purpose
@@ -416,7 +416,7 @@ its group's key and no other group's.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R005_14__a_group_key_holds_its_members_and_no_others.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
