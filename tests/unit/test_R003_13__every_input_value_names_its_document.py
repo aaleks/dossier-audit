@@ -157,6 +157,7 @@ class TestEveryInputValueNamesItsDocument:
             documents=["PLAY-1001.md", "PLAY-1002.md"],
             aggregate=False,
             document_text=text,
+            reference={},
             produced={},
         )
 

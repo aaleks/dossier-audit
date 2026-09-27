@@ -427,7 +427,7 @@ as a prompt edited since is (R4.7).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.resolution.ResolvedPlan`), application (`dossier.application.run.replay`)
 - **Proved by:** `tests/unit/test_R004_16__a_replay_recomposes_reference_from_its_manifest.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
