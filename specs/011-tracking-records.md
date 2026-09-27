@@ -663,7 +663,7 @@ does in the terminal: `changed` lists items that were known.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.sync.changes_artifact`)
 - **Proved by:** `tests/unit/test_R011_24__changes_json_names_what_came_back.py`, `tests/acceptance/test_R011_24__sync_records_what_came_back.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

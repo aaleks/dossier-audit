@@ -340,8 +340,8 @@ question is never "show me comparisons", it is "when did this field break".
 
 An *absent* tag on a clean comparison would break it. You could not tell a
 comparison where nothing regressed from one recorded before the tag existed, which
-is the same reasoning that has `sync` attach a `changes.json` holding two empty
-lists rather than no artifact (R11.6 row 2). So it is present and empty.
+is the same reasoning that has `sync` attach a `changes.json` whose lists are all
+empty rather than no artifact (R11.6 row 2). So it is present and empty.
 
 **Why `compare/` and not beside the evals.** Put `accuracy/severity` and
 `delta/severity` in one experiment and MLflow shows you a column of numbers where
