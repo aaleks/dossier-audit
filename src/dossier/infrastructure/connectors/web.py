@@ -54,6 +54,10 @@ class WebRequestFailed(RuntimeError):
     """
 
 
+class _Refused(Exception):
+    """A redirect `_get` will not follow, raised from inside httpx and caught around it."""
+
+
 class WebKeys(BaseModel):
     """The keys a `web` source takes beyond the shared ones (R1.10).
 
@@ -243,37 +247,38 @@ class WebConnector:
     def _get(self, url: str, *, may_follow: Callable[[str], bool], refused: str):
         """One read, following redirects that `may_follow` allows, at most `MAX_REDIRECTS`.
 
-        The only verb this connector has. A redirect is checked before it is
-        followed, so a page that sends `dossier` to a login form or another
-        site is refused without asking either (R1.28).
+        The only verb this connector has. httpx follows the redirects; a
+        request hook sees each hop before it is sent, so a page that sends
+        `dossier` to a login form or another site is refused without asking
+        either (R1.28).
         """
         import httpx
+
+        def vet(request: httpx.Request) -> None:
+            target = str(request.url)
+            if target != url and not may_follow(target):
+                raise _Refused(target)
 
         with httpx.Client(
             headers={"User-Agent": USER_AGENT},
             timeout=TIMEOUT_SECONDS,
             transport=self._transport,
-            follow_redirects=False,
+            follow_redirects=True,
+            max_redirects=MAX_REDIRECTS,
+            event_hooks={"request": [vet]},
         ) as http:
-            current = url
-            for hop in range(MAX_REDIRECTS + 1):
-                try:
-                    response = http.get(current)
-                except httpx.HTTPError as error:
-                    raise WebRequestFailed(f"GET {current} failed: {error}") from None
-                if not response.is_redirect:
-                    return response
-                target = str(response.next_request.url) if response.next_request else ""
-                if hop == MAX_REDIRECTS:
-                    raise WebRequestFailed(
-                        f"GET {url} redirected more than {MAX_REDIRECTS} times (R1.28)"
-                    )
-                if not target or not may_follow(target):
-                    raise WebRequestFailed(
-                        f"GET {url} redirected to {target or 'nowhere'}, {refused}"
-                    )
-                current = target
-        raise AssertionError("unreachable")  # pragma: no cover
+            try:
+                return http.get(url)
+            except _Refused as refusal:
+                raise WebRequestFailed(
+                    f"GET {url} redirected to {refusal}, {refused}"
+                ) from None
+            except httpx.TooManyRedirects:
+                raise WebRequestFailed(
+                    f"GET {url} redirected more than {MAX_REDIRECTS} times (R1.28)"
+                ) from None
+            except httpx.HTTPError as error:
+                raise WebRequestFailed(f"GET {url} failed: {error}") from None
 
     @classmethod
     def from_config(

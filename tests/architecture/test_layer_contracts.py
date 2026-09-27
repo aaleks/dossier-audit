@@ -52,6 +52,12 @@ DOMAIN_FORBIDDEN_STDLIB = {
     "urllib",
 }
 
+# Submodules of a forbidden package that are pure, and so allowed after all.
+# `urllib.parse` is string handling: it opens nothing and reads nothing, which is
+# why the network scan already lets it through anywhere (imports_scan.py). The
+# rest of `urllib` stays out; `urllib.request` reaches the network.
+DOMAIN_PURE_SUBMODULES = ("urllib.parse",)
+
 # Reading any of these makes an output depend on something that is not an input.
 NONDETERMINISTIC_USES = (
     "datetime.now",
@@ -117,6 +123,11 @@ def test_domain_imports_only_stdlib_and_pydantic(path):
     for imported in imports_of(path):
         root = imported.root
         if root == "dossier" or root in DOMAIN_THIRD_PARTY:
+            continue
+        if any(
+            imported.module == pure or imported.module.startswith(f"{pure}.")
+            for pure in DOMAIN_PURE_SUBMODULES
+        ):
             continue
         if root in DOMAIN_FORBIDDEN_STDLIB:
             offenders.append(

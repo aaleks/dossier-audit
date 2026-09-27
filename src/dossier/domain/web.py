@@ -14,6 +14,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Literal
+from urllib.parse import urldefrag, urlsplit
 
 # What a directory's key ends in. A key is also a file name under `runs/`
 # (R0.11), and `runbooks/` is not one.
@@ -50,7 +51,7 @@ def prefix(url: str) -> str:
 
     Without the slash, `…/ops` would be a prefix of `…/opsx/guide` (R1.24 row 5).
     """
-    url = _defragged(url)
+    url = urldefrag(url.strip()).url
     return url if url.endswith("/") else f"{url}/"
 
 
@@ -63,8 +64,8 @@ def in_scope(url: str, scope: str) -> bool:
     address (R1.23 row 5). The fragment is dropped first, since it is not part of
     an address at all (R1.24 row 6).
     """
-    url = _defragged(url)
-    page, base = _split(url), _split(scope)
+    url = urldefrag(url.strip()).url
+    page, base = urlsplit(url), urlsplit(scope)
     if page.query:
         return False
     if page.scheme.lower() != base.scheme.lower() or not _same_host(page.netloc, base.netloc):
@@ -79,8 +80,8 @@ def page_key(url: str, scope: str) -> str:
     Decoding it would be a second decision about what the site meant, and two
     spellings of one character would then be one key for two URLs.
     """
-    url = _defragged(url)
-    path, base = _split(url).path or "/", _split(scope).path or "/"
+    url = urldefrag(url.strip()).url
+    path, base = urlsplit(url).path or "/", urlsplit(scope).path or "/"
     if f"{path}/" == base:
         # `url: …/ops` names the directory whose listing is `…/ops/`, and a
         # sitemap may spell the page either way.
@@ -98,7 +99,7 @@ def same_host(url: str, other: str) -> bool:
     redirect. The scheme is not compared: `http` answered with its `https` form
     is the same site moving, not another site.
     """
-    return _same_host(_split(url).netloc, _split(other).netloc)
+    return _same_host(urlsplit(url).netloc, urlsplit(other).netloc)
 
 
 @dataclass(frozen=True)
@@ -132,7 +133,7 @@ def listing(
     for page in pages:
         if not in_scope(page.loc, scope):
             continue
-        url = _defragged(page.loc)
+        url = urldefrag(page.loc.strip()).url
         key = page_key(url, scope)
         if not allowed(url):
             disallowed[key] = url
@@ -233,36 +234,6 @@ def _gunzipped(payload: bytes) -> bytes:
     if inflater.unconsumed_tail:
         raise ValueError(f"not a sitemap: it inflates past {SITEMAP_LIMIT} bytes")
     return inflated
-
-
-@dataclass(frozen=True)
-class _Parts:
-    scheme: str
-    netloc: str
-    path: str
-    query: str
-
-
-def _defragged(url: str) -> str:
-    """A URL without its fragment: `#contacts` is a place on a page, not a page."""
-    return url.strip().partition("#")[0]
-
-
-def _split(url: str) -> _Parts:
-    """An http(s) URL as its scheme, host, path and query.
-
-    Spelt out rather than taken from `urllib.parse`, which the domain does not
-    import (tests/architecture/test_layer_contracts.py). An http(s) URL is
-    `scheme://netloc/path?query#fragment`, and that is every form a sitemap or a
-    redirect hands this module.
-    """
-    rest, _, _ = url.strip().partition("#")
-    rest, _, query = rest.partition("?")
-    scheme, separator, rest = rest.partition("://")
-    if not separator:
-        return _Parts(scheme="", netloc="", path=scheme, query=query)
-    netloc, slash, path = rest.partition("/")
-    return _Parts(scheme=scheme, netloc=netloc, path=f"{slash}{path}", query=query)
 
 
 def _same_host(first: str, second: str) -> bool:
