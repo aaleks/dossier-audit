@@ -652,7 +652,7 @@ shown. Narrowing it, per group or per step, is not this rule.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`), domain (`dossier.domain.pipeline.validate_references`)
 - **Proved by:** `tests/acceptance/test_R003_18__every_call_is_shown_every_reference_document.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
