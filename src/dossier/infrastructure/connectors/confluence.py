@@ -152,12 +152,13 @@ class ConfluenceConnector:
         window = _modified_since(since)
         pages = [*self._pages(f"{cql} AND {window}")]
 
-        # A page's `lastmodified` does not move when a file on it does, so the
-        # search above leaves out a page whose only change is a file uploaded
-        # again (R1.22). The files that changed name their pages; the query
-        # then decides which of those are in scope. It is never applied to the
-        # files themselves: `label = runbook` matches pages, not their files.
-        touched = sorted(self._containers_of_files_changed(window) - {p.key for p in pages})
+        # A page's `lastmodified` does not move when a file on it does, nor a
+        # comment, so the search above leaves out a page whose only change is a
+        # file uploaded again (R1.22) or a comment added (R1.25). What changed
+        # names its page; the query then decides which of those are in scope.
+        # It is never applied to what changed: `label = runbook` matches pages,
+        # not their files.
+        touched = sorted(self._containers_of_changed(window) - {p.key for p in pages})
         for ids in _batches(touched):
             pages += self._pages(f"{cql} AND id in ({', '.join(ids)})")
         yield from self._marked(pages)
@@ -203,19 +204,22 @@ class ConfluenceConnector:
             self._versions[key] = _version_of(page)
             yield ItemRef(key=key, remote_version=self._versions[key], updated_at=_when(page))
 
-    def _containers_of_files_changed(self, window: str) -> set[str]:
-        """The ids of what carries each file changed inside `window` (R1.22).
+    def _containers_of_changed(self, window: str) -> set[str]:
+        """The ids of what carries each file changed inside `window` (R1.22), and
+        each comment with `comments: true` (R1.25).
 
         Data Center names a result's container only when asked to expand it. A
         file on a blog post names the post, which `type = page` then leaves out.
+        A reply's container is the page, not the comment it answers.
         """
+        kinds = "type in (attachment, comment)" if self._comments else "type = attachment"
         return {
             str(container["id"])
-            for attachment in self._results(
+            for changed in self._results(
                 f"{self._base}{SEARCH}",
-                {"cql": f"type = attachment AND {window}", "expand": "container"},
+                {"cql": f"{kinds} AND {window}", "expand": "container"},
             )
-            if (container := attachment.get("container")) and container.get("id")
+            if (container := changed.get("container")) and container.get("id")
         }
 
     def fetch(self, key: str) -> RawItem:

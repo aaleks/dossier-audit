@@ -821,7 +821,7 @@ absent from search, as a removed file is. The next complete listing settles it
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`)
 - **Proved by:** `tests/unit/test_R001_25__a_windowed_listing_finds_pages_whose_comments_changed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
