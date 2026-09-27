@@ -1,7 +1,8 @@
-"""What a web source decides without asking the network (spec 001, R1.29 - R1.31).
+"""What a web source decides without asking the network (spec 001, R1.29 - R1.36).
 
-Which URLs a source's `url` covers, what each is keyed as, and what a sitemap
-says. Each is a pure function of strings and bytes, so the connector asks and
+Which URLs a source's `url` covers, what each is keyed as, what a sitemap says,
+and how far apart its requests go. Each is a pure function of strings, bytes
+and numbers, so the connector asks and
 this decides: the connector holds the requests, and nothing here knows there
 was one.
 """
@@ -202,6 +203,16 @@ def sitemap(payload: bytes) -> Sitemap:
         ]
         return Sitemap(pages=(), children=tuple(children))
     raise ValueError(f"not a sitemap: the document is <{kind}>, not <urlset> or <sitemapindex>")
+
+
+def spacing(delay: float | None, crawl_delay: float | None) -> float:
+    """How far apart, in seconds, a web source starts its requests to its site (R1.36).
+
+    The longer of the source's `delay:` and the `Crawl-delay` its site's
+    `robots.txt` gives `dossier`: the site's pace is a floor a source may raise
+    and never lower. With neither, `0`, and requests go back to back.
+    """
+    return float(max(delay or 0, crawl_delay or 0))
 
 
 def lastmod_time(lastmod: str | None) -> datetime | None:

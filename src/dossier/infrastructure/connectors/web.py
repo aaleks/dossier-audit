@@ -1,10 +1,14 @@
-"""The web connector: a website, read from its sitemap (spec 001, R1.29 - R1.34).
+"""The web connector: a website, read from its sitemap (spec 001, R1.29 - R1.36).
 
 One connector for every website. A site is a `url` in
 `sources.yaml`, never code: the pages under it are what its sitemap names
 (R1.29), each keyed by its URL relative to `url` (R1.30) and marked by its
-`<lastmod>` (R1.31). What a sitemap says, and which URLs a source covers, are
-decided in `dossier.domain.web`; this module asks.
+`<lastmod>` (R1.31). What a sitemap says, which URLs a source covers, and how
+far apart its requests go are decided in `dossier.domain.web`; this module asks.
+
+It asks politely. A site that answers `429` is asked nothing more that sync
+(R1.35), and requests are spaced by the longer of the source's `delay:` and the
+site's `Crawl-delay` (R1.36).
 
 Reads, and only reads (R1.1). Every request is a `GET`, and there is no other
 method here to make one.
@@ -15,13 +19,14 @@ never builds this connector should not pay for the import.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from dossier.domain.conversion import reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
@@ -34,6 +39,7 @@ from dossier.domain.web import (
     robots_answer,
     same_host,
     sitemap,
+    spacing,
 )
 
 # Who `dossier` says it is, to the server and to its `robots.txt` (R1.33).
@@ -45,6 +51,9 @@ MAX_REDIRECTS = 5
 # Generous, and bounded, as the Jira connector's is: a server that never
 # answers must end the sync rather than hang it.
 TIMEOUT_SECONDS = 60.0
+
+# What a site answers when it is asked too often (R1.35).
+TOO_MANY_REQUESTS = 429
 
 
 class WebRequestFailed(RuntimeError):
@@ -63,13 +72,17 @@ class WebKeys(BaseModel):
 
     `url` is the prefix the source covers, read as a directory whether or not it
     ends in `/` (R1.30 row 5). `sitemap` is where its pages are listed from;
-    absent, it is the host's own `/sitemap.xml`.
+    absent, it is the host's own `/sitemap.xml`. `delay` is the seconds between
+    its requests; absent, none but what the site's `Crawl-delay` asks (R1.36).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     url: str
     sitemap: str = ""
+    # A wait, so no less than 0, and finite: `.inf` in YAML would be a sync
+    # that never asks its second request (R1.36 row 7).
+    delay: Annotated[float, Field(ge=0, allow_inf_nan=False)] | None = None
 
     @field_validator("url", "sitemap")
     @classmethod
@@ -97,7 +110,10 @@ class WebConnector:
         *,
         url: str,
         sitemap_url: str | None = None,
+        delay: float | None = None,
         transport: Any | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._scope = prefix(url)
         parts = urlsplit(self._scope)
@@ -105,6 +121,16 @@ class WebConnector:
         self._sitemap = sitemap_url or f"{self._site}/sitemap.xml"
         self._transport = transport
         self._robots: Any | None = None
+        # The wait and the clock are handed in, so a test about waiting five
+        # seconds takes none (R1.36).
+        self._delay = delay
+        self._sleep = sleep
+        self._clock = clock
+        # When the last request to the site was sent, by `clock`.
+        self._last_sent: float | None = None
+        # The URL the site answered `429`, after which it is asked nothing
+        # more. A connector is built for each sync, so this lasts one (R1.35).
+        self._refused: str | None = None
         # Each key's URL and marker, as the last listing gave them. `fetch`
         # needs the URL, and a key alone cannot say whether `runbooks/index`
         # was `…/runbooks/` or `…/runbooks/index` (R1.30).
@@ -250,14 +276,26 @@ class WebConnector:
         The only verb this connector has. httpx follows the redirects; a
         request hook sees each hop before it is sent, so a page that sends
         `dossier` to a login form or another site is refused without asking
-        either (R1.34).
+        either (R1.34), and every hop waits its turn (R1.36).
+
+        A `429` fails here, and so does every request after it, unsent: a site
+        that says it is asked too often is not asked again this sync (R1.35).
         """
         import httpx
+
+        if self._refused is not None:
+            raise WebRequestFailed(
+                f"GET {url} not sent: {self._refused} was answered 429 Too Many "
+                "Requests, and a site that says so is asked nothing more this sync "
+                "(R1.35). It is asked again at the next sync; a `delay:` on the "
+                "source asks it more slowly (R1.36)"
+            )
 
         def vet(request: httpx.Request) -> None:
             target = str(request.url)
             if target != url and not may_follow(target):
                 raise _Refused(target)
+            self._pace()
 
         with httpx.Client(
             headers={"User-Agent": USER_AGENT},
@@ -268,7 +306,7 @@ class WebConnector:
             event_hooks={"request": [vet]},
         ) as http:
             try:
-                return http.get(url)
+                response = http.get(url)
             except _Refused as refusal:
                 raise WebRequestFailed(
                     f"GET {url} redirected to {refusal}, {refused}"
@@ -279,6 +317,31 @@ class WebConnector:
                 ) from None
             except httpx.HTTPError as error:
                 raise WebRequestFailed(f"GET {url} failed: {error}") from None
+        if response.status_code == TOO_MANY_REQUESTS:
+            self._refused = url
+            raise WebRequestFailed(
+                f"GET {url} answered 429 Too Many Requests; {self._site} is asked "
+                "nothing more this sync (R1.35). A `delay:` on the source asks it "
+                "more slowly (R1.36)"
+            )
+        return response
+
+    def _pace(self) -> None:
+        """Wait until the request about to be sent is far enough from the last (R1.36).
+
+        How far is the domain's decision. The `Crawl-delay` is known once
+        `robots.txt` has been read, which is the first request; before that, only
+        `delay:` applies, and to the first request nothing does.
+        """
+        crawl_delay = self._robots.crawl_delay(USER_AGENT) if self._robots is not None else None
+        gap = spacing(self._delay, crawl_delay)
+        now = self._clock()
+        if self._last_sent is not None and gap > 0:
+            wait = gap - (now - self._last_sent)
+            if wait > 0:
+                self._sleep(wait)
+                now = self._clock()
+        self._last_sent = now
 
     @classmethod
     def from_config(
@@ -296,7 +359,11 @@ class WebConnector:
             # Checked again because a connector is built from whatever config it
             # is handed, and one built by hand never went through the loader.
             raise ValueError(f"source {config.id!r} has type 'web' and needs a `url`.")
-        return cls(url=url, sitemap_url=config.options.get("sitemap") or None)
+        return cls(
+            url=url,
+            sitemap_url=config.options.get("sitemap") or None,
+            delay=config.options.get("delay"),
+        )
 
 
 # The entry point resolves to `WebConnector.from_config`, and a bound method

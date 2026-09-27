@@ -1,6 +1,6 @@
 # 001 — Source connectors
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R1.1 – R1.36
 
 ## Purpose
@@ -1049,7 +1049,7 @@ sync.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.web`)
 - **Proved by:** `tests/unit/test_R001_35__a_web_source_stops_asking_a_site_that_answered_429.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -1070,7 +1070,7 @@ back to back.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.web.spacing`), waited for in infrastructure (`dossier.infrastructure.connectors.web`)
 - **Proved by:** `tests/unit/test_R001_36__a_web_source_spaces_its_requests.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

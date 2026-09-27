@@ -13,6 +13,27 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A `web` source stops at a `429` and keeps a pace (R1.35, R1.36), which
+resolves spec 001's open question 9. The live check of R1.29 – R1.34 found the
+site it waited for: `djangoproject.com` answered `429` to 70 of the 91 pages
+under `/foundation/` within seven seconds, with no `Retry-After`, and the
+connector asked all 70 after the first refusal. Stopping alone would not have
+been enough. A page with no `<lastmod>` is fetched every sync in key order, so
+the same first pages spent the site's allowance every time and the rest could
+never be held. Now the first `429` ends the sync's requests to the site, and
+the pages left are owed (R2.23). Requests start at least the longer of the
+source's new `delay:` and the site's `Crawl-delay` apart. crawl4ai's
+`RateLimiter` and Scrapy's AutoThrottle were read from source and declined:
+neither stops at a `429`, neither applies `Crawl-delay`, and each comes with
+its framework.
+
+- **Checked live.** Without `delay:`, the connector sent one request that was
+  answered `429` and left the other 85 unsent. With `delay: 1`, one sync held
+  all 91 pages in 92 seconds. `docs.astral.sh/uv`, with neither setting, is
+  unchanged: 84 pages, and a second sync fetches none.
+
+---
+
 The open questions answered on 2026-09-27 landed together: Confluence comments
 (spec 001 Q2, R1.23 to R1.25, R8.30), text a page includes (Q3, R1.26, R1.27),
 Jira's custom fields (spec 008 Q4, R1.28, R2.26, R8.31) and HTML's declared
