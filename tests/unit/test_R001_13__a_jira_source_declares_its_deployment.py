@@ -156,7 +156,8 @@ class TestAJiraSourceDeclaresItsDeployment:
 
         `INC-4821` is fetched at `/rest/api/2/issue/INC-4821` on Cloud as on
         Data Center; the deployment changes where a listing is asked for and
-        nothing else.
+        nothing else. What the fetch asks is the same as well: its field names
+        and types (R1.28).
         """
         server = Cloud()
         connector = JiraConnector(
@@ -166,7 +167,7 @@ class TestAJiraSourceDeclaresItsDeployment:
         item = connector.fetch(ISSUE)
 
         assert item.key == ISSUE
-        assert server.requests == [(f"/rest/api/2/issue/{ISSUE}", {})]
+        assert server.requests == [(f"/rest/api/2/issue/{ISSUE}", {"expand": ["names,schema"]})]
 
     def test_an_unknown_deployment_is_refused_at_load_time(self, tmp_path: Path):
         """Counter-example (row 4): the one written as `deployment: server`.
