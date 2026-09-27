@@ -681,9 +681,9 @@ way the terminal line did before R2.25: `/fetched` 3 against `/known` 2,
 records a source's zeros: a missing count reads the same as one never measured.
 
 - **Kind:** deterministic
-- **Layer:** application (`dossier.application.sync.sync_counts`)
+- **Layer:** domain (`dossier.domain.tracking.count_metrics`)
 - **Proved by:** `tests/unit/test_R011_25__a_sync_counts_what_came_back.py`, `tests/acceptance/test_R011_25__sync_records_the_returned_count.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

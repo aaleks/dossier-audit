@@ -19,12 +19,20 @@ class TestSyncAndConvertRecordPerSourceCounts:
 
     def test_a_sync_records_the_counts_it_prints(self):
         """Example 1: the one where `incidents-jira` holds 420 items, 18 changed and 2 new."""
-        counts = {"known": 420, "changed": 18, "new": 2, "fetched": 20, "failed": 0}
+        counts = {
+            "known": 420,
+            "changed": 18,
+            "new": 2,
+            "returned": 0,
+            "fetched": 20,
+            "failed": 0,
+        }
 
         assert count_metrics(kind="sync", source="incidents-jira", counts=counts) == {
             "incidents-jira/known": 420,
             "incidents-jira/changed": 18,
             "incidents-jira/new": 2,
+            "incidents-jira/returned": 0,
             "incidents-jira/fetched": 20,
             "incidents-jira/failed": 0,
         }
@@ -46,7 +54,7 @@ class TestSyncAndConvertRecordPerSourceCounts:
         Recorded, not omitted: a missing source is indistinguishable from a
         skipped one (R2.13).
         """
-        counts = {"known": 3, "changed": 0, "new": 0, "fetched": 0, "failed": 0}
+        counts = {"known": 3, "changed": 0, "new": 0, "returned": 0, "fetched": 0, "failed": 0}
 
         recorded = count_metrics(kind="sync", source="procedures-confluence", counts=counts)
 
@@ -54,6 +62,7 @@ class TestSyncAndConvertRecordPerSourceCounts:
             "procedures-confluence/known": 3,
             "procedures-confluence/changed": 0,
             "procedures-confluence/new": 0,
+            "procedures-confluence/returned": 0,
             "procedures-confluence/fetched": 0,
             "procedures-confluence/failed": 0,
         }

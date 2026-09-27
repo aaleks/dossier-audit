@@ -90,6 +90,7 @@ class TestSyncAndConvertRecordToMLflow:
             f"{SOURCE}/known": 3,
             f"{SOURCE}/changed": 0,
             f"{SOURCE}/new": 0,
+            f"{SOURCE}/returned": 0,
             f"{SOURCE}/fetched": 3,
             f"{SOURCE}/failed": 0,
         }

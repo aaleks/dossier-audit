@@ -563,9 +563,11 @@ def tags(
 
 # The per-source counts each command prints, in the order it prints them (R2.13,
 # R8.8). Recorded under the same names, so MLflow and the terminal cannot tell
-# two different stories (spec 011).
+# two different stories (spec 011). `returned` is recorded at zero although the
+# terminal prints it only when there is one: a missing count reads as one never
+# measured (R11.25).
 _COUNTS = {
-    "sync": ("known", "changed", "new", "fetched", "failed"),
+    "sync": ("known", "changed", "new", "returned", "fetched", "failed"),
     "convert": ("held", "converted", "cached", "failed"),
 }
 
