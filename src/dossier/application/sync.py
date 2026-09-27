@@ -101,13 +101,14 @@ CHANGES_NAME = "changes.json"
 
 
 def changes_artifact(reports: Sequence[SourceReport]) -> bytes:
-    """`changes.json`: every item the sync repointed or tombstoned, by source (R11.6).
+    """`changes.json`: every item the sync repointed, revived or tombstoned, by
+    source (R11.6, R11.24).
 
     Composed from the reports' own lists -- the ones the terminal printed -- and
     never from a second reading of the ledger, so the record and the terminal
     cannot disagree. Sources are ordered by id and keys are already sorted, so
     the bytes do not depend on the order the sources happened to run in (R0.4).
-    An empty sync is two empty lists, not a missing file: an absent artifact is
+    An empty sync is every list empty, not a missing file: an absent artifact is
     indistinguishable from a sync that never ran (R11.4 row 3).
     """
     ordered = sorted(reports, key=lambda report: report.source_id)
@@ -116,6 +117,14 @@ def changes_artifact(reports: Sequence[SourceReport]) -> bytes:
             {"source": report.source_id, "key": item.key, "from": item.held, "to": item.now}
             for report in ordered
             for item in report.repointed
+        ],
+        # An item back unchanged carries no addresses, as its line prints none;
+        # one back with other bytes carries both, as its line does (R2.25).
+        "returned": [
+            {"source": report.source_id, "key": item.key}
+            | ({"from": item.moved.held, "to": item.moved.now} if item.moved else {})
+            for report in ordered
+            for item in report.returned
         ],
         "tombstoned": [
             {"source": report.source_id, "key": key}

@@ -75,18 +75,23 @@ class TestSyncRecordsTheChangesItNamed:
                     "to": hashlib.sha256(note.read_bytes()).hexdigest(),
                 }
             ],
+            "returned": [],
             "tombstoned": [],
         }
 
     def test_a_sync_where_nothing_changed_still_attaches_it(
         self, synced: Path, monkeypatch, tracker: FakeTracker
     ):
-        """Example 2: the one where nothing moved -- two empty lists, not a missing file."""
+        """Example 2: the one where nothing moved -- every list empty, not a missing file."""
         result = _run(synced, monkeypatch, "sync", PIPELINE)
 
         assert result.exit_code == 0, result.output
         [run] = tracker.runs
-        assert json.loads(run.artifacts["changes.json"]) == {"changed": [], "tombstoned": []}
+        assert json.loads(run.artifacts["changes.json"]) == {
+            "changed": [],
+            "returned": [],
+            "tombstoned": [],
+        }
 
     def test_a_plan_records_nothing(self, synced: Path, monkeypatch, tracker: FakeTracker):
         """Counter-example (row 3): the one where `--plan` follows the sync.
