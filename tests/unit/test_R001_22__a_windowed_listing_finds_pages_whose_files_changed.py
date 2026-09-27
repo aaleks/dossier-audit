@@ -77,6 +77,9 @@ class Confluence:
                 for id_, page, version, uploaded in self.files
                 if uploaded
             ]
+        if cql == f'({QUERY}) AND type = page AND macro in (include, "excerpt-include")':
+            # No page here includes another (R1.26).
+            return []
         in_scope = [id_ for id_, (space, _, _) in self.pages.items() if space == "OPS"]
         if cql == f"({QUERY}) AND type = page AND {WINDOW}":
             return [self._page(id_) for id_ in in_scope if self.pages[id_][2]]

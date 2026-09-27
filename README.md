@@ -27,11 +27,13 @@ specs: 296 rules across 16 specs | 281 MET, 0 IN PROGRESS, 0 NOT MET, 15 SUPERSE
 | `docs/dossier-design-deck.pdf` | Background: the proposal this came from |
 | `docs/jira-connector.md` | A tour of the Jira connector: what you write, and what a sync does |
 | `docs/confluence-connector.md` | The same for Confluence: pages rendered for export, their files, a PDF where the server allows it, and the note a stage reads |
+| `docs/web-connector.md` | The same for a website: one connector for every site, listed from its sitemap |
 | `docs/review-in-mlflow.md` | Reviewing a run's answers in MLflow, for reviewers who never run `dossier`, and bringing their verdicts back |
 | `docs/history/` | How it came to be: `slices.md`, what each slice changed and why, newest first; the first session's kickoff prompt; and the brainstorm that led to page images |
 | `src/dossier/` | The package: `domain/`, `application/`, `infrastructure/`, `config/`, `cli/` |
 | `tests/` | `architecture/`, `unit/`, `acceptance/`, `integration/`, `evals/` |
 | `playground/` | Fifteen hands-on exercises. Ten offline, seconds, zero cost; the eleventh runs a real Jira in Docker; the twelfth to fourteenth need a local MLflow server; the fifteenth reads a public Confluence over the network. Not part of `dossier`. |
+| `dev/` | A Jira and a Confluence Data Center in Docker, to run a source against a server you can write to. Not part of `dossier` |
 | `.claude/` | The spec-driven toolchain: skills, agents, rules, hooks |
 | `.github/workflows/ci.yml` | The gate every pull request passes: the lock, conflict markers, ruff, the architecture tests, the default suite, and the outer loop reported beside them |
 

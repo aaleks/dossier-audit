@@ -35,6 +35,12 @@ dependencies = [
     # new release of either can change an artifact under an unchanged key.
     "markdownify==1.2.3",
     "beautifulsoup4==4.15.0",
+    # robots.txt as RFC 9309 reads it, for the web connector (spec 001, R1.27).
+    # The Scrapy project's parser: no dependencies, and it parses text it is
+    # handed, so it reaches no network. The standard library's robotparser
+    # matches by prefix alone and misreads `Disallow: /*.pdf$`. A floor rather
+    # than a pin: nothing it decides enters a snapshot or a key.
+    "protego>=0.7,<1",
 ]
 
 [project.optional-dependencies]
@@ -100,6 +106,7 @@ dossier = "dossier.infrastructure.tracking.auth:DossierAuthProvider"
 folder = "dossier.infrastructure.connectors.folder:FolderConnector.from_config"
 jira = "dossier.infrastructure.connectors.jira:JiraConnector.from_config"
 confluence = "dossier.infrastructure.connectors.confluence:ConfluenceConnector.from_config"
+web = "dossier.infrastructure.connectors.web:WebConnector.from_config"
 
 # A converter is a package declaring one of these (R8.7). The one shipped here
 # registers through the same group a third party would use, with no special case.

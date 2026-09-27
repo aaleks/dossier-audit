@@ -1,0 +1,64 @@
+# A Confluence Data Center on your machine, to run a Confluence source against
+# one you can write to. Both servers the connector was first read against are
+# public, and a page given a file there is not yours to give (R1.22 needed one).
+#
+# Nothing here is part of `dossier`. What it costs: a licence (a free 30-day
+# evaluation from my.atlassian.com), the setup wizard, a few minutes' boot, and
+# up to 3.5 GB of RAM. See dev/README.md before running it.
+#
+#   docker compose -f dev/confluence/docker-compose.yml up -d
+#   docker compose -f dev/confluence/docker-compose.yml logs -f confluence
+#   docker compose -f dev/confluence/docker-compose.yml down        # keeps the data
+#   docker compose -f dev/confluence/docker-compose.yml down -v     # and the data is gone
+
+name: dossier-confluence
+
+services:
+  confluence:
+    image: atlassian/confluence:9.2.21
+    container_name: dossier-confluence
+    # Confluence's first boot hung an 8 GB WSL VM shared with three other
+    # stacks until this cap was set. Keep it.
+    mem_limit: 3g
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8090:8090"
+    environment:
+      # Read on first boot, so the wizard does not ask for the database.
+      ATL_JDBC_URL: jdbc:postgresql://postgres:5432/confluence
+      ATL_JDBC_USER: confluence
+      ATL_JDBC_PASSWORD: confluence
+      ATL_DB_TYPE: postgresql
+      JVM_MINIMUM_MEMORY: 768m
+      JVM_MAXIMUM_MEMORY: 1536m
+      # The base URL Confluence builds its own links from, a file's download
+      # link included, which is the URL dossier follows to fetch it (R1.18).
+      ATL_PROXY_NAME: localhost
+      ATL_PROXY_PORT: "8090"
+      ATL_TOMCAT_SCHEME: http
+      ATL_TOMCAT_SECURE: "false"
+    volumes:
+      - confluence-home:/var/atlassian/application-data/confluence
+
+  postgres:
+    image: postgres:16.6-alpine
+    container_name: dossier-confluence-db
+    mem_limit: 512m
+    environment:
+      POSTGRES_DB: confluence
+      POSTGRES_USER: confluence
+      POSTGRES_PASSWORD: confluence
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - confluence-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U confluence -d confluence"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  confluence-home:
+  confluence-db:

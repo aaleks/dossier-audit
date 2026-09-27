@@ -271,7 +271,7 @@ docling-markdown 1.1.0 application/pdf markdown
 pdf-markdown 1.1.0 application/pdf markdown
 pdf-images 1.2.0 application/pdf page_images
 confluence-page-markdown 1.2.0 application/vnd.dossier.confluence-page+json markdown
-jira-issue-markdown 1.0.0 application/vnd.dossier.jira-issue+json markdown
+jira-issue-markdown 1.1.0 application/vnd.dossier.jira-issue+json markdown
 jpeg-pages 1.1.0 image/jpeg page_images
 png-pages 1.0.0 image/png page_images
 text-csv 1.0.0 text/csv markdown

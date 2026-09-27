@@ -1,0 +1,71 @@
+# A Jira Software Data Center on your machine, to run a Jira source against one
+# you can write to.
+#
+# playground/11 has a Jira too, on port 8080, written to be read line by line
+# as part of that exercise. This one is on 8091, because 8080 is where the
+# project's default model is served (a local OpenWebUI, `.env.example`), and it
+# is capped for a machine running more than Jira.
+#
+# Nothing here is part of `dossier`. What it costs: a licence (a free 30-day
+# evaluation from my.atlassian.com), the setup wizard, a few minutes' boot, and
+# up to 3.8 GB of RAM. See dev/README.md before running it.
+#
+#   docker compose -f dev/jira/docker-compose.yml up -d
+#   docker compose -f dev/jira/docker-compose.yml logs -f jira
+#   docker compose -f dev/jira/docker-compose.yml down        # keeps the data
+#   docker compose -f dev/jira/docker-compose.yml down -v     # and the data is gone
+
+name: dossier-jira
+
+services:
+  jira:
+    image: atlassian/jira-software:10.3.25
+    container_name: dossier-jira
+    # The WSL VM this was first run on is 8 GB and shared. Keep the caps.
+    mem_limit: 3300m
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8091:8080"
+    environment:
+      # Read on first boot, so the wizard does not ask for the database.
+      ATL_JDBC_URL: jdbc:postgresql://postgres:5432/jira
+      ATL_JDBC_USER: jira
+      ATL_JDBC_PASSWORD: jira
+      ATL_DB_DRIVER: org.postgresql.Driver
+      ATL_DB_TYPE: postgres72
+      JVM_MINIMUM_MEMORY: 512m
+      JVM_MAXIMUM_MEMORY: 1280m
+      JVM_SUPPORT_RECOMMENDED_ARGS: "-XX:ReservedCodeCacheSize=192m -XX:MaxDirectMemorySize=128m"
+      # The base URL Jira builds every attachment's `content` URL from, which is
+      # the URL dossier follows to fetch a file (R1.6). It must be the address
+      # you reach Jira at from outside the container.
+      ATL_PROXY_NAME: 127.0.0.1
+      ATL_PROXY_PORT: "8091"
+      ATL_TOMCAT_SCHEME: http
+      ATL_TOMCAT_SECURE: "false"
+    volumes:
+      - jira-home:/var/atlassian/application-data/jira
+
+  postgres:
+    image: postgres:16.6-alpine
+    container_name: dossier-jira-db
+    mem_limit: 512m
+    environment:
+      POSTGRES_DB: jira
+      POSTGRES_USER: jira
+      POSTGRES_PASSWORD: jira
+      # Jira refuses a database whose collation it does not recognise.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - jira-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jira -d jira"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  jira-home:
+  jira-db:

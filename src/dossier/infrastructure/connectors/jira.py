@@ -52,6 +52,11 @@ TIMEOUT_SECONDS = 60.0
 # project from carrying every description with it.
 LISTED_FIELDS = "updated,attachment"
 
+# What fetching an issue asks for beyond its fields: what each custom field is
+# called and what kind of value it holds, which Jira sends only when asked
+# (R1.28). The listing asks for none of it -- it would come once per issue.
+FETCH_EXPAND = "names,schema"
+
 
 class JiraRequestFailed(RuntimeError):
     """Jira could not be reached, or did not answer as expected.
@@ -185,11 +190,14 @@ class JiraConnector:
         it -- re-serialising it here would change the content hash of every issue
         for no reason anyone could see afterwards (R1.2). An issue is labelled a
         Jira issue rather than JSON, so the converter that reads it claims Jira
-        issues and nothing else (R1.14).
+        issues and nothing else (R1.14). It is asked for with its field names
+        and types, so its note can say what each custom field is (R1.28).
         """
         item, filename = _split(key)
         if filename is None:
-            response = self._get(f"{self._base}{ISSUES}/{item}")
+            response = self._get(
+                f"{self._base}{ISSUES}/{item}", params={"expand": FETCH_EXPAND}
+            )
             return RawItem(
                 key=key,
                 payload=response.content,
