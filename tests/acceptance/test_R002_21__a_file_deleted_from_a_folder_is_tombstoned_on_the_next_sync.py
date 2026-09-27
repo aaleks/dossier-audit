@@ -131,4 +131,5 @@ class TestAFileDeletedFromAFolderIsTombstonedOnTheNextSync:
         assert result.exit_code == 0, result.output
         assert _states(synced)[NOTE] == "active"
         assert _first_seen(synced, NOTE) == first_seen
-        assert _under_source(result.output) == []
+        # Named once, as what happened to it (R2.25).
+        assert _under_source(result.output) == [f"{INDENT}{NOTE}  returned"]
