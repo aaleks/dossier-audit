@@ -16,6 +16,7 @@ No socket is opened.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs
@@ -149,8 +150,9 @@ class TestAChangeToWhatAFetchAsksFetchesEverythingOnce:
         Neither issue's `updated` moved, so without this rule neither would be
         fetched (R2.1). The recorded hash answered a fetch that asked for less,
         so both are fetched again, and the hash of what is asked now is recorded.
-        That the fetch asks for `names` and `schema`, and so that the snapshot
-        holds them, is R1.28's; the stand-in adds them only when asked.
+        That the fetch asks for `names` and `schema` is R1.28's; the stand-in
+        adds them only when asked, so the new snapshot holding them shows the
+        fetch that asked.
         """
         connector = JiraConnector(
             base_url=JIRA, query=QUERY, transport=synced_before.transport()
@@ -165,6 +167,9 @@ class TestAChangeToWhatAFetchAsksFetchesEverythingOnce:
             jira_source(), fetch_asks=JiraConnector.fetch_asks
         )
         assert recorded_hash(tmp_path, "incidents-jira") != BEFORE_NO_FIELDS
+        with Ledger(tmp_path) as ledger:
+            held = ledger.row("incidents-jira", "INC-4821")
+        assert "names" in json.loads(SnapshotStore(tmp_path).get(held.snapshot))
 
     def test_the_sync_after_that_fetches_nothing(
         self, tmp_path: Path, synced_before: DataCenter

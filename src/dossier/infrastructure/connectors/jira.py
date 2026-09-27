@@ -105,7 +105,7 @@ class JiraConnector:
     # What fetching an issue asks for beyond its address: its field names and
     # types (R1.28). Declared, so it is part of the source configuration hash,
     # and a change to it fetches every issue again, once (R2.26).
-    fetch_asks = "expand=names,schema"
+    fetch_asks = f"expand={FETCH_EXPAND}"
 
     def __init__(
         self,
