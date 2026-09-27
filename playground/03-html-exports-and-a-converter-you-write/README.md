@@ -65,7 +65,7 @@ from the workspace). Three converters read six documents. Look at the
 register's row: its artifact's `sha256` is its snapshot's hash. Keep that for
 task 4.
 
-Now the failures. `resources/` holds two more files from the same postmortems
+Now two more files. `resources/` holds them, from the same postmortems
 folder: `PLAY-4006-indexer-alerts.json`, an alert export, and
 `PLAY-4005-connection-pool-exhaustion.html`, a page from an older wiki that
 saves in Windows-1252. Before you copy them in, look up the media type the
@@ -73,10 +73,14 @@ folder connector will give each one (`MEDIA_TYPES` in
 `src/dossier/domain/conversion.py`) and which converter claims it. Then copy
 both into `inbox/postmortems/`, sync, and convert.
 
-**Checkpoint.** `8 held · 0 converted · 6 cached · 2 failed`, and exit 1. Each
-new file fails on a line of its own. The JSON names the pair nothing claims,
+**Checkpoint.** `8 held · 1 converted · 6 cached · 1 failed`, and exit 1. The
+JSON fails on a line of its own, naming the pair nothing claims,
 `('application/json', 'markdown')`, and every pair that is claimed. The page
-names `html-markdown` and UTF-8. The six are served from cache.
+converts. Its `<head>` says `<meta charset="windows-1252">`, and
+`html-markdown` reads a page in the charset it declares (R8.32), so its en
+dashes are `–` in the note. Without that line it would fail, naming
+`html-markdown` and UTF-8 (R8.21 row 4): nothing else in the bytes says what
+they are, and `dossier` does not guess. The six are served from cache.
 
 The source asked for no kind, so `dossier` chose `markdown` for the JSON from
 its default table. Nobody asked for anything this installation cannot do. Now
@@ -85,14 +89,14 @@ document here already has, and convert again.
 
 **Checkpoint.** Exit 2, and one document is named: the JSON, with the same pair
 and the same list. The Windows-1252 page is not mentioned at all. Neither are
-the six documents converted a minute ago, although their artifacts are in the
+the other six converted a minute ago, although all seven artifacts are in the
 cache.
 
 Take the JSON out and keep the `convert:` line. Then sync and convert again.
 
-**Checkpoint.** `7 held · 0 converted · 6 cached · 1 failed`, and exit 1. The
-page fails as before, and the six are served from cache. Declaring the kind
-they already had changed none of their keys.
+**Checkpoint.** `7 held · 0 converted · 7 cached`, and exit 0. All seven are
+served from cache, the page included. Declaring the kind they already had
+changed none of their keys.
 
 The same JSON failed on its own in one run and stopped every document in the
 next, and one line of `sources.yaml` was the only change. Why? And why was the
@@ -155,7 +159,7 @@ names the pair and both converters, and no document:
 
 ```
 two converters claim the same pair, and picking either would be picking by installation order:
-  (text/html, markdown) is claimed by both html-markdown 1.1.0 and play-html-markdown 0.1.0
+  (text/html, markdown) is claimed by both html-markdown 1.2.0 and play-html-markdown 0.1.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
 ```
 

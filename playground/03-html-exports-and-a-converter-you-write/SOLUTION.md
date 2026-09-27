@@ -12,7 +12,14 @@ Nearly everything is **[run]**. The tasks were run in order, in one pass, on
 2026-09-26, at the commit of `main` that followed #422, with `dossier` installed
 with its `pdf` and `tracking` extras. Task 1's two extra files, task 2's tie and
 the test run in "Before you finish" were run again after R8.24 and R8.25 (#435),
-which changed what each of them prints. The liberties taken in showing it:
+which changed what each of them prints. On 2026-09-27, after R8.32 raised
+`html-markdown` to 1.2.0 and let it read a page in the charset the page
+declares, tasks 1 to 5 were run again in order, in one pass. Every block that
+shows `html-markdown` is from that pass, and everything `play-html-markdown`
+printed in it matched the first pass byte for byte. The two stub-model runs,
+task 4's grounding script and the full test runs were not repeated, because
+`html-markdown` is not in them. The one exception is the tie at the very end: its message is from one
+acceptance file, run again. The liberties taken in showing it:
 
 - `dossier` is the repository's CLI, run from `playground/work/03/`, and
   `artifacts.py` is `python ../../03-html-exports-and-a-converter-you-write/resources/artifacts.py`,
@@ -87,9 +94,9 @@ cache updated · 6 converted · 0 cached
 $ artifacts.py
 PLAY-2001-terminal-scan.pdf               snapshot 89d790a8  pdf-markdown        1.1.0    274 bytes  sha256 d728a34f1c22
 PLAY-2002-photocopy-no-text-layer.pdf     snapshot f82d92a3  pdf-markdown        1.1.0     15 bytes  sha256 f4aaa0b27c8b
-PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.1.0   1302 bytes  sha256 ec8a656a0b6d
-PLAY-4002-dns-resolver-flap.html          snapshot 99f12e5e  html-markdown       1.1.0   1308 bytes  sha256 55f07f33dbcc
-PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.1.0     50 bytes  sha256 5bfd3d4bcc44
+PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.2.0   1302 bytes  sha256 ec8a656a0b6d
+PLAY-4002-dns-resolver-flap.html          snapshot 99f12e5e  html-markdown       1.2.0   1308 bytes  sha256 55f07f33dbcc
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.2.0     50 bytes  sha256 5bfd3d4bcc44
 PLAY-4004-incident-register.csv           snapshot 00f25086  text-csv            1.0.0    464 bytes  sha256 00f2508608e2
 ```
 
@@ -116,12 +123,23 @@ PLAY-4005-connection-pool-exhaustion.html text/html
 PLAY-4006-indexer-alerts.json application/json
 
 $ dossier convert incident-audit
-postmortems-mixed  8 held · 0 converted · 6 cached · 2 failed
-    PLAY-4005-connection-pool-exhaustion.html: ValueError: html-markdown was given bytes that are not valid UTF-8 (invalid start byte at byte 81)
+postmortems-mixed  8 held · 1 converted · 6 cached · 1 failed
     PLAY-4006-indexer-alerts.json: nothing converts ('application/json', 'markdown'). Claimed pairs: ['(application/pdf, markdown)', '(application/pdf, page_images)', '(application/vnd.dossier.confluence-page+json, markdown)', '(application/vnd.dossier.jira-issue+json, markdown)', '(image/jpeg, page_images)', '(image/png, page_images)', '(text/csv, markdown)', '(text/html, markdown)', '(text/markdown, markdown)', '(text/plain, markdown)']. A converter is added by installing a package that declares a dossier.converters entry point.
-cache updated · 0 converted · 6 cached
+cache updated · 1 converted · 6 cached
 $ echo $?
 1
+
+$ artifacts.py PLAY-4005 --cat
+PLAY-4005-connection-pool-exhaustion.html snapshot 3d99a87a  html-markdown       1.2.0    519 bytes  sha256 ad1e83fe5471
+  .dossier/cache/convert/38/51/3851fbd56684620f7748580348b7119a8d2378ff9abac2246ee2752d40a0eaf8
+    Spaces / Site Reliability / Postmortems / 2026 / PLAY-4005
+
+    # PLAY-4005 – Connection pool exhausted by a report query
+
+    **Severity:** major
+    **Resolved:** 2026-06-21
+    **Systems affected:** orders-api
+    …
 ```
 
 `.json` is in `MEDIA_TYPES`, so the ledger holds a real media type, and nothing
@@ -132,21 +150,27 @@ JSON document any source holds (R1.14). That makes this a pair problem, not a
 media-type one. Exercise 04's `.log` is the other kind: an extension nobody
 recognises at all.
 
-Byte 81 is the en dash in the page's `<title>`. Windows-1252 writes it as the
-single byte `0x96`, which cannot begin a character in UTF-8. `html-markdown` decodes UTF-8
-itself and never guesses. Handed bytes, BeautifulSoup would guess with whatever
-detector the machine has installed, so the same file could convert differently
-on two machines (R8.1, R8.21 row 4). The page declares `charset="windows-1252"`,
-and that is not read either. Whether it should be is spec 008's open question 6.
+The page converted. Windows-1252 writes an en dash as the single byte `0x96`,
+which cannot begin a character in UTF-8, and the page has four of them, the
+first at byte 81, in its `<title>`. It also says what it is:
+`<meta charset="windows-1252">`, in its `<head>`. `html-markdown` reads a page
+in the charset it declares, and in UTF-8 when it declares none (R8.32). A
+declaration is the document saying what it is, not a guess. Handed bytes,
+BeautifulSoup would guess with whatever detector the machine has installed, so
+the same file could convert differently on two machines (R8.1). So
+`html-markdown` finds the declaration, decodes the bytes itself, and hands
+BeautifulSoup text. The same page without its `<meta>` would fail, naming
+`html-markdown` and UTF-8 (R8.21 row 4). Before R8.32 it failed exactly that
+way, declaration and all, and whether a declaration should be read was spec
+008's open question 6.
 
-Two files, two causes, and one blast radius. The page was read, and one input
-was bad. The JSON was never read at all, and it fails alone anyway, because its
-pair was `dossier`'s own choice: the source declared no `convert:`, so the kind
-came from the default table (R8.10). Nobody asked for anything this installation
-cannot make. The file is one somebody dropped in a folder, so it is reported
-the way the page is, and the other six are audited (R8.25). The exit is still 1:
-an audit that covers less than its source holds must not read as a clean one to
-anything checking `$?`.
+One file failed, and it was never read at all. The JSON fails alone because
+its pair was `dossier`'s own choice: the source declared no `convert:`, so the
+kind came from the default table (R8.10). Nobody asked for anything this
+installation cannot make. The file is one somebody dropped in a folder, so it is
+reported the way a bad input is, on a line of its own, and the other seven are
+audited (R8.25). The exit is still 1: an audit that covers less than its source
+holds must not read as a clean one to anything checking `$?`.
 
 **[run]** The same folder, with the source declaring the kind every document in
 it already had:
@@ -159,8 +183,8 @@ $ echo $?
 2
 ```
 
-The Windows-1252 page is not in the message. Neither are the six documents
-already converted, although their artifacts are sitting in the cache. A kind
+The Windows-1252 page is not in the message. Neither are the other six
+documents, although all seven artifacts are sitting in the cache. A kind
 written in `convert:` is a promise the installation has to keep, and one it
 cannot keep is known before any work starts. Every document is resolved before
 any is converted (`_resolve_converters` in `src/dossier/application/convert.py`),
@@ -177,17 +201,16 @@ postmortems-mixed  8 known · 0 changed · 0 new -> 7 fetched
 ledger updated · 0 new snapshots · 1 tombstoned
 
 $ dossier convert incident-audit        # convert: [markdown]
-postmortems-mixed  7 held · 0 converted · 6 cached · 1 failed
-    PLAY-4005-connection-pool-exhaustion.html: ValueError: html-markdown was given bytes that are not valid UTF-8 (invalid start byte at byte 81)
-cache updated · 0 converted · 6 cached
+postmortems-mixed  7 held · 0 converted · 7 cached
+cache updated · 0 converted · 7 cached
 $ echo $?
-1
+0
 ```
 
-The six are served from cache. `markdown` was the kind they had by default, so
-declaring it chose the same converters, and a convert key is the snapshot, the
-converter's id and version, and the options (R5.4). Who chose the kind is not
-in it.
+All seven are served from cache, the page included. `markdown` was the kind
+they had by default, so declaring it chose the same converters, and a convert
+key is the snapshot, the converter's id and version, and the options (R5.4).
+Who chose the kind is not in it.
 
 The same JSON, the same installation, and one line of `sources.yaml` decided
 how far its failure reached. The table in spec 008 is the whole difference:
@@ -250,8 +273,10 @@ The rest is the contract, and each part is R8.1. It reads no clock, opens no fil
 other than the bytes it was handed, and asks nothing over the network.
 `K_convert` claims an artifact is determined by the snapshot hash, the converter
 id, its version and its options. A converter that consulted anything else would
-make that key a lie. It decodes UTF-8 strictly, for the reason `html-markdown`
-does. And it collapses whitespace inside each block:
+make that key a lie. It decodes UTF-8 strictly and guesses nothing, for the
+reason `html-markdown` guesses nothing. It does not read a declared charset,
+which this wiki's pages do not need. And it collapses whitespace inside each
+block:
 
 ```python
 # `split()` on no argument collapses every run of whitespace to one space
@@ -275,14 +300,14 @@ jira-issue-markdown 1.1.0 application/vnd.dossier.jira-issue+json markdown
 jpeg-pages 1.1.0 image/jpeg page_images
 png-pages 1.0.0 image/png page_images
 text-csv 1.0.0 text/csv markdown
-html-markdown 1.1.0 text/html markdown
+html-markdown 1.2.0 text/html markdown
 play-html-markdown 0.1.0 text/html markdown
 markdown-text 1.0.0 text/markdown markdown
 text-plain 1.0.0 text/plain markdown
 
 $ dossier convert incident-audit
 two converters claim the same pair, and picking either would be picking by installation order:
-  (text/html, markdown) is claimed by both html-markdown 1.1.0 and play-html-markdown 0.1.0
+  (text/html, markdown) is claimed by both html-markdown 1.2.0 and play-html-markdown 0.1.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
 $ echo $?
 2
@@ -305,7 +330,7 @@ counted, unless the workspace names it (`answering`, same file).
 
 The id matters for the same reason. `claims` tells two claims apart by id and
 version, and treats the same pair from the same id and version as one claim made
-twice. A copy calling itself `html-markdown` at `1.1.0` would be taken for the
+twice. A copy calling itself `html-markdown` at `1.2.0` would be taken for the
 shipped converter, and which of the two wrote an artifact would turn on
 installation order, under a key saying it made no difference.
 
@@ -363,8 +388,8 @@ amendment rather than a package.
 
 ```console
 $ artifacts.py PLAY-4001 --cat
-PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.1.0   1302 bytes  sha256 ec8a656a0b6d
-  .dossier/cache/convert/b6/c1/b6c18f49610620574ae9e45d54cd6f259ca3a165c46ab0b72f9fa3f0bc0bacf2
+PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.2.0   1302 bytes  sha256 ec8a656a0b6d
+  .dossier/cache/convert/f7/07/f707a8edad4001d0171faa80367209008691f2f70ece6a9dac942da31d9f5b61
     Spaces / Site Reliability / Postmortems / 2026 / PLAY-4001
 
     # PLAY-4001 — Duplicate payment retries after a queue redelivery
@@ -415,8 +440,8 @@ Three differences, and only the first was the point:
 
 ```console
 $ artifacts.py PLAY-4003 --cat
-PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.1.0     50 bytes  sha256 5bfd3d4bcc44
-  .dossier/cache/convert/54/d4/54d4637de69c3239520778e93cbc111c9d7a0c2c4707b5968b1e827079dac159
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.2.0     50 bytes  sha256 5bfd3d4bcc44
+  .dossier/cache/convert/bd/93/bd930fa81d987bb66630707e3e9bac0539acdff8a654c0158b6cdf7dd39a731c
     ![panel-checkout-p99.png](panel-checkout-p99.png)
 
 PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  play-html-markdown  0.1.0      0 bytes  sha256 e3b0c44298fc
@@ -475,7 +500,7 @@ postmortems-mixed  6 held · 1 converted · 5 cached
 cache updated · 1 converted · 5 cached
 
 $ artifacts.py PLAY-4001
-PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.1.0   1302 bytes  sha256 ec8a656a0b6d
+PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.2.0   1302 bytes  sha256 ec8a656a0b6d
 PLAY-4001-payment-retries.html            snapshot b16b34b4  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
 PLAY-4001-payment-retries.html            snapshot db6997e7  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
 
@@ -484,8 +509,8 @@ postmortems-mixed  6 held · 1 converted · 5 cached
 cache updated · 1 converted · 5 cached
 
 $ artifacts.py PLAY-4001
-PLAY-4001-payment-retries.html            snapshot b16b34b4  html-markdown       1.1.0   1294 bytes  sha256 d84843e2bdbc
-PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.1.0   1302 bytes  sha256 ec8a656a0b6d
+PLAY-4001-payment-retries.html            snapshot b16b34b4  html-markdown       1.2.0   1294 bytes  sha256 d84843e2bdbc
+PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.2.0   1302 bytes  sha256 ec8a656a0b6d
 PLAY-4001-payment-retries.html            snapshot b16b34b4  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
 PLAY-4001-payment-retries.html            snapshot db6997e7  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
 ```
@@ -544,7 +569,7 @@ $ python -c "…installed_converters…"
 …
 text-csv 1.0.0 text/csv markdown
 play-csv-table 0.1.0 text/csv markdown
-html-markdown 1.1.0 text/html markdown
+html-markdown 1.2.0 text/html markdown
 play-html-markdown 0.1.0 text/html markdown
 …
 
@@ -693,8 +718,8 @@ postmortems-mixed  6 held · 0 converted · 6 cached
 cache updated · 0 converted · 6 cached
 
 $ artifacts.py PLAY-4003 --cat
-PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.1.0     50 bytes  sha256 5bfd3d4bcc44
-  .dossier/cache/convert/54/d4/54d4637de69c3239520778e93cbc111c9d7a0c2c4707b5968b1e827079dac159
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.2.0     50 bytes  sha256 5bfd3d4bcc44
+  .dossier/cache/convert/bd/93/bd930fa81d987bb66630707e3e9bac0539acdff8a654c0158b6cdf7dd39a731c
     ![panel-checkout-p99.png](panel-checkout-p99.png)
 
 PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  play-html-markdown  0.1.0      0 bytes  sha256 e3b0c44298fc
@@ -814,7 +839,7 @@ nothing, a tracker that saw no run.
 
 ```
 two converters claim the same pair, and picking either would be picking by installation order:
-  (text/html, markdown) is claimed by both html-markdown 1.1.0 and play-html-markdown 0.2.0
+  (text/html, markdown) is claimed by both html-markdown 1.2.0 and play-html-markdown 0.2.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
 ```
 
