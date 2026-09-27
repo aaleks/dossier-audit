@@ -8,6 +8,7 @@ in hand and no filesystem, which is why R3.2 and R3.3 name this layer.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from datetime import timedelta
 from typing import Any, Literal
 
@@ -305,6 +306,11 @@ def _step_ids_read(declared: str, *, preceding: list[str]) -> list[str]:
         return [declared]
     count = 1 if match.group("n") is None else int(match.group("n"))
     return preceding[-count:] if count else []
+
+
+def reads_reference(inputs: Sequence[str]) -> bool:
+    """Whether a step reads the `reference:` documents, under any kind (R3.18)."""
+    return any(split_kind(name)[0] == REFERENCE for name in inputs)
 
 
 def validate_references(pipeline: PipelineConfig) -> None:
