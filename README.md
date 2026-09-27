@@ -10,11 +10,11 @@ Package and CLI: `dossier`.
 **Status: implemented.** The specs came first and the code implements them —
 see "How this is built" below. Where the rules stand is printed by
 `pytest tests/architecture`, which counts them from `specs/` and so cannot fall
-behind. This README can fall behind, so its figure carries a date. On 2026-09-26:
+behind. This README can fall behind, so its figure carries a date. On 2026-09-27:
 
 ```
-specs: 274 rules across 16 specs | 259 MET, 0 IN PROGRESS, 0 NOT MET, 15 SUPERSEDED
-       271 deterministic, 3 evaluated
+specs: 276 rules across 16 specs | 261 MET, 0 IN PROGRESS, 0 NOT MET, 15 SUPERSEDED
+       273 deterministic, 3 evaluated
 ```
 
 ## Layout

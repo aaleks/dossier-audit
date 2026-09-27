@@ -13,6 +13,37 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A converted PDF is now the same bytes on every machine (spec 008, R8.28 and
+R8.29). That resolves open question 2, which had been answered with a finding: R8.1
+did not hold between Windows and Linux. `INC-4830`'s postmortem does not embed its
+fonts, and two things differed:
+
+- **The fonts.** PDFium drew Helvetica with Windows' Arial on one machine and with
+  its own built-in fonts on a Linux image that has none. docling-parse, Docling's
+  default renderer, matched fonts against the machine's font folders, and fell
+  back to a Windows font by name. On Linux the half-photocopy lost a heading, and
+  `pdf-images` gave two artifacts.
+- **The compression.** Pillow's PNG encoder compressed with zlib-ng on Windows and
+  zlib on Linux. CPython's own zlib on Windows is zlib-ng too.
+
+What changed:
+
+- **Fonts (R8.28).** `FPDF_SetSystemFontInfo(None)` takes the machine's fonts
+  away from PDFium, once per process. `docling-markdown` reads through Docling's
+  pypdfium2 backend, since docling-parse has no setting to stop borrowing.
+- **Compression (R8.29).** `_png` writes every PNG part itself, compressed by
+  libdeflate (`deflate==0.9.0`, a new pinned dependency in the `pdf` extra).
+
+The versions went up: `pdf-images` 1.2.0, `jpeg-pages` 1.1.0 and
+`docling-markdown` 1.1.0, so their artifacts convert again once.
+
+Measured before anything was written, on Windows 11 and in `python:3.12-slim` at
+the lock's versions, every artifact is byte-identical on both. The half-photocopy
+keeps its heading. The default suite pins the hashes that need no models, and CI
+holds them on Linux. The `live` suite pins Docling's.
+
+---
+
 A model that fails now stops every command that asks one in the same line (R9.20).
 `dossier run` always printed `incident-audit: POST <url> failed: ... (after 3
 attempts)` and exited 2. `calibrate` and `eval`, with and without `--compare`,
