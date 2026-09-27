@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.15
 
 ## Purpose
@@ -405,7 +405,7 @@ synced since is invisible to the replay, as a changed prompt is (R4.7).
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run.replay`)
 - **Proved by:** `tests/unit/test_R004_15__a_replay_recomposes_groups_from_its_manifest.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
