@@ -74,6 +74,25 @@ def _plan(
     )
 
 
+IMAGES = PinnedConverter(
+    id="pdf-images", version="0.9.1", media_type="application/pdf", kind="page_images"
+)
+
+
+def _with_pages(plan: ResolvedPlan, *, images: PinnedConverter = IMAGES) -> ResolvedPlan:
+    """`plan` plus `describe`, a step reading each document's pages, and their converter."""
+    describe = ResolvedStep(
+        id="describe",
+        inputs=["documents@page_images"],
+        prompt_hash=PROMPT,
+        schema_hash=DECLARATION,
+        mode="per_part",
+    )
+    return plan.model_copy(
+        update={"steps": [*plan.steps, describe], "converters": [*plan.converters, images]}
+    )
+
+
 def _statuses(current: ResolvedPlan, previous: ResolvedPlan) -> dict[str, StepStatus]:
     return {line.step.id: line.status for line in diff(current, previous)}
 
@@ -204,6 +223,50 @@ class TestAPlanRerunsExactlyWhatARunWouldMiss:
         statuses = _statuses(_plan(), _plan(converters=[]))
 
         assert set(statuses.values()) == {StepStatus.CACHED}
+
+    def test_a_resynced_document_reruns_the_step_reading_its_pages(self):
+        """Row 11: the one where `describe` reads `INC_4821` as pages.
+
+        A kind says how a step reads a document, not whether it does (R3.11).
+        Asked by spelling alone, `documents@page_images` was not `documents`,
+        and the plan printed `cached` for a step whose next run asked about
+        every page again.
+        """
+        moved = _with_pages(
+            _plan(documents=_documents(INC_4821=NEW_SNAPSHOT, INC_4901=SNAPSHOT))
+        )
+
+        lines = {line.step.id: line for line in diff(moved, _with_pages(_plan()))}
+
+        assert lines["describe"].status is StepStatus.DOCUMENTS_CHANGED
+        assert lines["describe"].moved == ("INC_4821 changed",)
+
+    def test_a_text_converter_leaves_a_step_reading_pages_cached(self):
+        """Row 12: counter-example -- `pdf-markdown` raised, and `describe` reads pages.
+
+        `pdf-images` renders the pages `describe` reads, and it has not moved.
+        The steps reading text are `converters changed`, as in row 6.
+        """
+        raised = _plan(converters=[CONVERTER.model_copy(update={"version": "1.4.0"})])
+
+        statuses = _statuses(_with_pages(raised), _with_pages(_plan()))
+
+        assert statuses["describe"] is StepStatus.CACHED
+        assert statuses["extract"] is StepStatus.CONVERTERS_CHANGED
+        assert statuses["verify"] is StepStatus.CONVERTERS_CHANGED
+
+    def test_a_page_converter_reruns_only_the_step_reading_pages(self):
+        """Row 13: the one where `pdf-images` went from 0.9.1 to 1.0.0.
+
+        It renders no text, so the steps reading text keep every key.
+        """
+        raised = _with_pages(_plan(), images=IMAGES.model_copy(update={"version": "1.0.0"}))
+
+        statuses = _statuses(raised, _with_pages(_plan()))
+
+        assert statuses["describe"] is StepStatus.CONVERTERS_CHANGED
+        assert statuses["extract"] is StepStatus.CACHED
+        assert statuses["verify"] is StepStatus.CACHED
 
     def test_a_departed_document_is_not_a_miss(self):
         """Counter-example (row 8): `INC_4901` tombstoned since the last run.

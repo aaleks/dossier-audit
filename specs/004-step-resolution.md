@@ -309,6 +309,14 @@ nothing about them, and reading that as "different converters" would print
 `converters changed` on every plan against every older run. Not stated is its
 own answer, as it is in a gold file (R7.3), and it is not "no".
 
+A kind says how a step reads a document, not whether it does (R3.11). A step
+reading `documents@page_images` reads the document as much as one reading
+`documents`. Until rows 11 and 12, the plan asked whether a step read
+`documents` by spelling alone, so a re-synced PDF printed `cached` for the step
+reading its pages, and then that run asked the model about each page. A
+converter moves only the steps that read its kind: `pdf-images` renders the
+pages, and `pdf-markdown` renders none of them.
+
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.plan.diff`)
 - **Proved by:** `tests/unit/test_R004_12__a_plan_reruns_exactly_what_a_run_would_miss.py`, `tests/acceptance/test_R004_12__plan_says_prompt_changed.py`
@@ -326,6 +334,9 @@ own answer, as it is in a gold file (R7.3), and it is not "no".
 | 8 | *counter-example* — `INC-4901` tombstoned since the last run, nothing else changed | every step `cached`; a departure is less work, and every remaining key is unmoved |
 | 9 | *counter-example* — `DOSSIER_OPENAI_URL` pointed at another host | every step `cached`; where a model is served is in no key (R9.2) |
 | 10 | *counter-example* — a manifest that pinned no converters at all | every step `cached`; absence is not a different converter, and reading it as one would report a change against every older run |
+| 11 | `INC-4821` re-synced to new bytes; `describe` reads `documents@page_images` | `describe: documents changed` naming `INC-4821`; its pages are new bytes, and a run asks about each of them again |
+| 12 | *counter-example* — `pdf-markdown` raised from `1.3.0` to `1.4.0`; `describe` reads only `documents@page_images` | `describe: cached`; `pdf-images` renders its pages and has not moved. `extract` and `verify` are `converters changed`, as in row 6 |
+| 13 | `pdf-images` raised from `0.9.1` to `1.0.0` | `describe: converters changed`; `extract` and `verify`, which read no page, `cached` |
 
 ### R4.13 — a step naming a kind no source in its set produces stops the run at resolution
 

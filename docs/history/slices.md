@@ -13,6 +13,28 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`--plan` says `documents changed` for a step reading `documents@page_images`
+when its document moves, and a converter now moves only the steps that read its
+kind (R4.12 rows 11 to 13).
+
+- **Before.** The plan asked whether a step read `documents` by spelling alone.
+  A re-synced PDF printed `cached` for the step reading its pages, and the next
+  run then asked the model about each new page. `converters changed` was
+  decided for the whole plan, so fixing only the spelling would have flagged
+  the page step whenever `pdf-markdown` moved, which renders none of its pages.
+- **Checked live on exercise 10.** PLAY-3001 was replaced by a new one-page
+  PDF. The plan named `PLAY-3001-checkout-latency-apm.pdf changed`, and the run
+  made one call, for its one new page, with 8 from cache.
+- **What the plan still cannot know.** A `per_part` key holds only a page's
+  content hash (R3.12). A document replaced by bytes whose pages are already
+  cached, such as one PDF copied over another, is served from cache even
+  though the plan says `documents changed`. That is the same over-report R4.12
+  already accepts for text that converts identically.
+- **Found on the way, not fixed here.** `pdf-images` went from 1.0.0 to 1.2.0
+  in #453 and #456, and every page's bytes changed with it. Exercise 10's stub
+  replies still name the old page hashes, so the exercise gets a 422 from the
+  stub on its first run.
+
 A windowed Confluence listing now finds a page whose only change is a file
 (spec 001, R1.22), answering Q4. It needed a Confluence this project could write
 to, and both servers read before were public. So a Data Center 9.2.21 ran in

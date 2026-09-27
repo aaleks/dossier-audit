@@ -99,7 +99,13 @@ def diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan
 
     for step in resolved.steps:
         earlier = before.get(step.id)
-        reads_documents = bool(SOURCE_KEYWORDS.intersection(step.inputs))
+        # The kinds this step reads, whatever it spells them with. A kind says
+        # how a step reads a document, not whether it does (R3.11): asked by
+        # spelling, `documents@page_images` was not `documents`, and the plan
+        # printed `cached` for a step whose next run re-asked about every page
+        # (R4.12 row 11).
+        kinds = {kind for name, kind in map(split_kind, step.inputs) if name in SOURCE_KEYWORDS}
+        reads_documents = bool(kinds)
         # Context moves every key of a step shown it, and none of a step that
         # was not (R4.17, R5.15).
         reads_reference = any(split_kind(name)[0] == REFERENCE for name in step.inputs)
@@ -119,10 +125,10 @@ def diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan
             # step, because a step may name its own (R3.14): the pipeline's
             # moving leaves such a step where it was (R5.13).
             status, was = StepStatus.MODEL_CHANGED, None
-        elif converters_moved and reads_documents:
-            # Only the steps reading a source. A step reading another step's
-            # output is reached by upstream propagation, if at all -- the
-            # converted text is not its input.
+        elif converters_moved.intersection(kinds):
+            # Only the steps reading a source, in a kind whose converter moved.
+            # A step reading another step's output is reached by upstream
+            # propagation, if at all -- the converted text is not its input.
             status, was = StepStatus.CONVERTERS_CHANGED, None
         elif (moved_documents and reads_documents) or context_moved:
             status, was = StepStatus.DOCUMENTS_CHANGED, None
@@ -139,8 +145,13 @@ def diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan
     return plans
 
 
-def _converters_moved(previous: ResolvedPlan, resolved: ResolvedPlan) -> bool:
-    """Whether the converters behind the converted text have changed (R5.4).
+def _converters_moved(previous: ResolvedPlan, resolved: ResolvedPlan) -> frozenset[str]:
+    """The kinds whose converters have changed, since each moves only its readers (R5.4).
+
+    By kind, because a step reads a kind: `pdf-images` renders the pages
+    `describe` reads and none of the text `extract` reads, so raising it moves
+    `describe` alone (R4.12 rows 12 and 13). A converter added or removed
+    counts too, since the kind it claims is now read differently.
 
     A side that pinned none has said nothing, and absence is not a different
     converter: a manifest written before converters were recorded, or by a
@@ -153,8 +164,9 @@ def _converters_moved(previous: ResolvedPlan, resolved: ResolvedPlan) -> bool:
     (R7.3): not stated is its own answer, and it is not "no".
     """
     if not previous.converters or not resolved.converters:
-        return False
-    return _converters(previous) != _converters(resolved)
+        return frozenset()
+    changed = set(_converters(previous)).symmetric_difference(_converters(resolved))
+    return frozenset(kind for _, _, _, kind in changed)
 
 
 def _converters(plan: ResolvedPlan) -> tuple[tuple[str, str, str, str], ...]:
