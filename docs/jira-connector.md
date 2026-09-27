@@ -129,7 +129,7 @@ dossier sync <pipeline>
             ├─ connector.attachments(key)         GET /rest/api/2/issue/INC-4821?fields=attachment
             │    → AttachmentRef(key="INC-4821/report.pdf", remote_version="<attachment id>")
             ├─ if the version marker moved (or no marker): fetch the issue
-            │    connector.fetch("INC-4821")      GET /rest/api/2/issue/INC-4821
+            │    connector.fetch("INC-4821")      GET /rest/api/2/issue/INC-4821?expand=names,schema   (R1.28)
             │    → RawItem(payload=<bytes as Jira sent them>, media_type=application/vnd.dossier.jira-issue+json)
             └─ for each attachment whose id moved: fetch the file
                  connector.fetch("INC-4821/report.pdf")   GET <attachment.content URL>
@@ -157,6 +157,17 @@ Points the code makes deliberately:
   `lists_everything = False`, so sync only subtracts held-from-listed to
   tombstone against a listing it asked for with no window (`--full`, R2.21,
   R2.22).
+- **A file or a comment moves the issue's `updated`.** A Jira Software Data
+  Center 10.3 in Docker showed it on 2026-09-27: a file added, replaced or
+  removed, and a comment added or edited, each moved `updated`, and a windowed
+  search found the issue each time (spec 001 Q5). So a windowed listing misses
+  none of them, unlike Confluence's (R1.22).
+- **An issue is fetched with its field names and types** (R1.28). A custom field
+  is `customfield_10050` in `fields`; `expand=names,schema` says it is `Root
+  cause`, of type `string`. The note writes each one a person reads under that
+  name (R8.31), and leaves out Jira Software's own machinery, typed `any`.
+  The listing asks for none of it. Since the fetch asks for more than it did,
+  every held issue is fetched again, once, after an upgrade (R2.26).
 - **A missing `updated` is `None`, never a fetch time** (R1.5). A fabricated
   marker would make R2.1 skip a real change.
 - **Media type comes from Jira, not the filename** (R2.16, R8.3).
