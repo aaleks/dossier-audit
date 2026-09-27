@@ -796,7 +796,7 @@ listed.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.jira`)
 - **Proved by:** `tests/unit/test_R001_28__an_issue_is_fetched_with_its_field_names.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
