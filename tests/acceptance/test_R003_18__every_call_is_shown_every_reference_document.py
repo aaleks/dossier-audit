@@ -22,12 +22,9 @@ import json
 import re
 from pathlib import Path
 
-import pytest
 from tests.acceptance.conftest import _cli
 from tests.pipelines import write_pipeline
 from tests.scoring_example import FIELDS, abstains
-
-pytestmark = pytest.mark.outer_loop
 
 PIPELINE = "incident-audit"
 INCIDENTS = {
