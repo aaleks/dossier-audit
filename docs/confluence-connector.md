@@ -75,6 +75,7 @@ dossier sync <pipeline>
        GET …/search?cql=(<query>) AND type = page AND macro in (include, "excerpt-include")&expand=…,body.storage
        GET …/search?cql=type = page AND space = "OPS" AND title in (<what they include>)   again for what those include
        → an including page's marker is v37+i<12 hex> over what it draws in
+       → with a window, also each including page whose included text changed in it   (R1.27)
      for each page
        ├─ connector.attachments("81920114")
        │    GET /rest/api/content/81920114/child/attachment?expand=version   (paged)
