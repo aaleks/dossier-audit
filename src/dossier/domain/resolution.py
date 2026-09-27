@@ -51,7 +51,7 @@ class ResolvedStep(BaseModel):
     # step replayed in the wrong mode would look for artifacts that were never
     # written -- one per document where there is one for the corpus, or the
     # reverse (R4.7).
-    mode: Literal["per_file", "aggregate", "per_part"] = "per_file"
+    mode: Literal["per_file", "aggregate", "per_part", "per_group"] = "per_file"
     prompt_hash: str = ""
     schema_hash: str | None = None
     # Recorded for the same reason as `schema_hash`: it is part of the stage key
