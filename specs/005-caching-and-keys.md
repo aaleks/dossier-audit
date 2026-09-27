@@ -31,7 +31,8 @@ step with no `output` has neither.
 **Stage, aggregate** — as above, over the sorted hashes of all input artifacts.
 
 **Stage, per_group** — as `per_file`, over the sorted hashes of the input artifacts
-of the group's members, each value wrapped under its member's key (R3.13).
+of the group's members, each value wrapped under its member's key (R3.13), and
+the group's name (R5.14 row 5).
 
 ## Cascade
 
@@ -413,6 +414,16 @@ R5.10's promise, with the group as the unit: one amendment filed asks about one
 contract again, and not four hundred. A member added, replaced or tombstoned moves
 its group's key and no other group's.
 
+The key also holds the group's name. Without it, a group of one file --
+`GLOBEX-2023`, a contract with no amendments -- renders byte for byte as that
+file's `per_file` call, so the two share a key. A live run found the result: a
+workspace that had run `per_file` and then `per_group` was served the per-file
+answer, and `extract/GLOBEX-2023.json` said `"document": "GLOBEX-2023/master.md"`.
+That is R5.10 row 5's failure, one answer filed under another unit's name. The
+cached bytes travel as they are (R5.5), so the name cannot be corrected when the
+answer is served. It has to be kept out of the entry. The group's name is an
+input like the part of a `per_part` call (R4.14).
+
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R005_14__a_group_key_holds_its_members_and_no_others.py`
@@ -424,3 +435,4 @@ its group's key and no other group's.
 | 2 | `ACME-2024/amendment-3.pdf` replaced, a new snapshot (R2.6) | `ACME-2024`'s key moves with the same three members; one call |
 | 3 | `ACME-2024/amendment-3.pdf` tombstoned | `ACME-2024` asked again with two members |
 | 4 | *counter-example* — `GLOBEX-2023/amendment-1.pdf` added | `ACME-2024`'s key unchanged; served from cache, no call for it |
+| 5 | `GLOBEX-2023/master.pdf` extracted `per_file`, then the step changed to `per_group` | `GLOBEX-2023` asked again: its key holds the group's name. `extract/GLOBEX-2023.json` says `"document": "GLOBEX-2023"`, never the member's key |

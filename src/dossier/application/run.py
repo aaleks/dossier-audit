@@ -755,7 +755,8 @@ def _run_one(
                     hash=content_hash(part[1].data),
                 )
             ]
-        ),
+        )
+        + _group_input(declared.mode, document),
     )
     key = cache_key(key_inputs)
 
@@ -923,6 +924,22 @@ def _from_cache(
         # something the cache never held, and change its key (R5.5, R5.7 row 4).
         text=payload.decode(),
     )
+
+
+def _group_input(mode: str, unit: str) -> list[ArtifactInput]:
+    """The group a `per_group` call is about, as an input to its key (R5.14 row 5).
+
+    A group of one file renders byte for byte as that file's `per_file` call,
+    so without its name the two shared a key, and the group was served the
+    answer written about its file -- `extract/GLOBEX-2023.json` holding
+    `"document": "GLOBEX-2023/master.md"`, which is R5.10 row 5's failure. The
+    cached bytes travel as they are (R5.5), so the name cannot be put right when
+    the answer is served; it is kept out of the entry instead. Empty for every
+    other mode, whose keys are composed exactly as they always were.
+    """
+    if mode != "per_group":
+        return []
+    return [ArtifactInput(role="group", path=f"group/{unit}", hash=content_hash(unit.encode()))]
 
 
 def _units(mode: str, keys: Sequence[str]) -> list[str]:
@@ -1594,7 +1611,10 @@ def _replay_one(
                         hash=content_hash(part[1].data),
                     )
                 ]
-            ),
+            )
+            # Exactly as `_run_one` appended it, for the reason the part is: a
+            # key built without it is one no run wrote (R5.14 row 5, R4.15).
+            + _group_input(step.mode, document),
         )
     )
 

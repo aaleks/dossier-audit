@@ -21,7 +21,7 @@ from pathlib import Path
 
 from tests.pipelines import prompt_for
 
-from dossier.application.run import execute
+from dossier.application.run import _as_text, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -50,15 +50,15 @@ class Model:
         return json.dumps({"document": shown[0], "fields": []})
 
 
-def _run(workspace: Path, text: dict[str, str], model: Model, *, run_id: str):
+def _run(
+    workspace: Path, text: dict[str, str], model: Model, *, run_id: str, mode: str = "per_group"
+):
     config = PipelineConfig(
         name="contract-renewal",
         sources=["contracts"],
         model=MODEL,
         steps=[
-            StepConfig(
-                id="extract", prompt="prompts/extract.md", input="documents", mode="per_group"
-            )
+            StepConfig(id="extract", prompt="prompts/extract.md", input="documents", mode=mode)
         ],
     )
     return execute(
@@ -140,3 +140,19 @@ class TestAGroupKeyHoldsItsMembersAndNoOthers:
         second = _after(tmp_path, added)
 
         assert second.calls == [["GLOBEX-2023/amendment-1.pdf", "GLOBEX-2023/master.pdf"]]
+
+    def test_a_group_of_one_is_not_served_its_members_per_file_answer(self, tmp_path: Path):
+        """Row 5: the one where GLOBEX has no amendments and was run per file first.
+
+        A group of one file renders byte for byte as that file's `per_file` call.
+        Without the group's name in its key it was served the per-file answer, and
+        `extract/GLOBEX-2023.json` said it was about `GLOBEX-2023/master.pdf`.
+        """
+        _run(tmp_path, CONTRACTS, Model(), run_id="20260806T142203Z-4f1a", mode="per_file")
+        second = Model()
+
+        report = _run(tmp_path, CONTRACTS, second, run_id="20260907T090000Z-bbbb")
+
+        assert ["GLOBEX-2023/master.pdf"] in second.calls
+        globex = next(r for r in report.steps[0].results if r.document == "GLOBEX-2023")
+        assert json.loads(_as_text(globex))["document"] == "GLOBEX-2023"
