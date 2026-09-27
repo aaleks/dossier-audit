@@ -46,6 +46,7 @@ def _values(step, resolved, *, aggregate, by_kind, produced=None, document="PLAY
         documents=["PLAY-1001.md", "PLAY-1002.md"],
         aggregate=aggregate,
         by_kind=by_kind,
+        reference={},
         produced=produced or {},
     )
 

@@ -52,6 +52,7 @@ from dossier.domain.keys import ArtifactInput, StageInputs, cache_key, provenanc
 from dossier.domain.pipeline import (
     DEFAULT_INPUT_KIND,
     DOCUMENTS,
+    REFERENCE,
     SOURCE_KEYWORDS,
     PipelineConfig,
     SourceConfig,
@@ -224,6 +225,7 @@ def execute(
     document_text: Mapping[str, str],
     document_content: Mapping[str, Mapping[str, str]] | None = None,
     document_parts: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]] | None = None,
+    reference_content: Mapping[str, Mapping[str, str]] | None = None,
     schemas: Mapping[str, OutputSchema | None],
     prompts: Mapping[str, str],
     model: ModelClient,
@@ -254,6 +256,9 @@ def execute(
     client for each model a step does name, by its identifier (R3.14). A step
     whose model has no client stops the run before anything is written.
 
+    `reference_content` is what the `reference:` sources hold, by kind and then
+    by key: the context every call reading `reference` is shown whole (R3.18).
+
     `concurrency` is how many of a step's documents are asked about at once
     (R9.19). Steps still run one after another, and every result is put back in
     document order, so nothing this returns or writes depends on it.
@@ -275,6 +280,7 @@ def execute(
     # The parts of each kind that has any, for the per_part steps that fan out
     # over them (R3.12). Absent for every kind whose artifact is one blob.
     by_part: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]] = document_parts or {}
+    by_reference: Mapping[str, Mapping[str, str]] = reference_content or {}
     prompt_hashes, schema_hashes = key_hashes(pipeline, prompts=prompts, schemas=schemas)
     plan = _resolve(
         pipeline=pipeline,
@@ -455,6 +461,7 @@ def execute(
                                 documents=_members(declared[step.id].mode, key, keys),
                                 aggregate=_reads_a_set(declared[step.id].mode),
                                 by_kind=by_kind,
+                                reference=by_reference,
                                 produced=produced,
                             ),
                             capture=capture,
@@ -473,6 +480,7 @@ def execute(
                         documents=_members(declared[step.id].mode, key, keys),
                         document_text=document_text,
                         by_kind=by_kind,
+                        reference=by_reference,
                         produced=produced,
                         part=part,
                         schema=None if output is None else output.schema,
@@ -699,6 +707,7 @@ def _run_one(
     documents: Sequence[str],
     document_text: Mapping[str, str],
     by_kind: Mapping[str, Mapping[str, str]],
+    reference: Mapping[str, Mapping[str, str]],
     produced: Mapping[str, Mapping[str, str]],
     part: tuple[str, ImagePart] | None = None,
     schema: dict | None,
@@ -724,6 +733,7 @@ def _run_one(
         documents=documents,
         aggregate=_reads_a_set(declared.mode),
         by_kind=by_kind,
+        reference=reference,
         produced=produced,
     )
     key_inputs = StageInputs(
@@ -1102,6 +1112,7 @@ def _input_values(
     documents: Sequence[str],
     aggregate: bool,
     by_kind: Mapping[str, Mapping[str, str]],
+    reference: Mapping[str, Mapping[str, str]],
     produced: Mapping[str, Mapping[str, str]],
 ) -> dict[str, str]:
     """What each declared input holds, for this call.
@@ -1112,9 +1123,20 @@ def _input_values(
 
     In a `per_file` step each value is one document's text. In an `aggregate`
     step it is every document, each wrapped in a tag naming its key (spec 003).
+    `reference` is every reference document in every mode (R3.18).
     """
     values: dict[str, str] = {}
     for name, target in zip(declared.inputs, _targets(declared, resolved), strict=True):
+        if split_kind(target)[0] == REFERENCE:
+            # Context, not a document this call is about. The call about
+            # INC-4821 and the call about INC-4822 are checked against the same
+            # procedures, so both are shown all of them, whatever the mode.
+            # Filled from the audited documents' map, as it once was, it held
+            # the incident a second time and never a procedure (R3.18).
+            _, kind = split_kind(name)
+            held = reference.get(kind or DEFAULT_INPUT_KIND, {})
+            values[name] = _joined(held, list(held))
+            continue
         # A resolved target keeps the kind it was declared with -- expansion
         # only rewrites `previous`, and `documents@page_images` was already
         # concrete. So the kind comes off before asking what this names.

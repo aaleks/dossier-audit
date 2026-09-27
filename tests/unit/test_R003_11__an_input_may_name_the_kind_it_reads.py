@@ -89,6 +89,7 @@ class TestTheKindPicksTheArtifactAStepIsHanded:
             documents=["INC-4821"],
             aggregate=False,
             by_kind=by_kind,
+            reference={},
             produced={},
         )
 
