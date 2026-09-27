@@ -3,9 +3,10 @@ on the page, unescaped.
 
 The page's body, written with the reader `confluence-page-markdown` uses (R8.20).
 The whole `<head>` is taken out, and so are `<style>`, `<script>` and
-`<template>` wherever they are. The bytes are decoded as UTF-8 here, before
-BeautifulSoup sees them: given bytes, it guesses the encoding with whichever
-detector is installed, and a converter's output may not depend on that (R8.1).
+`<template>` wherever they are. The bytes are decoded here, as UTF-8 unless the
+page declares its charset (R8.32), before BeautifulSoup sees them: given bytes,
+it guesses the encoding with whichever detector is installed, and a converter's
+output may not depend on that (R8.1).
 
 `PLAY-4001` is `tests/fixtures/documents/exports/PLAY-4001-payment-retries.html`,
 a wiki page saved as HTML.

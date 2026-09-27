@@ -642,7 +642,7 @@ R8.21 row 4 fails. A CSV cannot declare anything, and is read as R8.23 reads it.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.html_markdown`)
 - **Proved by:** `tests/unit/test_R008_32__an_html_file_is_read_in_the_charset_it_declares.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
