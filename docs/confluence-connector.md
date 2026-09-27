@@ -65,6 +65,10 @@ dossier sync <pipeline>
        cql = "(<query>) AND type = page [AND lastmodified >= '<since - 1 day>']"   (R1.15, R1.4)
        GET /rest/api/content/search?cql=…&expand=version   start=0,50,… until no _links.next
        → ItemRef(key="81920114", remote_version="v37", updated_at=<version.when>)   (R1.16)
+       with a window, also                                                         (R1.22)
+       GET …/search?cql=type = attachment AND lastmodified >= '<since - 1 day>'&expand=container
+       GET …/search?cql=(<query>) AND type = page AND id in (<their pages>)   50 ids a request
+       → each page not already listed, once
      for each page
        ├─ connector.attachments("81920114")
        │    GET /rest/api/content/81920114/child/attachment?expand=version   (paged)
@@ -92,6 +96,13 @@ Points the code makes deliberately:
 - **A file's marker is its attachment id and version** (R1.18). Uploading again
   under the same name keeps the id and raises the version; deleting and
   uploading again makes a new id at version 1. Either alone misses a case.
+- **A windowed listing also asks which files changed** (R1.22). A page's
+  `lastmodified` moves with its own version and not with its files: a file
+  uploaded again leaves the page out of a windowed `type = page` search. So the
+  listing asks which files changed in the window, then which of their pages the
+  query matches. The query is never applied to the files, which a
+  `label = runbook` query would not match. A removed file is absent from search,
+  so a removal waits for the next complete listing (R2.22).
 - **The export's marker includes its files'** (R1.19). An image replaced in
   place leaves the page at its version, and changes the PDF, which draws it.
 - **A refused export is a failure, not a skip** (R1.20). `export: pdf` says the

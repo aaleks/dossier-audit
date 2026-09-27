@@ -33,8 +33,8 @@ You are a guest on both, and behaving like one is part of the exercise:
   files they carry. Do not widen a query to `space = KAFKA` to see what happens.
   That space is thousands of pages, most of them with images, and a first sync
   fetches every one.
-- **A sync of an unchanged source is one request.** Task 2 shows why. The whole
-  exercise makes about forty.
+- **A sync of an unchanged source is two or three requests.** Task 2 shows
+  why. The whole exercise makes forty to fifty.
 - **Two tasks ask for a PDF export** (tasks 6 and 7). cwiki refuses it, and
   refusing costs little. confluence.atlassian.com renders one, which is real
   work on someone else's machine. Run each sync the README gives you once, and
@@ -155,10 +155,12 @@ $L watermarks
 ```
 
 **Checkpoint.** `4 known · 0 changed · 0 new -> 0 fetched`, and the watermark
-moves. That sync made one request. An incremental listing adds
+moves. That sync made two or three requests. An incremental listing adds
 `AND lastmodified >= "<since>"` to the query (R1.4, R1.15 row 2). Neither page
-has changed in years, so the search returned nothing, and nothing else was asked
-for. Absence in that listing says nothing about deletion, which is why the
+has changed in years, so the search returned nothing. A page's `lastmodified`
+does not move when a file on it is uploaded again, so the listing also asks
+which files anywhere on cwiki changed in that window, and then which of their
+pages the query matches: none (R1.22). Nothing else was asked for. Absence in that listing says nothing about deletion, which is why the
 connector declares `lists_everything = False` (R1.11). A window that returns
 nothing also asks nothing about what a page carries. Keep this in mind for tasks
 6 and 7, which are about what a sync does for a page its window cannot see.

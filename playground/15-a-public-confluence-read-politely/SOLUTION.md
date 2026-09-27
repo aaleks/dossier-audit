@@ -197,7 +197,7 @@ $ $L watermarks
 kafka-kips      2026-09-26T04:39:26.412605+00:00
 ```
 
-One request. **[derived]** The search went out as
+Two or three requests. **[derived]** The page search went out as
 
 ```
 (space = KAFKA AND title in (…)) AND type = page AND lastmodified >= "2026-09-24 04:39"
@@ -205,9 +205,15 @@ One request. **[derived]** The search went out as
 
 That is the watermark, less the 24-hour overlap (R2.4), less one more day,
 because CQL reads a bare time in the server's own zone (R1.4, R1.15 row 2). A
-page last modified in 2018 is not in that window, so the listing was empty. An
-empty listing asks nothing else: `attachments()` is called for each **listed**
-page, and there were none. Tasks 6 and 7 are about the two ways a sync now
+page last modified in 2018 is not in that window, so the listing was empty.
+
+A page's `lastmodified` does not move when a file on it does, so a second
+search asks which files changed in the same window, site-wide:
+`type = attachment AND lastmodified >= "2026-09-24 04:39"` (R1.22). About five
+a day change on cwiki. If any did, a third asks which of their pages the query
+matches, `(…) AND type = page AND id in (…)`, and neither KIP is among them.
+Then nothing else: `attachments()` is called for each **listed** page, and
+there were none. Tasks 6 and 7 are about the two ways a sync now
 reaches a page its window leaves out.
 
 The connector says of itself that an empty listing proves nothing:
