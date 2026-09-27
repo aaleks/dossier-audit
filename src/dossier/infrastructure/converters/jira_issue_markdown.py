@@ -33,8 +33,9 @@ class JiraIssueMarkdownConverter:
     id = "jira-issue-markdown"
     # Raised whenever what `convert` writes could change for the same payload --
     # including when `jira2markdown`'s pin moves, since the library's version is
-    # not in the key and this one is (R5.4, R8.2).
-    version = "1.0.0"
+    # not in the key and this one is (R5.4, R8.2). 1.1.0: an issue fetched with
+    # its field names has its custom fields in its note (R8.31).
+    version = "1.1.0"
     media_type = JIRA_ISSUE
     kind = "markdown"
 
