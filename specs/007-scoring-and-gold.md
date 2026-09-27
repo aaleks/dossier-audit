@@ -987,7 +987,7 @@ is correct.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.score_run`), cli (`dossier.cli.main`)
 - **Proved by:** `tests/unit/test_R007_32__a_group_is_scored_against_its_own_gold_answer.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

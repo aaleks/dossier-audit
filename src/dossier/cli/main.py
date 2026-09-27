@@ -1655,8 +1655,10 @@ def eval_(
         if summed is not None:
             # The overall figure opens the report and never closes it: every field's
             # own line follows, so it can never be all that is printed (R7.2).
+            # Counted in what was scored: for a `per_group` step, a group, which
+            # is what its gold answer verifies (R7.32).
             typer.echo(
-                f"{_count(len(scores), 'document')} · {_count(len(reported), 'field')} · "
+                f"{_count(len(scores), scored.unit)} · {_count(len(reported), 'field')} · "
                 f"overall {summed.percentage:.1f}%"
             )
         lowest = weakest(reported)
