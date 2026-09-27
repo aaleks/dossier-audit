@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.35
 
 ## Purpose
@@ -1071,8 +1071,8 @@ anything, and its runs compare as R7.8 says.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring.check_same_reference`) plus cli (`dossier eval --compare`)
-- **Proved by:** `tests/unit/test_R007_35__compare_refuses_runs_shown_different_reference.py`, `tests/acceptance/test_R007_35__compare_refuses_runs_shown_different_reference.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R007_35__compare_refuses_runs_shown_different_reference.py`, `tests/acceptance/test_R007_35__eval_compare_refuses_a_run_whose_procedure_moved.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

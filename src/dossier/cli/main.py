@@ -109,6 +109,7 @@ from dossier.domain.review import CANDIDATES, FEEDBACK, review_report
 from dossier.domain.scoring import (
     FieldKind,
     check_same_documents,
+    check_same_reference,
     compare_totals,
     overall,
     per_field,
@@ -1830,6 +1831,10 @@ def _compare_runs(
         check_same_documents(
             *([document.key for document in m.plan.documents] for m in manifests), runs=runs
         )
+        # And the same context: a procedure tightened between the runs moves the
+        # fields that cite it, and the delta would credit the configuration
+        # (R7.35).
+        check_same_reference(manifests[0].plan, manifests[1].plan, runs=runs)
     except ValueError as error:
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
