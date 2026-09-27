@@ -33,6 +33,7 @@ sources:
     token_env: DOSSIER_CONFLUENCE_TOKEN        # the NAME of the variable, never the value
     # user_env: DOSSIER_CONFLUENCE_USER        # name this too for HTTP Basic (R1.21)
     # export: pdf                              # also hold each page's PDF export (R1.19)
+    # comments: true                           # hold each page with its comments (R1.23)
 ```
 
 A CQL query containing `:` or `"` must be quoted as a whole in YAML:
@@ -47,6 +48,7 @@ The keys, checked at load time against `ConfluenceKeys` (R1.10):
 | `token_env` | no | variable holding the token; alone → `Authorization: Bearer` |
 | `user_env` | no | variable holding the user; with `token_env` → `Authorization: Basic user:token`; without it → refused at load time |
 | `export` | no | `pdf`, or absent. Any other value is refused at load time |
+| `comments` | no | `true` holds each page with every comment on it, replies included; `false`, the default, asks for none (R1.23) |
 
 `fields`, `convert` and `watermark_overlap` are the core's, as for every source.
 Authentication is decided exactly as for Jira, by one shared function: a
@@ -146,6 +148,10 @@ Who is on call is in [the rota](https://status.example/rota). Pool lb_acq_01 ale
   image is (R8.10). The server's URL is not kept.
 - `_links`, `_expandable`, user keys and the version message are in the payload
   and not in the note, so a model cannot find a quote in them.
+- With `comments: true`, `## Comments` follows the body (R8.30). Each comment is
+  under `**m.keller** · 2026-08-05T17:10:00.000Z`, and a reply's heading ends
+  `· reply to m.keller`. They come in thread order: a comment, its replies,
+  then the next. A page with no comment has the same note either way.
 
 The PDF export converts to `markdown` by default, like any PDF (R8.10). A list
 under `convert:` applies to every document the source holds, so
@@ -164,14 +170,13 @@ These are spec 001's open questions:
 
 - **Confluence Cloud** is not verified. Its version-1 content routes answer
   under `/wiki`, but its PDF export is an asynchronous task.
-- **Page comments** are not part of the page's document.
 - **A page that includes another page** renders that page's text without its
   own version moving, so a change to the included page is not fetched.
 
 ## Tests that pin the behaviour above
 
-`tests/unit/test_R001_15__…` through `test_R001_21__…` for the connector,
-`test_R008_19__…` and `test_R008_20__…` for the note, and
+`tests/unit/test_R001_15__…` through `test_R001_23__…` for the connector,
+`test_R008_19__…`, `test_R008_20__…` and `test_R008_30__…` for the note, and
 `tests/acceptance/test_R008_19__a_confluence_page_is_audited_end_to_end.py`,
 which syncs, converts and audits a page through the CLI. The fixtures in
 `tests/fixtures/confluence/` have the shape Confluence 9.2.21 sends, with the

@@ -29,3 +29,23 @@ def export_version(page: str | None, files: Iterable[str | None]) -> str | None:
         return page
     joined = "\n".join(sorted(markers)).encode("utf-8")
     return f"{page}+{hashlib.sha256(joined).hexdigest()[:12]}"
+
+
+def commented_version(page: str | None, comments: Iterable[str | None]) -> str | None:
+    """A page's marker with `comments: true`: its own, and a digest of its comments' (R1.24).
+
+    `v37` for a page with no comment. Otherwise `v37+c` and the first twelve
+    hex digits of the SHA-256 of its comments' `<id>:v<n>`, sorted and joined by
+    newlines. A comment is content of its own, so adding, editing or removing
+    one leaves the page at its version; this is what moves instead. Sorted,
+    because the order a search answers in is not the page's.
+
+    `None` when the page, or any comment, has no marker, as R1.19's is.
+    """
+    markers = list(comments)
+    if page is None or any(marker is None for marker in markers):
+        return None
+    if not markers:
+        return page
+    joined = "\n".join(sorted(markers)).encode("utf-8")
+    return f"{page}+c{hashlib.sha256(joined).hexdigest()[:12]}"

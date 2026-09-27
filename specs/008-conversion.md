@@ -582,7 +582,7 @@ whether `comments:` is on or off.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.confluence_page.note`), called by infrastructure (`dossier.infrastructure.converters.confluence_page_markdown`)
 - **Proved by:** `tests/unit/test_R008_30__a_pages_comments_follow_its_body.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
