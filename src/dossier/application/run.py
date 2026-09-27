@@ -1432,7 +1432,10 @@ def replay(
     by_part = {} if document_parts is None else document_parts
 
     for step in plan.steps:
-        over = [AGGREGATE_KEY] if step.mode == "aggregate" else keys
+        # The units `execute` ran over, recomposed from the manifest's keys alone:
+        # a group is read off its members' keys, so a document synced since the
+        # run is in no group here (R4.15).
+        over = _units(step.mode, keys)
         results: list[DocumentResult] = []
         every_part: list[DocumentResult] = []
         for document in over:
@@ -1442,7 +1445,7 @@ def replay(
             # What `execute` skipped, skipped here, or the replay would look
             # for an entry the run never wrote (R6.21, R4.7). Replay holds
             # text as `document_text`, which is only ever the markdown kind.
-            if step.mode != "aggregate" and _reads_nothing(
+            if not _reads_a_set(step.mode) and _reads_nothing(
                 targets=step.inputs,
                 document=document,
                 holds=lambda kind: _held(
@@ -1456,7 +1459,7 @@ def replay(
                 result, key = _replay_one(
                     step=step,
                     document=document,
-                    documents=keys,
+                    documents=_members(step.mode, document, keys),
                     # The model this step was asked with, as the run keyed it:
                     # its own where it named one (R3.14, R4.7).
                     model=plan.model_of(step),
@@ -1484,7 +1487,14 @@ def replay(
                 results.append(_joined_parts(served, document=document))
             else:
                 results.extend(served)
-        steps.append(StepReport(step=step.id, results=tuple(results), parts=tuple(every_part)))
+        steps.append(
+            StepReport(
+                step=step.id,
+                results=tuple(results),
+                parts=tuple(every_part),
+                unit="group" if step.mode == "per_group" else "document",
+            )
+        )
         produced[step.id] = {
             result.document: _as_text(result) for result in results if not result.failed
         }
@@ -1535,7 +1545,7 @@ def _replay_one(
             target=target,
             document=document,
             documents=documents,
-            aggregate=step.mode == "aggregate",
+            aggregate=_reads_a_set(step.mode),
             document_text=document_text,
             produced=produced,
         )
@@ -1586,7 +1596,14 @@ def _replay_one(
     served = _from_cache(
         document=document,
         payload=stored,
-        document_text=document_text,
+        # A group's answer is checked against its members, as the run checked it
+        # (R6.22): a replay that checked it against more would pass a citation
+        # the run refused.
+        document_text=(
+            {member: document_text[member] for member in documents if member in document_text}
+            if step.mode == "per_group"
+            else document_text
+        ),
         # The replay knows which documents this stage was shown as pictures,
         # exactly as the run did, so a described field is reproduced described
         # rather than ungrounded -- and `dossier eval` scores what the run
