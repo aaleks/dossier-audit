@@ -208,8 +208,14 @@ record when rather than what.
 
 Newer snapshots are ignored. A past audit is defended by what it actually read.
 
+A reference document is part of what a run read, because every call reading
+`reference` is shown it (R3.18). So row 4's warning names a moved procedure as
+well as a moved incident, marked `(reference)` so a reader knows which kind of
+evidence moved. Until row 5 it named only the audited documents, and a
+tightened procedure went unmentioned until two runs were compared.
+
 - **Kind:** deterministic
-- **Layer:** application (`dossier.application.run`)
+- **Layer:** application (`dossier.application.run`) plus cli (the warning)
 - **Proved by:** `tests/unit/test_R004_9__superseded_snapshots_do_not_affect_replay.py`, `tests/acceptance/test_R004_9__a_run_after_the_source_moved_warns.py`
 - **Status:** MET
 
@@ -219,6 +225,7 @@ Newer snapshots are ignored. A past audit is defended by what it actually read.
 | 2 | the same, with `INC-4821` since tombstoned | the replay still resolves (R2.7) |
 | 3 | a *new* run of the same pipeline | pins the newer snapshot; only replay is frozen |
 | 4 | *counter-example* — `dossier run` without `--replay`, after `INC-4821` was re-snapshotted | resolves against the current snapshot and prints `warning: the source has moved since run 20260806T142203Z-4f1a: INC-4821 re-snapshotted` before any step runs -- a document added or tombstoned since is named the same way |
+| 5 | *counter-example* — `dossier run` without `--replay`, after reference document `OPS-114` was re-snapshotted | the same warning names it, marked as context: `warning: the source has moved since run 20260806T142203Z-4f1a: OPS-114 re-snapshotted (reference)`. A reference document that is new or deleted is named the same way |
 
 ### R4.10 — a document key two sources both hold stops the run, naming both
 
