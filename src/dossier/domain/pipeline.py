@@ -243,7 +243,8 @@ def split_kind(reference: str) -> tuple[str, str | None]:
 
 
 def validate_modes(pipeline: PipelineConfig) -> None:
-    """R3.12 -- a `per_part` step reads an input that has parts.
+    """R3.12 -- a `per_part` step reads an input that has parts; R3.16 -- only a
+    `per_group` or `aggregate` step reads a `per_group` step.
 
     Decidable from the configuration alone: a kind is written on the input
     (R3.11), and the text kind has no parts to fan out over. Refusing it here
@@ -268,6 +269,39 @@ def validate_modes(pipeline: PipelineConfig) -> None:
                     "converted kind that produces several artifacts per document, "
                     "such as documents@page_images (R3.12)."
                 )
+
+    # R3.16 -- a `per_group` step's outputs are named for groups, so only a step
+    # that reads a set can read them: another `per_group` step, which reads its
+    # own group's, or an `aggregate` one, which reads every group's. A `per_file`
+    # step would be asked about `ACME-2024/master.pdf` and handed either the
+    # group's answer, about three documents, or none at all.
+    order = [step.id for step in pipeline.steps]
+    modes = {step.id: step.mode for step in pipeline.steps}
+    for position, step in enumerate(pipeline.steps):
+        if step.mode in ("per_group", "aggregate"):
+            continue
+        for declared in step.inputs:
+            for read in _step_ids_read(declared, preceding=order[:position]):
+                if modes.get(read) == "per_group":
+                    raise ValueError(
+                        f"step {step.id!r} is mode: {step.mode} and reads {read!r}, "
+                        "which is mode: per_group and answers once per group. Only a "
+                        "per_group or aggregate step can read it (R3.16)."
+                    )
+
+
+def _step_ids_read(declared: str, *, preceding: list[str]) -> list[str]:
+    """The step ids one declared input reads, `previous` sugar included.
+
+    `previous(n)` is the `n` steps before this one (R4.2). Taken by position
+    here, and only as many as exist: asking for more than precede the step is
+    R4.3's refusal, made at resolution with its own message.
+    """
+    match = _RELATIVE_REFERENCE.match(declared)
+    if match is None:
+        return [declared]
+    count = 1 if match.group("n") is None else int(match.group("n"))
+    return preceding[-count:] if count else []
 
 
 def validate_references(pipeline: PipelineConfig) -> None:
