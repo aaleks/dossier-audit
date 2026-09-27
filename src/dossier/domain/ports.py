@@ -68,6 +68,11 @@ class Connector(Protocol):
     # from it stayed `active` for ever (R1.11, R2.21).
     lists_everything: bool
 
+    # A connector may also declare `fetch_asks: str`, what its fetch asks for
+    # beyond an item's address, which joins the source configuration hash
+    # (R2.26). Not a member here: a connector that asks for nothing more need
+    # not say so, and sync reads it with `getattr` and a default of "".
+
     def list(self, since: datetime | None) -> Iterator[ItemRef]:
         """Every item currently in scope.
 

@@ -184,9 +184,11 @@ def sync_source(
 
     # A projection the recorded hashes were not computed under makes every one
     # of them an answer to a different question, so every item is evaluated
-    # again (R2.3). `None` is a source that has never synced: nothing to
+    # again (R2.3). So does a change to what the connector's fetch asks for
+    # (R2.26); a connector declaring nothing asks for nothing beyond an item's
+    # address. `None` is a source that has never synced: nothing to
     # invalidate, and the normal path already fetches everything.
-    configured = source_config_hash(config)
+    configured = source_config_hash(config, fetch_asks=getattr(connector, "fetch_asks", ""))
     reevaluating = projection_changed(
         recorded=ledger.config_hash(config.id), configured=configured
     )
