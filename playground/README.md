@@ -231,7 +231,7 @@ converts stops on
 two converters claim the same pair, and picking either would be picking by
 installation order:
 (application/vnd.dossier.jira-issue+json, markdown) is claimed by both
-jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
+jira-issue-markdown 1.1.0 and play-jira-issue-markdown 1.0.0
 ```
 
 Exercise 03's solution package declares both its converters opt-in. They answer
