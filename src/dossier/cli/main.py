@@ -1018,6 +1018,9 @@ def _execute(
     # handed it (R3.11). A kind whose artifact is not text is absent from here
     # and reaches a step another way; this is what a prompt placeholder holds.
     content: dict[str, dict[str, str]] = {}
+    # What the `reference:` sources hold, by kind: the context every call
+    # reading `reference` is shown whole (R3.18).
+    reference: dict[str, dict[str, str]] = {}
     parts: dict[str, dict[str, list[tuple[str, ImagePart]]]] = {}
     documents: dict[str, str] = {}
     media_types: dict[str, str] = {}
@@ -1064,6 +1067,8 @@ def _execute(
                         continue
                 if decoded:
                     content.setdefault(kind, {}).update(decoded)
+                if decoded and name in config.reference:
+                    reference.setdefault(kind, {}).update(decoded)
                 # A kind whose artifact is a container of parts, unpacked once
                 # here so a per_part step can fan out over it (R3.12, R8.11).
                 for key, payload in produced.items():
@@ -1124,6 +1129,7 @@ def _execute(
             document_text=text,
             document_content=content,
             document_parts=parts,
+            reference_content=reference,
             schemas=schemas,
             prompts=prompts,
             # Built at the first cache miss, never before. That also keeps it
