@@ -1,6 +1,6 @@
 # 005 — Cache keys, cascade and provenance
 
-**Status:** Implemented
+**Status:** Partially implemented
 **Rules:** R5.1 – R5.14
 
 ## Purpose
@@ -436,3 +436,23 @@ input like the part of a `per_part` call (R4.14).
 | 3 | `ACME-2024/amendment-3.pdf` tombstoned | `ACME-2024` asked again with two members |
 | 4 | *counter-example* — `GLOBEX-2023/amendment-1.pdf` added | `ACME-2024`'s key unchanged; served from cache, no call for it |
 | 5 | `GLOBEX-2023/master.pdf` extracted `per_file`, then the step changed to `per_group` | `GLOBEX-2023` asked again: its key holds the group's name. `extract/GLOBEX-2023.json` says `"document": "GLOBEX-2023"`, never the member's key |
+
+### R5.15 — a step that reads `reference` holds every reference document's text in each of its keys, and a step that does not holds none
+
+Context moves every answer given with it. `verify` is shown every reference
+document in each call (R3.18), so each of its keys holds all of them: edit the
+escalation procedure and every incident is verified again. `extract` never read
+the procedure, so its keys hold none of it, and the edit costs it nothing. The
+key holds what the call was shown and nothing else (R0.5).
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R005_15__a_reference_document_moves_the_keys_that_read_it.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `OPS-114` moved from `v37` to `v38` and synced | `verify` asked again for `INC-4821` and `INC-4822`: two model calls |
+| 2 | the same run | `extract` served from cache: no model call |
+| 3 | `OPS-116` tombstoned | `verify` asked again for both incidents, now shown two reference documents; `extract` cached |
+| 4 | *counter-example* — `INC-4821` moved | `verify` asked again for `INC-4821` alone; `INC-4822`'s key is unchanged (R5.10) |

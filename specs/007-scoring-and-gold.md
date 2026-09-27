@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
+**Status:** Partially implemented
 **Rules:** R7.1 – R7.33
 
 ## Purpose
@@ -1021,3 +1021,33 @@ Decided 2026-09-27 by the project owner, over showing the cited member alone.
 | 2 | the same field after a run in which `ACME-2024` has four members | a different verdict key, and the judge is asked again (R7.18) |
 | 3 | a calibration case whose `document` is `ACME-2024` | judged against the three members, as row 1 |
 | 4 | *counter-example* — a judged field in a `per_file` step | shown its one document, as before (R7.17) |
+
+### R7.34 — a judged field of a step that reads `reference` is put to the judge with every reference document beside the evidence it was answered from
+
+R7.33's reasoning, with context in place of a group. The judge is asked whether
+an answer is supported by its evidence, and a step that reads `reference` answers
+from its document and the reference documents together (R3.18). A claim may
+stand on both: "escalation came 40 minutes late" needs the incident's timeline
+and the 30 minutes `OPS-114` allows. Shown the incident alone, the judge would
+call a supported claim unsupported, a mistake its calibration never measured.
+
+So the judge is shown what the stage was shown. First the evidence R7.17, R7.21
+or R7.33 gives it: the document, the pages or the group. Then every reference
+document, each under its own key, in key order. Its verdict is keyed on all of
+them (R7.18), so a procedure edited asks it again. A calibration case for such a
+field is judged the same way.
+
+Decided 2026-09-27 by the project owner, over leaving the reference documents
+out of the judge's evidence.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval`), cli (`dossier.cli.main`)
+- **Proved by:** `tests/unit/test_R007_34__a_field_that_read_reference_is_judged_with_it.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `root_cause` on `INC-4821` in `verify`, which reads `reference` holding `OPS-114` | the judge prompt holds `INC-4821` and `OPS-114`, each under its own key |
+| 2 | the same field after `OPS-114` moved to `v38` and the run was made again | a different verdict key, and the judge is asked again (R7.18) |
+| 3 | a calibration case for that field, naming `INC-4821` | judged against `INC-4821` and `OPS-114`, as row 1 |
+| 4 | *counter-example* — a judged field of `extract`, which reads `documents` only | shown its one document, as before (R7.17) |

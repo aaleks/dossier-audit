@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
+**Status:** Partially implemented
 **Rules:** R4.1 – R4.15
 
 ## Purpose
@@ -412,3 +412,47 @@ synced since is invisible to the replay, as a changed prompt is (R4.7).
 | 1 | a run pinning `ACME-2024/master.pdf`, `ACME-2024/amendment-1.pdf`, `ACME-2024/amendment-3.pdf` and `GLOBEX-2023/master.pdf`, replayed | `extract/ACME-2024.json` and `extract/GLOBEX-2023.json` reproduced byte for byte, and no model call |
 | 2 | the same replay, after a sync fetched `ACME-2024/amendment-4.pdf` | still three members in `ACME-2024`, under the same key: membership comes from the manifest, not the ledger |
 | 3 | *counter-example* — `dossier run` after that sync | four members, a new key and one model call (R5.14) |
+
+### R4.16 — a manifest pins the reference documents apart from the audited ones, and a replay recomposes `{{reference}}` from them
+
+A replay reproduces the calls a run made, and a call that read `reference` was
+shown every reference document (R3.18). So the manifest has to say which of the
+documents it pins were context and which were audited. Keys alone cannot say it,
+as they can for a group (R4.15): `OPS-114` looks like a key from any source. The
+manifest pins them under `reference`, by key and snapshot as it pins documents
+(R4.4). A replay renders `{{reference}}` from that list and fans out over
+`documents` alone. A procedure edited since the run is invisible to the replay,
+as a prompt edited since is (R4.7).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.resolution.ResolvedPlan`), application (`dossier.application.run.replay`)
+- **Proved by:** `tests/unit/test_R004_16__a_replay_recomposes_reference_from_its_manifest.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a run over `INC-4821` and `INC-4822` with reference `OPS-114` | the manifest pins `INC-4821` and `INC-4822` under `documents`, and `OPS-114` under `reference` |
+| 2 | that run replayed | `verify/INC-4821.json` and `verify/INC-4822.json` reproduced byte for byte, with no model call |
+| 3 | the same replay after `OPS-114` moved from `v37` to `v38` and was synced | still reproduced from `v37`, under the keys the run wrote |
+| 4 | *counter-example* — a manifest written before this rule, with no `reference` list | read as no reference documents. A step of it that read `reference` cannot be reproduced, and the replay names its entry, as R3.13 row 5's runs cannot |
+
+### R4.17 — `--plan` re-runs a step for a moved reference document exactly when the step reads `reference`
+
+R4.12 promises that `--plan` reports a step as re-running exactly when a run would
+miss its cache. A moved reference document moves the key of every call that
+read it, and no other (R5.15). So a step that reads `reference` re-runs in full,
+naming the reference document that moved, and a step that reads only
+`documents` is still cached. Before this rule `--plan` treated every document
+alike: a moved procedure would have reported `extract` as re-running, though
+`extract` never read it.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.plan.diff`)
+- **Proved by:** `tests/unit/test_R004_17__a_moved_reference_document_reruns_the_steps_reading_it.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `OPS-114` moved, `verify` reading `[documents, extract, reference]` | `! verify: documents changed`, naming `OPS-114 changed` |
+| 2 | the same, `extract` reading `documents` only | `extract: cached` |
+| 3 | *counter-example* — `INC-4821` moved | both steps re-run, each naming `INC-4821 changed` and no reference document |

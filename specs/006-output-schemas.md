@@ -1,6 +1,6 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Implemented
+**Status:** Partially implemented
 **Rules:** R6.1 – R6.22
 
 ## Purpose
@@ -614,3 +614,37 @@ never read is (R6.3): there is no text in which a span could be found or not.
 | 3 | a field on `ACME-2024` citing `GLOBEX-2023/master.pdf` | invalid: not an input of `ACME-2024`'s call (R6.3) |
 | 4 | a field on `ACME-2024` citing `ACME-2024` | invalid: the name is the group's, no member is keyed `ACME-2024`, and a group has no text to hold a span |
 | 5 | *counter-example* — a field on `INC-4821` citing `INC-4821` | accepted: the Jira issue is itself a member keyed `INC-4821`, so the name is a member's as well as the group's |
+
+### R6.23 — a field cites a document its call was shown: the call's own document, its group or its corpus, and every reference document when its step reads `reference`
+
+R6.3 says a field cites an input of its stage, and `check_source` enforces that
+when it is handed the right documents. The run handed a `per_file` call's check
+every document in the corpus. So an answer about `INC-4821` that cited `INC-4822`,
+with a span really in `INC-4822`, was grounded. That is the failure R6.3 names: a
+citation of a document the call never read, which looks checkable. R6.22 closed
+it for a group. This rule closes it for every mode, and admits what R6.3 row 3
+always said was an input: the reference documents of a step that reads them.
+
+What a call was shown, by mode:
+
+- `per_file` and `per_part`: the call's own document.
+- `per_group`: the group's members (R6.22).
+- `aggregate`: every audited document.
+
+In each mode, every reference document is added when the step reads
+`reference` (R3.18).
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R006_23__a_field_cites_a_document_its_call_was_shown.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `extract` in `per_file` mode on `INC-4821`, `loss_amount` citing `INC-4821` | accepted |
+| 2 | the same answer citing `INC-4822`, whose text holds the span | invalid: not an input of `INC-4821`'s call (R6.3). Grounded before this rule |
+| 3 | `verify`, reading `[documents, extract, reference]`, citing `OPS-114` | accepted: reference documents are inputs (R6.3 row 3) |
+| 4 | `extract`, reading `documents` only, citing `OPS-114` | invalid: the call was never shown it |
+| 5 | a `per_part` field on a page of `INC-4821` citing `INC-4822` | invalid, as row 2 |
+| 6 | a `per_group` step reading `reference`, a field on `ACME-2024` citing `OPS-114` | accepted |
+| 7 | *counter-example* — an `aggregate` field citing `INC-4822` | accepted: every audited document was an input of its one call |
