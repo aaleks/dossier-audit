@@ -29,6 +29,8 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict
 
 from dossier.domain.grounding import FieldCheck, FieldVerdict
+from dossier.domain.pipeline import reads_reference
+from dossier.domain.resolution import ResolvedPlan
 from dossier.domain.schemas import FieldRecord
 
 # Unambiguous thousands separators: a Swiss apostrophe, or whitespace. Neither is
@@ -434,6 +436,47 @@ def check_same_documents(
             f"runs {runs[0]} and {runs[1]} cover different documents -- "
             + "; ".join(differences)
             + ". A comparison over different documents is not a comparison."
+        )
+
+
+def check_same_reference(
+    before: ResolvedPlan, after: ResolvedPlan, *, runs: tuple[str, str]
+) -> None:
+    """Raise `ValueError` naming what differs if two runs were shown different context.
+
+    A procedure moves a field as surely as a document does, so a delta over two
+    runs shown different procedures would credit the configuration with the
+    procedure's change (R7.35, R7.8's reason one level out). Compared by
+    snapshot as well as by key: a procedure tightened in place keeps its key,
+    and that is how procedures usually change.
+
+    Only when some step of either run reads `reference`. A pipeline declaring
+    reference sources that no step reads pins them all the same, and showed no
+    call anything (R7.35 row 5).
+    """
+    if not any(reads_reference(step.inputs) for plan in (before, after) for step in plan.steps):
+        return
+    shown = [{d.key: d.snapshot for d in plan.reference} for plan in (before, after)]
+    changed = sorted(
+        key for key in shown[0].keys() & shown[1].keys() if shown[0][key] != shown[1][key]
+    )
+    differences = [f"{key} changed" for key in changed] + [
+        f"only in {run}: {', '.join(keys)}"
+        for run, keys in zip(
+            runs,
+            (
+                sorted(shown[0].keys() - shown[1].keys()),
+                sorted(shown[1].keys() - shown[0].keys()),
+            ),
+            strict=True,
+        )
+        if keys
+    ]
+    if differences:
+        raise ValueError(
+            f"runs {runs[0]} and {runs[1]} were shown different reference documents -- "
+            + "; ".join(differences)
+            + ". A field can move because its context did."
         )
 
 
