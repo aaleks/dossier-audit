@@ -39,13 +39,14 @@ class TestSyncAndConvertRecordPerSourceCounts:
 
     def test_a_convert_records_the_counts_it_prints(self):
         """Example 2: the one converting `incidents-manual`'s three documents, none cached."""
-        counts = {"held": 3, "converted": 3, "cached": 0, "failed": 0}
+        counts = {"held": 3, "converted": 3, "cached": 0, "failed": 0, "left_out": 0}
 
         assert count_metrics(kind="convert", source="incidents-manual", counts=counts) == {
             "incidents-manual/held": 3,
             "incidents-manual/converted": 3,
             "incidents-manual/cached": 0,
             "incidents-manual/failed": 0,
+            "incidents-manual/left_out": 0,
         }
 
     def test_a_source_where_nothing_changed_is_recorded_with_its_zeros(self):
