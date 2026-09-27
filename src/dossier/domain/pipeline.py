@@ -138,7 +138,9 @@ class StepConfig(BaseModel):
     id: str
     prompt: str
     input: str | list[str]
-    mode: Literal["per_file", "aggregate", "per_part"]
+    # `per_group` asks once per group of documents sharing a key's first segment:
+    # a contract and its amendments, an issue and its attachments (R3.15).
+    mode: Literal["per_file", "aggregate", "per_part", "per_group"]
     output: str | None = None
     # The model this step is asked with instead of the pipeline's (R3.14).
     # `None` is the pipeline's: most steps name none, and one that names the
