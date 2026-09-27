@@ -1,6 +1,6 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R2.1 – R2.26
 
 ## Purpose
@@ -626,7 +626,7 @@ not fetched again.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.sync.source_config_hash`)
 - **Proved by:** `tests/unit/test_R002_26__a_change_to_what_a_fetch_asks_fetches_everything_once.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

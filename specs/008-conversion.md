@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.32
 
 ## Purpose
@@ -306,12 +306,14 @@ page's first heading. An image is written as its alt text and the name of its
 file (R8.22). An export often inlines its images as `data:` URIs, and markdownify
 would put megabytes of base64 into the note.
 
-The bytes are decoded as UTF-8 by the converter, and BeautifulSoup is handed
-text, not bytes. Given bytes, BeautifulSoup guesses their encoding with
+The bytes are decoded by the converter, in the charset the page declares, and
+as UTF-8 when it declares none (R8.32). BeautifulSoup is handed text, not
+bytes. Given bytes, BeautifulSoup guesses their encoding with
 `charset-normalizer` or `chardet` when either is installed. MLflow brings in
 the first, so the same file would decode differently depending on which extras
-a machine has, and R8.1 forbids that. A file in another encoding fails, naming
-UTF-8, as a text file does (R8.6).
+a machine has, and R8.1 forbids that. A declaration is not a guess. A file in
+another encoding that declares none fails, naming UTF-8, as a text file does
+(R8.6).
 
 **CSV** is written as the text it is (R8.23). A markdown table was the obvious
 alternative and was rejected. A table rewrites every row: `a,b` becomes
@@ -639,18 +641,44 @@ already brings it in. A declaration is the document saying what it is, not a
 guess, so R8.1 holds. A page that declares nothing is read as UTF-8, and fails as
 R8.21 row 4 fails. A CSV cannot declare anything, and is read as R8.23 reads it.
 
+An XML declaration's `encoding`, at the very start of the page, is a
+declaration too. It is the document saying what it is, and BeautifulSoup finds
+it. BeautifulSoup reads it before a `<meta>`, and a browser reads it only when
+there is no `<meta>`. So a page declaring two different charsets is read by its
+XML declaration, where a browser would read its `<meta>`.
+
+A declared name is read as a browser reads it, by the
+[WHATWG Encoding Standard](https://encoding.spec.whatwg.org/#names-and-labels),
+in two cases where Python reads it otherwise. Every other name is read as
+Python reads it.
+
+- **windows-1252.** Python reads `iso-8859-1` as Latin-1. A browser reads it as
+  windows-1252, and the byte `0x96` is `–` to a browser and an invisible control
+  character to Latin-1. So every label the Standard gives windows-1252 is read
+  as windows-1252: `ansi_x3.4-1968`, `ascii`, `cp1252`, `cp819`, `csisolatin1`,
+  `ibm819`, `iso-8859-1`, `iso-ir-100`, `iso8859-1`, `iso88591`, `iso_8859-1`,
+  `iso_8859-1:1987`, `l1`, `latin1`, `us-ascii`, `windows-1252` and `x-cp1252`.
+- **UTF-16.** A declaration naming UTF-16, with no byte-order mark, is read as
+  UTF-8, as a browser's prescan reads it. That is any label the Standard gives
+  UTF-16LE or UTF-16BE. A page in UTF-16 spends two bytes on every character,
+  so a declaration that can be read in its bytes as ASCII was not written in
+  UTF-16.
+
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.html_markdown`)
 - **Proved by:** `tests/unit/test_R008_32__an_html_file_is_read_in_the_charset_it_declares.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
 | 1 | `<meta charset="windows-1252">`, and `é` written as the byte `0xE9` | the note has `é` |
-| 2 | `<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">` | the page is read in the charset it names |
+| 2 | `<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">` | the page is read in the charset it names, as a browser reads that name (row 6) |
 | 3 | *counter-example* — Windows-1252 bytes, and no declaration | that document fails, naming `html-markdown` and UTF-8 (R8.21 row 4) |
 | 4 | *counter-example* — `<meta charset="x-made-up">` | that document fails, naming the charset it declared |
 | 5 | *counter-example* — `<meta charset="utf-8">`, and a byte UTF-8 cannot read | that document fails, naming UTF-8 |
+| 6 | `<meta charset="iso-8859-1">`, and the byte `0x96` | `–`, as a browser shows it: the Standard reads that label as windows-1252 |
+| 7 | *counter-example* — `<meta charset="utf-16">`, and no byte-order mark | read as UTF-8, as a browser reads it |
+| 8 | `<?xml version="1.0" encoding="windows-1252"?>` at the start of the page, and `é` written as the byte `0xE9` | the note has `é` |
 
 ## Open questions
 
@@ -876,7 +904,7 @@ wherever they are.
 | 1 | `PLAY-4001-payment-retries.html` | its breadcrumb, then `# PLAY-4001 — Duplicate payment retries after a queue redelivery`, `**Severity:** major`, and `## Timeline` with its list. The title is there once, as the page's heading, and none of its CSS is. The breadcrumb stays: a reader sees it, and telling navigation from content by class name is the heuristic `trafilatura` was rejected for |
 | 2 | a folder source holding `PLAY-4001-payment-retries.html`, `PLAY-4004-incident-register.csv` and `PLAY-2001-terminal-scan.pdf`, declaring no `convert:` | `3 converted`. Before this, `convert` stopped on `(text/html, markdown)` and `(text/csv, markdown)` and converted nothing (R8.5) |
 | 3 | `<p>pool lb_acq_01 held 3*2 connections</p>` | written as it stands, with no `\_` and no `\*` (R8.17 row 3) |
-| 4 | *counter-example* — an HTML file in Windows-1252 with `é` in it | that document fails, naming `html-markdown` and UTF-8; the source's other documents convert (R8.6) |
+| 4 | *counter-example* — an HTML file in Windows-1252 with `é` in it, declaring no charset (R8.32) | that document fails, naming `html-markdown` and UTF-8; the source's other documents convert (R8.6) |
 | 5 | *counter-example* — a `<script>` in the body holding `var rota = 'on call'` | not in the note; the paragraphs either side of it are |
 | 6 | `<p>Released<em>&nbsp;now</em></p>` | `Released *now*`, the space kept, as R8.20 row 7 keeps it |
 
