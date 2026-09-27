@@ -16,7 +16,7 @@ import json
 from collections.abc import Iterator, Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -157,7 +157,7 @@ class ConfluenceConnector:
         """
         cql = f"({self._query}) AND type = page"
         if since is None:
-            yield from self._marked([*self._pages(cql)])
+            yield from self._marked([*self._pages(cql)], since=None)
             return
 
         window = _modified_since(since)
@@ -172,14 +172,27 @@ class ConfluenceConnector:
         touched = sorted(self._containers_of_changed(window) - {p.key for p in pages})
         for ids in _batches(touched):
             pages += self._pages(f"{cql} AND id in ({', '.join(ids)})")
-        yield from self._marked(pages)
+        yield from self._marked(pages, since=since)
 
-    def _marked(self, pages: list[ItemRef]) -> Iterator[ItemRef]:
-        """`pages`, each marked by what it includes (R1.26), then by its comments (R1.24)."""
+    def _marked(self, pages: list[ItemRef], *, since: datetime | None) -> Iterator[ItemRef]:
+        """`pages`, each marked by what it includes (R1.26), then by its comments (R1.24).
+
+        Under a window, a page whose included text changed is listed too: an
+        edit to an included page leaves the including one out of the window's
+        search (R1.27). It is in scope, since the query found it including.
+        """
         included = self._included()
+        if since is not None:
+            floor = server_zone_floor(since)
+            listed = {page.key for page in pages}
+            pages = pages + [
+                drawn.ref
+                for key, drawn in sorted(included.items())
+                if key not in listed and drawn.changed is not None and drawn.changed >= floor
+            ]
         yield from self._commented([self._including(page, included) for page in pages])
 
-    def _including(self, page: ItemRef, included: Mapping[str, list[str | None]]) -> ItemRef:
+    def _including(self, page: ItemRef, included: Mapping[str, _Drawn]) -> ItemRef:
         """`page`, marked by what it draws in, when it draws anything in (R1.26).
 
         `_versions` keeps this marker, and the export's is made from it: the PDF
@@ -187,10 +200,12 @@ class ConfluenceConnector:
         """
         if page.key not in included:
             return page
-        self._versions[page.key] = including_version(page.remote_version, included[page.key])
+        self._versions[page.key] = including_version(
+            page.remote_version, included[page.key].markers
+        )
         return page.model_copy(update={"remote_version": self._versions[page.key]})
 
-    def _included(self) -> dict[str, list[str | None]]:
+    def _included(self) -> dict[str, _Drawn]:
         """What each of the query's pages that includes another draws in, by page id (R1.26).
 
         Asked at every sync, windowed or not: an edit to an included page leaves
@@ -218,7 +233,13 @@ class ConfluenceConnector:
                 names.setdefault(str(page["id"]), _names(page))
             wanted = {name for page in answered.values() for name in names[str(page["id"])]}
             wanted -= found.keys()
-        return {str(page["id"]): _drawn_in(str(page["id"]), names, found) for page in including}
+        drawn: dict[str, _Drawn] = {}
+        for page in including:
+            key = str(page["id"])
+            markers, changed = _drawn_in(key, names, found)
+            ref = ItemRef(key=key, remote_version=_version_of(page), updated_at=_when(page))
+            drawn[key] = _Drawn(ref=ref, markers=markers, changed=changed)
+        return drawn
 
     def _named(self, names: list[tuple[str, str]]) -> dict[tuple[str, str], dict]:
         """The pages `names` names, each `(space, title)`, asked for by space and title."""
@@ -558,17 +579,28 @@ def _names(page: Mapping[str, Any]) -> list[tuple[str, str]]:
     return included_pages(storage, space=space)
 
 
+class _Drawn(NamedTuple):
+    """A page that includes others: as a listing would list it, what it draws in
+    (R1.26), and when the latest of that last changed (R1.27)."""
+
+    ref: ItemRef
+    markers: list[str | None]
+    changed: datetime | None
+
+
 def _drawn_in(
     start: str,
     names: Mapping[str, list[tuple[str, str]]],
     found: Mapping[tuple[str, str], Mapping[str, Any] | None],
-) -> list[str | None]:
-    """The markers of everything page `start` draws in, through other pages too (R1.26).
+) -> tuple[list[str | None], datetime | None]:
+    """The markers of everything page `start` draws in, through other pages too
+    (R1.26), and when the latest of them last changed (R1.27).
 
     Each page once, and never `start` itself: two pages including each other
     end here rather than going round.
     """
     markers: list[str | None] = []
+    changed: datetime | None = None
     seen: set[tuple[str, str]] = set()
     counted = {start}
     todo = list(names.get(start, []))
@@ -586,8 +618,11 @@ def _drawn_in(
             continue
         counted.add(key)
         markers.append(_file_version_of(page))
+        when = _when(page)
+        if when is not None and (changed is None or when > changed):
+            changed = when
         todo.extend(names.get(key, []))
-    return markers
+    return markers, changed
 
 
 def _quoted(text: str) -> str:

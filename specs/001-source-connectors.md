@@ -871,7 +871,7 @@ one all the same.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`)
 - **Proved by:** `tests/unit/test_R001_27__a_windowed_listing_finds_pages_whose_included_text_changed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
