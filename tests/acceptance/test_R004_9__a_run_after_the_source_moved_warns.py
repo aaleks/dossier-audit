@@ -9,6 +9,7 @@ warning is printed before any step runs, so it is read rather than scrolled.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -17,12 +18,14 @@ from tests.fakes import register_connector
 from tests.pipelines import write_pipeline
 from tests.scoring_example import (
     ANSWERS,
+    FIELDS,
     ISSUES,
     PIPELINE,
     SOURCE_ID,
     SOURCE_TYPE,
     IssueTracker,
     RoutedModel,
+    abstains,
 )
 
 
@@ -82,6 +85,108 @@ class TestARunAfterTheSourceMovedWarns:
         self, workspace: Path, monkeypatch, source: IssueTracker
     ):
         """The one where nothing moved: no warning, nothing to scroll past."""
+        result = _cli(workspace, monkeypatch, "run", PIPELINE)
+
+        assert result.exit_code == 0, result.output
+        assert "warning" not in result.output
+
+
+# Row 5's corpus: incidents audited, procedures as context, each a folder source.
+# `inbox/tickets/`, because the workspace fixture already fills `inbox/incidents/`.
+TICKETS = {"INC-4821.md": "# INC-4821\n\nFinance confirmed a total exposure CHF 48'200.\n"}
+PROCEDURES = {
+    "OPS-114.md": "# OPS-114 Incident escalation procedure\n\nEscalate within 30 minutes.\n",
+    "OPS-115.md": "# OPS-115 Customer communication\n\nNotify customers within 4 hours.\n",
+}
+FOLDERS = """\
+sources:
+  - id: incidents
+    type: folder
+    path: inbox/tickets/
+  - id: procedures
+    type: folder
+    path: inbox/procedures/
+"""
+
+
+class Abstains:
+    """Answers every call about the document its `<source_document>` held, abstaining."""
+
+    model_id = "anthropic:claude-sonnet-4-5-20250929"
+
+    def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
+        held = re.search(r'<source_document><document key="([^"]+)">', prompt)
+        document = held.group(1) if held else ""
+        return json.dumps({"document": document, "fields": [abstains(f) for f in FIELDS]})
+
+
+@pytest.fixture
+def procedures(workspace: Path, monkeypatch) -> Path:
+    """One incident verified against two procedures, synced and run once."""
+    import dossier.cli.main as cli
+
+    for folder, files in (("tickets", TICKETS), ("procedures", PROCEDURES)):
+        for name, text in files.items():
+            path = workspace / "inbox" / folder / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+    (workspace / "sources.yaml").write_text(FOLDERS, encoding="utf-8")
+    write_pipeline(
+        workspace,
+        name=PIPELINE,
+        sources=["incidents"],
+        reference=["procedures"],
+        steps=["extract"],
+        inputs={"extract": "[documents, reference]"},
+    )
+    monkeypatch.setattr(cli, "build_model_client", lambda model_id: Abstains())
+    for args in (("sync", PIPELINE), ("run", PIPELINE)):
+        result = _cli(workspace, monkeypatch, *args)
+        assert result.exit_code == 0, result.output
+    return workspace / "inbox" / "procedures"
+
+
+class TestARunAfterAProcedureMovedWarns:
+    """R4.9 row 5 — a moved reference document is named too, marked as context."""
+
+    def test_a_re_snapshotted_procedure_is_named_as_reference(
+        self, workspace: Path, monkeypatch, procedures: Path
+    ):
+        """The one where `OPS-114` was tightened between two runs."""
+        first = sorted(path.name for path in (workspace / "runs").iterdir())[-1]
+        (procedures / "OPS-114.md").write_text(
+            "# OPS-114 Incident escalation procedure\n\nEscalate within 15 minutes.\n",
+            encoding="utf-8",
+        )
+        assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
+
+        result = _cli(workspace, monkeypatch, "run", PIPELINE)
+
+        assert result.exit_code == 0, result.output
+        assert result.output.splitlines()[0] == (
+            f"warning: the source has moved since run {first}: "
+            "OPS-114.md re-snapshotted (reference)"
+        )
+
+    def test_a_deleted_procedure_is_named_the_same_way(
+        self, workspace: Path, monkeypatch, procedures: Path
+    ):
+        """The one where `OPS-115` was withdrawn: gone, and still context that moved."""
+        first = sorted(path.name for path in (workspace / "runs").iterdir())[-1]
+        (procedures / "OPS-115.md").unlink()
+        assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
+
+        result = _cli(workspace, monkeypatch, "run", PIPELINE)
+
+        assert result.exit_code == 0, result.output
+        assert result.output.splitlines()[0] == (
+            f"warning: the source has moved since run {first}: OPS-115.md gone (reference)"
+        )
+
+    def test_procedures_exactly_as_the_last_run_read_them_print_no_warning(
+        self, workspace: Path, monkeypatch, procedures: Path
+    ):
+        """The one where nothing moved, context included: no warning."""
         result = _cli(workspace, monkeypatch, "run", PIPELINE)
 
         assert result.exit_code == 0, result.output

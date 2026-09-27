@@ -13,6 +13,13 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`dossier run`'s warning that the source has moved now names a moved reference
+document too, marked `(reference)` (R4.9 row 5). A tightened procedure used to
+go unmentioned until two runs were compared, although `--plan` already named it
+(R4.17). Exercise 17 showed the gap in its closing section, which is now gone;
+its task 3 prints the warning, and a deleted procedure prints `gone
+(reference)`.
+
 `--plan` says `documents changed` for a step reading `documents@page_images`
 when its document moves, and a converter now moves only the steps that read its
 kind (R4.12 rows 11 to 13).

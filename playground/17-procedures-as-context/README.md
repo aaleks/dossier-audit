@@ -119,8 +119,9 @@ and plan.
       moved: [PLAY-6001.md changed]
 ```
 
-Run it. Two calls, both `verify`'s. `extract: 2 document(s) · 2 from cache`.
-`verify/PLAY-1001.md.json` now says `15 minutes`.
+Run it. The first line is a warning naming `PLAY-6001.md re-snapshotted
+(reference)`. Then two calls, both `verify`'s, and `extract: 2 document(s) · 2
+from cache`. `verify/PLAY-1001.md.json` now says `15 minutes`.
 
 - Why did every `verify` call run again, when only one incident is major?
   (R5.15.)
