@@ -765,12 +765,22 @@ def _run_one(
     # a document the stage never read at all (R6.15).
     shown_as_pictures = () if part is None else (document,)
 
+    # What a citation may name: for a group's call, its members and no others. A
+    # group's answer quoting another contract would be a quote the call was
+    # never shown, and it would look checkable (R6.22, R6.3). Every other mode
+    # is checked against the text it always was.
+    read = (
+        {member: document_text[member] for member in documents if member in document_text}
+        if declared.mode == "per_group"
+        else document_text
+    )
+
     hit = cache.get(key, require_record=True)
     if hit is not None:
         served = _from_cache(
             document=document,
             payload=hit,
-            document_text=document_text,
+            document_text=read,
             shown_as_pictures=shown_as_pictures,
             structured=schema is not None,
         )
@@ -788,7 +798,7 @@ def _run_one(
         prompt=render(prompt, values),
         schema=schema,
         model=model,
-        input_documents=document_text,
+        input_documents=read,
         parts=() if part is None else (part[1],),
         shown_as_pictures=shown_as_pictures,
         tracker=tracker,
