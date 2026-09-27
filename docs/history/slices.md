@@ -13,6 +13,45 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`reference:` works as spec 003 always said it did: context, not audited (R3.17,
+R3.18, R4.16, R4.17, R5.15 and R7.34). A field now cites only what its own call
+was shown (R6.23). Both gaps were found while landing `per_group`, and neither
+was caused by it.
+
+- **What `reference:` did before.** The run put the reference sources in with
+  the audited ones. A `per_file` step was asked about each procedure as though
+  it were an incident, and filed an answer for it. `{{reference}}` was filled
+  from the same per-document map as `{{documents}}`, so it held the incident a
+  second time and never a procedure. No test had ever run a step that read
+  `reference`: the example pipeline in spec 003 declared one, and nothing
+  executed it.
+- **What it does now.** Reference documents are never audited.
+  `{{reference}}` holds every one of them, under its key, in every call of
+  every mode. A pipeline reading it with none declared is refused at load
+  time.
+- **Manifest, plan and judge.** The manifest pins reference documents under
+  their own list, so a replay shows each call the procedure as it was. A plan
+  re-runs only the steps that read `reference` when one moves. A procedure that
+  has gone is a move, since every one of those calls was shown it. A judge is
+  shown the procedures beside the document, and a described judge is calibrated
+  on that same prompt.
+- **Citations.** A `per_file` or `per_part` call's check was handed the whole
+  corpus. An answer about one incident that quoted another, with the quote
+  really there, was graded grounded. R6.3 row 2 had been proved only at the
+  domain layer, where `check_source` is right when handed the right documents.
+  `_citable` now decides what a call was shown, once, for the run and the
+  replay alike.
+- **Live.** Playground exercise 17 ran every rule against the stub. It found
+  one thing no rule covers. `dossier run`'s "the source has moved since run"
+  warning (R4.9 row 4) compares the audited documents only, so it says nothing
+  when a procedure moves. Its SOLUTION.md records it. It was left for a rule
+  of its own.
+- **Noticed, not changed.** `--plan` tests raw input names against the source
+  keywords. So a step reading `documents@page_images` never reports
+  `documents changed` or `converters changed`, though its keys move (R4.12).
+
+---
+
 What came back and what was left out now reach MLflow (spec 011, R11.24 to
 R11.26). R2.25 added `returned` to a sync's line, and R8.27 added `left out` to
 a convert's, but neither reached the record. A sync that revived `audit-note.pdf`

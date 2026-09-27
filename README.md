@@ -13,8 +13,8 @@ see "How this is built" below. Where the rules stand is printed by
 behind. This README can fall behind, so its figure carries a date. On 2026-09-27:
 
 ```
-specs: 284 rules across 16 specs | 269 MET, 0 IN PROGRESS, 0 NOT MET, 15 SUPERSEDED
-       281 deterministic, 3 evaluated
+specs: 295 rules across 16 specs | 279 MET, 0 IN PROGRESS, 1 NOT MET, 15 SUPERSEDED
+       292 deterministic, 3 evaluated
 ```
 
 ## Layout
@@ -205,6 +205,29 @@ is in (R6.22), the answer is scored against a gold answer for the group (R7.32),
 and a replay recomposes each group from the documents its manifest pins (R4.15).
 A `per_file` step cannot read a group's answer, and is refused at load time
 (R3.16).
+
+Some documents are context rather than evidence. An incident says what
+happened, and the escalation procedure says how fast it should have been
+escalated. A pipeline names such sources under `reference:`:
+
+```yaml
+sources:   [incidents]
+reference: [procedures]            # read, shown, cited; never audited
+steps:
+  - id: verify
+    input: [documents, extract, reference]
+```
+
+A reference document is never itself asked about, filed or scored (R3.17).
+`{{reference}}` holds every reference document, each under its own key, in
+every call of every mode (R3.18). A step that reads it may cite a procedure. A
+field of any step may cite only what its own call was shown, never another
+document of the corpus, however true the quote (R6.23). Editing a procedure
+re-runs only the steps that read it, and `--plan` says so first (R5.15, R4.17).
+The manifest pins the reference documents apart, so a replay shows every call
+the procedure as it was (R4.16). A judge is shown them beside the document
+(R7.34). Reading `reference` in a pipeline that declares none is refused at
+load time.
 
 ## What it records
 
