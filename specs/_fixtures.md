@@ -423,3 +423,19 @@ is the fifth document that makes two runs cover different documents.
 | `incident-audit` at `9c2b04f7` | the pipeline version run `20260806T142203Z-4f1a` produced, measured at 80.0% overall |
 | `incident-audit` at `4e8d13aa` | the version after the prompt changed, which run `20260907T090000Z-bbbb` produced and which measures 90.0% |
 | `postmortem-review` at `9c2b04f7` | a second pipeline that resolves to the same digest: two versions, not one, because the digest alone does not identify (R13.1 row 4) |
+
+## A contract as a group (R3.15)
+
+The second use case (`docs/second-use-case.md`): a supplier contract is a master
+agreement and its amendments, kept in a folder named for the contract, so every
+file's key starts with the contract's name.
+
+| Value | Meaning |
+|---|---|
+| `ACME-2024/master.pdf` | the master supplier agreement with ACME, signed 2024-04-01. States the liability cap, `EUR 2,000,000`, and the right to terminate on notice |
+| `ACME-2024/amendment-1.pdf` | changes the invoicing address; answers none of the audited fields |
+| `ACME-2024/amendment-3.pdf` | extends the term: `renewal_date` `2027-03-31`, notice `90` days |
+| `ACME-2024/amendment-4.pdf` | filed after a first run: what R5.14 and R4.15 add |
+| `GLOBEX-2023/master.pdf` | a second contract, a group of one document |
+| `INC-4821/postmortem.pdf` | a postmortem dropped in a folder under the Jira issue's key (R3.15 row 4) |
+| `termination_terms` | free text on `ACME-2024`: "Either party may terminate on 90 days' notice before 2027-03-31." It stands on the master's clause and amendment 3's date together (R7.33) |

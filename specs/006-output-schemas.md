@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Implemented
-**Rules:** R6.1 – R6.21
+**Status:** Partially implemented
+**Rules:** R6.1 – R6.22
 
 ## Purpose
 
@@ -592,3 +592,25 @@ document that failed.
 | 4 | *counter-example* — `summarise`, `aggregate`, reading `documents` | runs once, over the note. The picture is not among the documents it joins, and the run does not stop over it |
 | 5 | the run's report | the picture is not a failure. Skipping is not failing (R6.13), and nothing about the picture went wrong |
 | 6 | a replay of that run | reproduces it without asking for an entry for the picture, which the run never wrote (R4.7) |
+
+### R6.22 — a `per_group` field cites a member of its group
+
+A group has no text of its own; its members do. A field answered from a group
+names the member its span is in: R6.4 looks for the span there, and R6.14 takes the
+page from that member. One answer may cite several members, a field each -- the
+renewal date from amendment 3, the cap from the master. A name that is the
+group's and no member's is invalid rather than ungrounded, as a document the call
+never read is (R6.3): there is no text in which a span could be found or not.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.grounding.check_source`)
+- **Proved by:** `tests/unit/test_R006_22__a_group_field_cites_a_member.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `renewal_date` `2027-03-31` on `ACME-2024`, citing `ACME-2024/amendment-3.pdf` with a span present there | grounded, with `source.page` taken from `ACME-2024/amendment-3.pdf` (R6.14) |
+| 2 | in the same answer, `liability_cap` citing `ACME-2024/master.pdf` | grounded; one answer cites two members |
+| 3 | a field on `ACME-2024` citing `GLOBEX-2023/master.pdf` | invalid: not an input of `ACME-2024`'s call (R6.3) |
+| 4 | a field on `ACME-2024` citing `ACME-2024` | invalid: the name is the group's, no member is keyed `ACME-2024`, and a group has no text to hold a span |
+| 5 | *counter-example* — a field on `INC-4821` citing `INC-4821` | accepted: the Jira issue is itself a member keyed `INC-4821`, so the name is a member's as well as the group's |

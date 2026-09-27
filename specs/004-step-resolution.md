@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.14
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.15
 
 ## Purpose
 
@@ -393,3 +393,22 @@ two pages of six.
 | 3 | a described field in a reproduced `per_part` artifact | still `described`, not `ungrounded`: the replay knows which documents that stage was shown as pictures, so `dossier eval` scores what the run actually produced (R6.15) |
 | 4 | one part's cache entry deleted | the replay stops naming the step, the document and the part, and writes no directory at all |
 | 5 | *counter-example* — a `per_file` step | one key per document with no part in it, unchanged; nothing about a step that was never fanned out moves |
+
+### R4.15 — a replay recomposes each group from the documents its manifest pins, never from what is held now
+
+A group is its members, and a replay reproduces the call a run made, not the call
+it would make today. The manifest already pins every document by key and snapshot
+(R4.4), and a group is computed from keys alone (R3.15), so a replay recomposes the
+groups a run asked about without their being recorded anywhere new. A document
+synced since is invisible to the replay, as a changed prompt is (R4.7).
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run.replay`)
+- **Proved by:** `tests/unit/test_R004_15__a_replay_recomposes_groups_from_its_manifest.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a run pinning `ACME-2024/master.pdf`, `ACME-2024/amendment-1.pdf`, `ACME-2024/amendment-3.pdf` and `GLOBEX-2023/master.pdf`, replayed | `extract/ACME-2024.json` and `extract/GLOBEX-2023.json` reproduced byte for byte, and no model call |
+| 2 | the same replay, after a sync fetched `ACME-2024/amendment-4.pdf` | still three members in `ACME-2024`, under the same key: membership comes from the manifest, not the ledger |
+| 3 | *counter-example* — `dossier run` after that sync | four members, a new key and one model call (R5.14) |

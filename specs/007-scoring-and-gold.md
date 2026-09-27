@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.31
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.33
 
 ## Purpose
 
@@ -974,3 +974,50 @@ the sample, and the message has to say which.
 | 4 | bar 0.875, a calibration file written before R7.26 | withheld: measured before its unsupported cases were counted -- run `dossier calibrate` |
 | 5 | bar declared, agreement below its own bar | withheld on the agreement, as today; R7.15's order holds, with the unsupported half checked after it |
 | 6 | *counter-example* — no unsupported bar declared | gated on the agreement alone, exactly as before (R7.5) |
+
+### R7.32 — a `per_group` step's answers are scored per group, against the gold answer whose `document` is the group
+
+The question was asked of the contract, so the answer is verified for the
+contract: `gold/contracts/ACME-2024.json` says `"document": "ACME-2024"`, and gold
+is already matched by that field rather than by the file's name. Which member a
+value was cited from does not decide whether it is right; that is grounding's
+question (R7.4), and a value grounded in amendment 3 that matches the verified date
+is correct.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.score_run`), cli (`dossier.cli.main`)
+- **Proved by:** `tests/unit/test_R007_32__a_group_is_scored_against_its_own_gold_answer.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `gold/contracts/ACME-2024.json` with `"document": "ACME-2024"` and `renewal_date` `2027-03-31` | scored against `extract/ACME-2024.json`; `renewal_date` correct, grounded in `ACME-2024/amendment-3.pdf` |
+| 2 | gold for both contracts | the eval's first line counts `2 groups`, not the four documents the run read |
+| 3 | *counter-example* — a gold file whose `document` is `ACME-2024/master.pdf` | not scored: the run answered for the group, and no answer is filed under a member |
+
+### R7.33 — a judged `per_group` field is put to the judge with every member of its group
+
+The judge is asked whether an answer is supported by its evidence, and the
+evidence of a group's answer is the group. The stage read every member, and a claim
+may stand on two of them: the master's right to terminate on notice, with the date
+amendment 3 set. Shown only the member the field cites, the judge would weigh half
+the evidence and could call a supported claim unsupported, a mistake its
+calibration never measured. So it is shown the group as the stage was, every member
+under its own key in key order, as R7.21 shows a described field's judge the pages.
+Its verdict is keyed on all of them (R7.18), so a member added or changed asks it
+again. A calibration case for such a field names the group as its `document`, and
+is judged the same way.
+
+Decided 2026-09-27 by the project owner, over showing the cited member alone.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.judge_scores`, `dossier.application.eval.calibrate_field`)
+- **Proved by:** `tests/unit/test_R007_33__a_group_field_is_judged_against_every_member.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `termination_terms` on `ACME-2024`, citing `ACME-2024/amendment-3.pdf` | the judge prompt holds all three members, each under its own key, in key order |
+| 2 | the same field after a run in which `ACME-2024` has four members | a different verdict key, and the judge is asked again (R7.18) |
+| 3 | a calibration case whose `document` is `ACME-2024` | judged against the three members, as row 1 |
+| 4 | *counter-example* — a judged field in a `per_file` step | shown its one document, as before (R7.17) |
