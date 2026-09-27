@@ -1,6 +1,6 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R6.1 – R6.23
 
 ## Purpose
@@ -637,7 +637,7 @@ In each mode, every reference document is added when the step reads
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R006_23__a_field_cites_a_document_its_call_was_shown.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -784,10 +784,13 @@ def _run_one(
     # group's answer quoting another contract would be a quote the call was
     # never shown, and it would look checkable (R6.22, R6.3). Every other mode
     # is checked against the text it always was.
-    read = (
-        {member: document_text[member] for member in documents if member in document_text}
-        if declared.mode == "per_group"
-        else document_text
+    read = _citable(
+        mode=declared.mode,
+        document=document,
+        documents=documents,
+        targets=_targets(declared, step),
+        document_text=document_text,
+        reference=reference.get(DEFAULT_INPUT_KIND, {}),
     )
 
     hit = cache.get(key, require_record=True)
@@ -991,6 +994,33 @@ def _reads_a_set(mode: str) -> bool:
     that did work (R6.13 row 4).
     """
     return mode in ("aggregate", "per_group")
+
+
+def _citable(
+    *,
+    mode: str,
+    document: str,
+    documents: Sequence[str],
+    targets: Sequence[str],
+    document_text: Mapping[str, str],
+    reference: Mapping[str, str],
+) -> dict[str, str]:
+    """The documents a field of this call may cite, with their text (R6.23).
+
+    What the call was shown: its own document for `per_file` and `per_part`,
+    its members for `per_group` (R6.22), every audited document for
+    `aggregate`, and every reference document when the step reads
+    `reference` (R3.18). Handed the whole corpus instead, a check grounded an
+    answer about INC-4821 that quoted INC-4822, a document its call never
+    read: the citation R6.3 calls worse than none, because it looks
+    checkable. `execute` and `replay` both ask this, so a replay grades an
+    answer as the run did.
+    """
+    shown = documents if _reads_a_set(mode) else [document]
+    citable = {key: document_text[key] for key in shown if key in document_text}
+    if any(split_kind(target)[0] == REFERENCE for target in targets):
+        citable.update(reference)
+    return citable
 
 
 def _missing_input(
@@ -1671,13 +1701,16 @@ def _replay_one(
     served = _from_cache(
         document=document,
         payload=stored,
-        # A group's answer is checked against its members, as the run checked it
-        # (R6.22): a replay that checked it against more would pass a citation
-        # the run refused.
-        document_text=(
-            {member: document_text[member] for member in documents if member in document_text}
-            if step.mode == "per_group"
-            else document_text
+        # Checked against what the call was shown, as the run checked it: a
+        # replay that checked it against more would pass a citation the run
+        # refused, and `dossier eval` scores the replay (R6.22, R6.23).
+        document_text=_citable(
+            mode=step.mode,
+            document=document,
+            documents=documents,
+            targets=step.inputs,
+            document_text=document_text,
+            reference=reference,
         ),
         # The replay knows which documents this stage was shown as pictures,
         # exactly as the run did, so a described field is reproduced described
