@@ -133,6 +133,10 @@ class ResolvedPlan(BaseModel):
     model: str
     steps: list[ResolvedStep]
     documents: list[PinnedDocument]
+    # The documents read as context, pinned apart from the audited ones: keys
+    # cannot say which were which, and a replay shows every call that read
+    # `reference` exactly these (R4.16). Empty in a manifest written before.
+    reference: list[PinnedDocument] = []
     converters: list[PinnedConverter] = []
 
     def model_of(self, step: ResolvedStep) -> str:
@@ -231,6 +235,7 @@ def resolve(
     schema_hashes: Mapping[str, str | None] | None = None,
     generated_schema_hashes: Mapping[str, str | None] | None = None,
     converters: Sequence[PinnedConverter] | None = None,
+    reference: Mapping[str, str] | None = None,
 ) -> ResolvedPlan:
     """A pipeline and a set of snapshots, frozen into one plan (R4.4, R4.8).
 
@@ -262,6 +267,14 @@ def resolve(
                 media_type=(media_types or {}).get(key, ""),
             )
             for key in sorted(documents)
+        ],
+        reference=[
+            PinnedDocument(
+                key=key,
+                snapshot=(reference or {})[key],
+                media_type=(media_types or {}).get(key, ""),
+            )
+            for key in sorted(reference or {})
         ],
         # Sorted by the pair each claims, so two machines with the same
         # converters installed in a different order write the same manifest

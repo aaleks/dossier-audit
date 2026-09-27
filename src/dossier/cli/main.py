@@ -1021,6 +1021,8 @@ def _execute(
     # What the `reference:` sources hold, by kind: the context every call
     # reading `reference` is shown whole (R3.18).
     reference: dict[str, dict[str, str]] = {}
+    # And the snapshot behind each, pinned so a replay shows the same (R4.16).
+    reference_documents: dict[str, str] = {}
     parts: dict[str, dict[str, list[tuple[str, ImagePart]]]] = {}
     documents: dict[str, str] = {}
     media_types: dict[str, str] = {}
@@ -1057,6 +1059,11 @@ def _execute(
             # and never itself asked about, filed or scored (R3.17). Listed under
             # `sources:` as well, it is read both ways.
             audited = name in config.sources
+            if name in config.reference:
+                reference_documents.update(
+                    {key: held[key].snapshot for key in converted.present}
+                )
+                media_types.update({key: held[key].media_type for key in converted.present})
             if audited:
                 text.update(converted.text)
             for kind in {a.kind for d in converted.documents for a in d.artifacts}:
@@ -1138,6 +1145,7 @@ def _execute(
             document_content=content,
             document_parts=parts,
             reference_content=reference,
+            reference_documents=reference_documents,
             schemas=schemas,
             prompts=prompts,
             # Built at the first cache miss, never before. That also keeps it

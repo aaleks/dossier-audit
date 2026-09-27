@@ -226,6 +226,7 @@ def execute(
     document_content: Mapping[str, Mapping[str, str]] | None = None,
     document_parts: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]] | None = None,
     reference_content: Mapping[str, Mapping[str, str]] | None = None,
+    reference_documents: Mapping[str, str] | None = None,
     schemas: Mapping[str, OutputSchema | None],
     prompts: Mapping[str, str],
     model: ModelClient,
@@ -258,6 +259,8 @@ def execute(
 
     `reference_content` is what the `reference:` sources hold, by kind and then
     by key: the context every call reading `reference` is shown whole (R3.18).
+    `reference_documents` pins each by snapshot, as `documents` pins the
+    audited ones, so a replay shows those calls the same context (R4.16).
 
     `concurrency` is how many of a step's documents are asked about at once
     (R9.19). Steps still run one after another, and every result is put back in
@@ -296,6 +299,7 @@ def execute(
         },
         converters=converters,
         source_configs=source_configs,
+        reference=reference_documents,
     )
     # Which client asks each step: its own model's, or the pipeline's (R3.14).
     # Decided before anything is written, so a step whose model has no client
@@ -1286,6 +1290,7 @@ def _resolve(
     generated_schema_hashes: Mapping[str, str | None] | None = None,
     converters: Sequence[PinnedConverter] | None = None,
     source_configs: Mapping[str, SourceConfig] | None = None,
+    reference: Mapping[str, str] | None = None,
 ) -> ResolvedPlan:
     """Every check that can refuse a run, run before a run exists.
 
@@ -1321,6 +1326,7 @@ def _resolve(
         schema_hashes=schema_hashes,
         generated_schema_hashes=generated_schema_hashes,
         converters=converters,
+        reference=reference,
     )
     # Every remaining check that could refuse this run, run while refusing it is
     # still free (R4.1).
@@ -1357,9 +1363,12 @@ def replayed_inputs(
     re-deriving it would mean converting with whatever is installed now, which
     is precisely the substitution R4.7 row 4 forbids.
     """
+    # The context the run read as well as what it audited: a call that read
+    # `reference` is recomposed from these texts too (R4.16).
+    pinned = [*manifest.plan.documents, *manifest.plan.reference]
     missing = [
         f"  {document.key}: no snapshot for {document.snapshot[:12]}..."
-        for document in manifest.plan.documents
+        for document in pinned
         if not store.exists(document.snapshot)
     ]
     if missing:
@@ -1371,7 +1380,7 @@ def replayed_inputs(
 
     claimed = {(c.media_type, c.kind): c for c in manifest.plan.converters}
     text: dict[str, str] = {}
-    for document in manifest.plan.documents:
+    for document in pinned:
         converter = claimed.get((document.media_type, MARKDOWN))
         if converter is None:
             # Not an error. The manifest records the converters the run used,
@@ -1478,6 +1487,13 @@ def replay(
     """
     plan = manifest.plan
     keys = [document.key for document in plan.documents]
+    # The context the run's calls were shown, at the snapshots it pinned, and
+    # never what is held now (R4.16).
+    reference = {
+        pinned.key: document_text[pinned.key]
+        for pinned in plan.reference
+        if pinned.key in document_text
+    }
     steps: list[StepReport] = []
     produced: dict[str, dict[str, str]] = {}
     reproduced: list[tuple[str, str, bool, bytes, dict | None, str | None]] = []
@@ -1517,6 +1533,7 @@ def replay(
                     # its own where it named one (R3.14, R4.7).
                     model=plan.model_of(step),
                     document_text=document_text,
+                    reference=reference,
                     produced=produced,
                     cache=cache,
                     part=part,
@@ -1577,6 +1594,7 @@ def _replay_one(
     documents: Sequence[str],
     model: str,
     document_text: Mapping[str, str],
+    reference: Mapping[str, str],
     produced: Mapping[str, Mapping[str, str]],
     cache: ArtifactStore,
     part: tuple[str, ImagePart] | None = None,
@@ -1600,6 +1618,7 @@ def _replay_one(
             documents=documents,
             aggregate=_reads_a_set(step.mode),
             document_text=document_text,
+            reference=reference,
             produced=produced,
         )
         for target in step.inputs
@@ -1718,6 +1737,7 @@ def _replayed_input(
     documents: Sequence[str],
     aggregate: bool,
     document_text: Mapping[str, str],
+    reference: Mapping[str, str],
     produced: Mapping[str, Mapping[str, str]],
 ) -> str:
     """The content behind one resolved input id, for this document.
@@ -1733,6 +1753,11 @@ def _replayed_input(
     # reason that happens to give the same answer, which is not the same as
     # being right.
     name, kind = split_kind(target)
+    if name == REFERENCE:
+        # Every reference document, as `_input_values` rendered it (R3.18),
+        # and nothing for a kind that is not text, as there.
+        held = reference if kind in (None, DEFAULT_INPUT_KIND) else {}
+        return _joined(held, list(held))
     if name not in SOURCE_KEYWORDS:
         source = produced.get(target, {})
     elif kind in (None, DEFAULT_INPUT_KIND):
