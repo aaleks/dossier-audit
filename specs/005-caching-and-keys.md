@@ -1,6 +1,6 @@
 # 005 — Cache keys, cascade and provenance
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R5.1 – R5.15
 
 ## Purpose
@@ -448,7 +448,7 @@ key holds what the call was shown and nothing else (R0.5).
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R005_15__a_reference_document_moves_the_keys_that_read_it.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

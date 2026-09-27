@@ -13,7 +13,7 @@ spec assumes.
 | `002-ledger-and-sync.md` | Change detection, incremental fetch, tombstoning, the store | R2.1 – R2.25 | Implemented |
 | `003-pipeline-format.md` | `sources.yaml` and `pipeline.yaml` schemas, and the modes a step is asked in | R3.1 – R3.18 | Implemented |
 | `004-step-resolution.md` | Reference expansion, the run manifest, plan diffing | R4.1 – R4.17 | Implemented |
-| `005-caching-and-keys.md` | Cache key composition, cascade, provenance records, and what a run spent in tokens | R5.1 – R5.15 | Partially implemented |
+| `005-caching-and-keys.md` | Cache key composition, cascade, provenance records, and what a run spent in tokens | R5.1 – R5.15 | Implemented |
 | `006-output-schemas.md` | Structured output, grounding, abstention, validation | R6.1 – R6.23 | Partially implemented |
 | `007-scoring-and-gold.md` | Gold sets, scorers, judge calibration, the change gate | R7.1 – R7.34 | Partially implemented |
 | `008-conversion.md` | The converter interface, its registration, versioning and selection | R8.1 – R8.29 | Implemented |
