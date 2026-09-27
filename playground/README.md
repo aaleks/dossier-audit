@@ -1,16 +1,17 @@
 # The dossier playground
 
-Fifteen hands-on exercises for learning `dossier` by running it: syncing a source,
+Sixteen hands-on exercises for learning `dossier` by running it: syncing a source,
 converting documents, defining a pipeline, grounding an answer, scoring against a gold
 set, calibrating a judge, reading the whole thing back in MLflow, auditing documents
 whose evidence is a chart rather than a sentence, auditing a real Jira running on
 your own machine, publishing a gold set and a pipeline's prompts to MLflow, so a
 regression can be followed to the words that caused it, letting people who never
 run `dossier` review its answers in MLflow, and bringing what they say back into
-the gold set under a maintainer's name, and finally reading a public Confluence
-that belongs to someone else, without leaning on it.
+the gold set under a maintainer's name, reading a public Confluence that belongs
+to someone else without leaning on it, and finally asking one question of a
+contract that is several files.
 
-**Exercises 01 to 10 run offline, in seconds, at zero cost.** No API key, no
+**Exercises 01 to 10, and 16, run offline, in seconds, at zero cost.** No API key, no
 model bill, no network. A stub model server in `toolkit/` answers the same
 OpenAI-compatible route a real endpoint would, from a file of rules you can read
 and edit — so the code path is the real one and the answers are yours to control.
@@ -67,6 +68,7 @@ when you want the reasoning behind what you just saw.
 | 13 | [Prompts and pipeline versions in MLflow](13-prompts-and-pipeline-versions-in-mlflow/) | publishing prompts and rubrics, a publish that sends nothing, which record links which prompt, links found by hash rather than recency, what a pipeline version is made of, one namespace for prompts and datasets, and a registry nothing reads back | R14.1, R14.2, R14.3, R14.4, R14.5, R14.7, R14.9, R14.11, R14.12, R10.13, R10.14, R10.15, R13.1, R13.2 |
 | 14 | [Review in MLflow](14-review-in-mlflow/) | what a trace shows a reviewer, a review queue that is a filter in a URL, verdicts left by hand and through the API, what MLflow records about who left one, pulling them back as files `git` can diff, an override, candidates refused all at once, gold signed by a maintainer, and a run no verdict can move | R15.1, R15.2, R15.3, R15.4, R15.5, R7.7, R6.4, R7.4, R10.8 |
 | 15 | [A public Confluence, read politely](15-a-public-confluence-read-politely/) | a CQL query, a page keyed by its id and versioned by its number, a page's files as documents of their own, the page as rendered and the note made from it, one version fetched as two snapshots and one note, a step that does not run for a document it cannot read, a refused export asked for again at every sync, a changed key that lists a source whole, and kinds asked per media type | R1.15, R1.16, R1.17, R1.18, R1.19, R1.20, R1.21, R8.19, R8.20, R2.3, R2.23, R2.24, R1.11, R3.11, R6.21, R6.20, R8.26 |
+| 16 | [Several files as one document](16-several-files-as-one-document/) | a contract that is a folder of files, where a group comes from, one call per group, a key that holds the group's name, citing a member, gold per contract, an amendment that asks one contract again, a replay that groups what its run pinned, and the step that cannot read a group | R3.15, R3.16, R5.14, R5.10, R6.22, R6.3, R7.32, R7.33, R4.15 |
 
 ## How an exercise folder is laid out
 

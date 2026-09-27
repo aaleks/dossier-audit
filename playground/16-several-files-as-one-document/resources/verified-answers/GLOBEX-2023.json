@@ -1,0 +1,9 @@
+{
+  "document": "GLOBEX-2023",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-27",
+  "fields": {
+    "renewal_date":  {"value": "2026-12-31"},
+    "liability_cap": {"value": 500000.00, "currency": "EUR"}
+  }
+}

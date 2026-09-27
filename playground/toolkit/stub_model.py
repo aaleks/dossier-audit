@@ -51,11 +51,15 @@ import argparse
 import base64
 import hashlib
 import json
+import re
 import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+# How `dossier` wraps each document it hands a stage (R3.13).
+DOCUMENT_KEY = re.compile(r'<document key="([^"]+)">')
 
 
 class Replies:
@@ -214,6 +218,11 @@ class Handler(BaseHTTPRequestHandler):
             "images": len(images),
             "image_sha256": [digest[:16] for digest in images],
             "matched": reply is not None,
+            # The documents the prompt holds, by the key each is wrapped under
+            # (R3.13). What tells a `per_file` call from a `per_group` one: the
+            # first is shown one document, the second every member of its group,
+            # and both prompts begin with the same line (R3.15).
+            "documents": DOCUMENT_KEY.findall(prompt),
             # The first line of the prompt is enough to tell a stage call from a
             # judge call by eye, and keeps a log readable in a terminal.
             "prompt_first_line": prompt.strip().splitlines()[0] if prompt.strip() else "",

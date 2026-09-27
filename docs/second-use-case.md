@@ -100,6 +100,18 @@ amendment to 003 and 004, and it should be discovered properly rather than
 designed here. **Worth raising before more of 004 and 005 is built**, because a
 group is a cache-key input and retrofitting one into key composition is expensive.
 
+*Resolved by R3.15.* `per_group` is the fourth mode, and it needed no grouping
+key. A document's group is its key up to the first `/`, and every connector
+already keys a file under what it belongs to. So a contract kept in its own
+subfolder is a group, and so is a Jira issue with its attachments. The group's
+name is in the key, along with every member's inputs and no other document's
+(R5.14). Its fields cite a member (R6.22), it is scored against a gold answer for
+the group (R7.32), its judge is shown every member (R7.33), and a replay
+recomposes it from the manifest (R4.15). Contracts told apart only by a filename
+convention in one flat folder are sorted into subfolders first. Spec 003's
+"Existing options considered" says why the group comes from the key and not
+from a setting on the source. Playground exercise 16 runs this contract.
+
 ## Finding 2 — the field record does not carry a type
 
 Spec 006's field record has `value`, `currency`, `source`, `confidence`. Spec 007
