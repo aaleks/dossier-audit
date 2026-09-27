@@ -334,7 +334,7 @@ to the same release. What a library writes goes into the artifact, so moving
 the pin is a new version of your converter (R5.4).
 
 Give it an id of its own. `dossier` tells two claims apart by id and version,
-and a converter calling itself `jira-issue-markdown` at `1.0.0` would be taken
+and a converter calling itself `jira-issue-markdown` at `1.1.0` would be taken
 for the shipped one, listed twice.
 
 ```bash
@@ -348,7 +348,7 @@ both converters, and no document:
 
 ```
 two converters claim the same pair, and picking either would be picking by installation order:
-  (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
+  (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.1.0 and play-jira-issue-markdown 1.0.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
 ```
 
