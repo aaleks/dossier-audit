@@ -46,7 +46,7 @@ from dossier.application.recording import failed_if_stopped
 from dossier.domain.conversion import PART_SUFFIX, PART_TYPE, part_name, unpack_parts
 from dossier.domain.fields import OutputSchema
 from dossier.domain.grounding import FieldCheck, FieldVerdict, check_field, with_derived_page
-from dossier.domain.groups import group_of
+from dossier.domain.groups import filed_under, group_of
 from dossier.domain.hashing import content_hash
 from dossier.domain.keys import ArtifactInput, StageInputs, cache_key, provenance
 from dossier.domain.pipeline import (
@@ -1206,7 +1206,9 @@ def _one_value(
     `_replayed_input`, and the two agreeing was a thing someone had to remember.
     """
     if aggregate:
-        return _joined(source, documents)
+        # Under the groups as well as the members: an earlier `per_group`
+        # step's answers are filed there, and nowhere else (R3.16).
+        return _joined(source, filed_under(documents))
     # Wrapped exactly as the aggregate branch wraps, because the reason is the
     # same one: a stage asked to carry a document key in `source.document` has
     # to be shown that key. A stage that has to guess reads it off the note's

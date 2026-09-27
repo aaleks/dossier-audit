@@ -84,7 +84,7 @@ and that a later amendment overrides the clause it amends.
 
 ```console
 $ dossier run contract-renewal
-run 20260927T144614Z-ffcf · runs/20260927T144614Z-ffcf/manifest.json
+run 20260927T145439Z-f428 · runs/20260927T145439Z-f428/manifest.json
   extract: 4 document(s) · 0 from cache · 0 failed · tokens not reported
 ```
 
@@ -116,7 +116,7 @@ saying *"a contract may be several files"* while `per_file` shows it one.
 
 ```console
 $ dossier run contract-renewal
-run 20260927T144617Z-0022 · runs/20260927T144617Z-0022/manifest.json
+run 20260927T145442Z-aeda · runs/20260927T145442Z-aeda/manifest.json
   extract: 2 group(s) · 0 from cache · 0 failed · tokens not reported
 ```
 
@@ -126,7 +126,7 @@ run 20260927T144617Z-0022 · runs/20260927T144617Z-0022/manifest.json
 ```
 
 ```console
-$ ls runs/20260927T144617Z-0022/extract/
+$ ls runs/20260927T145442Z-aeda/extract/
 PLAY-ACME-2024.json
 PLAY-ACME-2024.meta.json
 PLAY-GLOBEX-2023.json
@@ -225,8 +225,8 @@ contracts  4 known · 0 changed · 1 new -> 5 fetched
 ledger updated · 1 new snapshots · 0 tombstoned
 
 $ dossier run contract-renewal
-warning: the source has moved since run 20260927T144617Z-0022: PLAY-ACME-2024/amendment-4.md new
-run 20260927T144622Z-4243 · runs/20260927T144622Z-4243/manifest.json
+warning: the source has moved since run 20260927T145442Z-aeda: PLAY-ACME-2024/amendment-4.md new
+run 20260927T145446Z-08e3 · runs/20260927T145446Z-08e3/manifest.json
   extract: 2 group(s) · 1 from cache · 0 failed · tokens not reported
 ```
 
@@ -247,10 +247,10 @@ new bytes. The four already held were not written again (R2.14).
 ## Task 6 — replay the contract as it was
 
 ```console
-$ dossier run --replay runs/20260927T144617Z-0022
-replayed 20260927T144617Z-0022 · contract-renewal
+$ dossier run --replay runs/20260927T145442Z-aeda
+replayed 20260927T145442Z-aeda · contract-renewal
   extract: 2 artifact(s) from cache
-2 artifact(s) reproduced · no model calls · written to runs/20260927T144617Z-0022/replays/20260927T144624Z-3133/
+2 artifact(s) reproduced · no model calls · written to runs/20260927T145442Z-aeda/replays/20260927T145448Z-3873/
 ```
 
 **Where the three came from.** The manifest. It pins every document the run read
@@ -261,7 +261,7 @@ the replay never sees it, just as it would not see a prompt edited since (R4.7).
 
 **Had it grouped what is held today,** it would have looked for the four-member
 key. A cache entry does exist under that key, written by task 5's run, but it
-answers a different question than the one run `…0022` asked. A replay that
+answers a different question than the one run `…aeda` asked. A replay that
 quietly served it would be reproducing the wrong run. With no task 5 behind it,
 the replay would find no entry at all and stop.
 
@@ -294,14 +294,21 @@ call then holds its group's members and the group's own answer. Its record's
 inputs, from a run made at the end of this pass:
 
 ```
-documents/PLAY-ACME-2024
-extract/PLAY-ACME-2024
-group/PLAY-ACME-2024
+documents/PLAY-ACME-2024   e146dbb9…
+extract/PLAY-ACME-2024     0c8e6730…
+group/PLAY-ACME-2024       07c5aea0…
 ```
 
 ```console
   verify: 2 group(s) · 0 from cache · 0 failed · tokens not reported
 ```
+
+**Read the hash, not only the path.** An earlier pass of this exercise showed
+`extract/PLAY-ACME-2024` at `e3b0c442…`, the SHA-256 of an empty string. The
+answer is filed under the group, and the call had looked for it under the
+members' keys, so `{{extract}}` rendered empty and the run said nothing about
+it. The path was right the whole time. R3.16 rows 1 and 2 are now proved at run
+time as well as at load time.
 
 The reverse is sound, and not refused. A `per_group` step reading a `per_file`
 step gets each member's answer under the member's key, as it gets each member's
@@ -321,7 +328,7 @@ Terminal 1:
 ```console
 $ rm -rf .dossier/cache/stage/
 $ dossier run contract-renewal
-run 20260927T144631Z-f2ec · runs/20260927T144631Z-f2ec/manifest.json
+run 20260927T145455Z-3cd4 · runs/20260927T145455Z-3cd4/manifest.json
   extract: 2 group(s) · 0 from cache · 0 failed · 1 finding(s) · tokens not reported
     PLAY-ACME-2024  renewal_date: cites 'PLAY-GLOBEX-2023/master.md', which was not an input to this stage. Inputs were ['PLAY-ACME-2024/amendment-1.md', 'PLAY-ACME-2024/amendment-3.md', 'PLAY-ACME-2024/amendment-4.md', 'PLAY-ACME-2024/master.md'] (R6.3).
 ```
