@@ -2,7 +2,7 @@
 
 A quick tour of `src/dossier/infrastructure/connectors/web.py`: what you write
 to point `dossier` at a website, what a sync does, and what a
-stage then reads. Written against spec 001 R1.29 – R1.34.
+stage then reads. Written against spec 001 R1.29 – R1.36.
 
 ## Where it lives and how it is found
 
@@ -23,6 +23,7 @@ sources:
     type: web
     url: https://docs.example.org/ops/              # the prefix this source covers
     # sitemap: https://docs.example.org/sitemap.xml # the default: the host's own
+    # delay: 2                                      # seconds between requests; the default: none
 ```
 
 One entry per site, and no code. Any website works that publishes a sitemap,
@@ -34,7 +35,7 @@ do most static site generators and content management systems.
 ## What a sync does
 
 1. Reads `robots.txt` on the host once. A `4xx` allows everything; a `5xx`
-   fails the sync (R1.33).
+   fails the sync (R1.33), and so does a `429` (R1.35, below).
 2. Reads the sitemap, and every sitemap an index names on the same host
    (R1.29). Compressed sitemaps are read too.
 3. Keeps each URL under `url` that `robots.txt` allows, with no query string,
@@ -51,12 +52,30 @@ do most static site generators and content management systems.
 A redirect is followed within `url` only, five times at most; a page that
 redirects to a login form fails and names both URLs (R1.34).
 
+## When a site says slow down
+
+A site that answers `429 Too Many Requests` is asked nothing more that sync
+(R1.35). The page it refused fails, and so does every page after it, without a
+request; each is owed to the next sync (R2.23), and `dossier sync` lists them.
+
+Stopping keeps `dossier` polite, and it is not enough on its own. A page with no
+`<lastmod>` is fetched every sync, in key order, so a site that allows twenty
+requests at a time is spent on the same twenty pages every sync. Ask it more
+slowly: `delay: 2` starts each request at least two seconds after the last
+(R1.36). A `Crawl-delay` in the site's `robots.txt` is honoured on its own, and
+`delay:` can lengthen it but never shorten it. With neither, requests go back to
+back, which is what a documentation site behind a CDN is happy with:
+`docs.astral.sh/uv` lists 84 pages and syncs them in 12 to 20 seconds.
+
+`djangoproject.com` is the site that asked for this: 70 of the 91 pages under
+`/foundation/` were answered `429` within seven seconds, with no `Retry-After`.
+With `delay: 1`, one sync held all 91, in 92 seconds.
+
 ## What it does not do yet
 
 - Take out navigation, headers and footers. `html-markdown` keeps what the page
   shows, chrome included (spec 001, open question 6).
 - Read a site with no sitemap (open question 7).
 - Send a credential (open question 8).
-- Pace its requests (open question 9).
 - Read a page the browser builds with JavaScript: it holds the empty shell the
   server sends (open question 10).

@@ -1,7 +1,7 @@
 # 001 — Source connectors
 
 **Status:** Implemented
-**Rules:** R1.1 – R1.34
+**Rules:** R1.1 – R1.36
 
 ## Purpose
 
@@ -230,6 +230,7 @@ question 8.
   type: web
   url: https://docs.example.org/ops/
   # sitemap: https://docs.example.org/sitemap.xml   (the default: the host's own)
+  # delay: 2   (seconds between requests; the default: none)
 ```
 
 **What is listed.** Every URL the sitemap names under `url`, and nothing else
@@ -280,13 +281,38 @@ listed, and not fetched (R1.33). The file is read with
 agent `dossier`. A `robots.txt` that is absent (any `4xx`) allows everything, as
 RFC 9309 says. One that cannot be read (`5xx`, or no answer) fails the listing:
 RFC 9309 reads it as disallowing everything, and here that would tombstone every
-page held.
+page held. A `429` is the exception among the `4xx`: it is not a file that is
+absent, it is a site refusing to be asked, and nothing more is asked of it that
+sync (R1.35). The sitemap goes unread, and the listing fails.
 
 **Redirects.** A page may redirect within `url` -- `escalation` to
 `escalation/` is common -- and the connector follows it, up to five times. A
 redirect out of `url` fails that page and names both URLs (R1.34): a login page,
 or another site, is not the page that was listed. The sitemap and `robots.txt`
 follow redirects on their own host, which is how `http` becomes `https`.
+
+**Politeness.** A site that answers `429 Too Many Requests` is asked nothing
+more that sync (R1.35). The page it refused fails, and every page after it fails
+without a request; sync owes them all to the next sync (R2.23). Before this, the
+connector went on asking: `djangoproject.com`, read on 2026-09-27, refused 70 of
+the 91 pages under `/foundation/` within seven seconds, and was sent all 70
+requests after its first refusal.
+
+Stopping is not enough on its own. A page with no `<lastmod>` is fetched on
+every sync, in key order, so a site that allows twenty requests at a time spends
+them on the same twenty pages every sync, and the rest are never held. What
+lets such a site be read whole is asking it more slowly. Requests to a site
+start at least the longer of two waits apart (R1.36): the source's `delay:`, in
+seconds, and the `Crawl-delay` the site's `robots.txt` gives `dossier`. The
+site's own pace is a floor a source may raise and never lower. With neither,
+requests go back to back, as they always have: `docs.astral.sh/uv` lists 84
+pages, and a first sync of them took 12 to 20 seconds in three runs.
+
+A `429` is not retried within the sync, and no pace is guessed. A server that
+says nothing about how long to wait -- `djangoproject.com` sent no
+`Retry-After` -- leaves a retry to invent its interval, and a guessed interval
+either wastes a sync or sends the refused requests again. The failure names
+`delay:`, which is the remedy a person can apply.
 
 **Not yet.** No credential: every request is anonymous (question 8). A page is
 held with its navigation, header and footer, which `html-markdown` keeps; taking
@@ -304,6 +330,19 @@ them out is a converter's decision, not a connector's (question 6).
 | [protego](https://github.com/scrapy/protego) 0.7 | BSD-3, released 2026-09-21, the Scrapy project's | robots.txt as RFC 9309 reads it: wildcards, `$`, longest match | Nothing. It parses text it is given, and never reaches the network. The standard library's `urllib.robotparser` matches by prefix alone, and reads `Disallow: /*.pdf$` as a path starting `/*.pdf$` |
 
 **Chosen: `httpx`, the standard library's XML parser, and `protego`.**
+
+**Existing options considered for politeness** (R1.35, R1.36), read from each
+package's source on PyPI, 2026-09-27:
+
+| Option | Covers | Missing |
+|---|---|---|
+| crawl4ai 0.9.4's `RateLimiter` | A per-domain wait, exponential backoff on `429` and `503`, three retries | It waits a random 1 to 3 s before every request whatever the site says, so `docs.astral.sh/uv` would take minutes, not seconds. It retries a `429` rather than stopping, and it reads no `Retry-After` and no `Crawl-delay`. It is not a separate package: taking it is taking crawl4ai, Playwright and a fork of `litellm` (the table above) |
+| Scrapy 2.19's AutoThrottle and `RetryMiddleware` | A pace adjusted to the server's latency, and retries on `429` among eight statuses | Its `robots.txt` parsers read `Crawl-delay`, and nothing in Scrapy applies it; no `Retry-After`. And it is middleware for Scrapy's own engine, which a connector is not called by (the table above) |
+| `protego`, already a dependency | `crawl_delay(user_agent)`: the `Crawl-delay` of the group that applies to `dossier` | Nothing: it is the half of R1.36 that is a site's to say |
+
+**Chosen: `protego` for `Crawl-delay`**, and a stop and a wait written here:
+what R1.35 and R1.36 add is a few dozen lines, and neither option does either
+as specified.
 
 ## Must hold
 
@@ -999,6 +1038,50 @@ would tombstone every page held (R1.11, R2.7).
 | 3 | *counter-example* — `…/ops/escalation` answered `302` to `https://docs.example.org/login?next=/ops/escalation` | fails, naming both URLs; the login page is not stored |
 | 4 | *counter-example* — `http://docs.example.org/sitemap.xml` answered `301` to its `https` form | followed; the sitemap may move within its host |
 
+### R1.35 — once its site answers `429`, a web source asks it nothing more that sync
+
+The request answered `429 Too Many Requests` fails, naming its URL and the
+status. Every request the connector would make after it fails without being
+sent, naming the URL that was refused and `delay:` (R1.36). Sync owes each page
+that fails (R2.23). The refusal lasts as long as the connector, which is one
+sync.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.web`)
+- **Proved by:** `tests/unit/test_R001_35__a_web_source_stops_asking_a_site_that_answered_429.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `escalation` answered `429`, then `fetch("index")` | fails naming `https://docs.example.org/ops/escalation`, `429` and `delay:`; `…/ops/` is not asked for |
+| 2 | a sync of `vendor-docs` in which `escalation-matrix.pdf` is answered `429` | `escalation` is stored; `escalation-matrix.pdf`, `index` and `runbooks/dns-failover.html` fail and are owed (R2.23), and the site sees no request after the one it refused |
+| 3 | `robots.txt` answered `429` | the listing fails naming `robots.txt` and `429`; the sitemap is not asked for, and nothing held is tombstoned |
+| 4 | *counter-example* — the next sync's connector, after this one was refused | asks the site again: a refusal lasts one sync |
+| 5 | *counter-example* — `escalation` answered `404` | only `escalation` fails; `index` is asked for and fetched. A missing page says nothing about how often a site may be asked |
+
+### R1.36 — a web source starts each request to its site at least the longer of its `delay:` and the site's `Crawl-delay` after the one before
+
+`delay:` is a number of seconds, no less than 0, and absent means none.
+`Crawl-delay` is what the host's `robots.txt` gives the user agent `dossier`, as
+`protego` reads it, and it holds from the first request after `robots.txt`. A
+redirect's hops are requests like any other (R1.34). With neither, requests go
+back to back.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.web.spacing`), waited for in infrastructure (`dossier.infrastructure.connectors.web`)
+- **Proved by:** `tests/unit/test_R001_36__a_web_source_spaces_its_requests.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `delay: 2`, and a `robots.txt` with no `Crawl-delay`, then `fetch("escalation")` | `robots.txt`, the sitemap and `…/ops/escalation` are asked 2 s apart: two waits of 2 s |
+| 2 | `Crawl-delay: 5` under `User-agent: *`, and no `delay:` | two waits of 5 s: the sitemap after `robots.txt`, and `escalation` after the sitemap |
+| 3 | `delay: 2` and `Crawl-delay: 5` | waits of 5 s: a source asks no faster than its site asks |
+| 4 | `delay: 10` and `Crawl-delay: 5` | waits of 10 s: and may ask more slowly |
+| 5 | `delay: 2`, and `escalation` answered `301` to `…/ops/escalation/` | `…/ops/escalation/` is asked 2 s after `…/ops/escalation` |
+| 6 | *counter-example* — neither `delay:` nor `Crawl-delay` | no wait at all: `robots.txt`, the sitemap and `escalation` back to back |
+| 7 | *counter-example* — `delay: -1`, or `delay: soon` | `sources.yaml` is refused, naming `vendor-docs` and `delay` (R1.10) |
+
 ## Open questions
 
 | # | Question | Resolution |
@@ -1011,5 +1094,5 @@ would tombstone every page held (R1.11, R2.7).
 | 6 | Should a web page's navigation, header and footer be taken out of its note? `html-markdown` keeps them, and every page of a site repeats them | OPEN — a converter option (a CSS selector such as `main`) belongs in spec 008, as the next slice. Needs a site whose chrome a stage has been seen to read |
 | 7 | A website with no sitemap | OPEN — a crawl from `url`, following links within it, is the answer that exists. It downloads every page to list them, and needs a page cap. Needs a site a workspace reads that has no sitemap |
 | 8 | A website behind a credential | OPEN — `token_env` and `user_env` as R1.21 reads them would carry over. Needs a site that asks for one |
-| 9 | Politeness: the requests are sequential and undelayed | OPEN — needs a site that throttles or refuses a sync |
+| 9 | Politeness: the requests are sequential and undelayed | RESOLVED by R1.35 and R1.36 — `djangoproject.com`, 2026-09-27: 70 of the 91 pages under `/foundation/` were answered `429` within seven seconds, with no `Retry-After`, and every one of the 70 was asked after the first refusal. A `429` now ends the sync's requests to the site, and a source's `delay:`, or its site's `Crawl-delay`, spaces them. Decided 2026-09-27 |
 | 10 | A website that builds its pages with JavaScript | OPEN — the server sends a shell, and the text is drawn in the browser, so what is held has nothing in it to read. A browser is the answer that exists (crawl4ai, or Firecrawl's rendering; see the options above), and it is a second way of fetching a page, not a change to this one. Needs such a site a workspace reads |

@@ -148,7 +148,7 @@ is ours:
 | comments, with `comments: true` (R1.23) | `81920501` by `m.keller`, created `2026-08-05T17:10:00.000Z`, at version 2; `81920502`, `a.aleks`'s reply to it, at version 1 |
 | included (R1.26) | `Escalation contacts`, id `81920130`, version 2, in `OPS`; it includes `On-call rota`, id `81920131` |
 
-## A website (R1.29 – R1.34)
+## A website (R1.29 – R1.36)
 
 A documentation site, the case the `web` connector was written against.
 
@@ -164,6 +164,9 @@ for documentation, so no example here names a real site.
 | `https://docs.example.org/ops/escalation-matrix.pdf` | `escalation-matrix.pdf` | `2026-08-04` | `application/pdf` |
 | `https://docs.example.org/ops/drafts/escalation-v2` | -- | `2026-08-06` | disallowed by `robots.txt` (`Disallow: /ops/drafts/`) |
 | `https://docs.example.org/blog/release-notes` | -- | `2026-08-06` | outside the prefix |
+
+Its pace, where a rule needs one (R1.36): `delay: 2` on the source, and
+`Crawl-delay: 5` in `robots.txt` under `User-agent: *`.
 
 ## Gold set
 
