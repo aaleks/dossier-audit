@@ -1,6 +1,6 @@
-"""The web connector: a documentation site, read from its sitemap (spec 001, R1.23 - R1.28).
+"""The web connector: a website, read from its sitemap (spec 001, R1.23 - R1.28).
 
-One connector for every documentation site. A site is a `url` in
+One connector for every website. A site is a `url` in
 `sources.yaml`, never code: the pages under it are what its sitemap names
 (R1.23), each keyed by its URL relative to `url` (R1.24) and marked by its
 `<lastmod>` (R1.25). What a sitemap says, and which URLs a source covers, are

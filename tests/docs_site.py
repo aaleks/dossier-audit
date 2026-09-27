@@ -1,4 +1,4 @@
-"""`vendor-docs`, the documentation site of `specs/_fixtures.md`, served with no socket.
+"""`vendor-docs`, the website of `specs/_fixtures.md`, served with no socket.
 
 An `httpx.MockTransport` playing `https://docs.example.org`: a sitemap, a
 `robots.txt` and the pages they name, each changeable per test. Every request

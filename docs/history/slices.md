@@ -13,10 +13,11 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
-A `web` source reads a documentation website from its sitemap (R1.23 –
-R1.28). One connector for every site: `url` is a prefix, the sitemap is the
-listing, a page is keyed by its URL relative to the prefix and marked by its
-`<lastmod>`, and `html-markdown` converts it. The listing is complete, so a page
+A `web` source reads a website from its sitemap (R1.23 – R1.28), with
+documentation sites as the case it was written against. One connector for
+every site: `url` is a prefix, the sitemap is the listing, a page is keyed by
+its URL relative to the prefix and marked by its `<lastmod>`, and
+`html-markdown` converts it. The listing is complete, so a page
 gone from the sitemap is tombstoned, and for the same reason a sitemap or a
 `robots.txt` that cannot be read fails the listing instead of emptying it.
 Scrapy, crawl4ai, trafilatura and ultimate-sitemap-parser were considered and

@@ -1,7 +1,7 @@
 # How the web connector works
 
 A quick tour of `src/dossier/infrastructure/connectors/web.py`: what you write
-to point `dossier` at a documentation website, what a sync does, and what a
+to point `dossier` at a website, what a sync does, and what a
 stage then reads. Written against spec 001 R1.23 – R1.28.
 
 ## Where it lives and how it is found
@@ -25,8 +25,11 @@ sources:
     # sitemap: https://docs.example.org/sitemap.xml # the default: the host's own
 ```
 
-One entry per site, and no code. MkDocs, Sphinx (with `sphinx-sitemap`),
-Docusaurus, Read the Docs and most static site generators publish a sitemap.
+One entry per site, and no code. Any website works that publishes a sitemap,
+serves its pages as HTML from the server, and lets an anonymous reader in.
+Documentation sites are the case it was written against: MkDocs, Sphinx (with
+`sphinx-sitemap`), Docusaurus and Read the Docs all publish a sitemap, and so
+do most static site generators and content management systems.
 
 ## What a sync does
 
@@ -55,3 +58,5 @@ redirects to a login form fails and names both URLs (R1.28).
 - Read a site with no sitemap (open question 6).
 - Send a credential (open question 7).
 - Pace its requests (open question 8).
+- Read a page the browser builds with JavaScript: it holds the empty shell the
+  server sends (open question 9).
