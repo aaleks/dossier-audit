@@ -3,9 +3,14 @@ UTF-8 when it declares none.
 
 A byte-order mark decides first. Then `<meta charset>`, or `<meta http-equiv=
 "Content-Type" content="…; charset=…">`, in the page's first 1024 bytes, found by
-BeautifulSoup's `EncodingDetector.find_declared_encoding`. A declaration is the
-document saying what it is, not a guess, so R8.1 holds. A page that declares
-nothing is read as UTF-8, and fails as R8.21 row 4 fails.
+BeautifulSoup's `EncodingDetector.find_declared_encoding`, which finds an XML
+declaration's `encoding` too. A declaration is the document saying what it is,
+not a guess, so R8.1 holds. A page that declares nothing is read as UTF-8, and
+fails as R8.21 row 4 fails.
+
+Two names are read as a browser reads them, by the WHATWG Encoding Standard:
+every label it gives windows-1252 as windows-1252, and one naming UTF-16, with
+no byte-order mark, as UTF-8.
 """
 
 from __future__ import annotations
@@ -13,6 +18,40 @@ from __future__ import annotations
 import pytest
 
 from dossier.infrastructure.converters.html_markdown import HtmlMarkdownConverter
+
+# Copied from spec 008, which copied them from the Standard's table
+# (https://encoding.spec.whatwg.org/#names-and-labels), not from the converter.
+WINDOWS_1252_LABELS = [
+    "ansi_x3.4-1968",
+    "ascii",
+    "cp1252",
+    "cp819",
+    "csisolatin1",
+    "ibm819",
+    "iso-8859-1",
+    "iso-ir-100",
+    "iso8859-1",
+    "iso88591",
+    "iso_8859-1",
+    "iso_8859-1:1987",
+    "l1",
+    "latin1",
+    "us-ascii",
+    "windows-1252",
+    "x-cp1252",
+]
+# The Standard's labels for UTF-16LE and UTF-16BE.
+UTF_16_LABELS = [
+    "csunicode",
+    "iso-10646-ucs-2",
+    "ucs-2",
+    "unicode",
+    "unicodefeff",
+    "unicodefffe",
+    "utf-16",
+    "utf-16be",
+    "utf-16le",
+]
 
 
 def converted(payload: bytes) -> str:
@@ -91,3 +130,47 @@ class TestAnHtmlFileIsReadInTheCharsetItDeclares:
         message = failure(payload)
 
         assert "html-markdown" in message and "UTF-8" in message
+
+    def test_iso_8859_1_is_read_as_a_browser_reads_it(self):
+        """Row 6: the one where `0x96` is an en dash to a browser and a control
+        character to Latin-1."""
+        payload = (
+            b'<html><head><meta charset="iso-8859-1"></head>'
+            b"<body><h1>PLAY-4005 \x96 Connection pool exhausted</h1></body></html>"
+        )
+
+        written = converted(payload)
+
+        assert "PLAY-4005 – Connection pool exhausted" in written
+        assert "\x96" not in written
+
+    @pytest.mark.parametrize("label", WINDOWS_1252_LABELS)
+    def test_every_label_the_standard_gives_windows_1252_is_read_as_it(self, label):
+        """Row 6, for each of the Standard's labels: the one where Python knows some
+        of them as something else, and some of them not at all."""
+        payload = f'<meta charset="{label}"><p>Caf\xe9 \x96 09:54</p>'.encode("latin-1")
+
+        assert "Café – 09:54" in converted(payload)
+
+    @pytest.mark.parametrize("label", UTF_16_LABELS)
+    def test_a_page_naming_utf16_without_a_byte_order_mark_is_read_as_utf8(self, label):
+        """Counter-example (row 7): the one where the declaration was found in the
+        bytes as ASCII, so they are not two to a character."""
+        payload = f'<meta charset="{label}"><p>Café</p>'.encode()
+
+        assert "Café" in converted(payload)
+
+    def test_a_utf16_page_with_its_byte_order_mark_is_read_as_utf16(self):
+        """Row 7's limit: the one where the mark decides first, and the page is UTF-16."""
+        payload = b"\xff\xfe" + '<meta charset="utf-16"><p>Café</p>'.encode("utf-16-le")
+
+        assert "Café" in converted(payload)
+
+    def test_an_xml_declaration_is_a_declaration(self):
+        """Row 8: the one where an XHTML export says what it is before its `<html>`."""
+        payload = (
+            b'<?xml version="1.0" encoding="windows-1252"?>\n'
+            b"<html><body><p>Caf\xe9 reopened at 09:54</p></body></html>"
+        )
+
+        assert "Café reopened at 09:54" in converted(payload)

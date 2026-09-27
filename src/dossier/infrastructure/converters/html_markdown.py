@@ -33,6 +33,52 @@ UNSEEN = "head, style, script, template"
 # (R8.32). BeautifulSoup alone would look into 2048 bytes, or 5% of a long page.
 DECLARED_WITHIN = 1024
 
+# Declared names a browser reads otherwise than Python does, by the WHATWG
+# Encoding Standard's table (https://encoding.spec.whatwg.org/#names-and-labels),
+# and what each is read as (R8.32). Every other name is read as Python reads it.
+#
+# Every label the Standard gives windows-1252. Python reads `iso-8859-1` as
+# Latin-1, where `0x96` is a control character and not `–`, and does not know
+# `iso88591` or `x-cp1252` at all.
+WINDOWS_1252 = (
+    "ansi_x3.4-1968",
+    "ascii",
+    "cp1252",
+    "cp819",
+    "csisolatin1",
+    "ibm819",
+    "iso-8859-1",
+    "iso-ir-100",
+    "iso8859-1",
+    "iso88591",
+    "iso_8859-1",
+    "iso_8859-1:1987",
+    "l1",
+    "latin1",
+    "us-ascii",
+    "windows-1252",
+    "x-cp1252",
+)
+# Every label it gives UTF-16LE or UTF-16BE. A declaration BeautifulSoup could
+# read as ASCII was not written two bytes to a character, so a browser's prescan
+# reads the page as UTF-8. A byte-order mark is read before any declaration, so
+# a page that really is UTF-16 never gets here.
+UTF_16 = (
+    "csunicode",
+    "iso-10646-ucs-2",
+    "ucs-2",
+    "unicode",
+    "unicodefeff",
+    "unicodefffe",
+    "utf-16",
+    "utf-16be",
+    "utf-16le",
+)
+AS_A_BROWSER_READS: Mapping[str, str] = {
+    **dict.fromkeys(WINDOWS_1252, "windows-1252"),
+    **dict.fromkeys(UTF_16, "utf-8"),
+}
+
 
 class HtmlMarkdownConverter:
     """`text/html` to the `markdown` kind."""
@@ -42,7 +88,8 @@ class HtmlMarkdownConverter:
     # including when `_html` changes, or the pin on markdownify or
     # beautifulsoup4 moves (R5.4, R8.2).
     # 1.1.0: a non-breaking space at the edge of emphasis is kept (R8.21 row 6).
-    # 1.2.0: a page is read in the charset it declares, not always UTF-8 (R8.32).
+    # 1.2.0: a page is read in the charset it declares, as a browser reads the
+    # name, and not always as UTF-8 (R8.32).
     version = "1.2.0"
     media_type = "text/html"
     kind = "markdown"
@@ -61,20 +108,19 @@ class HtmlMarkdownConverter:
 
 def _decoded(payload: bytes, *, converter_id: str) -> str:
     """The page as text: in the charset a byte-order mark names, else the one
-    its `<meta>` declares, else UTF-8 (R8.32).
+    it declares, read as a browser reads its name, else UTF-8 (R8.32).
 
-    BeautifulSoup finds both, as it would if it were handed the bytes, but is
+    BeautifulSoup finds the mark and the declaration -- a `<meta>`, or an XML
+    declaration at the start -- as it would if it were handed the bytes, but is
     not asked to guess when neither is there. A charset with no codec fails
     naming it, and so do bytes that are not what the page says they are.
     """
     from bs4.dammit import EncodingDetector
 
     body, charset = EncodingDetector.strip_byte_order_mark(payload)
-    charset = (
-        charset
-        or EncodingDetector.find_declared_encoding(body[:DECLARED_WITHIN], is_html=True)
-        or "utf-8"
-    )
+    if charset is None:
+        declared = EncodingDetector.find_declared_encoding(body[:DECLARED_WITHIN], is_html=True)
+        charset = AS_A_BROWSER_READS.get(declared, declared) if declared else "utf-8"
     try:
         return body.decode(charset)
     except LookupError as error:
