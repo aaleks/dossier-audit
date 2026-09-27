@@ -28,7 +28,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
-from dossier.domain.pipeline import SOURCE_KEYWORDS
+from dossier.domain.pipeline import REFERENCE, SOURCE_KEYWORDS, split_kind
 from dossier.domain.resolution import PinnedDocument, ResolvedPlan, ResolvedStep
 
 
@@ -92,6 +92,7 @@ def diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan
     # of thing that makes `--plan` slower than the run it describes.
     converters_moved = _converters_moved(previous, resolved)
     moved_documents = _moved(previous.documents, resolved.documents)
+    moved_reference = _moved_context(previous.reference, resolved.reference)
 
     rerunning: set[str] = set()
     plans: list[StepPlan] = []
@@ -99,6 +100,10 @@ def diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan
     for step in resolved.steps:
         earlier = before.get(step.id)
         reads_documents = bool(SOURCE_KEYWORDS.intersection(step.inputs))
+        # Context moves every key of a step shown it, and none of a step that
+        # was not (R4.17, R5.15).
+        reads_reference = any(split_kind(name)[0] == REFERENCE for name in step.inputs)
+        context_moved = moved_reference if reads_reference else ()
         moved: tuple[str, ...] = ()
         if earlier is None:
             status, was = StepStatus.NEW, None
@@ -119,8 +124,9 @@ def diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan
             # output is reached by upstream propagation, if at all -- the
             # converted text is not its input.
             status, was = StepStatus.CONVERTERS_CHANGED, None
-        elif moved_documents and reads_documents:
-            status, was, moved = StepStatus.DOCUMENTS_CHANGED, None, moved_documents
+        elif (moved_documents and reads_documents) or context_moved:
+            status, was = StepStatus.DOCUMENTS_CHANGED, None
+            moved = (moved_documents if reads_documents else ()) + context_moved
         elif rerunning.intersection(step.inputs):
             status, was = StepStatus.UPSTREAM_CHANGED, None
         else:
@@ -177,6 +183,29 @@ def _moved(previous: list[PinnedDocument], resolved: list[PinnedDocument]) -> tu
         for document in sorted(resolved, key=lambda d: d.key)
         if held.get(document.key) != document.snapshot
     )
+
+
+def _moved_context(
+    previous: list[PinnedDocument], resolved: list[PinnedDocument]
+) -> tuple[str, ...]:
+    """The reference documents that moved, in key order: departed ones too (R4.17).
+
+    Unlike an audited document, a reference document that has gone is a
+    change. Every call reading `reference` was shown it, so every one of
+    those keys moves when it goes (R5.15 row 3), where an audited document
+    takes only its own keys with it.
+    """
+    before = {document.key: document.snapshot for document in previous}
+    now = {document.key: document.snapshot for document in resolved}
+    moved: list[str] = []
+    for key in sorted(before.keys() | now.keys()):
+        if key not in before:
+            moved.append(f"{key} new")
+        elif key not in now:
+            moved.append(f"{key} gone")
+        elif before[key] != now[key]:
+            moved.append(f"{key} changed")
+    return tuple(moved)
 
 
 def changed_steps(plans: Sequence[StepPlan]) -> str:

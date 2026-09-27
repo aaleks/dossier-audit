@@ -617,6 +617,9 @@ def run(
     _check_kinds_or_stop(pipeline, config, declared)
 
     documents: dict[str, str] = {}
+    # Pinned apart, as the run pins them, or the plan would compare a
+    # procedure against a manifest that holds it as context (R4.16, R4.17).
+    reference: dict[str, str] = {}
     # The same requests a run would make of the converters, so the plan pins the
     # same set the run will (R8.9) -- otherwise a plugin the corpus never needed
     # would print `converters changed` against a manifest that never named it.
@@ -638,7 +641,10 @@ def run(
                     if row.state is State.TOMBSTONED
                     or is_read(media_type=row.media_type, kinds=convert, available=available)
                 ]
-                documents.update(pinned_documents(rows))
+                if name in config.sources:
+                    documents.update(pinned_documents(rows))
+                if name in config.reference:
+                    reference.update(pinned_documents(rows))
                 requests.extend(
                     (row.media_type, convert)
                     for row in rows
@@ -668,6 +674,7 @@ def run(
             pipeline=config,
             pipeline_hash=text_hash(path),
             documents=documents,
+            reference=reference,
             previous=previous,
             previous_id=previous_id,
             prompt_hashes=prompt_hashes,

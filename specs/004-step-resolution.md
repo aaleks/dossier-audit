@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.17
 
 ## Purpose
@@ -446,13 +446,19 @@ naming the reference document that moved, and a step that reads only
 alike: a moved procedure would have reported `extract` as re-running, though
 `extract` never read it.
 
+A reference document that has gone is a move as well. An audited document that
+leaves the source takes only its own keys with it, so a plan does not report it
+(R4.12). A reference document was shown to every call that read `reference`, so
+when one is tombstoned, every one of those keys moves (R5.15 row 3).
+
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.plan.diff`)
+- **Layer:** domain (`dossier.domain.plan.diff`), cli (`dossier.cli.main`)
 - **Proved by:** `tests/unit/test_R004_17__a_moved_reference_document_reruns_the_steps_reading_it.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
 | 1 | `OPS-114` moved, `verify` reading `[documents, extract, reference]` | `! verify: documents changed`, naming `OPS-114 changed` |
 | 2 | the same, `extract` reading `documents` only | `extract: cached` |
-| 3 | *counter-example* — `INC-4821` moved | both steps re-run, each naming `INC-4821 changed` and no reference document |
+| 3 | `OPS-116` tombstoned | `! verify: documents changed`, naming `OPS-116 gone`; `extract: cached` |
+| 4 | *counter-example* — `INC-4821` moved | both steps re-run, each naming `INC-4821 changed` and no reference document |
