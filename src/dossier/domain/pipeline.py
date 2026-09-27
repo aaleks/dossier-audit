@@ -18,7 +18,10 @@ from pydantic import BaseModel, ConfigDict, field_validator
 # The documents a pipeline audits, which a per-document step runs over one at a
 # time (R6.21 asks whether each holds anything the step reads).
 DOCUMENTS = "documents"
-SOURCE_KEYWORDS = frozenset({DOCUMENTS, "reference"})
+# The documents a pipeline reads as context: shown whole to every call that
+# reads them, and never audited (R3.17, R3.18).
+REFERENCE = "reference"
+SOURCE_KEYWORDS = frozenset({DOCUMENTS, REFERENCE})
 
 _STEP_ID = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -323,6 +326,14 @@ def validate_references(pipeline: PipelineConfig) -> None:
             # on a step id, and doing that here rather than later is what makes
             # it a load-time error naming the file (R3.1).
             reference, _ = split_kind(reference)
+            if reference == REFERENCE and not pipeline.reference:
+                # `{{reference}}` would hold nothing, and the prompt around it
+                # would still call that nothing the context (R3.18 row 4).
+                raise ValueError(
+                    f"step {step.id!r} reads 'reference', but the pipeline declares "
+                    "no `reference:` sources for it to hold. Name them under "
+                    "`reference:`, or remove the input."
+                )
             if reference not in available:
                 raise ValueError(
                     f"step {step.id!r} reads {reference!r}, which is not available at "
