@@ -13,6 +13,52 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+The open questions answered on 2026-09-27 landed together: Confluence comments
+(spec 001 Q2, R1.23 to R1.25, R8.30), text a page includes (Q3, R1.26, R1.27),
+Jira's custom fields (spec 008 Q4, R1.28, R2.26, R8.31) and HTML's declared
+charset (Q6, R8.32). Each was read against a real server before it was written.
+
+- **Jira, Q4's twin.** A Jira Software Data Center 10.3 ran in Docker. A file
+  added, replaced or removed, and a comment added or edited, each moved `INC-3`'s
+  `updated`, and a windowed JQL search found it every time, so nothing changed.
+  Jira was OOM-killed at a 2.5 GB cap and ran out of Metaspace with it capped at
+  512 MB. It ran at 3.3 GB.
+- **Comments.** On the local Confluence, a comment and a reply left their page at
+  version 1 and out of a windowed search, and `type = comment` found both, naming
+  the page as container. Only `child/comment?depth=all` returns a reply;
+  `children.comment` gives 25 top-level comments at most.
+  - So `comments: true` holds the page and each answer byte for byte,
+    `{"page":…,"comments":[…]}`.
+  - The page's marker gains `+c` over its comments.
+  - A windowed listing also asks `type in (attachment, comment)`.
+  - A real `dossier sync` fetched only `360453` after a third comment, and its
+    note listed the thread with `· reply to`.
+  - The same server's PDF export of that page held no comment, so the export's
+    marker leaves comments out.
+- **Included text.** Editing `Escalation contacts` left the page including it at
+  version 1, while its `export_view` changed. CQL finds including pages with
+  `macro in (include, "excerpt-include")`, and the storage format says which page
+  each names.
+  - On cwiki, KNOX's `Release Process` links to `News` and includes `Footer`. The
+    listing took three requests and marked it by `Footer` alone: a plain link is
+    not an include.
+- **Custom fields.** Asked with `expand=names,schema`, Jira says what each field is
+  called and holds. On Jira Software, `Development` (`any`) is a 3 KB Java object
+  string and `Rank` is `0|i0000f:`, so `any` and `Sprint` are left out.
+  - A real sync and convert of Apache's `HADOOP-18254` wrote `Hadoop Flags:
+    Reviewed` and `Target Version/s: 3.4.0`, and none of its five `any` fields.
+  - R2.26 puts what a fetch asks in the source's configuration hash, so every held
+    issue is fetched again once and gains them.
+- **Charsets.** A page is read in the charset it declares, and a label is read as
+  a browser reads it. `iso-8859-1` is windows-1252 to a browser, and `0x96` is `–`
+  there and a control character to Latin-1.
+
+The local servers' timebomb licences expired the same evening: every request
+answered 401, and a restart did not help. So the last live reads were done
+against the public servers, read-only.
+
+---
+
 A `web` source reads a website from its sitemap (R1.29 – R1.34), with
 documentation sites as the case it was written against. One connector for
 every site: `url` is a prefix, the sitemap is the listing, a page is keyed by
