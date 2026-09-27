@@ -1,6 +1,6 @@
 # 001 — Source connectors
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R1.1 – R1.28
 
 ## Purpose
@@ -745,7 +745,7 @@ would tombstone every page held (R1.11, R2.7).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.web`), with the scope from the domain (`dossier.domain.web.in_scope`)
 - **Proved by:** `tests/unit/test_R001_23__a_web_source_lists_what_its_sitemap_names.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -762,7 +762,7 @@ would tombstone every page held (R1.11, R2.7).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.web.page_key`)
 - **Proved by:** `tests/unit/test_R001_24__a_web_page_is_keyed_by_its_relative_url.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -779,7 +779,7 @@ would tombstone every page held (R1.11, R2.7).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.web`), with the parse from the domain (`dossier.domain.web.sitemap`)
 - **Proved by:** `tests/unit/test_R001_25__a_web_pages_marker_is_its_lastmod.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -794,7 +794,7 @@ would tombstone every page held (R1.11, R2.7).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.web`)
 - **Proved by:** `tests/unit/test_R001_26__a_web_page_is_labelled_as_its_server_says.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -809,7 +809,7 @@ would tombstone every page held (R1.11, R2.7).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.web`)
 - **Proved by:** `tests/unit/test_R001_27__a_web_source_honours_robots_txt.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -824,7 +824,7 @@ would tombstone every page held (R1.11, R2.7).
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.web`)
 - **Proved by:** `tests/unit/test_R001_28__a_web_page_redirects_only_within_its_source.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
