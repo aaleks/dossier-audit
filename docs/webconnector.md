@@ -3,6 +3,15 @@
 **Status:** findings, not a spec. Nothing here is a rule until spec 001 carries
 it (see "What has to happen first").
 
+**Since written:** spec 001 now carries a `web` connector, R1.29 – R1.34, and
+`docs/web-connector.md` is its guide. It answers recommendations 1 to 3 without
+`crawl4ai`: pages are listed from the site's sitemap and fetched with `httpx`,
+each snapshotted as the raw bytes the server sent, and `html-markdown` converts
+them right of the boundary. Spec 001 records why `crawl4ai`, Firecrawl and the
+others were declined, and keeps a browser open for sites that build their pages
+with JavaScript (question 10). With no `crawl4ai` imported, recommendations 4
+and 5 wait for whichever change first adds it.
+
 ## The question
 
 An agent implementing "fetch an external website" reported that it could not
