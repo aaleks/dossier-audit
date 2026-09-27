@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.32
 
 ## Purpose
