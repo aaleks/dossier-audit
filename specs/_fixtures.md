@@ -119,6 +119,7 @@ ours:
 | `comment` | two, `m.keller`'s then `a.aleks`'s; `total` 2 |
 | `attachment` | `report.pdf` |
 | `customfield_10042` | a value no note may carry (R8.16 row 6) |
+| with `expand=names,schema` (R1.28, R8.31) | `customfield_10050` `Root cause` (`string`), `customfield_10051` `Severity` (`option`), `customfield_10052` `Affected services` (`array` of `option`), `customfield_10053` `Incident commander` (`user`); and Jira Software's own `Development` and `Rank` (`any`) and `Sprint` (`gh-sprint`) |
 
 **Per-field gold answers are not recorded for the corpus as a whole.** Writing
 expected values nobody verified is inventing a threshold by another name. What is
@@ -144,6 +145,8 @@ is ours:
 | `version` | number 37, `when` `2026-08-05T16:02:00.000Z`, `by.displayName` `m.keller` |
 | `body.export_view` | a table of contents; `<h2>Escalation</h2>`; a list whose first item is `Page the incident commander within 15 minutes`; a link to `the rota`; the image `escalation-matrix.png`; an expand macro |
 | attachment | `escalation-matrix.png`, id `81920301`, version 2, `image/png` |
+| comments, with `comments: true` (R1.23) | `81920501` by `m.keller`, created `2026-08-05T17:10:00.000Z`, at version 2; `81920502`, `a.aleks`'s reply to it, at version 1 |
+| included (R1.26) | `Escalation contacts`, id `81920130`, version 2, in `OPS`; it includes `On-call rota`, id `81920131` |
 
 ## A website (R1.29 – R1.34)
 

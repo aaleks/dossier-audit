@@ -674,5 +674,5 @@ shown. Narrowing it, per group or per step, is not this rule.
 
 | # | Question | Resolution |
 |---|----------|------------|
-| 1 | A Confluence page's PDF export is keyed `81920114.pdf` (R1.19) and so is a group of its own, apart from page `81920114` and its files. Should they be one group? | OPEN — needs a Confluence audit that wants the page and its export in one call |
+| 1 | A Confluence page's PDF export is keyed `81920114.pdf` (R1.19) and so is a group of its own, apart from page `81920114` and its files. Should they be one group? | OPEN — needs a Confluence audit that wants the page and its export in one call. Kept open on 2026-09-27: grouping by carrier would supersede R3.15 and change group keys for runs that exist |
 | 2 | A group can outgrow what a model accepts in one call: a 60-page master and its amendments. It fails like any request that is too long | OPEN — needs a real contract corpus to measure against |

@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.29
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.32
 
 ## Purpose
 
@@ -567,6 +567,91 @@ that a platform fills in.
 | 4 | a container written and read back | the same ordered parts, so the format has exactly one definition and a converter and a step cannot disagree about it |
 | 5 | *counter-example* — the three pages as three artifacts under three keys | not this; R8.4 says one declared conversion is one artifact, and three keys would let R5.4 invalidate a document's pages one at a time |
 
+### R8.30 — `confluence-page-markdown` writes a page's comments after its body, each under its author and time, in thread order
+
+`## Comments` comes after the body. Each comment is written under
+`**<display name>** · <created>`, as Confluence wrote them
+(`history.createdBy.displayName`, `history.createdDate`), and a reply's heading
+ends `· reply to <its parent's author>`. The comments come in the order Confluence
+answered, which is the thread's order: a comment, its replies, then the next.
+Sorting them would make a different conversation, as R8.16 row 3 says of Jira's.
+Each body is written as R8.20 writes the page's. A payload holding no comment, or
+no `comments` at all, writes no heading. So a page with none has the same note
+whether `comments:` is on or off.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.confluence_page.note`), called by infrastructure (`dossier.infrastructure.converters.confluence_page_markdown`)
+- **Proved by:** `tests/unit/test_R008_30__a_pages_comments_follow_its_body.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `81920114` held with `m.keller`'s comment `81920501`, created `2026-08-05T17:10:00.000Z`, and `a.aleks`'s reply `81920502` | `## Comments`, then `**m.keller** · 2026-08-05T17:10:00.000Z` and its text, then `a.aleks`'s heading ending `· reply to m.keller`, and the reply |
+| 2 | a comment's body holding `<strong>Root cause:</strong> expired certificate` | `**Root cause:** expired certificate`, as R8.20 writes a body |
+| 3 | *counter-example* — the page held without `comments:` (R1.17) | the note R8.19 writes, and no `## Comments` |
+| 4 | *counter-example* — `{"page": …, "comments": [{"results": []}]}` | the same note as row 3 |
+| 5 | *counter-example* — `{"comments": […]}` and no `page` | that document fails, naming `confluence-page-markdown` and saying it is not a rendered Confluence page (R8.19 row 4) |
+
+### R8.31 — `jira-issue-markdown` writes each custom field that holds something a person reads, under the name Jira gives it
+
+A line for each custom field with a value, `**<name>:** <value>`, after
+`**Updated:**` and before `**Attachments:**`. The lines are ordered by name and
+then by id, because two fields may share a name. The name is Jira's (`names`,
+R1.28). A field is written when its `schema` type is one a person reads:
+`string`, `number`, `date`, `datetime`, `option`, `option-with-child`, `user`,
+`version`, or an `array` of any of these. Values are written as follows:
+
+- a string, number, date or time as sent;
+- an option as its `value`, and with a child as `<value> - <child's value>`;
+- a user as their display name, and a version as its name;
+- an array's items joined by `, `.
+
+Jira Software declares its own machinery as `any`. On Jira Software 10.3,
+`Development` held a Java object's string of 3 KB, and `Rank` held `0|i0000f:`.
+So `any` is left out, and so is `Sprint` (`com.pyxis.greenhopper.jira:gh-sprint`),
+an array of strings that Data Center fills with the same kind of dump. A payload
+without `names`, held before R1.28, has no custom field in its note. So R8.16
+row 6 holds for it, and its note is the one it had.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.jira_issue.note`)
+- **Proved by:** `tests/unit/test_R008_31__an_issues_custom_fields_are_written_under_their_names.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `customfield_10050`, `Root cause`, of type `string`, holding `Expired certificate on the payment gateway` | `**Root cause:** Expired certificate on the payment gateway`, after `**Updated:**` |
+| 2 | `customfield_10051`, `Severity`, of type `option`, holding `{"value": "Sev 2"}` | `**Severity:** Sev 2` |
+| 3 | `customfield_10052`, `Affected services`, an `array` of `option`, holding `payments-api` and `checkout` | `**Affected services:** payments-api, checkout` |
+| 4 | `customfield_10053`, `Incident commander`, of type `user`, whose display name is `m.keller` | `**Incident commander:** m.keller` |
+| 5 | *counter-example* — `Development` and `Rank`, both of type `any` | neither is in the note |
+| 6 | *counter-example* — `Sprint`, `gh-sprint`, holding a sprint | not in the note |
+| 7 | *counter-example* — `Severity` holding `null` | no line |
+| 8 | *counter-example* — a payload with no `names` | no custom field is written; the note is R8.16's |
+
+### R8.32 — `html-markdown` reads a page in the charset the page declares, and in UTF-8 when it declares none
+
+A byte-order mark decides first. Then comes `<meta charset>`, or
+`<meta http-equiv="Content-Type" content="…; charset=…">`, in the page's first
+1024 bytes, as a browser finds it. BeautifulSoup's
+`EncodingDetector.find_declared_encoding` does the finding, and `markdownify`
+already brings it in. A declaration is the document saying what it is, not a
+guess, so R8.1 holds. A page that declares nothing is read as UTF-8, and fails as
+R8.21 row 4 fails. A CSV cannot declare anything, and is read as R8.23 reads it.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.converters.html_markdown`)
+- **Proved by:** `tests/unit/test_R008_32__an_html_file_is_read_in_the_charset_it_declares.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `<meta charset="windows-1252">`, and `é` written as the byte `0xE9` | the note has `é` |
+| 2 | `<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">` | the page is read in the charset it names |
+| 3 | *counter-example* — Windows-1252 bytes, and no declaration | that document fails, naming `html-markdown` and UTF-8 (R8.21 row 4) |
+| 4 | *counter-example* — `<meta charset="x-made-up">` | that document fails, naming the charset it declared |
+| 5 | *counter-example* — `<meta charset="utf-8">`, and a byte UTF-8 cannot read | that document fails, naming UTF-8 |
+
 ## Open questions
 
 | # | Question | Resolution |
@@ -574,9 +659,9 @@ that a platform fills in.
 | 1 | What is the default `kind` for each media type, beyond `application/pdf → markdown`? | RESOLVED by R8.10 — the table is declared, `image/*` defaults to `page_images`, and anything absent falls back to `markdown` |
 | 2 | Is `docling-markdown`'s artifact byte-identical on another machine? It was identical across runs, thread counts and two inference backends on one Windows machine | RESOLVED by R8.28 and R8.29 — measured 2026-09-26 on Windows 11 and Linux (`python:3.12-slim`), with every package at the lock's version. Before them, a page drawn from fonts the PDF does not embed differed: PDFium and docling-parse borrowed the machine's fonts, and Pillow's PNG encoder compressed with zlib-ng on one machine and zlib on the other. `INC-4830`'s half-photocopy lost a heading on Linux, and `pdf-images` gave two artifacts. With PDFium's own fonts, Docling's pypdfium2 backend and libdeflate, every artifact measured is byte-identical on both |
 | 3 | Should a source, rather than the workspace, choose the converter for a pair? | CLOSED, not built — decided 2026-09-27. A workspace chooses one converter per pair (R8.13), and a source chooses only kinds (R8.26). A converter per source is more than a `sources.yaml` key: a manifest pins one converter per pair, and a replay finds a document's converter by its pair (R4.7), so it would need pins per source in spec 004. `docling-markdown` reads a digital page from its text layer anyway (R8.14), which leaves no corpus asking for it |
-| 4 | Which custom fields belong in a Jira issue's note? The payload names them `customfield_10042`, and what a person calls them comes only with `expand=names`, which changes every payload the connector stores | OPEN — needs a real incident project where a custom field holds what a stage must read. Until then the note holds none (R8.16 row 6) |
+| 4 | Which custom fields belong in a Jira issue's note? The payload names them `customfield_10042`, and what a person calls them comes only with `expand=names`, which changes every payload the connector stores | RESOLVED by R1.28, R2.26 and R8.31 — every custom field holding something a person reads, named by Jira. Decided 2026-09-27, after reading a Jira Software 10.3 in Docker, whose own fields include a 3 KB Java object's string |
 | 5 | Should a source declare kinds per media type? `convert:` applies to every document a source holds. So `page_images` for a Confluence page's PDF export (R1.19) is asked of the page JSON too, and nothing claims that pair (R8.24) | RESOLVED by R8.26 and R8.27 — `convert:` may map a media type to its kinds, and a media type mapped to `[]` is not read |
-| 6 | Should a CSV saved by Excel in Windows-1252, or an HTML page declaring a legacy `charset`, be read? | OPEN — needs one in a real source. Until then each fails naming UTF-8 (R8.21 row 4, R8.23 row 3), and guessing the encoding is exactly what R8.1 rules out |
+| 6 | Should a CSV saved by Excel in Windows-1252, or an HTML page declaring a legacy `charset`, be read? | RESOLVED by R8.32 for HTML — decided 2026-09-27. A page is read in the charset it declares, which is not a guess. A CSV declares nothing, and still fails naming UTF-8 (R8.23 row 3) |
 | 7 | Should a file nothing claims stop its whole source (R8.5), or only itself? `KAFKA-20416`'s `.jsonl` still stops Apache's source after R8.21–R8.23 | RESOLVED by R8.24 and R8.25 — only itself when its kind was the default, and the run when a source declared it |
 
 ### R8.12 — an image converts to `page_images` as a container of one part, and every part is a PNG

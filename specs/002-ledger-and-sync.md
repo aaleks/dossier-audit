@@ -1,7 +1,7 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Implemented
-**Rules:** R2.1 – R2.25
+**Status:** Partially implemented
+**Rules:** R2.1 – R2.26
 
 ## Purpose
 
@@ -613,3 +613,24 @@ item that came back unchanged in a windowed listing stayed tombstoned.
 | 3 | `INC-4821` tombstoned by a `--full` sync, then offered again by a windowed listing with the bytes it had | counted and named as returned, and its row is `active` again (R2.7 row 3). Before this rule it stayed tombstoned |
 | 4 | *counter-example* — a sync where nothing came back | the line R2.13 prints, with no `returned` term |
 | 5 | *counter-example* — `INC-4822`, a key the ledger has never held | counted as new, not returned |
+
+### R2.26 — what a connector's fetch asks for is part of the source configuration hash
+
+A connector may declare what its fetch asks for beyond an item's address:
+`fetch_asks`. It joins R2.3's projection in the source configuration hash. So a
+connector that starts asking for more fetches every item it holds again, once,
+and the next sync fetches only what changed. A connector that declares nothing
+hashes as it did before this rule, so a source whose connector did not change is
+not fetched again.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.sync.source_config_hash`)
+- **Proved by:** `tests/unit/test_R002_26__a_change_to_what_a_fetch_asks_fetches_everything_once.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents-jira`, synced before its connector asked for `expand=names,schema` (R1.28) | the next sync fetches every issue again, and `INC-4821`'s new snapshot has `names` in it |
+| 2 | the sync after that | `0 fetched`: the hash is recorded, and nothing changed |
+| 3 | *counter-example* — `incidents-manual`, a folder source, whose connector declares nothing | the hash is the one it had before this rule, and nothing is fetched again |
+| 4 | *counter-example* — `fields` reordered on `incidents-jira` | the hash does not change, as R2.3 row 2 says |

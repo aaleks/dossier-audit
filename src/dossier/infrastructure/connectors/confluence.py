@@ -12,6 +12,7 @@ never builds this connector should not pay for the import.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator, Mapping
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,13 @@ CONTENT = "/rest/api/content"
 # what the note is headed with (R1.17, R8.19). `export_view` rather than
 # `storage`, whose macros only Confluence knows how to draw.
 PAGE_EXPAND = "body.export_view,version,space"
+
+# A page's comments, with `comments: true` (R1.23): every one, replies included,
+# rendered as the page is, with who wrote it and when. Only this route returns a
+# reply. Expanded on the page, `children.comment` is the top-level comments, 25
+# at most, as a Data Center 9.2.21 answered on 2026-09-27.
+COMMENTS = "/child/comment"
+COMMENT_EXPAND = "body.export_view,version,history,ancestors"
 
 # The PDF export (R1.19). A user-interface action, not a REST route: Confluence
 # runs it only for a request carrying `EXPORT_HEADERS`, answers with a redirect
@@ -75,7 +83,8 @@ class ConfluenceKeys(BaseModel):
     `token_env` and `user_env` name the variables holding the credential, read
     as a Jira source reads them (R1.21); the values are never written here,
     because `sources.yaml` is committed to git (R1.8). `export: pdf` asks for
-    each page's PDF export beside it (R1.19).
+    each page's PDF export beside it (R1.19), and `comments: true` holds each
+    page with its comments (R1.23).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -85,6 +94,7 @@ class ConfluenceKeys(BaseModel):
     token_env: str = ""
     user_env: str = ""
     export: Export | None = None
+    comments: bool = False
 
     @model_validator(mode="after")
     def _a_user_needs_a_token(self) -> ConfluenceKeys:
@@ -109,11 +119,13 @@ class ConfluenceConnector:
         token: str | None = None,
         user: str | None = None,
         export: Export | None = None,
+        comments: bool = False,
         transport: Any | None = None,
     ) -> None:
         self._base = base_url.rstrip("/")
         self._query = query
         self._export = export
+        self._comments = comments
         # Decided once, by the one function Jira's connector uses (R1.21).
         self._authorization = authorization(user=user, token=token)
         self._transport = transport
@@ -196,7 +208,7 @@ class ConfluenceConnector:
             )
             return RawItem(
                 key=key,
-                payload=response.content,
+                payload=self._with_comments(page, response.content),
                 media_type=CONFLUENCE_PAGE,
                 remote_version=_version_of(response.json()),
             )
@@ -237,6 +249,21 @@ class ConfluenceConnector:
                     self._version(key), [ref.remote_version for ref in files]
                 ),
             )
+
+    def _with_comments(self, page: str, sent: bytes) -> bytes:
+        """Page `page` as sent, and with `comments: true` its comments beside it (R1.23).
+
+        Each answer is written into the payload as Confluence sent it, byte for
+        byte, rather than parsed and written out again (R1.2): the payload is
+        `{"page":<the page>,"comments":[<each answer>]}`.
+        """
+        if not self._comments:
+            return sent
+        answers = self._answers(
+            f"{self._base}{CONTENT}/{page}{COMMENTS}",
+            {"depth": "all", "expand": COMMENT_EXPAND},
+        )
+        return b'{"page":' + sent + b',"comments":[' + b",".join(answers) + b"]}"
 
     def _exported(self, key: str, page: str) -> RawItem:
         """Page `page` as the PDF Confluence exports it (R1.19).
@@ -324,20 +351,25 @@ class ConfluenceConnector:
         raise ConfluenceRequestFailed(f"page {key} carries no file named {filename!r}")
 
     def _results(self, url: str, params: Mapping[str, object]) -> Iterator[dict]:
-        """Every result a paged answer holds, asked for `PAGE_SIZE` at a time.
+        """Every result a paged answer holds, asked for `PAGE_SIZE` at a time."""
+        for sent in self._answers(url, params):
+            yield from json.loads(sent).get("results") or []
 
-        Search and a page's files page the same way: by `start` and `limit`,
-        until an answer names no `next` (R1.15, R1.18). An empty page of
-        results ends it too, so a server that always names one cannot loop.
+    def _answers(self, url: str, params: Mapping[str, object]) -> Iterator[bytes]:
+        """Each answer to a paged question, as sent, asked for `PAGE_SIZE` at a time.
+
+        Search, a page's files and its comments page the same way: by `start`
+        and `limit`, until an answer names no `next` (R1.15, R1.18, R1.23). An
+        empty page of results ends it too, so a server that always names one
+        cannot loop.
         """
         start = 0
         while True:
-            answer = self._get(
-                url, params={**params, "start": start, "limit": PAGE_SIZE}
-            ).json()
-            results = answer.get("results") or []
-            yield from results
+            response = self._get(url, params={**params, "start": start, "limit": PAGE_SIZE})
+            yield response.content
 
+            answer = response.json()
+            results = answer.get("results") or []
             start += len(results)
             if not results or "next" not in (answer.get("_links") or {}):
                 return
@@ -390,6 +422,7 @@ class ConfluenceConnector:
             token=getattr(credential, "value", None),
             user=getattr(credential, "user", None),
             export=config.options.get("export"),
+            comments=config.options.get("comments") is True,
         )
 
 

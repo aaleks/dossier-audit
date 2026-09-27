@@ -1,6 +1,6 @@
 # 001 — Source connectors
 
-**Status:** Implemented
+**Status:** Partially implemented
 **Rules:** R1.1 – R1.34
 
 ## Purpose
@@ -165,6 +165,25 @@ Asking for an export makes the server render a PDF and keep it for a while in it
 own export directory. That costs the server work, but it changes nothing a person
 reads, and every request is still a `GET` (R1.1). It is why `export:` is absent
 by default.
+
+**Comments, when asked for.** `comments: true` holds a page with every comment
+on it, footer and inline, replies included (R1.23). Only
+`GET /rest/api/content/{id}/child/comment?depth=all` returns a reply: expanded on
+the page, `children.comment` is the top-level comments, 25 at most. A comment is
+content of its own, so adding, editing or removing one leaves the page at its
+version and its `lastmodified` where it was. That was read against a Data Center
+9.2.21 in Docker on 2026-09-27. So the page's marker also says what its comments
+are (R1.24), and a windowed listing also asks which comments changed (R1.25). It
+is off by default, because it costs a search for every 50 pages listed.
+
+**Text a page includes from another.** `include` and `excerpt-include` draw
+another page's text into a page. On the same server, `Escalation contacts` was
+edited to version 2. The page including it stayed at version 1, and out of a
+windowed search, while its `export_view` changed. So the including page's marker
+says what it includes (R1.26), and a windowed listing lists it when what it
+includes changed (R1.27). Confluence knows which pages use either macro (CQL's
+`macro` field). Which page each one names is written only in the storage format,
+as `<ri:page ri:content-title="…" ri:space-key="…"/>`.
 
 **Two consequences, accepted.** The table-of-contents macro is drawn with a class
 name that holds the time it was rendered (`div.rbtoc1790332347793`), and a PDF
@@ -741,8 +760,147 @@ lists the page, and its files are settled then (R2.6 row 3, R2.22).
 | 2 | `81920114` edited inside the window, and its file uploaded again inside it too | listed once, not twice |
 | 3 | files changed inside the window on 60 pages the query matches | the pages are asked about 50 ids at a time, in two requests, and all 60 are listed |
 | 4 | *counter-example* — a file uploaded again inside the window on a page in another space, outside `space = OPS` | not listed: the source's query decides which pages are in scope (R1.3) |
-| 5 | *counter-example* — `list(since=None)` | one search, as before. No files are searched, since a complete listing already lists every page |
+| 5 | *counter-example* — `list(since=None)` | no file is searched for, since a complete listing already lists every page |
 | 6 | *counter-example* — `escalation-matrix.png` removed from `81920114` inside the window | `81920114` is not listed by this rule. The file is tombstoned by the next complete listing (R2.22) |
+
+### R1.23 — with `comments: true`, a page's payload also holds its comments, replies included
+
+A Confluence source may say `comments: true`. A page is then held with every
+comment on it, as
+`GET /rest/api/content/{id}/child/comment?depth=all&expand=body.export_view,version,history,ancestors`
+answers them, one answer after another until none names a `next`. The payload is
+one JSON object holding each answer byte for byte, as Confluence sent it:
+`{"page": <the page>, "comments": [<each answer, in the order asked>]}`. It keeps
+the page's media type, so the converter that claims a page claims it, and reads
+either shape (R8.30). `comments` defaults to `false`. Then no comment is asked
+for, and a page is held as R1.17 holds it.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`)
+- **Proved by:** `tests/unit/test_R001_23__a_page_can_be_held_with_its_comments.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `comments: true`, and `81920114` carrying `m.keller`'s comment `81920501` and `a.aleks`'s reply `81920502` | `fetch("81920114")` asks for the page, then for `…/81920114/child/comment?depth=all`, and holds `{"page": …, "comments": [<the answer>]}`, each part the bytes Confluence sent, the reply in it |
+| 2 | 60 comments on the page, 50 to an answer | both answers are held, in the order they were asked for (R1.3) |
+| 3 | *counter-example* — no `comments:` | the payload is the page as sent (R1.17), and no comment is asked for |
+| 4 | *counter-example* — `comments: maybe` | a load-time error naming the key (R1.10) |
+
+### R1.24 — with `comments: true`, a page's marker moves when a comment on it is added, edited or removed
+
+The page's marker is its version, followed by `+c` and the first twelve hex
+digits of the SHA-256 of its comments' ids and versions, each `<id>:v<n>`, sorted
+and joined by newlines. A page with no comment keeps its version alone, so
+turning `comments:` on fetches again only the pages that have one. A listing asks
+which comments its pages carry once for every 50 pages, with
+`type = comment AND container in (…)`, and not once a page. A reply's container
+is its page. The composition is a pure decision and lives in the domain.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`), with the marker from the domain (`dossier.domain.confluence.commented_version`)
+- **Proved by:** `tests/unit/test_R001_24__a_pages_marker_moves_with_its_comments.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `81920114` at `v37`, with `81920501` at version 2 and `81920502` at version 1 | `v37+c` and twelve hex digits |
+| 2 | `81920502` edited, now at version 2, and the page still at `v37` | the marker moves, and the page is fetched again (R2.1) |
+| 3 | `81920502` removed | the marker moves |
+| 4 | 120 pages listed | their comments are asked for 50 pages at a time, in three searches |
+| 5 | *counter-example* — `comments: true`, and a page with no comment | `v37` |
+| 6 | *counter-example* — no `comments:` | `v37`, whatever comments the page has, and no comment is searched for |
+
+### R1.25 — with `comments: true`, a windowed listing also lists each page the query matches whose comments changed in the window
+
+R1.22's second question then asks for files and comments together:
+`type in (attachment, comment) AND lastmodified >= <floor>`. A removed comment is
+absent from search, as a removed file is. The next complete listing settles it
+(R2.22).
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`)
+- **Proved by:** `tests/unit/test_R001_25__a_windowed_listing_finds_pages_whose_comments_changed.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `81920114` at `v37`, last edited before the window, and `81920501` added inside it | listed once, with its `+c` marker, and fetched |
+| 2 | `81920502`, a reply, added inside the window | the same: the reply's container is the page |
+| 3 | *counter-example* — no `comments:` | the question is R1.22's, `type = attachment` alone |
+| 4 | *counter-example* — `81920502` removed inside the window | not listed by this rule; the next complete listing lists the page with its new marker (R2.22) |
+
+### R1.26 — a page that includes another page's text has a marker that moves with what it includes
+
+The page's marker is its version, followed by `+i` and the first twelve hex
+digits of the SHA-256 of what it includes, each `<id>:v<n>`, sorted and joined by
+newlines. That covers `include` and `excerpt-include`, whichever part of the page
+is drawn. Inclusions are followed through the included pages, because Confluence
+draws those too, and each page is counted once. An include naming a page that
+cannot be found counts as `missing:<space>/<title>`, so the marker moves when the
+page appears. A page including nothing keeps its version alone. With
+`comments: true` as well, `+i…` comes before `+c…`.
+
+A listing asks which of the query's pages use either macro,
+`(<query>) AND type = page AND macro in (include, "excerpt-include")`, with the
+storage format of each, where the pages they name are written. It then asks for
+those pages by space and title. A title names no space when the page is in the
+including page's own. Both searches are asked at every sync, windowed or not.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`), with the marker from the domain (`dossier.domain.confluence.including_version`)
+- **Proved by:** `tests/unit/test_R001_26__a_pages_marker_moves_with_what_it_includes.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `81920114` at `v37`, including `Escalation contacts`, `81920130` at version 2 | `v37+i` and twelve hex digits |
+| 2 | `Escalation contacts` edited to version 3, and `81920114` still at `v37` | `81920114`'s marker moves, and it is fetched again (R2.1) |
+| 3 | `81920114` includes `Escalation contacts`, which includes `On-call rota`, `81920131`, and the rota is edited | `81920114`'s marker moves |
+| 4 | an include naming `Escalation contacts` in space `ENG`, which has no such page | the marker counts `missing:ENG/Escalation contacts` |
+| 5 | *counter-example* — a page including nothing | `v37` |
+| 6 | *counter-example* — `Escalation contacts` includes `81920114` back | each page is counted once, and the listing ends |
+
+### R1.27 — a windowed listing also lists each page the query matches that includes a page changed in the window
+
+An including page is listed when any page it includes, directly or through
+another, was last changed at or after the window's floor (R1.4). The included
+page need not be in the query's scope: a page in another space draws into this
+one all the same.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`)
+- **Proved by:** `tests/unit/test_R001_27__a_windowed_listing_finds_pages_whose_included_text_changed.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `81920114` at `v37`, last edited before the window, and `Escalation contacts` edited inside it | `81920114` listed once, with its `+i` marker |
+| 2 | `Escalation contacts` in space `ENG`, outside `space = OPS`, edited inside the window | `81920114` is listed. `Escalation contacts` is not, because the query decides what is held (R1.3) |
+| 3 | *counter-example* — nothing `81920114` includes changed inside the window | not listed by this rule |
+| 4 | *counter-example* — `list(since=None)` | every page listed once, each including one with its `+i` marker |
+
+### R1.28 — a Jira issue is fetched with `expand=names,schema`, so its payload says what each custom field is called and holds
+
+A custom field arrives as `customfield_10050` in an issue's `fields`. What a
+person calls it, and what kind of value it holds, come only when the fetch asks.
+`names` maps each field to its name, and `schema` to its type. Read against a
+Jira Software Data Center 10.3 in Docker on 2026-09-27: without `expand`, the
+payload had neither. With it, `customfield_10000` was `Development`, of type
+`any`, and held a Java object's string of 3 KB (R8.31). The listing asks for no
+expansion, because `names` and `schema` would then come once for every issue
+listed.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.jira`)
+- **Proved by:** `tests/unit/test_R001_28__an_issue_is_fetched_with_its_field_names.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `fetch("INC-4821")` | `GET …/rest/api/2/issue/INC-4821?expand=names,schema`, and the payload as sent, `names` and `schema` in it |
+| 2 | *counter-example* — the listing | asks `fields=updated,attachment`, and no `expand` (R1.13) |
+| 3 | *counter-example* — `fetch("INC-4821/report.pdf")` | the file's bytes, as before. A file has no fields |
 
 ### R1.29 — a web source lists every URL its sitemap names under its `url`, and nothing else
 
@@ -845,10 +1003,11 @@ would tombstone every page held (R1.11, R2.7).
 
 | # | Question | Resolution |
 |---|----------|------------|
-| 1 | Does the connector read Confluence Cloud? Cloud still answers the version-1 content routes under `/wiki`, but its PDF export is an asynchronous task that is started and then polled | OPEN — needs a Cloud site to run against. The connector is read against Data Center 9.2 (`cwiki.apache.org`, `confluence.atlassian.com`) |
-| 2 | Should a page's comments be part of its document? `expand=children.comment.body.export_view` would bring them into the payload, which gives every held page a new snapshot | OPEN — needs a space whose comments hold what a stage must read |
-| 3 | A page that includes another page's text (`include`, `excerpt-include`) renders it without its own version moving, so a change to the included page is not fetched | OPEN — needs a real space that relies on inclusion. Until then, changing `fields:` re-fetches every page (R2.3) |
+| 1 | Does the connector read Confluence Cloud? Cloud still answers the version-1 content routes under `/wiki`, but its PDF export is an asynchronous task that is started and then polled | OPEN — needs a Cloud site to run against. The connector is read against Data Center 9.2 (`cwiki.apache.org`, `confluence.atlassian.com`, and one in Docker). Kept open on 2026-09-27: no source this project reads is on Cloud |
+| 2 | Should a page's comments be part of its document? `expand=children.comment.body.export_view` would bring them into the payload, which gives every held page a new snapshot | RESOLVED by R1.23 to R1.25 and R8.30 — yes, when a source asks: `comments: true`, off by default. Decided 2026-09-27 |
+| 3 | A page that includes another page's text (`include`, `excerpt-include`) renders it without its own version moving, so a change to the included page is not fetched | RESOLVED by R1.26 and R1.27 — it is fetched: the including page's marker moves with what it includes. Decided 2026-09-27, and read against a Data Center 9.2.21 in Docker |
 | 4 | Does CQL `lastmodified` move when a file is uploaded again to a page whose version does not? If not, a windowed listing leaves the page out, and R1.18 row 2 holds only under a complete listing (R2.22, R2.24) | RESOLVED by R1.22 — it does not. A local Data Center 9.2.21 in Docker, 2026-09-27: neither a file added nor a file uploaded again moved the page's `lastmodified`, and neither did a file removed |
+| 5 | Does a file or a comment on a Jira issue move its `updated`, as R1.6 row 1 needs under a windowed listing? | RESOLVED — it does. A Jira Software Data Center 10.3 in Docker, 2026-09-27: a file added, a file replaced, a file removed, a comment added and a comment edited each moved `INC-3`'s `updated`, and a windowed JQL search found it after each. Nothing needed changing |
 | 6 | Should a web page's navigation, header and footer be taken out of its note? `html-markdown` keeps them, and every page of a site repeats them | OPEN — a converter option (a CSS selector such as `main`) belongs in spec 008, as the next slice. Needs a site whose chrome a stage has been seen to read |
 | 7 | A website with no sitemap | OPEN — a crawl from `url`, following links within it, is the answer that exists. It downloads every page to list them, and needs a page cap. Needs a site a workspace reads that has no sitemap |
 | 8 | A website behind a credential | OPEN — `token_env` and `user_env` as R1.21 reads them would carry over. Needs a site that asks for one |

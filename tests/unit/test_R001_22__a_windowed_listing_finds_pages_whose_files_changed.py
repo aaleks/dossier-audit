@@ -157,14 +157,15 @@ class TestAWindowedListingFindsPagesWhoseFilesChanged:
 
         assert listed(server) == []
 
-    def test_a_complete_listing_asks_one_question(self):
+    def test_a_complete_listing_searches_no_files(self):
         """Counter-example (row 5): the one where every page is listed anyway."""
         server = Confluence()
         server.page(PAGE)
         server.file(PAGE)
 
         assert listed(server, since=None) == [(PAGE, "v37")]
-        assert server.asked == [f"({QUERY}) AND type = page"]
+        assert f"({QUERY}) AND type = page" in server.asked
+        assert not any(cql.startswith("type = attachment") for cql in server.asked)
 
     def test_a_removed_file_lists_nothing(self):
         """Counter-example (row 6): the one search cannot see; a complete listing settles it."""
