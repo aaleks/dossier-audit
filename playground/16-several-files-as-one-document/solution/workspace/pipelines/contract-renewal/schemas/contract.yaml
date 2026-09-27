@@ -1,0 +1,4 @@
+# What legal wants to know about each supplier contract (docs/second-use-case.md).
+fields:
+  renewal_date:  {kind: date}
+  liability_cap: {kind: amount, currency: EUR}

@@ -1,0 +1,9 @@
+{
+  "document": "ACME-2024",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-27",
+  "fields": {
+    "renewal_date":  {"value": "2027-03-31"},
+    "liability_cap": {"value": 2000000.00, "currency": "EUR"}
+  }
+}

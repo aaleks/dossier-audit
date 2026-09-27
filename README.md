@@ -13,8 +13,8 @@ see "How this is built" below. Where the rules stand is printed by
 behind. This README can fall behind, so its figure carries a date. On 2026-09-27:
 
 ```
-specs: 276 rules across 16 specs | 261 MET, 0 IN PROGRESS, 0 NOT MET, 15 SUPERSEDED
-       273 deterministic, 3 evaluated
+specs: 284 rules across 16 specs | 269 MET, 0 IN PROGRESS, 0 NOT MET, 15 SUPERSEDED
+       281 deterministic, 3 evaluated
 ```
 
 ## Layout
@@ -184,6 +184,27 @@ steps:
 It is pinned and checked at load time like the pipeline's, each step is keyed
 under the model it was asked with, and `--plan` and `--replay` read it back
 (R3.14). A pipeline whose steps name none is exactly what it was.
+
+A document is not always one file. A supplier contract is a master agreement and
+its amendments: the liability cap is in the master, and the renewal date is in
+amendment 3. A `per_group` step asks one question per contract:
+
+```
+inbox/contracts/ACME-2024/master.pdf        group ACME-2024
+inbox/contracts/ACME-2024/amendment-3.pdf   group ACME-2024
+inbox/contracts/GLOBEX-2023/master.pdf      group GLOBEX-2023
+```
+
+A document's group is its key up to the first `/`, so no configuration names it.
+Every connector already keys a file under what it belongs to, so a contract in its
+own subfolder is a group, and so is a Jira issue with its attachments (R3.15).
+Each group's call holds its members, each under its own key. The group's key
+holds their inputs and no other document's, so an amendment filed in one contract
+asks that contract again and no other (R5.14). A field cites the member its span
+is in (R6.22), the answer is scored against a gold answer for the group (R7.32),
+and a replay recomposes each group from the documents its manifest pins (R4.15).
+A `per_file` step cannot read a group's answer, and is refused at load time
+(R3.16).
 
 ## What it records
 

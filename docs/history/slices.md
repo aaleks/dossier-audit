@@ -13,6 +13,47 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A step can ask one question of several files: `per_group`, the fourth mode (spec
+003, R3.15 and R3.16, with R4.15, R5.14, R6.22, R7.32 and R7.33). It resolves
+`docs/second-use-case.md` finding 1, which had been open since before spec 004
+was built.
+
+- **Why.** A supplier contract is a master agreement and its amendments. The
+  cap is in the master and the renewal date in amendment 3, so `per_file` asks
+  each file a question none of them can answer. `aggregate` asks every contract
+  at once, which cannot be cached or scored per contract.
+- **Where a group comes from.** The key, up to the first `/`. A `group_by`
+  pattern and a committed membership file were weighed and not adopted. Every
+  connector already keys a file under what it belongs to, and a replay can
+  recompose groups from the keys its manifest pins, with nothing new recorded.
+  The cost is that contracts named by a filename convention in one flat folder
+  must be sorted into subfolders first.
+- **What follows from it.** Each group's call holds its members as an
+  `aggregate` call does (R3.13). Its key holds their inputs and no other
+  document's (R5.14). A field cites a member (R6.22). Gold is written per group
+  (R7.32), and a judged field is shown every member (R7.33). A `per_file` step
+  reading a group's answer is refused at load time (R3.16).
+- **Found live, not by the suite.** A group of one, `GLOBEX-2023`, asks exactly
+  what `per_file` asks of `GLOBEX-2023/master.md`. So the two had one key, and
+  switching a step to `per_group` served the `per_file` answer, whose
+  `document` was the member's key, filed as `GLOBEX-2023.json`. Cached bytes are
+  served verbatim (R5.5), so the fix could not be to correct the name on the way
+  out. The group's name went into the key as an input, R5.14 row 5, the way R5.10
+  row 5 had put the document's. Playground exercise 16 found it on its first
+  pass.
+- **The stub model** now logs, for every call, the keys of the documents its
+  prompt wrapped. That is how exercise 16 tells one call per file from one per
+  contract.
+
+Two gaps turned up that `per_group` did not cause and did not fix. A step's
+`reference` input is filled from the same per-document map as `documents`. And
+a `per_file` step that cites another document in the corpus is graded VALID,
+because the run hands `check_field` every document, not the one the call read.
+R6.3 row 2 is proved only at the domain layer. Both are for a discovery of their
+own.
+
+---
+
 `dossier sync` now counts an item that comes back after it was tombstoned (spec
 002, R2.25).
 

@@ -1,0 +1,7 @@
+# One folder of contracts, one subfolder per contract. A folder source keys each
+# file by its path under the folder, so every file of ACME's contract has a key
+# beginning `ACME-2024/`, and that first segment is its group (R3.15).
+sources:
+  - id: contracts
+    type: folder
+    path: inbox/contracts/
