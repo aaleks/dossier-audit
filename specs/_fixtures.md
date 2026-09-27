@@ -145,6 +145,21 @@ is ours:
 | `body.export_view` | a table of contents; `<h2>Escalation</h2>`; a list whose first item is `Page the incident commander within 15 minutes`; a link to `the rota`; the image `escalation-matrix.png`; an expand macro |
 | attachment | `escalation-matrix.png`, id `81920301`, version 2, `image/png` |
 
+## A documentation site (R1.23 – R1.28)
+
+`vendor-docs`, a `web` source with `url: https://docs.example.org/ops/`. Its
+sitemap is `https://docs.example.org/sitemap.xml`. `example.org` is reserved
+for documentation, so no example here names a real site.
+
+| URL | Key | `<lastmod>` | Served as |
+|---|---|---|---|
+| `https://docs.example.org/ops/` | `index` | `2026-08-05` | `text/html; charset=utf-8` |
+| `https://docs.example.org/ops/escalation` | `escalation` | `2026-08-05T16:02:00+00:00` | `text/html; charset=utf-8` |
+| `https://docs.example.org/ops/runbooks/dns-failover.html` | `runbooks/dns-failover.html` | none | `text/html; charset=utf-8` |
+| `https://docs.example.org/ops/escalation-matrix.pdf` | `escalation-matrix.pdf` | `2026-08-04` | `application/pdf` |
+| `https://docs.example.org/ops/drafts/escalation-v2` | -- | `2026-08-06` | disallowed by `robots.txt` (`Disallow: /ops/drafts/`) |
+| `https://docs.example.org/blog/release-notes` | -- | `2026-08-06` | outside the prefix |
+
 ## Gold set
 
 A workspace asset, resolved where `dossier` runs rather than against a pipeline's

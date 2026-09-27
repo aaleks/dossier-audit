@@ -1,7 +1,7 @@
 # 001 — Source connectors
 
-**Status:** Implemented
-**Rules:** R1.1 – R1.22
+**Status:** Partially implemented
+**Rules:** R1.1 – R1.28
 
 ## Purpose
 
@@ -107,6 +107,10 @@ core's. Everything else belongs to one type, and only its connector knows it.
   it, its PDF export beside it. Its keys: `url` and `query`; `token_env` and
   `user_env`, read as a Jira source reads them (R1.21); and `export: pdf`, which
   asks for the PDF (R1.19). Read against Data Center.
+- **web** — scoped by a URL prefix, and listed from the site's sitemap. A page
+  as the server sent it, labelled with the media type the server stated. Its
+  keys: `url`, the prefix, and `sitemap`, where the listing is read from. One
+  connector for every documentation site: a site is configuration, never code.
 
 ## A Confluence page
 
@@ -187,6 +191,92 @@ alone (R8.26).
 
 **Chosen: `httpx`**, as the Jira connector uses. What turns the body into
 markdown is spec 008's decision (R8.20).
+
+## A web source
+
+**What it is for.** Documentation published as a website -- MkDocs, Sphinx,
+Docusaurus, Read the Docs -- read as documents. Every such site is the same
+thing to a reader: pages at URLs. So one connector reads all of them, and a new
+site is a `sources.yaml` entry:
+
+```yaml
+- id: vendor-docs
+  type: web
+  url: https://docs.example.org/ops/
+  # sitemap: https://docs.example.org/sitemap.xml   (the default: the host's own)
+```
+
+**What is listed.** Every URL the sitemap names under `url`, and nothing else
+(R1.23). A sitemap index is followed to the sitemaps it names, on the same host.
+A sitemap served compressed is read compressed. `url` is a prefix of the whole
+URL, scheme and host included, and is read as a directory whether or not it
+ends in `/`: `…/ops` does not match `…/opsx/`. A URL carrying a query string is
+left out, because a query is how a site serves one page many ways, and none of
+them is the page's address.
+
+The sitemap is the listing, and nothing is crawled. A sitemap is what a site
+publishes to say which pages it has; the generators behind nearly every
+documentation site write one. A crawl asks every page once just to find the
+next, which is every page downloaded on every sync before anything is known to
+have changed. A site with no sitemap is an open question, not a crawl (question 6).
+
+The listing is complete: `since` is ignored, `lists_everything` is `True`, and
+a page gone from the sitemap is tombstoned (R1.11, R2.7). That is also why a
+sitemap that cannot be read fails the listing, and is never an empty one. An
+empty listing from a complete source tombstones everything held from it.
+
+**Keys.** A page is keyed by its URL relative to `url` (R1.24):
+`https://docs.example.org/ops/escalation` is `escalation`. A URL naming a
+directory -- the prefix itself, or anything ending `/` -- has `index` appended,
+because a key is also a file name under `runs/` (R0.11), and `runbooks/` is not
+one. A fragment is not part of a page's address. The key is kept as the sitemap
+spells it, percent-escapes included: decoding it would be a second decision
+about what the site meant.
+
+**Versions.** A page's marker is its `<lastmod>`, as the sitemap writes it
+(R1.25). It costs nothing: the listing already holds it. A page with none has
+no marker, and change detection falls back to its bytes (R1.5, R2.2). Some
+generators stamp every page with the build time. That fetches more than
+changed, and over-fetching is always allowed (R1.4). A generator that never
+moves `<lastmod>` would leave a page stale, and the fix is `fields:` or a full
+re-sync (R2.3), not a marker `dossier` invents.
+
+**What is fetched.** `GET` of the page's URL, the bytes as sent (R1.2), labelled
+with the media type the `Content-Type` header states (R1.26). A page is
+`text/html`, and `html-markdown` converts it (R8.21). A PDF the sitemap lists is
+`application/pdf`, and the PDF converters take it. A page carries nothing:
+`attachments` is empty. An image the page draws is an item only if the sitemap
+lists it, and otherwise it is its alt text in the note (R8.22).
+
+**robots.txt.** A URL the host's `robots.txt` disallows for `dossier` is not
+listed, and not fetched (R1.27). The file is read with
+[`protego`](https://github.com/scrapy/protego), and `dossier` asks as the user
+agent `dossier`. A `robots.txt` that is absent (any `4xx`) allows everything, as
+RFC 9309 says. One that cannot be read (`5xx`, or no answer) fails the listing:
+RFC 9309 reads it as disallowing everything, and here that would tombstone every
+page held.
+
+**Redirects.** A page may redirect within `url` -- `escalation` to
+`escalation/` is common -- and the connector follows it, up to five times. A
+redirect out of `url` fails that page and names both URLs (R1.28): a login page,
+or another site, is not the page that was listed. The sitemap and `robots.txt`
+follow redirects on their own host, which is how `http` becomes `https`.
+
+**Not yet.** No credential: every request is anonymous (question 7). A page is
+held with its navigation, header and footer, which `html-markdown` keeps; taking
+them out is a converter's decision, not a connector's (question 5).
+
+**Existing options considered**, before writing the connector (PyPI, 2026-09-27):
+
+| Option | Checked | Covers | Missing |
+|---|---|---|---|
+| [Scrapy](https://scrapy.org) 2.19 | BSD-3, released 2026-09-10, active | Crawling, sitemaps, robots.txt, throttling | A framework with its own engine and HTTP stack, run by its own loop. A connector is three calls another component makes (`list`, `fetch`, `attachments`), and Scrapy is not called that way. `httpx.MockTransport` does not reach it |
+| [crawl4ai](https://github.com/unclecode/crawl4ai) 0.9.4 | Apache-2.0, released 2026-09-23 | Pages through a headless browser, as markdown for a model | A browser, and `litellm`: a model client in the connectors package would break R0.10. Fetching and converting are one step, where `dossier` keys them separately (R5.4) |
+| [trafilatura](https://github.com/adbar/trafilatura) 2.2 | Apache-2.0, released 2026-07-31 | Sitemaps, feeds, main-content extraction | Its downloader is `urllib3`, a second HTTP client. Its extraction is the heuristic spec 008 declined (R8.21) |
+| [ultimate-sitemap-parser](https://github.com/GateNLP/ultimate-sitemap-parser) 1.8.1 | GPL-3.0, released 2026-06-16 | Sitemaps, indexes, compression, robots.txt discovery, feeds | GPL-3.0-or-later, which would reach everyone who installs `dossier`, as PyMuPDF's AGPL would have (spec 008). Fetches through `requests` unless given an adapter, and pulls `python-dateutil`. What `dossier` needs of a sitemap -- `<loc>` and `<lastmod>`, and an index's children -- is the standard library's `xml.etree` |
+| [protego](https://github.com/scrapy/protego) 0.7 | BSD-3, released 2026-09-21, the Scrapy project's | robots.txt as RFC 9309 reads it: wildcards, `$`, longest match | Nothing. It parses text it is given, and never reaches the network. The standard library's `urllib.robotparser` matches by prefix alone, and reads `Disallow: /*.pdf$` as a path starting `/*.pdf$` |
+
+**Chosen: `httpx`, the standard library's XML parser, and `protego`.**
 
 ## Must hold
 
@@ -646,6 +736,103 @@ lists the page, and its files are settled then (R2.6 row 3, R2.22).
 | 5 | *counter-example* — `list(since=None)` | one search, as before. No files are searched, since a complete listing already lists every page |
 | 6 | *counter-example* — `escalation-matrix.png` removed from `81920114` inside the window | `81920114` is not listed by this rule. The file is tombstoned by the next complete listing (R2.22) |
 
+### R1.23 — a web source lists every URL its sitemap names under its `url`, and nothing else
+
+A sitemap index is followed to each sitemap it names on the same host. A sitemap
+that cannot be read fails the listing: the listing is complete, and an empty one
+would tombstone every page held (R1.11, R2.7).
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.web`), with the scope from the domain (`dossier.domain.web.in_scope`)
+- **Proved by:** `tests/unit/test_R001_23__a_web_source_lists_what_its_sitemap_names.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `vendor-docs`, and a sitemap naming `…/ops/`, `…/ops/escalation` and `…/ops/runbooks/dns-failover.html` | three `ItemRef`s, sorted by key |
+| 2 | `sitemap.xml` an index naming `sitemap-ops.xml` and `sitemap-blog.xml` | both are read, and the pages under `…/ops/` in either are listed |
+| 3 | the sitemap served gzip-compressed, as `sitemap.xml.gz` | read as if it were not |
+| 4 | `lists_everything` | `True`: `list(since=2026-08-05T09:00:00Z)` yields what `list(None)` does, and a page gone from the sitemap is tombstoned at the next sync (R2.7) |
+| 5 | *counter-example* — `https://docs.example.org/blog/release-notes`, `https://other.example.net/ops/escalation`, and `…/ops/escalation?lang=de` in the sitemap | none is listed: outside the prefix, on another host, and carrying a query |
+| 6 | *counter-example* — the sitemap answered `404` | the listing fails, naming the sitemap's URL and `404`; nothing held is tombstoned |
+| 7 | *counter-example* — an index naming a sitemap on another host | not read |
+
+### R1.24 — a web page is keyed by its URL relative to the source's `url`, with `index` for a directory
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.web.page_key`)
+- **Proved by:** `tests/unit/test_R001_24__a_web_page_is_keyed_by_its_relative_url.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `https://docs.example.org/ops/escalation` | `escalation` |
+| 2 | `https://docs.example.org/ops/runbooks/dns-failover.html` | `runbooks/dns-failover.html` |
+| 3 | `https://docs.example.org/ops/`, the prefix itself | `index` |
+| 4 | `https://docs.example.org/ops/runbooks/` | `runbooks/index` |
+| 5 | `url: https://docs.example.org/ops`, without the slash | the same keys as rows 1-4; `…/opsx/guide` is not in scope |
+| 6 | *counter-example* — `…/ops/escalation#contacts` | `escalation`; a fragment is not an address |
+| 7 | *counter-example* — `…/ops/runbooks/` and `…/ops/runbooks/index` both in the sitemap | the listing fails, naming both URLs and `runbooks/index`; one key cannot hold two pages |
+
+### R1.25 — a web page's marker is its sitemap `<lastmod>`, and `None` without one
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.web`), with the parse from the domain (`dossier.domain.web.sitemap`)
+- **Proved by:** `tests/unit/test_R001_25__a_web_pages_marker_is_its_lastmod.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `…/ops/escalation` with `<lastmod>2026-08-05T16:02:00+00:00</lastmod>` | `remote_version == "2026-08-05T16:02:00+00:00"`, and `updated_at` that time |
+| 2 | `<lastmod>2026-08-05</lastmod>`, a date alone | `remote_version == "2026-08-05"`, and `updated_at` midnight UTC that day |
+| 3 | `fetch("escalation")` | the same marker as the listing gave |
+| 4 | *counter-example* — `…/ops/runbooks/dns-failover.html` with no `<lastmod>` | `remote_version is None`, not the fetch time; its bytes decide whether it changed (R1.5, R2.2) |
+| 5 | *counter-example* — `<lastmod>last week</lastmod>` | `remote_version == "last week"`, `updated_at is None`. A marker is compared, never read as a time (R2.1) |
+
+### R1.26 — a web page is labelled with the media type its `Content-Type` header states
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.web`)
+- **Proved by:** `tests/unit/test_R001_26__a_web_page_is_labelled_as_its_server_says.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `escalation` served `text/html; charset=utf-8` | `media_type == "text/html"`, and the payload the bytes as sent (R1.2) |
+| 2 | `escalation-matrix.pdf` served `application/pdf` | `application/pdf` |
+| 3 | `attachments("escalation")` | nothing: a web page carries no files |
+| 4 | *counter-example* — `runbooks/dns-failover.html` served `text/plain` | `text/plain`; a name is not evidence about content (R2.16) |
+| 5 | *counter-example* — a response with no `Content-Type` | `application/octet-stream`, the type nothing claims (R8.5) |
+
+### R1.27 — a URL the host's `robots.txt` disallows for `dossier` is neither listed nor fetched
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.web`)
+- **Proved by:** `tests/unit/test_R001_27__a_web_source_honours_robots_txt.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `robots.txt` holding `User-agent: *` and `Disallow: /ops/drafts/`, and the sitemap naming `…/ops/drafts/escalation-v2` | not listed; the other pages are |
+| 2 | `fetch("drafts/escalation-v2")` against the same `robots.txt` | fails naming the URL and `robots.txt`; no request is made for the page |
+| 3 | `Disallow: /*.pdf$` for `User-agent: dossier` only | `escalation-matrix.pdf` is not listed; `escalation` is |
+| 4 | *counter-example* — `robots.txt` answered `404` | every page in scope is listed |
+| 5 | *counter-example* — `robots.txt` answered `503` | the listing fails, naming `robots.txt` and `503`; nothing held is tombstoned |
+
+### R1.28 — a web page is followed through redirects only within the source's `url`
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.web`)
+- **Proved by:** `tests/unit/test_R001_28__a_web_page_redirects_only_within_its_source.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `…/ops/escalation` answered `301` to `…/ops/escalation/` | the bytes of `…/ops/escalation/`, under the key `escalation` |
+| 2 | a chain of six redirects within `…/ops/` | fails after the fifth, naming the page's URL |
+| 3 | *counter-example* — `…/ops/escalation` answered `302` to `https://docs.example.org/login?next=/ops/escalation` | fails, naming both URLs; the login page is not stored |
+| 4 | *counter-example* — `http://docs.example.org/sitemap.xml` answered `301` to its `https` form | followed; the sitemap may move within its host |
+
 ## Open questions
 
 | # | Question | Resolution |
@@ -654,3 +841,7 @@ lists the page, and its files are settled then (R2.6 row 3, R2.22).
 | 2 | Should a page's comments be part of its document? `expand=children.comment.body.export_view` would bring them into the payload, which gives every held page a new snapshot | OPEN — needs a space whose comments hold what a stage must read |
 | 3 | A page that includes another page's text (`include`, `excerpt-include`) renders it without its own version moving, so a change to the included page is not fetched | OPEN — needs a real space that relies on inclusion. Until then, changing `fields:` re-fetches every page (R2.3) |
 | 4 | Does CQL `lastmodified` move when a file is uploaded again to a page whose version does not? If not, a windowed listing leaves the page out, and R1.18 row 2 holds only under a complete listing (R2.22, R2.24) | RESOLVED by R1.22 — it does not. A local Data Center 9.2.21 in Docker, 2026-09-27: neither a file added nor a file uploaded again moved the page's `lastmodified`, and neither did a file removed |
+| 5 | Should a web page's navigation, header and footer be taken out of its note? `html-markdown` keeps them, and every page of a documentation site repeats them | OPEN — a converter option (a CSS selector such as `main`) belongs in spec 008, as the next slice. Needs a site whose chrome a stage has been seen to read |
+| 6 | A documentation site with no sitemap | OPEN — a crawl from `url`, following links within it, is the answer that exists. It downloads every page to list them, and needs a page cap. Needs a site a workspace reads that has no sitemap |
+| 7 | Private documentation behind a credential | OPEN — `token_env` and `user_env` as R1.21 reads them would carry over. Needs a site that asks for one |
+| 8 | Politeness: the requests are sequential and undelayed | OPEN — needs a site that throttles or refuses a sync |
