@@ -58,7 +58,11 @@ class Confluence:
             query = parse_qs(request.url.query.decode())
             self.asked.append(query)
             cql = query["cql"][0]
-            matched = self.pages if "type = page" in cql else self.pages + self.others
+            if cql.startswith("type = attachment"):
+                # The files changed in a window (R1.22): none, here.
+                matched: list[dict] = []
+            else:
+                matched = self.pages if "type = page" in cql else self.pages + self.others
             start, limit = int(query.get("start", ["0"])[0]), int(query["limit"][0])
             results = matched[start : start + limit]
             links = {"base": BASE, "context": ""}
@@ -101,7 +105,7 @@ class TestAConfluenceSourceListsThePagesItsQueryMatches:
 
         list(connector(server).list(SINCE))
 
-        (asked,) = server.asked
+        asked = server.asked[0]
         assert asked["cql"] == [
             '(space = OPS) AND type = page AND lastmodified >= "2026-08-05 09:00"'
         ]

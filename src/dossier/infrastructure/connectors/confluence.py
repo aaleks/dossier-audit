@@ -51,6 +51,11 @@ Export = Literal["pdf"]
 # complete (R1.3).
 PAGE_SIZE = 50
 
+# How many page ids one `id in (...)` search names, when asking which pages
+# whose files changed the query matches (R1.22). A cap on the URL's length, not
+# on anything CQL says.
+IDS_PER_SEARCH = 50
+
 # Generous, and bounded, as the Jira connector's is: a server that never
 # answers must end the sync rather than hang it.
 TIMEOUT_SECONDS = 60.0
@@ -127,15 +132,49 @@ class ConfluenceConnector:
         reads a bare time in the server's own zone (R1.4).
         """
         cql = f"({self._query}) AND type = page"
-        if since is not None:
-            cql = f"{cql} AND {_modified_since(since)}"
+        if since is None:
+            yield from self._pages(cql)
+            return
 
+        window = _modified_since(since)
+        listed: set[str] = set()
+        for ref in self._pages(f"{cql} AND {window}"):
+            listed.add(ref.key)
+            yield ref
+
+        # A page's `lastmodified` does not move when a file on it does, so the
+        # search above leaves out a page whose only change is a file uploaded
+        # again (R1.22). The files that changed name their pages; the query
+        # then decides which of those are in scope. It is never applied to the
+        # files themselves: `label = runbook` matches pages, not their files.
+        touched = sorted(self._containers_of_files_changed(window) - listed)
+        for start in range(0, len(touched), IDS_PER_SEARCH):
+            ids = ", ".join(touched[start : start + IDS_PER_SEARCH])
+            yield from self._pages(f"{cql} AND id in ({ids})")
+
+    def _pages(self, cql: str) -> Iterator[ItemRef]:
+        """The pages one search matches, each keyed by its id and marked by its version."""
         for page in self._results(f"{self._base}{SEARCH}", {"cql": cql, "expand": "version"}):
             # The id, never the title: a rename would otherwise be a
             # tombstone and a new item rather than an edit (R1.16, R2.7).
             key = str(page["id"])
             self._versions[key] = _version_of(page)
             yield ItemRef(key=key, remote_version=self._versions[key], updated_at=_when(page))
+
+    def _containers_of_files_changed(self, window: str) -> set[str]:
+        """The ids of what carries each file changed inside `window` (R1.22).
+
+        Data Center names a result's container only when asked to expand it. A
+        file on a blog post names the post, which `type = page` then leaves out.
+        """
+        return {
+            str(container["id"])
+            for attachment in self._results(
+                f"{self._base}{SEARCH}",
+                {"cql": f"type = attachment AND {window}", "expand": "container"},
+            )
+            if (container := attachment.get("container")) and container.get("id")
+        }
 
     def fetch(self, key: str) -> RawItem:
         """The payload at `key`: a page, or a file one of them carries.

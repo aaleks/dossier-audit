@@ -13,6 +13,30 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A windowed Confluence listing now finds a page whose only change is a file
+(spec 001, R1.22), answering Q4. It needed a Confluence this project could write
+to, and both servers read before were public. So a Data Center 9.2.21 ran in
+Docker on this machine. A page created at 10:07 was given a file, and the same
+file was uploaded again at 11:17. The page stayed at version 1 with
+`lastmodified` 10:07, a `type = page` search from 11:15 returned nothing, and
+`type = attachment` returned the file at version 2, naming the page as its
+container only when `expand=container` asked. So under a window the page was
+never listed, its files were never asked for, and R1.18 row 2 held only on a
+complete listing. A removed file did not move the page either, and search
+cannot see it at all, so a removal still waits for the next complete listing
+(R2.22). The listing now asks a second question, which files changed in the
+window, and a third, which of their pages the source's query matches, 50 ids at
+a time. The query is never applied to the files: `label = runbook` matches pages
+and not what they carry. A real `dossier sync` against that server then read
+`3 known · 1 changed · 0 new -> 1 fetched` after a third upload, fetching only
+`360453/audit-note.txt`. What it costs on a public server was measured too:
+about five files a day change on cwiki and a few on confluence.atlassian.com, so
+a quiet sync there is two or three requests, not one. Confluence's first
+upload also hung the 8 GB WSL VM this machine shares with three other stacks,
+until its container was capped with `mem_limit`.
+
+---
+
 A `per_group` or `aggregate` step reading a `per_group` step's answers is now
 handed them (R3.16 rows 1 and 2). Until now it was handed nothing.
 
