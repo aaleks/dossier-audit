@@ -1,7 +1,7 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Implemented
-**Rules:** R2.1 – R2.24
+**Status:** Partially implemented
+**Rules:** R2.1 – R2.25
 
 ## Purpose
 
@@ -581,3 +581,35 @@ matters.
 | 5 | *counter-example* — `watermark_overlap: 48h` | not a key of the source's own. It moves the window (R2.4), and the listing stays windowed |
 | 6 | *counter-example* — `fields:` changed | R2.3's re-evaluation, which fetches every item. This rule fetches none that did not change |
 | 7 | a ledger written before this rule, holding no hash of the source's keys | the next sync lists without a window, once. An unknown hash cannot vouch that the last listing answered today's keys |
+
+### R2.25 — `dossier sync` counts and names each item that returns after it was tombstoned, apart from known, changed and new
+
+`known` counts the rows active before the sync, and `new` the keys the ledger has
+never held. A tombstoned item a listing offers again is neither, so it was fetched
+and counted nowhere. Restoring `audit-note.pdf` to its folder printed
+`2 known · 0 changed · 0 new -> 3 fetched`: three fetched, and two accounted for.
+Playground exercise 04 found it.
+
+`returned` sits beside the other three, and is printed only when there is one,
+so a sync where nothing came back reads as it always did (R2.13). Each returned
+item is named under its source line (R2.20's reason). An item that comes back
+with different bytes is counted as returned, not changed: `changed` counts items
+that were known, and the returned line carries both addresses instead (R2.18's
+reason).
+
+An item a listing offers again goes back to `active` in any sync, windowed or
+complete, as R2.7 row 3 says. Only a complete listing did this before, so an
+item that came back unchanged in a windowed listing stayed tombstoned.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.sync`)
+- **Proved by:** `tests/unit/test_R002_25__a_returning_item_is_counted_as_returned.py`, `tests/acceptance/test_R002_25__sync_names_what_came_back.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `audit-note.pdf` restored to `incidents-manual`'s folder with the bytes it had (R2.21 row 3) | `incidents-manual  2 known · 0 changed · 0 new · 1 returned -> 3 fetched`, and under it `      audit-note.pdf  returned` |
+| 2 | `audit-note.pdf` restored with different bytes | `2 known · 0 changed · 0 new · 1 returned`, and `      audit-note.pdf  returned  c4a70b93… -> …`, both addresses in full as R2.18 prints them |
+| 3 | `INC-4821` tombstoned by a `--full` sync, then offered again by a windowed listing with the bytes it had | counted and named as returned, and its row is `active` again (R2.7 row 3). Before this rule it stayed tombstoned |
+| 4 | *counter-example* — a sync where nothing came back | the line R2.13 prints, with no `returned` term |
+| 5 | *counter-example* — `INC-4822`, a key the ledger has never held | counted as new, not returned |
