@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.34
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.35
 
 ## Purpose
 
@@ -1052,3 +1052,32 @@ out of the judge's evidence.
 | 3 | a calibration case for that field, naming `INC-4821` | judged against `INC-4821` and `OPS-114`, as row 1 |
 | 4 | a `described` field of a step reading `reference` | shown the pages as R7.21 shows them, then `OPS-114` under its own key; a different `OPS-114` is a different verdict key |
 | 5 | *counter-example* — a judged field of `extract`, which reads `documents` only | shown its one document, as before (R7.17) |
+
+### R7.35 — `--compare` refuses two runs shown different reference documents, by key or by snapshot
+
+R7.8 refuses a comparison over different documents, because a field can move
+with its documents and the delta would credit the configuration with it. A
+procedure moves a field just as surely: `escalation_limit` is read out of
+`OPS-114`, and tightened from 30 minutes to 15 it moves every answer that cites
+it. So two runs whose calls were shown different reference documents are not
+compared. By snapshot as well as by key, because a procedure tightened in
+place keeps its key, and that is the usual way a procedure changes. To compare
+two configurations fairly, run the earlier one again over today's procedures;
+everything that did not read them is served from the cache.
+
+What was *shown* is the test, so the check reads what each run's steps read.
+A pipeline that declares `reference:` and has no step reading it showed no call
+anything, and its runs compare as R7.8 says.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring.check_same_reference`) plus cli (`dossier eval --compare`)
+- **Proved by:** `tests/unit/test_R007_35__compare_refuses_runs_shown_different_reference.py`, `tests/acceptance/test_R007_35__compare_refuses_runs_shown_different_reference.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `verify` reads `reference`; run `b` was shown `OPS-114` at a new snapshot | an error, exit 2: `runs a and b were shown different reference documents -- OPS-114 changed. A field can move because its context did.` |
+| 2 | run `b` was shown `OPS-116` as well, which run `a` was not | the same error, naming `only in b: OPS-116` |
+| 3 | *counter-example* — the same reference keys at the same snapshots, the prompt edited between `a` and `b` | compared, as R7.8 row 1 |
+| 4 | *counter-example* — a pipeline with no `reference:` at all | compared; there is nothing to differ |
+| 5 | *counter-example* — `reference:` declared, `OPS-114` moved between `a` and `b`, and no step of either run reads `reference` | compared; no call was shown it |
