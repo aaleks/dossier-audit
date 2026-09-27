@@ -71,6 +71,10 @@ dossier sync <pipeline>
        GET …/search?cql=type = attachment AND lastmodified >= '<since - 1 day>'&expand=container
        GET …/search?cql=(<query>) AND type = page AND id in (<their pages>)   50 ids a request
        → each page not already listed, once
+     and at every sync                                                           (R1.26)
+       GET …/search?cql=(<query>) AND type = page AND macro in (include, "excerpt-include")&expand=…,body.storage
+       GET …/search?cql=type = page AND space = "OPS" AND title in (<what they include>)   again for what those include
+       → an including page's marker is v37+i<12 hex> over what it draws in
      for each page
        ├─ connector.attachments("81920114")
        │    GET /rest/api/content/81920114/child/attachment?expand=version   (paged)
@@ -105,6 +109,13 @@ Points the code makes deliberately:
   query matches. The query is never applied to the files, which a
   `label = runbook` query would not match. A removed file is absent from search,
   so a removal waits for the next complete listing (R2.22).
+- **An including page's marker includes what it draws in** (R1.26). `include`
+  and `excerpt-include` draw another page's text in, and an edit to that page
+  leaves the including one at its version. The storage format is the only place
+  that says which page an include names, and a plain link to a page is written
+  the same way outside the macro, as cwiki's KNOX `Release Process` shows: it
+  links to `News` and includes `Footer`. Inclusions are followed through the
+  included pages, each counted once.
 - **The export's marker includes its files'** (R1.19). An image replaced in
   place leaves the page at its version, and changes the PDF, which draws it.
 - **A refused export is a failure, not a skip** (R1.20). `export: pdf` says the
@@ -166,12 +177,10 @@ alone (R8.26):
 
 ## What it does not do yet
 
-These are spec 001's open questions:
+This is spec 001's open question:
 
 - **Confluence Cloud** is not verified. Its version-1 content routes answer
   under `/wiki`, but its PDF export is an asynchronous task.
-- **A page that includes another page** renders that page's text without its
-  own version moving, so a change to the included page is not fetched.
 
 ## Tests that pin the behaviour above
 

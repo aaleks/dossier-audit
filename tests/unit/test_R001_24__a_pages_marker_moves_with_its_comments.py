@@ -48,6 +48,9 @@ class Confluence:
         self.comments[id_] = {key.removeprefix("c"): number for key, number in comments.items()}
 
     def _matched(self, cql: str, expand: str) -> list[dict]:
+        if cql == f'({QUERY}) AND type = page AND macro in (include, "excerpt-include")':
+            # No page here includes another (R1.26).
+            return []
         if cql == f"({QUERY}) AND type = page":
             return [
                 {"id": id_, "type": "page", "version": {"number": 37}} for id_ in self.pages

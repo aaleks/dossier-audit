@@ -850,7 +850,7 @@ including page's own. Both searches are asked at every sync, windowed or not.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`), with the marker from the domain (`dossier.domain.confluence.including_version`)
 - **Proved by:** `tests/unit/test_R001_26__a_pages_marker_moves_with_what_it_includes.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
