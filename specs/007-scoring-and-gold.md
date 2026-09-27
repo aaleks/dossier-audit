@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.33
 
 ## Purpose
@@ -1013,7 +1013,7 @@ Decided 2026-09-27 by the project owner, over showing the cited member alone.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.judge_scores`, `dossier.application.eval.calibrate_field`)
 - **Proved by:** `tests/unit/test_R007_33__a_group_field_is_judged_against_every_member.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

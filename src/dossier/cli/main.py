@@ -51,6 +51,7 @@ from dossier.application.review import apply_candidates, pull_reviews
 from dossier.application.run import (
     MissingFromReplay,
     execute,
+    group_evidence,
     key_hashes,
     replay,
     replayed_inputs,
@@ -1354,6 +1355,10 @@ def calibrate(
 
     directory = workspace / gold
     documents, held_parts = _held_content(workspace, config)
+    if declaring[0].mode == "per_group":
+        # A case names the group it verifies, and is judged against every member,
+        # as an eval's question about the same answer is (R7.33).
+        documents = group_evidence(documents)
 
     # One judge per state the pipeline can answer a field in, each measured on
     # its own sample and recorded beside the other (R7.22).
@@ -1633,7 +1638,8 @@ def eval_(
                     config=config,
                     pipeline_dir=path.parent,
                     declaration=path.parent / step.output,
-                    documents=text,
+                    # A group's answer is judged against the group (R7.33).
+                    documents=group_evidence(text) if step.mode == "per_group" else text,
                     pages=pages,
                     withheld=withheld,
                     run_id=run_dir,
@@ -1788,6 +1794,7 @@ def _compare_runs(
         states=judged_states(per_part=_has_per_part(config)),
     )
     totals: list[tuple] = []
+    grouped = any(s.id == step and s.mode == "per_group" for s in config.steps)
     for run, manifest in zip(runs, manifests, strict=True):
         scored, text, pages = _reproduced(workspace, manifest, step)
         try:
@@ -1799,7 +1806,8 @@ def _compare_runs(
                     config=config,
                     pipeline_dir=pipeline_dir,
                     declaration=declaration,
-                    documents=text,
+                    # As an eval judges a group: against every member (R7.33).
+                    documents=group_evidence(text) if grouped else text,
                     pages=pages,
                     withheld=withheld,
                     run_id=run,

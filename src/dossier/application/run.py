@@ -1177,6 +1177,20 @@ def _joined(source: Mapping[str, str], documents: Sequence[str]) -> str:
     return "\n".join(_wrapped(key, source[key]) for key in sorted(documents) if key in source)
 
 
+def group_evidence(texts: Mapping[str, str]) -> dict[str, str]:
+    """Each group's text, as its `per_group` call was shown it (R7.33).
+
+    Every member wrapped under its own key, in key order -- `_joined`, the same
+    rendering the stage's call used -- so a judge asked about a group's answer
+    weighs the evidence the answer was made from. A claim may stand on two
+    members, and a judge shown only the one it cites would weigh half of it.
+    """
+    members: dict[str, list[str]] = {}
+    for key in texts:
+        members.setdefault(group_of(key), []).append(key)
+    return {group: _joined(texts, keys) for group, keys in sorted(members.items())}
+
+
 def _targets(declared: StepConfig, resolved: ResolvedStep) -> list[str]:
     """The resolved id behind each declared input, positionally.
 
