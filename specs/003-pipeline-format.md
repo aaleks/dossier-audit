@@ -547,8 +547,7 @@ a pipeline's sources (R4.10), so a group may take members from more than one: a
 postmortem dropped in a folder under `INC-4821/` joins the Jira issue `INC-4821`.
 
 A group's call holds what an `aggregate` call holds, limited to the group's
-documents: each wrapped under its own key, in key order (R3.13), with every
-`reference` document beside them. Its artifact is filed under the group's name,
+documents: each wrapped under its own key, in key order (R3.13). Its artifact is filed under the group's name,
 `extract/ACME-2024.json`, and `dossier` writes that name as the artifact's
 `document`, as it writes a document's key for `per_file` (R5.10 row 5).
 Everything a `per_file` step does per document, a `per_group` step does per group:

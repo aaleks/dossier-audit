@@ -614,4 +614,3 @@ never read is (R6.3): there is no text in which a span could be found or not.
 | 3 | a field on `ACME-2024` citing `GLOBEX-2023/master.pdf` | invalid: not an input of `ACME-2024`'s call (R6.3) |
 | 4 | a field on `ACME-2024` citing `ACME-2024` | invalid: the name is the group's, no member is keyed `ACME-2024`, and a group has no text to hold a span |
 | 5 | *counter-example* — a field on `INC-4821` citing `INC-4821` | accepted: the Jira issue is itself a member keyed `INC-4821`, so the name is a member's as well as the group's |
-| 6 | *counter-example* — a field citing `OPS-114`, a `reference` document | accepted; every call reads the reference documents (R6.3 row 3) |

@@ -31,8 +31,7 @@ step with no `output` has neither.
 **Stage, aggregate** — as above, over the sorted hashes of all input artifacts.
 
 **Stage, per_group** — as `per_file`, over the sorted hashes of the input artifacts
-of the group's members, each value wrapped under its member's key (R3.13), and of
-the `reference` documents every call reads.
+of the group's members, each value wrapped under its member's key (R3.13).
 
 ## Cascade
 
