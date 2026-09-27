@@ -46,6 +46,7 @@ def build_plan(
     prompt_hashes: Mapping[str, str] | None = None,
     schema_hashes: Mapping[str, str | None] | None = None,
     converters: Sequence[PinnedConverter] | None = None,
+    reference: Mapping[str, str] | None = None,
 ) -> Plan:
     """Resolve the pipeline and say, per step, what would happen to it.
 
@@ -62,6 +63,7 @@ def build_plan(
         prompt_hashes=prompt_hashes,
         schema_hashes=schema_hashes,
         converters=converters,
+        reference=reference,
     )
     return Plan(
         resolved=resolved,
