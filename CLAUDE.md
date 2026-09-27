@@ -96,7 +96,9 @@ session needs:
 - A fake of someone else's service is a claim about it. When a slice talks to
   MLflow, Jira, Confluence or a model provider, run the real call once before
   calling the slice done: four spec-012 bugs and R11.16's missing assessments
-  were green in the suite and wrong against a real server.
+  were green in the suite and wrong against a real server. A Jira and a
+  Confluence to run it against are in `dev/`, not a compose file in a
+  scratch folder nobody else can rebuild.
 
 ## The skills
 
