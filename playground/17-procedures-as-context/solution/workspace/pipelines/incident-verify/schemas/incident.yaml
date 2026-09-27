@@ -1,0 +1,5 @@
+# What the audit wants from each incident. `escalation_limit` is not in any
+# incident: it is in the procedure that applies to it.
+fields:
+  loss_amount:      {kind: amount, currency: CHF}
+  escalation_limit: {kind: reference}

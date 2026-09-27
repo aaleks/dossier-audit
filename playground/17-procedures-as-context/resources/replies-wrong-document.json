@@ -1,0 +1,40 @@
+{
+  "rules": [
+    {
+      "comment": "the mistake: PLAY-1002's answer carries PLAY-1001's loss, quoted from a document this call was never shown",
+      "match": ["Extract the requested fields", "<incident><document key=\"PLAY-1002.md\">"],
+      "reply": {
+        "document": "PLAY-1002.md",
+        "fields": [
+          {
+            "field": "loss_amount",
+            "value": 18400.0,
+            "currency": "CHF",
+            "source": {"document": "PLAY-1001.md", "span": "recorded loss of CHF 18'400"}
+          },
+          {"field": "escalation_limit", "value": null, "reason": "not stated in document"}
+        ]
+      }
+    },
+    {
+      "comment": "the other mistake: extract quotes a procedure, and extract does not read `reference`",
+      "match": ["Extract the requested fields", "<incident><document key=\"PLAY-1001.md\">"],
+      "reply": {
+        "document": "PLAY-1001.md",
+        "fields": [
+          {
+            "field": "loss_amount",
+            "value": 18400.0,
+            "currency": "CHF",
+            "source": {"document": "PLAY-1001.md", "span": "recorded loss of CHF 18'400"}
+          },
+          {
+            "field": "escalation_limit",
+            "value": "15 minutes",
+            "source": {"document": "PLAY-6001.md", "span": "within 15 minutes"}
+          }
+        ]
+      }
+    }
+  ]
+}

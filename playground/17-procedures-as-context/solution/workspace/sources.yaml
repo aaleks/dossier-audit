@@ -1,0 +1,10 @@
+# Two folders, read two ways. `incidents` is what the pipeline audits;
+# `procedures` is what it checks them against, named under `reference:` in
+# pipeline.yaml and never audited itself (R3.17).
+sources:
+  - id: incidents
+    type: folder
+    path: inbox/incidents/
+  - id: procedures
+    type: folder
+    path: inbox/procedures/
