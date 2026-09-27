@@ -33,6 +33,7 @@ sources:
     token_env: DOSSIER_CONFLUENCE_TOKEN        # the NAME of the variable, never the value
     # user_env: DOSSIER_CONFLUENCE_USER        # name this too for HTTP Basic (R1.21)
     # export: pdf                              # also hold each page's PDF export (R1.19)
+    # comments: true                           # hold each page with its comments (R1.23)
 ```
 
 A CQL query containing `:` or `"` must be quoted as a whole in YAML:
@@ -47,6 +48,7 @@ The keys, checked at load time against `ConfluenceKeys` (R1.10):
 | `token_env` | no | variable holding the token; alone → `Authorization: Bearer` |
 | `user_env` | no | variable holding the user; with `token_env` → `Authorization: Basic user:token`; without it → refused at load time |
 | `export` | no | `pdf`, or absent. Any other value is refused at load time |
+| `comments` | no | `true` holds each page with every comment on it, replies included; `false`, the default, asks for none (R1.23) |
 
 `fields`, `convert` and `watermark_overlap` are the core's, as for every source.
 Authentication is decided exactly as for Jira, by one shared function: a
@@ -69,6 +71,10 @@ dossier sync <pipeline>
        GET …/search?cql=type = attachment AND lastmodified >= '<since - 1 day>'&expand=container
        GET …/search?cql=(<query>) AND type = page AND id in (<their pages>)   50 ids a request
        → each page not already listed, once
+     and at every sync                                                           (R1.26)
+       GET …/search?cql=(<query>) AND type = page AND macro in (include, "excerpt-include")&expand=…,body.storage
+       GET …/search?cql=type = page AND space = "OPS" AND title in (<what they include>)   again for what those include
+       → an including page's marker is v37+i<12 hex> over what it draws in
      for each page
        ├─ connector.attachments("81920114")
        │    GET /rest/api/content/81920114/child/attachment?expand=version   (paged)
@@ -103,6 +109,13 @@ Points the code makes deliberately:
   query matches. The query is never applied to the files, which a
   `label = runbook` query would not match. A removed file is absent from search,
   so a removal waits for the next complete listing (R2.22).
+- **An including page's marker includes what it draws in** (R1.26). `include`
+  and `excerpt-include` draw another page's text in, and an edit to that page
+  leaves the including one at its version. The storage format is the only place
+  that says which page an include names, and a plain link to a page is written
+  the same way outside the macro, as cwiki's KNOX `Release Process` shows: it
+  links to `News` and includes `Footer`. Inclusions are followed through the
+  included pages, each counted once.
 - **The export's marker includes its files'** (R1.19). An image replaced in
   place leaves the page at its version, and changes the PDF, which draws it.
 - **A refused export is a failure, not a skip** (R1.20). `export: pdf` says the
@@ -146,6 +159,10 @@ Who is on call is in [the rota](https://status.example/rota). Pool lb_acq_01 ale
   image is (R8.10). The server's URL is not kept.
 - `_links`, `_expandable`, user keys and the version message are in the payload
   and not in the note, so a model cannot find a quote in them.
+- With `comments: true`, `## Comments` follows the body (R8.30). Each comment is
+  under `**m.keller** · 2026-08-05T17:10:00.000Z`, and a reply's heading ends
+  `· reply to m.keller`. They come in thread order: a comment, its replies,
+  then the next. A page with no comment has the same note either way.
 
 The PDF export converts to `markdown` by default, like any PDF (R8.10). A list
 under `convert:` applies to every document the source holds, so
@@ -160,18 +177,15 @@ alone (R8.26):
 
 ## What it does not do yet
 
-These are spec 001's open questions:
+This is spec 001's open question:
 
 - **Confluence Cloud** is not verified. Its version-1 content routes answer
   under `/wiki`, but its PDF export is an asynchronous task.
-- **Page comments** are not part of the page's document.
-- **A page that includes another page** renders that page's text without its
-  own version moving, so a change to the included page is not fetched.
 
 ## Tests that pin the behaviour above
 
-`tests/unit/test_R001_15__…` through `test_R001_21__…` for the connector,
-`test_R008_19__…` and `test_R008_20__…` for the note, and
+`tests/unit/test_R001_15__…` through `test_R001_23__…` for the connector,
+`test_R008_19__…`, `test_R008_20__…` and `test_R008_30__…` for the note, and
 `tests/acceptance/test_R008_19__a_confluence_page_is_audited_end_to_end.py`,
 which syncs, converts and audits a page through the CLI. The fixtures in
 `tests/fixtures/confluence/` have the shape Confluence 9.2.21 sends, with the

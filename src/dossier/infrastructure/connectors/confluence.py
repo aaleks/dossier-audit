@@ -12,6 +12,7 @@ never builds this connector should not pay for the import.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator, Mapping
 from datetime import datetime
 from pathlib import Path
@@ -19,7 +20,12 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from dossier.domain.confluence import export_version
+from dossier.domain.confluence import (
+    commented_version,
+    export_version,
+    included_pages,
+    including_version,
+)
 from dossier.domain.conversion import CONFLUENCE_PAGE, reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.domain.sync import server_zone_floor
@@ -32,6 +38,19 @@ CONTENT = "/rest/api/content"
 # what the note is headed with (R1.17, R8.19). `export_view` rather than
 # `storage`, whose macros only Confluence knows how to draw.
 PAGE_EXPAND = "body.export_view,version,space"
+
+# A page's comments, with `comments: true` (R1.23): every one, replies included,
+# rendered as the page is, with who wrote it and when. Only this route returns a
+# reply. Expanded on the page, `children.comment` is the top-level comments, 25
+# at most, as a Data Center 9.2.21 answered on 2026-09-27.
+COMMENTS = "/child/comment"
+COMMENT_EXPAND = "body.export_view,version,history,ancestors"
+
+# The pages that draw another page's text into them (R1.26), which CQL knows by
+# their macros. Which page each one names is written only in the storage format,
+# so these pages, and the ones they name, are asked for with it.
+INCLUDES = 'macro in (include, "excerpt-include")'
+STORAGE_EXPAND = "version,space,body.storage"
 
 # The PDF export (R1.19). A user-interface action, not a REST route: Confluence
 # runs it only for a request carrying `EXPORT_HEADERS`, answers with a redirect
@@ -51,9 +70,10 @@ Export = Literal["pdf"]
 # complete (R1.3).
 PAGE_SIZE = 50
 
-# How many page ids one `id in (...)` search names, when asking which pages
-# whose files changed the query matches (R1.22). A cap on the URL's length, not
-# on anything CQL says.
+# How many page ids, or titles, one `id in (...)`, `container in (...)` or
+# `title in (...)` search names: which pages whose files changed the query
+# matches (R1.22), which comments listed pages carry (R1.24), and which pages
+# are included (R1.26). A cap on the URL's length, not on anything CQL says.
 IDS_PER_SEARCH = 50
 
 # Generous, and bounded, as the Jira connector's is: a server that never
@@ -75,7 +95,8 @@ class ConfluenceKeys(BaseModel):
     `token_env` and `user_env` name the variables holding the credential, read
     as a Jira source reads them (R1.21); the values are never written here,
     because `sources.yaml` is committed to git (R1.8). `export: pdf` asks for
-    each page's PDF export beside it (R1.19).
+    each page's PDF export beside it (R1.19), and `comments: true` holds each
+    page with its comments (R1.23).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -85,6 +106,7 @@ class ConfluenceKeys(BaseModel):
     token_env: str = ""
     user_env: str = ""
     export: Export | None = None
+    comments: bool = False
 
     @model_validator(mode="after")
     def _a_user_needs_a_token(self) -> ConfluenceKeys:
@@ -109,11 +131,13 @@ class ConfluenceConnector:
         token: str | None = None,
         user: str | None = None,
         export: Export | None = None,
+        comments: bool = False,
         transport: Any | None = None,
     ) -> None:
         self._base = base_url.rstrip("/")
         self._query = query
         self._export = export
+        self._comments = comments
         # Decided once, by the one function Jira's connector uses (R1.21).
         self._authorization = authorization(user=user, token=token)
         self._transport = transport
@@ -133,24 +157,118 @@ class ConfluenceConnector:
         """
         cql = f"({self._query}) AND type = page"
         if since is None:
-            yield from self._pages(cql)
+            yield from self._marked([*self._pages(cql)])
             return
 
         window = _modified_since(since)
-        listed: set[str] = set()
-        for ref in self._pages(f"{cql} AND {window}"):
-            listed.add(ref.key)
-            yield ref
+        pages = [*self._pages(f"{cql} AND {window}")]
 
-        # A page's `lastmodified` does not move when a file on it does, so the
-        # search above leaves out a page whose only change is a file uploaded
-        # again (R1.22). The files that changed name their pages; the query
-        # then decides which of those are in scope. It is never applied to the
-        # files themselves: `label = runbook` matches pages, not their files.
-        touched = sorted(self._containers_of_files_changed(window) - listed)
-        for start in range(0, len(touched), IDS_PER_SEARCH):
-            ids = ", ".join(touched[start : start + IDS_PER_SEARCH])
-            yield from self._pages(f"{cql} AND id in ({ids})")
+        # A page's `lastmodified` does not move when a file on it does, nor a
+        # comment, so the search above leaves out a page whose only change is a
+        # file uploaded again (R1.22) or a comment added (R1.25). What changed
+        # names its page; the query then decides which of those are in scope.
+        # It is never applied to what changed: `label = runbook` matches pages,
+        # not their files.
+        touched = sorted(self._containers_of_changed(window) - {p.key for p in pages})
+        for ids in _batches(touched):
+            pages += self._pages(f"{cql} AND id in ({', '.join(ids)})")
+        yield from self._marked(pages)
+
+    def _marked(self, pages: list[ItemRef]) -> Iterator[ItemRef]:
+        """`pages`, each marked by what it includes (R1.26), then by its comments (R1.24)."""
+        included = self._included()
+        yield from self._commented([self._including(page, included) for page in pages])
+
+    def _including(self, page: ItemRef, included: Mapping[str, list[str | None]]) -> ItemRef:
+        """`page`, marked by what it draws in, when it draws anything in (R1.26).
+
+        `_versions` keeps this marker, and the export's is made from it: the PDF
+        draws the included text as the page does (R1.19).
+        """
+        if page.key not in included:
+            return page
+        self._versions[page.key] = including_version(page.remote_version, included[page.key])
+        return page.model_copy(update={"remote_version": self._versions[page.key]})
+
+    def _included(self) -> dict[str, list[str | None]]:
+        """What each of the query's pages that includes another draws in, by page id (R1.26).
+
+        Asked at every sync, windowed or not: an edit to an included page leaves
+        the including one where it was. Inclusions are followed through the
+        included pages, since Confluence draws those too, and each page is
+        counted once. An include naming no page counts as `missing:…`.
+        """
+        including = [
+            *self._results(
+                f"{self._base}{SEARCH}",
+                {
+                    "cql": f"({self._query}) AND type = page AND {INCLUDES}",
+                    "expand": STORAGE_EXPAND,
+                },
+            )
+        ]
+        names = {str(page["id"]): _names(page) for page in including}
+        found: dict[tuple[str, str], dict | None] = {}
+        wanted = {name for named in names.values() for name in named}
+        while wanted:
+            answered = self._named(sorted(wanted))
+            for name in wanted:
+                found[name] = answered.get(name)
+            for page in answered.values():
+                names.setdefault(str(page["id"]), _names(page))
+            wanted = {name for page in answered.values() for name in names[str(page["id"])]}
+            wanted -= found.keys()
+        return {str(page["id"]): _drawn_in(str(page["id"]), names, found) for page in including}
+
+    def _named(self, names: list[tuple[str, str]]) -> dict[tuple[str, str], dict]:
+        """The pages `names` names, each `(space, title)`, asked for by space and title."""
+        found: dict[tuple[str, str], dict] = {}
+        spaces = sorted({space for space, _ in names})
+        for space in spaces:
+            titles = [title for named_space, title in names if named_space == space]
+            for batch in _batches(titles):
+                for page in self._results(
+                    f"{self._base}{SEARCH}",
+                    {
+                        "cql": f"type = page AND space = {_quoted(space)} AND title in "
+                        f"({', '.join(_quoted(title) for title in batch)})",
+                        "expand": STORAGE_EXPAND,
+                    },
+                ):
+                    found[(space, str(page.get("title")))] = page
+        return found
+
+    def _commented(self, pages: list[ItemRef]) -> Iterator[ItemRef]:
+        """`pages`, each marked by its comments too when `comments: true` asks (R1.24).
+
+        A comment leaves its page at its version, so the page's marker says what
+        its comments are. Which comments the pages carry is asked once for every
+        `IDS_PER_SEARCH` pages, not once a page. What `_versions` keeps is the
+        marker before this, which the export's is made from (R1.19): the PDF
+        does not draw comments, as a Data Center 9.2.21's did not on 2026-09-27.
+        """
+        if not self._comments:
+            yield from pages
+            return
+        comments: dict[str, list[str | None]] = {}
+        for ids in _batches([page.key for page in pages]):
+            for comment in self._results(
+                f"{self._base}{SEARCH}",
+                {
+                    "cql": f"type = comment AND container in ({', '.join(ids)})",
+                    "expand": "version,container",
+                },
+            ):
+                page = str((comment.get("container") or {}).get("id"))
+                comments.setdefault(page, []).append(_file_version_of(comment))
+        for page in pages:
+            yield page.model_copy(
+                update={
+                    "remote_version": commented_version(
+                        page.remote_version, comments.get(page.key, [])
+                    )
+                }
+            )
 
     def _pages(self, cql: str) -> Iterator[ItemRef]:
         """The pages one search matches, each keyed by its id and marked by its version."""
@@ -161,19 +279,22 @@ class ConfluenceConnector:
             self._versions[key] = _version_of(page)
             yield ItemRef(key=key, remote_version=self._versions[key], updated_at=_when(page))
 
-    def _containers_of_files_changed(self, window: str) -> set[str]:
-        """The ids of what carries each file changed inside `window` (R1.22).
+    def _containers_of_changed(self, window: str) -> set[str]:
+        """The ids of what carries each file changed inside `window` (R1.22), and
+        each comment with `comments: true` (R1.25).
 
         Data Center names a result's container only when asked to expand it. A
         file on a blog post names the post, which `type = page` then leaves out.
+        A reply's container is the page, not the comment it answers.
         """
+        kinds = "type in (attachment, comment)" if self._comments else "type = attachment"
         return {
             str(container["id"])
-            for attachment in self._results(
+            for changed in self._results(
                 f"{self._base}{SEARCH}",
-                {"cql": f"type = attachment AND {window}", "expand": "container"},
+                {"cql": f"{kinds} AND {window}", "expand": "container"},
             )
-            if (container := attachment.get("container")) and container.get("id")
+            if (container := changed.get("container")) and container.get("id")
         }
 
     def fetch(self, key: str) -> RawItem:
@@ -196,7 +317,7 @@ class ConfluenceConnector:
             )
             return RawItem(
                 key=key,
-                payload=response.content,
+                payload=self._with_comments(page, response.content),
                 media_type=CONFLUENCE_PAGE,
                 remote_version=_version_of(response.json()),
             )
@@ -237,6 +358,21 @@ class ConfluenceConnector:
                     self._version(key), [ref.remote_version for ref in files]
                 ),
             )
+
+    def _with_comments(self, page: str, sent: bytes) -> bytes:
+        """Page `page` as sent, and with `comments: true` its comments beside it (R1.23).
+
+        Each answer is written into the payload as Confluence sent it, byte for
+        byte, rather than parsed and written out again (R1.2): the payload is
+        `{"page":<the page>,"comments":[<each answer>]}`.
+        """
+        if not self._comments:
+            return sent
+        answers = self._answers(
+            f"{self._base}{CONTENT}/{page}{COMMENTS}",
+            {"depth": "all", "expand": COMMENT_EXPAND},
+        )
+        return b'{"page":' + sent + b',"comments":[' + b",".join(answers) + b"]}"
 
     def _exported(self, key: str, page: str) -> RawItem:
         """Page `page` as the PDF Confluence exports it (R1.19).
@@ -324,20 +460,25 @@ class ConfluenceConnector:
         raise ConfluenceRequestFailed(f"page {key} carries no file named {filename!r}")
 
     def _results(self, url: str, params: Mapping[str, object]) -> Iterator[dict]:
-        """Every result a paged answer holds, asked for `PAGE_SIZE` at a time.
+        """Every result a paged answer holds, asked for `PAGE_SIZE` at a time."""
+        for sent in self._answers(url, params):
+            yield from json.loads(sent).get("results") or []
 
-        Search and a page's files page the same way: by `start` and `limit`,
-        until an answer names no `next` (R1.15, R1.18). An empty page of
-        results ends it too, so a server that always names one cannot loop.
+    def _answers(self, url: str, params: Mapping[str, object]) -> Iterator[bytes]:
+        """Each answer to a paged question, as sent, asked for `PAGE_SIZE` at a time.
+
+        Search, a page's files and its comments page the same way: by `start`
+        and `limit`, until an answer names no `next` (R1.15, R1.18, R1.23). An
+        empty page of results ends it too, so a server that always names one
+        cannot loop.
         """
         start = 0
         while True:
-            answer = self._get(
-                url, params={**params, "start": start, "limit": PAGE_SIZE}
-            ).json()
-            results = answer.get("results") or []
-            yield from results
+            response = self._get(url, params={**params, "start": start, "limit": PAGE_SIZE})
+            yield response.content
 
+            answer = response.json()
+            results = answer.get("results") or []
             start += len(results)
             if not results or "next" not in (answer.get("_links") or {}):
                 return
@@ -390,6 +531,7 @@ class ConfluenceConnector:
             token=getattr(credential, "value", None),
             user=getattr(credential, "user", None),
             export=config.options.get("export"),
+            comments=config.options.get("comments") is True,
         )
 
 
@@ -403,12 +545,63 @@ def _version_of(page: Mapping[str, Any]) -> str | None:
     return f"v{number}" if number is not None else None
 
 
+def _batches(ids: list[str]) -> Iterator[list[str]]:
+    """`ids`, `IDS_PER_SEARCH` at a time, for an `id in (…)` or `container in (…)` search."""
+    for start in range(0, len(ids), IDS_PER_SEARCH):
+        yield ids[start : start + IDS_PER_SEARCH]
+
+
+def _names(page: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """The `(space, title)` of each page `page` includes, read from its storage (R1.26)."""
+    storage = ((page.get("body") or {}).get("storage") or {}).get("value") or ""
+    space = str((page.get("space") or {}).get("key") or "")
+    return included_pages(storage, space=space)
+
+
+def _drawn_in(
+    start: str,
+    names: Mapping[str, list[tuple[str, str]]],
+    found: Mapping[tuple[str, str], Mapping[str, Any] | None],
+) -> list[str | None]:
+    """The markers of everything page `start` draws in, through other pages too (R1.26).
+
+    Each page once, and never `start` itself: two pages including each other
+    end here rather than going round.
+    """
+    markers: list[str | None] = []
+    seen: set[tuple[str, str]] = set()
+    counted = {start}
+    todo = list(names.get(start, []))
+    while todo:
+        name = todo.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        page = found.get(name)
+        if page is None:
+            markers.append(f"missing:{name[0]}/{name[1]}")
+            continue
+        key = str(page["id"])
+        if key in counted:
+            continue
+        counted.add(key)
+        markers.append(_file_version_of(page))
+        todo.extend(names.get(key, []))
+    return markers
+
+
+def _quoted(text: str) -> str:
+    """`text` as a CQL string: in double quotes, with `\\` and `"` escaped."""
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def _file_version_of(attachment: Mapping[str, Any]) -> str | None:
     """A file's marker: its attachment id and version, `81920301:v2` (R1.18).
 
     Both, because each alone misses a case. Uploading again under the same name
     keeps the id and raises the version; deleting and uploading again makes a
-    new id and starts the version at 1 again.
+    new id and starts the version at 1 again. A comment's is written the same
+    way, `81920501:v2`, for R1.24's digest.
     """
     number = (attachment.get("version") or {}).get("number")
     return f"{attachment['id']}:v{number}" if number is not None else None

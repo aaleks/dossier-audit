@@ -620,7 +620,7 @@ beside `dossier` and a workspace that names neither converter:
 ```console
 $ dossier convert jira-audit
 two converters claim the same pair, and picking either would be picking by installation order:
-  (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
+  (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.1.0 and play-jira-issue-markdown 1.0.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
 $ echo $?
 2
@@ -733,7 +733,7 @@ been wrong.
 >
 > ```
 > AssertionError: two converters claim the same pair, and picking either would be picking by installation order:
->     (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.0.0 and play-jira-issue-markdown 1.0.0
+>     (application/vnd.dossier.jira-issue+json, markdown) is claimed by both jira-issue-markdown 1.1.0 and play-jira-issue-markdown 1.0.0
 >   A workspace settles it by naming one under converters: in sources.yaml (R8.13).
 > ```
 >

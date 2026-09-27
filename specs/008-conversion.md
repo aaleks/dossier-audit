@@ -584,7 +584,7 @@ whether `comments:` is on or off.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.confluence_page.note`), called by infrastructure (`dossier.infrastructure.converters.confluence_page_markdown`)
 - **Proved by:** `tests/unit/test_R008_30__a_pages_comments_follow_its_body.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -618,7 +618,7 @@ row 6 holds for it, and its note is the one it had.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.jira_issue.note`)
 - **Proved by:** `tests/unit/test_R008_31__an_issues_custom_fields_are_written_under_their_names.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
