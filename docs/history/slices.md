@@ -22,8 +22,15 @@ gone from the sitemap is tombstoned, and for the same reason a sitemap or a
 `robots.txt` that cannot be read fails the listing instead of emptying it.
 Scrapy, crawl4ai, trafilatura and ultimate-sitemap-parser were considered and
 declined (spec 001 records why); `protego` reads `robots.txt`, because the
-standard library's parser misreads wildcards. Not yet run against a real site:
-the environment it was built in could not reach one. Page chrome, sites
+standard library's parser misreads wildcards. Run against real sites on
+2026-09-27: `docs.astral.sh/uv` listed 84 pages, each with a `<lastmod>`, and a
+second sync fetched none; `www.python.org` publishes no sitemap, so its listing
+failed on the `404` as R1.29 row 6 says (question 7); `djangoproject.com`,
+checked as well, answered `429` to 70 of the 91 pages under `/foundation/`
+within seconds (question 9); about half of a median note, on both sites that
+listed, is navigation (question 6); and Cloudflare's email obfuscation
+re-encodes 13 of uv's pages on every fetch and leaves `[email protected]` in
+the note where `ruff@0.3.0` was. Page chrome, sites
 without a sitemap, credentials and throttling are open questions 6 – 10.
 
 `eval --compare` refuses two runs whose calls were shown different reference
