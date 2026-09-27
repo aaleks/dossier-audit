@@ -1264,6 +1264,37 @@ def group_evidence(texts: Mapping[str, str]) -> dict[str, str]:
     return {group: _joined(texts, keys) for group, keys in sorted(members.items())}
 
 
+def reference_context(reference: Mapping[str, str]) -> str:
+    """Every reference document, each under its own key in key order (R3.18).
+
+    What a call reading `reference` was shown beside its own document,
+    rendered as `_input_values` rendered it, so a judge asked about the
+    answer is shown the context the stage was (R7.34).
+    """
+    return _joined(reference, list(reference))
+
+
+def judge_evidence(
+    texts: Mapping[str, str], *, mode: str, reference: Mapping[str, str]
+) -> dict[str, str]:
+    """What a judge is shown for each answer: the evidence its call read.
+
+    A document's text, as R7.17 always showed it; a group's members, each
+    under its own key (R7.33). A step that read `reference` answered from
+    that and the procedures together, so its judge is shown both: the
+    document under its own key, or the group, and then every reference
+    document (R7.34). A claim resting on the 30 minutes OPS-114 allows is
+    otherwise judged unsupported, a mistake no calibration measured.
+    """
+    evidence = group_evidence(texts) if mode == "per_group" else dict(texts)
+    if not reference:
+        return evidence
+    if mode != "per_group":
+        evidence = {key: _wrapped(key, text) for key, text in evidence.items()}
+    context = reference_context(reference)
+    return {unit: f"{text}\n{context}" for unit, text in evidence.items()}
+
+
 def _targets(declared: StepConfig, resolved: ResolvedStep) -> list[str]:
     """The resolved id behind each declared input, positionally.
 

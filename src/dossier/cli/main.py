@@ -51,8 +51,9 @@ from dossier.application.review import apply_candidates, pull_reviews
 from dossier.application.run import (
     MissingFromReplay,
     execute,
-    group_evidence,
+    judge_evidence,
     key_hashes,
+    reference_context,
     replay,
     replayed_inputs,
     replayed_parts,
@@ -92,7 +93,7 @@ from dossier.domain.grounding import GROUNDED, judge_name, judged_states
 from dossier.domain.hashing import short, text_hash
 from dossier.domain.judges import Calibration, NotCalibrated, withholding
 from dossier.domain.model_id import provider_of
-from dossier.domain.pipeline import PipelineConfig, SourceConfig
+from dossier.domain.pipeline import PipelineConfig, SourceConfig, reads_reference
 from dossier.domain.ports import (
     Converter,
     DatasetRegistry,
@@ -1276,7 +1277,9 @@ def _has_per_part(config) -> bool:
     return any(step.mode == "per_part" and step.output is not None for step in config.steps)
 
 
-def _held_content(workspace: Path, config) -> tuple[dict[str, str], dict[str, list[ImagePart]]]:
+def _held_content(
+    workspace: Path, config
+) -> tuple[dict[str, str], dict[str, list[ImagePart]], dict[str, str]]:
     """The converted text and the pages of every document the workspace holds (R7.14).
 
     The same path `dossier convert` walks -- ledger rows, then conversion -- and
@@ -1299,6 +1302,9 @@ def _held_content(workspace: Path, config) -> tuple[dict[str, str], dict[str, li
 
     text: dict[str, str] = {}
     pages: dict[str, list[ImagePart]] = {}
+    # The `reference:` sources' text as well, apart: a judged field of a step
+    # reading them is measured against them too (R7.34).
+    reference: dict[str, str] = {}
     with Ledger(workspace) as ledger:
         holdings = _holdings(ledger, config.synced_sources, declared)
         _refuse_unconvertible(holdings, converters)
@@ -1316,6 +1322,8 @@ def _held_content(workspace: Path, config) -> tuple[dict[str, str], dict[str, li
                 typer.echo(str(error), err=True)
                 raise typer.Exit(code=2) from error
             text.update(report.text)
+            if name in config.reference:
+                reference.update(report.text)
             # The pages behind every container this source produced, for the
             # judge a described field is measured against (R7.21, R7.22). Read
             # from the same conversion the text came from, so the judge is
@@ -1329,7 +1337,7 @@ def _held_content(workspace: Path, config) -> tuple[dict[str, str], dict[str, li
                     pages[key] = [
                         ImagePart(media_type=PART_TYPE, data=part) for part in unpacked
                     ]
-    return text, pages
+    return text, pages, reference
 
 
 @app.command()
@@ -1385,11 +1393,12 @@ def calibrate(
     tracker, experiment = _tracking_for(workspace, pipeline, kind="calibrate", gold=gold)
 
     directory = workspace / gold
-    documents, held_parts = _held_content(workspace, config)
-    if declaring[0].mode == "per_group":
-        # A case names the group it verifies, and is judged against every member,
-        # as an eval's question about the same answer is (R7.33).
-        documents = group_evidence(documents)
+    documents, held_parts, held_reference = _held_content(workspace, config)
+    # A case is judged against what the step's call was shown, as an eval's
+    # question about the same answer is: every member of a group (R7.33),
+    # and every reference document the step read (R7.34).
+    reference = held_reference if reads_reference(declaring[0].inputs) else {}
+    documents = judge_evidence(documents, mode=declaring[0].mode, reference=reference)
 
     # One judge per state the pipeline can answer a field in, each measured on
     # its own sample and recorded beside the other (R7.22).
@@ -1424,6 +1433,7 @@ def calibrate(
             documents=documents,
             judge_model=config.model,
             parts=held_parts,
+            context=reference_context(reference),
             tracker=tracker,
             experiment=experiment or "",
             environ=environment(workspace),
@@ -1669,8 +1679,9 @@ def eval_(
                     config=config,
                     pipeline_dir=path.parent,
                     declaration=path.parent / step.output,
-                    # A group's answer is judged against the group (R7.33).
-                    documents=group_evidence(text) if step.mode == "per_group" else text,
+                    # What the call was shown: the group (R7.33), and the
+                    # reference documents it read (R7.34).
+                    **_judged_evidence(step, manifest.plan, text),
                     pages=pages,
                     withheld=withheld,
                     run_id=run_dir,
@@ -1825,7 +1836,7 @@ def _compare_runs(
         states=judged_states(per_part=_has_per_part(config)),
     )
     totals: list[tuple] = []
-    grouped = any(s.id == step and s.mode == "per_group" for s in config.steps)
+    compared = next(s for s in config.steps if s.id == step)
     for run, manifest in zip(runs, manifests, strict=True):
         scored, text, pages = _reproduced(workspace, manifest, step)
         try:
@@ -1837,8 +1848,9 @@ def _compare_runs(
                     config=config,
                     pipeline_dir=pipeline_dir,
                     declaration=declaration,
-                    # As an eval judges a group: against every member (R7.33).
-                    documents=group_evidence(text) if grouped else text,
+                    # As an eval judges it: against what the call was shown
+                    # (R7.33, R7.34).
+                    **_judged_evidence(compared, manifest.plan, text),
                     pages=pages,
                     withheld=withheld,
                     run_id=run,
@@ -1950,6 +1962,7 @@ def _judging(
     withheld: Mapping[str, str],
     run_id: str,
     tracker: Tracker | None = None,
+    context: str = "",
 ) -> Judging:
     """What the judge is asked with, for the fields R7.15 lets be reported (R7.17).
 
@@ -1973,6 +1986,7 @@ def _judging(
         # (R7.21). Empty for every pipeline that reads text, which is what the
         # default is for.
         parts=dict(pages or {}),
+        context=context,
         rubrics=rubrics,
         judge_model=config.model,
         # What a judge's span may carry here, read as a stage's is (R10.8).
@@ -1981,6 +1995,26 @@ def _judging(
         dossier_version=version("dossier"),
         tracker=tracker,
     )
+
+
+def _judged_evidence(step, plan, text: Mapping[str, str]) -> dict[str, object]:
+    """What a judge of `step`'s answers is shown, from a run's reproduced text.
+
+    The audited documents' evidence, as `judge_evidence` renders it, and the
+    reference documents the step read, rendered for a field judged from its
+    pages (R7.33, R7.34). Taken from the manifest's own lists, so a procedure
+    re-synced since is not what the judge is shown (R4.16).
+    """
+    audited = {pinned.key: text[pinned.key] for pinned in plan.documents if pinned.key in text}
+    reference = (
+        {pinned.key: text[pinned.key] for pinned in plan.reference if pinned.key in text}
+        if reads_reference(step.inputs)
+        else {}
+    )
+    return {
+        "documents": judge_evidence(audited, mode=step.mode, reference=reference),
+        "context": reference_context(reference),
+    }
 
 
 def _reproduced(workspace: Path, manifest: Manifest, step: str):
