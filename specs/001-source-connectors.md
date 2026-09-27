@@ -680,7 +680,7 @@ for, and a page is held as R1.17 holds it.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`)
 - **Proved by:** `tests/unit/test_R001_23__a_page_can_be_held_with_its_comments.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

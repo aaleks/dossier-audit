@@ -33,6 +33,7 @@ sources:
     token_env: DOSSIER_CONFLUENCE_TOKEN        # the NAME of the variable, never the value
     # user_env: DOSSIER_CONFLUENCE_USER        # name this too for HTTP Basic (R1.21)
     # export: pdf                              # also hold each page's PDF export (R1.19)
+    # comments: true                           # hold each page with its comments (R1.23)
 ```
 
 A CQL query containing `:` or `"` must be quoted as a whole in YAML:
@@ -47,6 +48,7 @@ The keys, checked at load time against `ConfluenceKeys` (R1.10):
 | `token_env` | no | variable holding the token; alone → `Authorization: Bearer` |
 | `user_env` | no | variable holding the user; with `token_env` → `Authorization: Basic user:token`; without it → refused at load time |
 | `export` | no | `pdf`, or absent. Any other value is refused at load time |
+| `comments` | no | `true` holds each page with every comment on it, replies included; `false`, the default, asks for none (R1.23) |
 
 `fields`, `convert` and `watermark_overlap` are the core's, as for every source.
 Authentication is decided exactly as for Jira, by one shared function: a
