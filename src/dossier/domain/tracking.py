@@ -722,6 +722,7 @@ def step_line(
     described: int = 0,
     findings: int = 0,
     tokens: Tokens | None = None,
+    unit: str = "document",
 ) -> str:
     """The line `dossier run` prints for one step (R6.9, R6.15, R6.16, R5.12).
 
@@ -740,11 +741,15 @@ def step_line(
     cached run. A side the provider did not report reads `tokens not reported`,
     never `0`. The `,` separator is Python's own and is not locale-aware, so two
     machines print the same line (R0.4).
+
+    `unit` is what the step asked about once each. A `per_group` step's is the
+    group: four files that are two contracts are two calls, and `4 document(s)`
+    would count what was read rather than what was asked (R3.15 row 1).
     """
     shown = f" · {described} described" if described else ""
     found = f" · {findings} finding(s)" if findings else ""
     return (
-        f"{step}: {documents} document(s) · {cached} from cache · {failed} failed{shown}{found}"
+        f"{step}: {documents} {unit}(s) · {cached} from cache · {failed} failed{shown}{found}"
         + _spent(tokens)
     )
 

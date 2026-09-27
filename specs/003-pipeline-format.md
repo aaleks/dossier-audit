@@ -562,7 +562,7 @@ subfolders first (see "Existing options considered").
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.groups.group_of`), application (`dossier.application.run`)
 - **Proved by:** `tests/acceptance/test_R003_15__a_per_group_step_asks_once_per_group.py`, `tests/unit/test_R003_15__a_documents_group_is_its_key_up_to_the_first_slash.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

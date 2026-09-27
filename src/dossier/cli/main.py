@@ -1215,6 +1215,7 @@ def _execute(
                 described=step.described,
                 findings=len(findings),
                 tokens=step.tokens,
+                unit=step.unit,
             )
         )
         for document, check in findings:
