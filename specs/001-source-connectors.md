@@ -1,7 +1,7 @@
 # 001 — Source connectors
 
-**Status:** Implemented
-**Rules:** R1.1 – R1.21
+**Status:** Partially implemented
+**Rules:** R1.1 – R1.22
 
 ## Purpose
 
@@ -608,6 +608,44 @@ so the two cannot drift apart.
 | 3 | *counter-example* — neither key named | no `Authorization` header: `cwiki.apache.org` serves its pages to an anonymous reader |
 | 4 | *counter-example* — `user_env` without `token_env` | load-time error naming the source and both keys (R1.10) |
 
+### R1.22 — a windowed Confluence listing also lists each page the query matches whose files changed in the window
+
+CQL's `lastmodified` on a page moves with the page's own version and not with
+its files. This was checked against Confluence Data Center 9.2.21, run in Docker
+on 2026-09-27. A page created at 10:07 was given a file at 10:18, and the same
+file was uploaded again at 11:17. The page stayed at version 1 with
+`lastmodified` 10:07. A `type = page` search from 11:15 returned nothing, and a
+`type = attachment` search from 11:15 returned the file at version 2, with the
+page as its container. So a windowed listing left the page out, its files were
+never asked for, and R1.18 row 2 held only under a complete listing (R2.22,
+R2.24).
+
+A windowed listing therefore asks a second question: which files changed in the
+window (`type = attachment AND lastmodified >= <floor>`, from the same floor
+R1.4 sets). Each of their pages is then checked against the source's query
+(`(<query>) AND type = page AND id in (...)`), and every page that matches is
+listed once. The query is never applied to the files themselves: a
+`label = runbook` query matches pages and not the files on them, so it would
+find no file at all.
+
+A file removed from a page does not move the page either. A removed file is
+absent from search, so this question cannot see a removal. A complete listing
+lists the page, and its files are settled then (R2.6 row 3, R2.22).
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`)
+- **Proved by:** `tests/unit/test_R001_22__a_windowed_listing_finds_pages_whose_files_changed.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `81920114` at `v37`, last edited before the window; `escalation-matrix.png` uploaded again inside it, now `81920301:v3` | the windowed listing yields `81920114` once, with marker `v37`; the file is fetched and the page is not (R1.18 row 2, R2.1) |
+| 2 | `81920114` edited inside the window, and its file uploaded again inside it too | listed once, not twice |
+| 3 | files changed inside the window on 60 pages the query matches | the pages are asked about 50 ids at a time, in two requests, and all 60 are listed |
+| 4 | *counter-example* — a file uploaded again inside the window on a page in another space, outside `space = OPS` | not listed: the source's query decides which pages are in scope (R1.3) |
+| 5 | *counter-example* — `list(since=None)` | one search, as before. No files are searched, since a complete listing already lists every page |
+| 6 | *counter-example* — `escalation-matrix.png` removed from `81920114` inside the window | `81920114` is not listed by this rule. The file is tombstoned by the next complete listing (R2.22) |
+
 ## Open questions
 
 | # | Question | Resolution |
@@ -615,4 +653,4 @@ so the two cannot drift apart.
 | 1 | Does the connector read Confluence Cloud? Cloud still answers the version-1 content routes under `/wiki`, but its PDF export is an asynchronous task that is started and then polled | OPEN — needs a Cloud site to run against. The connector is read against Data Center 9.2 (`cwiki.apache.org`, `confluence.atlassian.com`) |
 | 2 | Should a page's comments be part of its document? `expand=children.comment.body.export_view` would bring them into the payload, which gives every held page a new snapshot | OPEN — needs a space whose comments hold what a stage must read |
 | 3 | A page that includes another page's text (`include`, `excerpt-include`) renders it without its own version moving, so a change to the included page is not fetched | OPEN — needs a real space that relies on inclusion. Until then, changing `fields:` re-fetches every page (R2.3) |
-| 4 | Does CQL `lastmodified` move when a file is uploaded again to a page whose version does not? If not, a windowed listing leaves the page out, and R1.18 row 2 holds only under a complete listing (R2.22, R2.24) | OPEN — needs a Confluence this project can write to. Both servers read so far are public and read-only |
+| 4 | Does CQL `lastmodified` move when a file is uploaded again to a page whose version does not? If not, a windowed listing leaves the page out, and R1.18 row 2 holds only under a complete listing (R2.22, R2.24) | RESOLVED by R1.22 — it does not. A local Data Center 9.2.21 in Docker, 2026-09-27: neither a file added nor a file uploaded again moved the page's `lastmodified`, and neither did a file removed |
