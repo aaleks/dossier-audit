@@ -590,7 +590,7 @@ member's key, as it gets each member's text.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.pipeline`)
 - **Proved by:** `tests/unit/test_R003_16__only_a_group_or_aggregate_step_reads_a_group_step.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
