@@ -1,7 +1,7 @@
 # 005 — Cache keys, cascade and provenance
 
 **Status:** Partially implemented
-**Rules:** R5.1 – R5.14
+**Rules:** R5.1 – R5.15
 
 ## Purpose
 
