@@ -24,6 +24,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from dossier.domain.grounding import page_anchor
+from dossier.infrastructure.converters._pdfium import pdfium as load_pdfium
 
 # Between one page's text and the next page's anchor. A blank line, because the
 # artifact is text a stage reads and a span is searched in (R6.4) -- not a
@@ -63,7 +64,8 @@ class PdfMarkdownConverter:
         converter that answers it.
         """
         try:
-            import pypdfium2 as pdfium
+            # Drawing with PDFium's own fonts, never the machine's (R8.28).
+            pdfium = load_pdfium()
         except ImportError as error:  # pragma: no cover - depends on the install
             raise ValueError(
                 f"{self.id} needs the 'pdf' extra: install dossier[pdf]"

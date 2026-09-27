@@ -24,10 +24,13 @@ DPI = 200
 
 def photocopy(pdf: bytes, *, keep: Collection[int] = ()) -> bytes:
     """`pdf` with every page not in `keep` (1-based) replaced by a picture of it."""
-    import pypdfium2 as pdfium
     from pypdf import PdfReader, PdfWriter
 
-    rendered = pdfium.PdfDocument(pdf)
+    from dossier.infrastructure.converters._pdfium import pdfium as load_pdfium
+
+    # Drawn with PDFium's own fonts, as the converters draw (R8.28), so the
+    # photocopy is the same bytes on every machine that builds it.
+    rendered = load_pdfium().PdfDocument(pdf)
     published = PdfReader(io.BytesIO(pdf))
     copy = PdfWriter()
 

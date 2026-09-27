@@ -27,6 +27,7 @@ from pathlib import Path
 
 from dossier.domain.conversion import ocr_pages
 from dossier.domain.grounding import page_anchor
+from dossier.infrastructure.converters._pdfium import pdfium as load_pdfium
 from dossier.infrastructure.converters.pdf_markdown import PAGE_SEPARATOR
 
 # How much of a weight file is read at a time while it is hashed. The table
@@ -164,7 +165,9 @@ class DoclingMarkdownConverter:
     # Docling, RapidOCR and onnxruntime of the `docling` extra, the model commits
     # in `MODELS`, and every option below -- the direction classifier off, a page
     # with no text layer OCR'd whole, escaping off, pictures leaving no mark.
-    version = "1.0.0"
+    # 1.1.0: Docling's pypdfium2 backend, drawing with PDFium's own fonts, in
+    # place of docling-parse, which drew with the machine's (R8.28).
+    version = "1.1.0"
     media_type = "application/pdf"
     kind = "markdown"
     # It claims `pdf-markdown`'s pair, so it answers only where a workspace names
@@ -252,7 +255,7 @@ def _docling_models(converter: str) -> Path:
 
 def _text_layers(payload: bytes) -> list[str]:
     """Each page's text layer, read as `pdf-markdown` reads it."""
-    import pypdfium2 as pdfium
+    pdfium = load_pdfium()
 
     return [
         page.get_textpage().get_text_bounded() or "" for page in pdfium.PdfDocument(payload)
@@ -267,6 +270,7 @@ def _docling(models: Path, *, whole: bool):
     one is absent -- which `check_models` has already ruled out (R8.15).
     """
     import rapidocr
+    from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
     from docling.datamodel.accelerator_options import AcceleratorOptions
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import (
@@ -305,6 +309,17 @@ def _docling(models: Path, *, whole: bool):
         use_cls=False,
         **{option: str(ocr_models / name) for option, name in _OCR_MODELS.items()},
     )
+    # Docling's pypdfium2 backend, not its default. docling-parse draws a page
+    # by matching each font a PDF does not embed against the machine's own font
+    # folders, falls back to a Windows font by name, and has no setting that
+    # stops either; so the same page gave Docling's layout model different
+    # pixels on Windows and Linux. PDFium, with its own fonts, draws it the same
+    # everywhere (R8.28).
+    load_pdfium()
     return DocumentConverter(
-        format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=options)}
+        format_options={
+            InputFormat.PDF: PdfFormatOption(
+                pipeline_options=options, backend=PyPdfiumDocumentBackend
+            )
+        }
     )
