@@ -46,10 +46,14 @@ kind (R4.12 rows 11 to 13).
   cached, such as one PDF copied over another, is served from cache even
   though the plan says `documents changed`. That is the same over-report R4.12
   already accepts for text that converts identically.
-- **Found on the way, not fixed here.** `pdf-images` went from 1.0.0 to 1.2.0
-  in #453 and #456, and every page's bytes changed with it. Exercise 10's stub
-  replies still name the old page hashes, so the exercise gets a 422 from the
-  stub on its first run.
+- **Found on the way, fixed in its own PR.** `pdf-images` went from 1.0.0 to
+  1.2.0 in #453 and #456, and every page's bytes changed with it. Exercise 10's
+  stub replies still named the old page hashes, so the exercise got a 422 from
+  the stub on its first run. The replies now name the pages as `digests()` in
+  `playground/toolkit/make_observability_docs.py` renders them, and a re-run
+  matched all 9 calls, with the same fields, eval, calibration and replay as
+  the transcript. The playground was the only thing that noticed: a converter
+  version that moves every page moves every stub rule keyed on a page.
 
 A windowed Confluence listing now finds a page whose only change is a file
 (spec 001, R1.22), answering Q4. It needed a Confluence this project could write

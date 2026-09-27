@@ -131,9 +131,9 @@ Summarised from the stub's call log, one line per call:
 
 ```
 images  sha256             chars  first line
-1       8b45f6bad003f231   917    You are shown **one page** of an incident document…
-1       58bd4966e6737527   917    You are shown **one page** of an incident document…
-1       25a145355f1c2656   917    You are shown **one page** of an incident document…
+1       40b7b9b93532d5de   917    You are shown **one page** of an incident document…
+1       4fb16bec73acb276   917    You are shown **one page** of an incident document…
+1       b9c3566ad7e0332f   917    You are shown **one page** of an incident document…
 …
 ```
 
@@ -148,7 +148,7 @@ rule in `resources/replies.json` matches on the sha256 of the picture:
 ```json
 {
   "_comment": "PLAY-3005-weekly-incident-review.pdf · page 4 of 4 · the error panel…",
-  "image": "2e2bbd3f3426",
+  "image": "b4599c6cc3e3",
   "reply": {"document": "PLAY-3005-weekly-incident-review.pdf", "fields": [...]}
 }
 ```
@@ -205,7 +205,7 @@ The provenance record beside the artifact closes the loop:
   {"role": "documents@page_images", "path": "documents@page_images/PLAY-3005-…pdf",
    "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
   {"role": "part", "path": "part/PLAY-3005-…pdf/page-004.png",
-   "hash": "2e2bbd3f34263c02570c63e6ac62cfd655d650bbeab4636c41a1ed9fb974187e"}
+   "hash": "b4599c6cc3e3f2c20748cdb21099ab8dd512fe3c366f337882e6a1ae23d47f48"}
 ]
 ```
 
