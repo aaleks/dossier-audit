@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Implemented
+**Status:** Partially implemented
 **Rules:** R8.1 – R8.29
 
 ## Purpose
@@ -572,7 +572,7 @@ that a platform fills in.
 | # | Question | Resolution |
 |---|----------|------------|
 | 1 | What is the default `kind` for each media type, beyond `application/pdf → markdown`? | RESOLVED by R8.10 — the table is declared, `image/*` defaults to `page_images`, and anything absent falls back to `markdown` |
-| 2 | Is `docling-markdown`'s artifact byte-identical on another machine? It was identical across runs, thread counts and two inference backends on one Windows machine | ANSWERED, with a finding — not for a page read from its text layer. Measured 2026-09-26 on Windows 11 (Python 3.12.13, AMD64) and Linux (`python:3.12-slim`, Python 3.12.14, x86_64), every package at the lock's version and the same input bytes on both. The photocopy and `PLAY-2002` are byte-identical: a page that is a picture renders to the same pixels on both, and Docling's models and RapidOCR read them the same way. The half-photocopy is not. Its page 1, read from its text layer, loses a heading (`Checkout authorisation success rate, % (2026-07-28, CEST)`) on Linux, and two of its tables merge their header row into their first row; pages 2 and 3 are identical. The text layer is the same on both. The page image the layout and table models see is not: the postmortem embeds none of its fonts, so PDFium draws it with whatever fonts the machine has. That is the "font file outside its input" R8.1 row 3 calls a violation, so R8.1 does not hold for a PDF with unembedded fonts. `pdf-images` renders the same way, and its PNGs also differ in bytes for identical pixels, because Pillow's two wheels compress with different zlibs. A run stays reproducible, because a replay reads the artifact the run cached and never converts again (R4.7). A cache shared between machines would hold whichever machine's artifact came first under one `K_convert`. What R8.1 should say about this is not decided here |
+| 2 | Is `docling-markdown`'s artifact byte-identical on another machine? It was identical across runs, thread counts and two inference backends on one Windows machine | RESOLVED by R8.28 and R8.29 — measured 2026-09-26 on Windows 11 and Linux (`python:3.12-slim`), with every package at the lock's version. Before them, a page drawn from fonts the PDF does not embed differed: PDFium and docling-parse borrowed the machine's fonts, and Pillow's PNG encoder compressed with zlib-ng on one machine and zlib on the other. `INC-4830`'s half-photocopy lost a heading on Linux, and `pdf-images` gave two artifacts. With PDFium's own fonts, Docling's pypdfium2 backend and libdeflate, every artifact measured is byte-identical on both |
 | 3 | Should a source, rather than the workspace, choose the converter for a pair? | OPEN — needs a corpus mixing scans with born-digital PDFs where Docling's cost on the digital ones matters. Until then `docling-markdown` reads a digital page from its text layer anyway (R8.14). It is also more than a `sources.yaml` key: a manifest pins one converter per pair, and a replay finds a document's converter by its pair (R4.7), so two sources answering one pair differently need pins per source, a change to spec 004 |
 | 4 | Which custom fields belong in a Jira issue's note? The payload names them `customfield_10042`, and what a person calls them comes only with `expand=names`, which changes every payload the connector stores | OPEN — needs a real incident project where a custom field holds what a stage must read. Until then the note holds none (R8.16 row 6) |
 | 5 | Should a source declare kinds per media type? `convert:` applies to every document a source holds. So `page_images` for a Confluence page's PDF export (R1.19) is asked of the page JSON too, and nothing claims that pair (R8.24) | RESOLVED by R8.26 and R8.27 — `convert:` may map a media type to its kinds, and a media type mapped to `[]` is not read |
@@ -928,6 +928,38 @@ source, "read nothing" is almost always a mistake.
 | 2 | `dossier run` over the same | two model calls, exit 0. The manifest pins neither the JSON nor a converter for it |
 | 3 | *counter-example* — the same folder declaring no `convert:` | `PLAY-4006-indexer-alerts.json` fails, and the exit is non-zero (R8.25). Leaving a file out is something a source says |
 | 4 | *counter-example* — `convert: []` | refused at load, as it always was |
+
+### R8.28 — a page is rendered with PDFium's built-in fonts, never with the fonts the machine has
+
+A PDF that does not embed its fonts names them, and leaves finding them to
+whatever reads it. `INC-4830`'s postmortem names Helvetica and Times. PDFium
+drew them with Windows' Arial and Times New Roman on one machine, and with its
+own built-in fonts on a Linux image that has none. About a tenth of the pixels
+differed, and Docling's layout model read page 1 differently from them. So one
+snapshot gave two artifacts under one `K_convert` (open question 2), and R8.1
+row 3 names a font file outside the input as exactly that violation.
+
+Every page `dossier` renders is drawn with the fonts PDFium carries inside the
+pinned `pypdfium2`, which are the same on every machine. `docling-markdown`
+reads a PDF through Docling's pypdfium2 backend for the same reason. Its
+default backend, docling-parse, matches an unembedded font against the
+machine's own font folders, and falls back to a Windows font by name. It has no
+setting that stops either.
+
+A PDF that embeds its fonts is drawn with them, as before. A page that is only a
+picture has no text to draw.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.converters._pdfium`)
+- **Proved by:** `tests/unit/test_R008_28__a_page_is_drawn_with_pdfiums_own_fonts.py`, `tests/integration/test_R008_28__docling_draws_a_page_the_same_on_every_machine.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4830`'s postmortem, its fonts not embedded, rendered by `pdf-images` on Windows 11 and on Linux (`python:3.12-slim`) | the same pixels on every page, and one artifact, `1b8cded7…`. The suite pins it, and CI, on Linux, is the second machine |
+| 2 | `INC-4830` as published and half-photocopied, converted by `docling-markdown` on the same two machines | byte-identical artifacts, `f6578587…` and `7dbfa2fb…`. The half-photocopy's page 1, read from its text layer, keeps the heading `Checkout authorisation success rate, % (2026-07-28, CEST)` on both. The `live` suite pins both |
+| 3 | `pdf-markdown` over every PDF in the fixtures | unchanged. It reads a text layer and draws nothing, so its version stays |
+| 4 | *counter-example* — `PLAY-2002`, a page that is only a picture | the same artifact as before this rule: no font draws anything on it |
 
 ### R8.29 — a PNG a converter writes is compressed by one pinned deflate, so its bytes are a function of its pixels
 
