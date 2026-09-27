@@ -20,7 +20,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from dossier.domain.confluence import export_version
+from dossier.domain.confluence import commented_version, export_version
 from dossier.domain.conversion import CONFLUENCE_PAGE, reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.domain.sync import server_zone_floor
@@ -59,9 +59,10 @@ Export = Literal["pdf"]
 # complete (R1.3).
 PAGE_SIZE = 50
 
-# How many page ids one `id in (...)` search names, when asking which pages
-# whose files changed the query matches (R1.22). A cap on the URL's length, not
-# on anything CQL says.
+# How many page ids one `id in (...)` or `container in (...)` search names:
+# which pages whose files changed the query matches (R1.22), and which comments
+# listed pages carry (R1.24). A cap on the URL's length, not on anything CQL
+# says.
 IDS_PER_SEARCH = 50
 
 # Generous, and bounded, as the Jira connector's is: a server that never
@@ -145,24 +146,53 @@ class ConfluenceConnector:
         """
         cql = f"({self._query}) AND type = page"
         if since is None:
-            yield from self._pages(cql)
+            yield from self._marked([*self._pages(cql)])
             return
 
         window = _modified_since(since)
-        listed: set[str] = set()
-        for ref in self._pages(f"{cql} AND {window}"):
-            listed.add(ref.key)
-            yield ref
+        pages = [*self._pages(f"{cql} AND {window}")]
 
         # A page's `lastmodified` does not move when a file on it does, so the
         # search above leaves out a page whose only change is a file uploaded
         # again (R1.22). The files that changed name their pages; the query
         # then decides which of those are in scope. It is never applied to the
         # files themselves: `label = runbook` matches pages, not their files.
-        touched = sorted(self._containers_of_files_changed(window) - listed)
-        for start in range(0, len(touched), IDS_PER_SEARCH):
-            ids = ", ".join(touched[start : start + IDS_PER_SEARCH])
-            yield from self._pages(f"{cql} AND id in ({ids})")
+        touched = sorted(self._containers_of_files_changed(window) - {p.key for p in pages})
+        for ids in _batches(touched):
+            pages += self._pages(f"{cql} AND id in ({', '.join(ids)})")
+        yield from self._marked(pages)
+
+    def _marked(self, pages: list[ItemRef]) -> Iterator[ItemRef]:
+        """`pages`, each marked by its comments too when `comments: true` asks (R1.24).
+
+        A comment leaves its page at its version, so the page's marker says what
+        its comments are. Which comments the pages carry is asked once for every
+        `IDS_PER_SEARCH` pages, not once a page. What `_versions` keeps is the
+        page's own marker, which the export's is made from (R1.19): the PDF
+        does not draw comments, as a Data Center 9.2.21's did not on 2026-09-27.
+        """
+        if not self._comments:
+            yield from pages
+            return
+        comments: dict[str, list[str | None]] = {}
+        for ids in _batches([page.key for page in pages]):
+            for comment in self._results(
+                f"{self._base}{SEARCH}",
+                {
+                    "cql": f"type = comment AND container in ({', '.join(ids)})",
+                    "expand": "version,container",
+                },
+            ):
+                page = str((comment.get("container") or {}).get("id"))
+                comments.setdefault(page, []).append(_file_version_of(comment))
+        for page in pages:
+            yield page.model_copy(
+                update={
+                    "remote_version": commented_version(
+                        page.remote_version, comments.get(page.key, [])
+                    )
+                }
+            )
 
     def _pages(self, cql: str) -> Iterator[ItemRef]:
         """The pages one search matches, each keyed by its id and marked by its version."""
@@ -436,12 +466,19 @@ def _version_of(page: Mapping[str, Any]) -> str | None:
     return f"v{number}" if number is not None else None
 
 
+def _batches(ids: list[str]) -> Iterator[list[str]]:
+    """`ids`, `IDS_PER_SEARCH` at a time, for an `id in (…)` or `container in (…)` search."""
+    for start in range(0, len(ids), IDS_PER_SEARCH):
+        yield ids[start : start + IDS_PER_SEARCH]
+
+
 def _file_version_of(attachment: Mapping[str, Any]) -> str | None:
     """A file's marker: its attachment id and version, `81920301:v2` (R1.18).
 
     Both, because each alone misses a case. Uploading again under the same name
     keeps the id and raises the version; deleting and uploading again makes a
-    new id and starts the version at 1 again.
+    new id and starts the version at 1 again. A comment's is written the same
+    way, `81920501:v2`, for R1.24's digest.
     """
     number = (attachment.get("version") or {}).get("number")
     return f"{attachment['id']}:v{number}" if number is not None else None

@@ -800,7 +800,7 @@ is its page. The composition is a pure decision and lives in the domain.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.confluence`), with the marker from the domain (`dossier.domain.confluence.commented_version`)
 - **Proved by:** `tests/unit/test_R001_24__a_pages_marker_moves_with_its_comments.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
