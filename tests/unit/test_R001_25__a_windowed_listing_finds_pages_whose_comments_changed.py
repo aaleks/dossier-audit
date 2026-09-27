@@ -61,6 +61,9 @@ class Confluence:
 
     def _matched(self, cql: str, expand: str) -> list[dict]:
         page = {"id": PAGE, "type": "page", "version": {"number": 37}}
+        if cql == f'({QUERY}) AND type = page AND macro in (include, "excerpt-include")':
+            # No page here includes another (R1.26).
+            return []
         if cql == f"type = attachment AND {WINDOW}":
             return self._on_the_page(("attachment",), changed_only=True, expand=expand)
         if cql == f"type in (attachment, comment) AND {WINDOW}":

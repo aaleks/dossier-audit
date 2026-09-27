@@ -58,8 +58,9 @@ class Confluence:
             query = parse_qs(request.url.query.decode())
             self.asked.append(query)
             cql = query["cql"][0]
-            if cql.startswith("type = attachment"):
-                # The files changed in a window (R1.22): none, here.
+            if cql.startswith("type = attachment") or "macro in" in cql:
+                # The files changed in a window (R1.22), and the pages that
+                # include another (R1.26): none, here.
                 matched: list[dict] = []
             else:
                 matched = self.pages if "type = page" in cql else self.pages + self.others
@@ -95,9 +96,10 @@ class TestAConfluenceSourceListsThePagesItsQueryMatches:
 
         listed = list(connector(server).list(None))
 
+        listing = [q for q in server.asked if "macro in" not in q["cql"][0]]
         assert [ref.key for ref in listed] == [p["id"] for p in server.pages]
-        assert [q["start"] for q in server.asked] == [["0"], ["50"], ["100"]]
-        assert {q["cql"][0] for q in server.asked} == {"(space = OPS) AND type = page"}
+        assert [q["start"] for q in listing] == [["0"], ["50"], ["100"]]
+        assert {q["cql"][0] for q in listing} == {"(space = OPS) AND type = page"}
 
     def test_since_narrows_the_query_by_the_widened_window(self):
         """Example 2: the one where the window is widened by a day, as Jira's is."""
