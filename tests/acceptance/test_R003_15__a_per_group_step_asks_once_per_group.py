@@ -123,7 +123,9 @@ class TestAPerGroupStepAsksOncePerGroup:
         assert result.exit_code == 0, result.output
         assert model.call_count == 2
         extract = _run_dir(workspace) / "extract"
-        assert sorted(path.name for path in extract.glob("*.json")) == [
+        assert sorted(
+            path.name for path in extract.glob("*.json") if not path.name.endswith(".meta.json")
+        ) == [
             "ACME-2024.json",
             "GLOBEX-2023.json",
         ]
@@ -161,13 +163,13 @@ class TestAPerGroupStepAsksOncePerGroup:
         folder under `INC-4821/`. Keys are unique across sources (R4.10), so a
         group -- a prefix of keys -- can take members from both.
         """
-        folder = workspace / "inbox" / "incidents" / "INC-4821"
+        folder = workspace / "inbox" / "dropped" / "INC-4821"
         folder.mkdir(parents=True)
         (folder / "postmortem.md").write_text("# Postmortem\n\nThe cert expired.\n", "utf-8")
         (workspace / "sources.yaml").write_text(
             "sources:\n"
             f"  - id: incidents-jira\n    type: {SOURCE_TYPE}\n"
-            "  - id: incidents-manual\n    type: folder\n    path: inbox/incidents/\n",
+            "  - id: incidents-dropped\n    type: folder\n    path: inbox/dropped/\n",
             encoding="utf-8",
         )
         register_connector(
@@ -178,7 +180,7 @@ class TestAPerGroupStepAsksOncePerGroup:
         write_pipeline(
             workspace,
             name=PIPELINE,
-            sources=["incidents-jira", "incidents-manual"],
+            sources=["incidents-jira", "incidents-dropped"],
             modes={"extract": "per_group"},
         )
         synced = _cli(workspace, monkeypatch, "sync", PIPELINE)
@@ -250,7 +252,9 @@ class TestAPerGroupStepAsksOncePerGroup:
         assert result.exit_code == 0, result.output
         assert sorted(model.calls) == [["PLAY-1001.md"], ["PLAY-1002.md"]]
         extract = _run_dir(workspace) / "extract"
-        assert sorted(path.name for path in extract.glob("*.json")) == [
+        assert sorted(
+            path.name for path in extract.glob("*.json") if not path.name.endswith(".meta.json")
+        ) == [
             "PLAY-1001.md.json",
             "PLAY-1002.md.json",
         ]

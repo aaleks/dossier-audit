@@ -82,3 +82,78 @@ class TestAStepMayBeAskedPerGroup:
         )
 
         assert step.mode == "per_group"
+
+
+class TestAPerGroupStepIsAskedOncePerGroup:
+    """R3.15 — `execute` fans a `per_group` step out over groups, not documents."""
+
+    def test_four_documents_that_are_two_contracts_are_two_calls(self, tmp_path):
+        """Rows 1 and 2: the one where four documents are two contracts.
+
+        Two calls, each shown exactly its own members in key order, and two
+        results named for the groups -- the unit a later step reads and a run
+        reports, as a document is for `per_file`.
+        """
+        import json
+        import re
+        from datetime import UTC, datetime
+
+        from tests.pipelines import prompt_for
+
+        from dossier.application.run import execute
+        from dossier.domain.fields import OutputSchema
+        from dossier.domain.pipeline import PipelineConfig, StepConfig
+        from dossier.infrastructure.cache import ArtifactCache
+
+        shown: list[list[str]] = []
+
+        class Model:
+            model_id = "anthropic:claude-sonnet-4-5-20250929"
+
+            def complete(self, prompt: str, *, schema=None, parts=()) -> str:
+                members = re.findall(r'<document key="([^"]+)">', prompt)
+                shown.append(members)
+                return json.dumps({"document": members[0], "fields": []})
+
+        keys = [
+            "ACME-2024/amendment-1.md",
+            "ACME-2024/amendment-3.md",
+            "ACME-2024/master.md",
+            "GLOBEX-2023/master.md",
+        ]
+        config = PipelineConfig(
+            name="contract-renewal",
+            sources=["contracts"],
+            model=Model.model_id,
+            steps=[
+                StepConfig(
+                    id="extract",
+                    prompt="prompts/extract.md",
+                    input="documents",
+                    mode="per_group",
+                )
+            ],
+        )
+
+        report = execute(
+            workspace=tmp_path,
+            pipeline=config,
+            pipeline_hash="0e52dd18" * 8,
+            documents={key: f"{index:064d}" for index, key in enumerate(keys)},
+            document_text={key: f"# {key}\n" for key in keys},
+            schemas={
+                "extract": OutputSchema(
+                    schema={"type": "object"}, declaration_hash="6e0d4b27" * 8
+                )
+            },
+            prompts={"extract": prompt_for(["documents"])},
+            model=Model(),
+            cache=ArtifactCache(tmp_path, namespace="stage"),
+            run_id="20260806T142203Z-4f1a",
+            started_at=datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC),
+            dossier_version="0.1.0",
+        )
+
+        assert sorted(shown) == [keys[:3], keys[3:]]
+        (step,) = report.steps
+        assert [result.document for result in step.results] == ["ACME-2024", "GLOBEX-2023"]

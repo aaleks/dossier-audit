@@ -46,6 +46,7 @@ from dossier.application.recording import failed_if_stopped
 from dossier.domain.conversion import PART_SUFFIX, PART_TYPE, part_name, unpack_parts
 from dossier.domain.fields import OutputSchema
 from dossier.domain.grounding import FieldCheck, FieldVerdict, check_field, with_derived_page
+from dossier.domain.groups import group_of
 from dossier.domain.hashing import content_hash
 from dossier.domain.keys import ArtifactInput, StageInputs, cache_key, provenance
 from dossier.domain.pipeline import (
@@ -394,7 +395,7 @@ def execute(
     # failed rather than left looking as if it were still running (R11.23).
     with failed_if_stopped(tracker):
         for step in plan.steps:
-            over = [AGGREGATE_KEY] if declared[step.id].mode == "aggregate" else keys
+            over = _units(declared[step.id].mode, keys)
             output = schemas.get(step.id)
             results: list[DocumentResult] = []
             every_part: list[DocumentResult] = []
@@ -410,7 +411,7 @@ def execute(
                 # input hash is the hash of `""` -- invisible in the provenance
                 # record, and served again next run (R6.13, R5.5). It already
                 # failed once, at the step that could not produce its output.
-                if declared[step.id].mode != "aggregate" and _missing_input(
+                if not _reads_a_set(declared[step.id].mode) and _missing_input(
                     declared=declared[step.id],
                     resolved=step,
                     document=key,
@@ -421,7 +422,7 @@ def execute(
                 # step reads: a picture, to a step reading text. Asked anyway,
                 # every picture had the key of `""`, and the second was served
                 # the first one's answer (R6.21).
-                if declared[step.id].mode != "aggregate" and _reads_nothing(
+                if not _reads_a_set(declared[step.id].mode) and _reads_nothing(
                     targets=_targets(declared[step.id], step),
                     document=key,
                     holds=lambda kind: _held(kind, by_kind=by_kind, by_part=by_part),
@@ -448,8 +449,8 @@ def execute(
                                 declared=declared[step.id],
                                 resolved=step,
                                 document=key,
-                                documents=keys,
-                                aggregate=declared[step.id].mode == "aggregate",
+                                documents=_members(declared[step.id].mode, key, keys),
+                                aggregate=_reads_a_set(declared[step.id].mode),
                                 by_kind=by_kind,
                                 produced=produced,
                             ),
@@ -466,7 +467,7 @@ def execute(
                         step=step,
                         declared=declared[step.id],
                         document=key,
-                        documents=keys,
+                        documents=_members(declared[step.id].mode, key, keys),
                         document_text=document_text,
                         by_kind=by_kind,
                         produced=produced,
@@ -712,7 +713,7 @@ def _run_one(
         resolved=step,
         document=document,
         documents=documents,
-        aggregate=declared.mode == "aggregate",
+        aggregate=_reads_a_set(declared.mode),
         by_kind=by_kind,
         produced=produced,
     )
@@ -903,6 +904,43 @@ def _from_cache(
         # something the cache never held, and change its key (R5.5, R5.7 row 4).
         text=payload.decode(),
     )
+
+
+def _units(mode: str, keys: Sequence[str]) -> list[str]:
+    """What a step is asked about once each: a document, a group, or the corpus.
+
+    `per_group` runs once per group -- the documents whose keys share a first
+    segment, such as a contract and its amendments (R3.15). Sorted, so a run's
+    step lines and records come out in the same order on every machine (R0.4).
+    """
+    if mode == "aggregate":
+        return [AGGREGATE_KEY]
+    if mode == "per_group":
+        return sorted({group_of(key) for key in keys})
+    return list(keys)
+
+
+def _members(mode: str, unit: str, keys: Sequence[str]) -> list[str]:
+    """The documents one call of this step is shown, for the unit it is about.
+
+    A group's call holds what an aggregate call holds, limited to the group
+    (R3.15). Every other mode is handed every key, as it always was: `per_file`
+    reads its one document out of them, and `aggregate` reads them all.
+    """
+    if mode == "per_group":
+        return [key for key in keys if group_of(key) == unit]
+    return list(keys)
+
+
+def _reads_a_set(mode: str) -> bool:
+    """Whether one call of this step reads several documents, each wrapped by key.
+
+    An `aggregate` call reads every document, and a `per_group` call its group's
+    (R3.15). Neither is skipped for one member missing an input: a set with a
+    member absent is still a set, and skipping it would throw away the members
+    that did work (R6.13 row 4).
+    """
+    return mode in ("aggregate", "per_group")
 
 
 def _missing_input(
