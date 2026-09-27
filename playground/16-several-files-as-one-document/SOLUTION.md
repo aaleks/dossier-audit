@@ -55,8 +55,8 @@ ledger updated · 4 new snapshots · 0 tombstoned
 ```
 
 **Where the prefix came from.** A folder source keys a file by its path under the
-folder, so the subfolder is part of the key: `ACME-2024/master.md`. Nobody wrote
-`ACME-2024` down because nobody had to. Every connector already keys a file under
+folder, so the subfolder is part of the key: `PLAY-ACME-2024/master.md`. Nobody wrote
+`PLAY-ACME-2024` down because nobody had to. Every connector already keys a file under
 what it belongs to. A Jira attachment is `INC-4821/report.pdf` (R1.6), and a
 Confluence page's file is `81920114/escalation-matrix.png` (R1.18). That is why
 `per_group` needs no configuration: the group is already in the key (R3.15).
@@ -84,20 +84,20 @@ and that a later amendment overrides the clause it amends.
 
 ```console
 $ dossier run contract-renewal
-run 20260927T073807Z-2b5f · runs/20260927T073807Z-2b5f/manifest.json
+run 20260927T144614Z-ffcf · runs/20260927T144614Z-ffcf/manifest.json
   extract: 4 document(s) · 0 from cache · 0 failed · tokens not reported
 ```
 
 The log, one line per call:
 
 ```
-['ACME-2024/amendment-1.md']
-['ACME-2024/amendment-3.md']
-['ACME-2024/master.md']
-['GLOBEX-2023/master.md']
+['PLAY-ACME-2024/amendment-1.md']
+['PLAY-ACME-2024/amendment-3.md']
+['PLAY-ACME-2024/master.md']
+['PLAY-GLOBEX-2023/master.md']
 ```
 
-And `extract/ACME-2024/master.md.json`, value and span:
+And `extract/PLAY-ACME-2024/master.md.json`, value and span:
 
 ```
 renewal_date   2026-03-31  | The agreement runs until 2026-03-31
@@ -116,68 +116,68 @@ saying *"a contract may be several files"* while `per_file` shows it one.
 
 ```console
 $ dossier run contract-renewal
-run 20260927T073810Z-d547 · runs/20260927T073810Z-d547/manifest.json
+run 20260927T144617Z-0022 · runs/20260927T144617Z-0022/manifest.json
   extract: 2 group(s) · 0 from cache · 0 failed · tokens not reported
 ```
 
 ```
-['ACME-2024/amendment-1.md', 'ACME-2024/amendment-3.md', 'ACME-2024/master.md']
-['GLOBEX-2023/master.md']
+['PLAY-ACME-2024/amendment-1.md', 'PLAY-ACME-2024/amendment-3.md', 'PLAY-ACME-2024/master.md']
+['PLAY-GLOBEX-2023/master.md']
 ```
 
 ```console
-$ ls runs/20260927T073810Z-d547/extract/
-ACME-2024.json
-ACME-2024.meta.json
-GLOBEX-2023.json
-GLOBEX-2023.meta.json
+$ ls runs/20260927T144617Z-0022/extract/
+PLAY-ACME-2024.json
+PLAY-ACME-2024.meta.json
+PLAY-GLOBEX-2023.json
+PLAY-GLOBEX-2023.meta.json
 ```
 
-`ACME-2024.json`, shortened:
+`PLAY-ACME-2024.json`, shortened:
 
 ```json
 {
-  "document": "ACME-2024",
+  "document": "PLAY-ACME-2024",
   "fields": [
     {"field": "renewal_date", "value": "2027-03-31",
-     "source": {"document": "ACME-2024/amendment-3.md",
+     "source": {"document": "PLAY-ACME-2024/amendment-3.md",
                 "span": "the agreement now runs until 2027-03-31"}},
     {"field": "liability_cap", "value": 2000000.0, "currency": "EUR",
-     "source": {"document": "ACME-2024/master.md",
+     "source": {"document": "PLAY-ACME-2024/master.md",
                 "span": "capped at EUR 2,000,000"}}
   ]
 }
 ```
 
 One answer, two citations, each naming the member its span is in (R6.22). A
-group has no text of its own, so a citation of `ACME-2024` itself would be
+group has no text of its own, so a citation of `PLAY-ACME-2024` itself would be
 invalid: there is nothing to look for the span in.
 
 **Why GLOBEX is a call of its own.** A key with no second member is a group of one,
 named by its first segment. The call holds exactly what task 2's call for
-`GLOBEX-2023/master.md` held, one document wrapped under its own key, with the
+`PLAY-GLOBEX-2023/master.md` held, one document wrapped under its own key, with the
 same prompt (R3.13). A flat folder is a folder of groups of one, and on it
 `per_group` asks what `per_file` asks.
 
 **Why it was not served from cache anyway.** Look at the `inputs` of
-`GLOBEX-2023.meta.json`:
+`PLAY-GLOBEX-2023.meta.json`:
 
 ```json
 "inputs": [
-  {"path": "documents/GLOBEX-2023", "role": "documents", "hash": "ffd71158…"},
-  {"path": "group/GLOBEX-2023",     "role": "group",     "hash": "85473a98…"}
+  {"path": "documents/PLAY-GLOBEX-2023", "role": "documents", "hash": "ad59a0db…"},
+  {"path": "group/PLAY-GLOBEX-2023",     "role": "group",     "hash": "355dcacf…"}
 ]
 ```
 
 The `group` input is the group's name, and it is in the key. Without it the two
 calls had the same key, so task 3 was served task 2's answer. That answer said
-`"document": "GLOBEX-2023/master.md"` and was filed as `GLOBEX-2023.json`. A
+`"document": "PLAY-GLOBEX-2023/master.md"` and was filed as `PLAY-GLOBEX-2023.json`. A
 cached answer is served byte for byte (R5.5), so nothing corrects its
 `document` on the way out. What differs has to be in the key. A live run of this
 exercise found exactly that, with the suite green. R5.14 row 5 is the rule that
 came of it, and it follows R5.10 row 5, the same mistake one level down.
 
-**`ACME-2024/amendments/amendment-5.md`** joins `ACME-2024`. The group is the
+**`PLAY-ACME-2024/amendments/amendment-5.md`** joins `PLAY-ACME-2024`. The group is the
 first segment, not the last directory (R3.15 row 5). Otherwise a contract that
 files its amendments in a subfolder would be two contracts.
 
@@ -185,7 +185,7 @@ files its amendments in a subfolder would be two contracts.
 
 ```json
 {
-  "document": "ACME-2024",
+  "document": "PLAY-ACME-2024",
   "verified_by": "a.aleks",
   "verified_at": "2026-09-27",
   "fields": {
@@ -205,8 +205,8 @@ $ dossier eval contract-renewal --gold gold/contracts
 `2 groups`, not `4 documents`: the first line counts what was scored, and the
 run answered for two contracts (R7.32).
 
-**A gold file whose `document` is `ACME-2024/master.md`** scores nothing. The run
-answered for `ACME-2024`, no answer is filed under a member, and gold is matched
+**A gold file whose `document` is `PLAY-ACME-2024/master.md`** scores nothing. The run
+answered for `PLAY-ACME-2024`, no answer is filed under a member, and gold is matched
 by its `document` field, not by its filename (R7.32 row 3). The eval then reads
 `1 group`.
 
@@ -219,19 +219,19 @@ be a strange thing for a master to say.
 ## Task 5 — an amendment is filed
 
 ```console
-$ cp resources/later/amendment-4.md inbox/contracts/ACME-2024/
+$ cp resources/later/amendment-4.md inbox/contracts/PLAY-ACME-2024/
 $ dossier sync contract-renewal
 contracts  4 known · 0 changed · 1 new -> 5 fetched
 ledger updated · 1 new snapshots · 0 tombstoned
 
 $ dossier run contract-renewal
-warning: the source has moved since run 20260927T073810Z-d547: ACME-2024/amendment-4.md new
-run 20260927T073815Z-b800 · runs/20260927T073815Z-b800/manifest.json
+warning: the source has moved since run 20260927T144617Z-0022: PLAY-ACME-2024/amendment-4.md new
+run 20260927T144622Z-4243 · runs/20260927T144622Z-4243/manifest.json
   extract: 2 group(s) · 1 from cache · 0 failed · tokens not reported
 ```
 
 ```
-['ACME-2024/amendment-1.md', 'ACME-2024/amendment-3.md', 'ACME-2024/amendment-4.md', 'ACME-2024/master.md']
+['PLAY-ACME-2024/amendment-1.md', 'PLAY-ACME-2024/amendment-3.md', 'PLAY-ACME-2024/amendment-4.md', 'PLAY-ACME-2024/master.md']
 ```
 
 One call, not two. ACME's key holds every member's inputs, so a new member is a
@@ -247,10 +247,10 @@ new bytes. The four already held were not written again (R2.14).
 ## Task 6 — replay the contract as it was
 
 ```console
-$ dossier run --replay runs/20260927T073810Z-d547
-replayed 20260927T073810Z-d547 · contract-renewal
+$ dossier run --replay runs/20260927T144617Z-0022
+replayed 20260927T144617Z-0022 · contract-renewal
   extract: 2 artifact(s) from cache
-2 artifact(s) reproduced · no model calls · written to runs/20260927T073810Z-d547/replays/20260927T073816Z-9e40/
+2 artifact(s) reproduced · no model calls · written to runs/20260927T144617Z-0022/replays/20260927T144624Z-3133/
 ```
 
 **Where the three came from.** The manifest. It pins every document the run read
@@ -261,7 +261,7 @@ the replay never sees it, just as it would not see a prompt edited since (R4.7).
 
 **Had it grouped what is held today,** it would have looked for the four-member
 key. A cache entry does exist under that key, written by task 5's run, but it
-answers a different question than the one run `…d547` asked. A replay that
+answers a different question than the one run `…0022` asked. A replay that
 quietly served it would be reproducing the wrong run. With no task 5 behind it,
 the replay would find no entry at all and stop.
 
@@ -281,8 +281,8 @@ pipeline.yaml: step 'verify' is mode: per_file and reads 'extract', which is mod
 exit 2
 ```
 
-**Which answer a call about `ACME-2024/master.md` would have been handed.**
-Either `extract/ACME-2024.json`, which is about four files, not the one the call
+**Which answer a call about `PLAY-ACME-2024/master.md` would have been handed.**
+Either `extract/PLAY-ACME-2024.json`, which is about four files, not the one the call
 is asking about, or nothing, which drops the evidence the step was declared to
 read. Neither is right, so the pipeline is refused when it loads, before a
 snapshot is read (R3.16). That is the same moment a `per_part` step over text is
@@ -294,9 +294,9 @@ call then holds its group's members and the group's own answer. Its record's
 inputs, from a run made at the end of this pass:
 
 ```
-documents/ACME-2024
-extract/ACME-2024
-group/ACME-2024
+documents/PLAY-ACME-2024
+extract/PLAY-ACME-2024
+group/PLAY-ACME-2024
 ```
 
 ```console
@@ -321,9 +321,9 @@ Terminal 1:
 ```console
 $ rm -rf .dossier/cache/stage/
 $ dossier run contract-renewal
-run 20260927T094625Z-2d8e · runs/20260927T094625Z-2d8e/manifest.json
+run 20260927T144631Z-f2ec · runs/20260927T144631Z-f2ec/manifest.json
   extract: 2 group(s) · 0 from cache · 0 failed · 1 finding(s) · tokens not reported
-    ACME-2024  renewal_date: cites 'GLOBEX-2023/master.md', which was not an input to this stage. Inputs were ['ACME-2024/amendment-1.md', 'ACME-2024/amendment-3.md', 'ACME-2024/amendment-4.md', 'ACME-2024/master.md'] (R6.3).
+    PLAY-ACME-2024  renewal_date: cites 'PLAY-GLOBEX-2023/master.md', which was not an input to this stage. Inputs were ['PLAY-ACME-2024/amendment-1.md', 'PLAY-ACME-2024/amendment-3.md', 'PLAY-ACME-2024/amendment-4.md', 'PLAY-ACME-2024/master.md'] (R6.3).
 ```
 
 **Why that is worse than a citation that leads nowhere.** A citation that leads
