@@ -145,7 +145,9 @@ is ours:
 | `body.export_view` | a table of contents; `<h2>Escalation</h2>`; a list whose first item is `Page the incident commander within 15 minutes`; a link to `the rota`; the image `escalation-matrix.png`; an expand macro |
 | attachment | `escalation-matrix.png`, id `81920301`, version 2, `image/png` |
 
-## A documentation site (R1.23 – R1.28)
+## A website (R1.23 – R1.28)
+
+A documentation site, the case the `web` connector was written against.
 
 `vendor-docs`, a `web` source with `url: https://docs.example.org/ops/`. Its
 sitemap is `https://docs.example.org/sitemap.xml`. `example.org` is reserved

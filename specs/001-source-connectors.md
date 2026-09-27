@@ -110,7 +110,7 @@ core's. Everything else belongs to one type, and only its connector knows it.
 - **web** — scoped by a URL prefix, and listed from the site's sitemap. A page
   as the server sent it, labelled with the media type the server stated. Its
   keys: `url`, the prefix, and `sitemap`, where the listing is read from. One
-  connector for every documentation site: a site is configuration, never code.
+  connector for every website: a site is configuration, never code.
 
 ## A Confluence page
 
@@ -194,10 +194,17 @@ markdown is spec 008's decision (R8.20).
 
 ## A web source
 
-**What it is for.** Documentation published as a website -- MkDocs, Sphinx,
-Docusaurus, Read the Docs -- read as documents. Every such site is the same
+**What it is for.** A website, read as documents. Every website is the same
 thing to a reader: pages at URLs. So one connector reads all of them, and a new
-site is a `sources.yaml` entry:
+site is a `sources.yaml` entry. Documentation sites -- MkDocs, Sphinx,
+Docusaurus, Read the Docs -- are the case it was written against, and the
+example below is one; nothing in the connector is specific to them.
+
+What it reads well is a site that publishes a sitemap, serves its pages as
+HTML from the server, and lets an anonymous reader in. A site that builds its
+pages in the browser with JavaScript is held as the empty shell the server
+sent (question 9); one with no sitemap is question 6, and one behind a login
+question 7.
 
 ```yaml
 - id: vendor-docs
@@ -216,7 +223,7 @@ them is the page's address.
 
 The sitemap is the listing, and nothing is crawled. A sitemap is what a site
 publishes to say which pages it has; the generators behind nearly every
-documentation site write one. A crawl asks every page once just to find the
+documentation site write one, and most content management systems do too. A crawl asks every page once just to find the
 next, which is every page downloaded on every sync before anything is known to
 have changed. A site with no sitemap is an open question, not a crawl (question 6).
 
@@ -842,7 +849,8 @@ would tombstone every page held (R1.11, R2.7).
 | 2 | Should a page's comments be part of its document? `expand=children.comment.body.export_view` would bring them into the payload, which gives every held page a new snapshot | OPEN — needs a space whose comments hold what a stage must read |
 | 3 | A page that includes another page's text (`include`, `excerpt-include`) renders it without its own version moving, so a change to the included page is not fetched | OPEN — needs a real space that relies on inclusion. Until then, changing `fields:` re-fetches every page (R2.3) |
 | 4 | Does CQL `lastmodified` move when a file is uploaded again to a page whose version does not? If not, a windowed listing leaves the page out, and R1.18 row 2 holds only under a complete listing (R2.22, R2.24) | RESOLVED by R1.22 — it does not. A local Data Center 9.2.21 in Docker, 2026-09-27: neither a file added nor a file uploaded again moved the page's `lastmodified`, and neither did a file removed |
-| 5 | Should a web page's navigation, header and footer be taken out of its note? `html-markdown` keeps them, and every page of a documentation site repeats them | OPEN — a converter option (a CSS selector such as `main`) belongs in spec 008, as the next slice. Needs a site whose chrome a stage has been seen to read |
-| 6 | A documentation site with no sitemap | OPEN — a crawl from `url`, following links within it, is the answer that exists. It downloads every page to list them, and needs a page cap. Needs a site a workspace reads that has no sitemap |
-| 7 | Private documentation behind a credential | OPEN — `token_env` and `user_env` as R1.21 reads them would carry over. Needs a site that asks for one |
+| 5 | Should a web page's navigation, header and footer be taken out of its note? `html-markdown` keeps them, and every page of a site repeats them | OPEN — a converter option (a CSS selector such as `main`) belongs in spec 008, as the next slice. Needs a site whose chrome a stage has been seen to read |
+| 6 | A website with no sitemap | OPEN — a crawl from `url`, following links within it, is the answer that exists. It downloads every page to list them, and needs a page cap. Needs a site a workspace reads that has no sitemap |
+| 7 | A website behind a credential | OPEN — `token_env` and `user_env` as R1.21 reads them would carry over. Needs a site that asks for one |
 | 8 | Politeness: the requests are sequential and undelayed | OPEN — needs a site that throttles or refuses a sync |
+| 9 | A website that builds its pages with JavaScript | OPEN — the server sends a shell, and the text is drawn in the browser, so what is held has nothing in it to read. A browser is the answer that exists (crawl4ai, or Firecrawl's rendering; see the options above), and it is a second way of fetching a page, not a change to this one. Needs such a site a workspace reads |
