@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
 **Status:** Partially implemented
-**Rules:** R7.1 – R7.33
+**Rules:** R7.1 – R7.34
 
 ## Purpose
 

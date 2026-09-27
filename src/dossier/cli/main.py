@@ -1053,7 +1053,12 @@ def _execute(
                 raise typer.Exit(code=2) from error
             requests.extend((document.media_type, source.convert) for document in held.values())
             by_source[name] = list(converted.present)
-            text.update(converted.text)
+            # A `reference:` source is context: shown to the calls that read it,
+            # and never itself asked about, filed or scored (R3.17). Listed under
+            # `sources:` as well, it is read both ways.
+            audited = name in config.sources
+            if audited:
+                text.update(converted.text)
             for kind in {a.kind for d in converted.documents for a in d.artifacts}:
                 produced = converted.content(kind)
                 decoded = {}
@@ -1065,10 +1070,12 @@ def _execute(
                         # prompt placeholder cannot hold it -- it reaches a step
                         # as parts rather than as a substitution.
                         continue
-                if decoded:
-                    content.setdefault(kind, {}).update(decoded)
                 if decoded and name in config.reference:
                     reference.setdefault(kind, {}).update(decoded)
+                if not audited:
+                    continue
+                if decoded:
+                    content.setdefault(kind, {}).update(decoded)
                 # A kind whose artifact is a container of parts, unpacked once
                 # here so a per_part step can fan out over it (R3.12, R8.11).
                 for key, payload in produced.items():
@@ -1083,8 +1090,9 @@ def _execute(
             # Every document that converted, not only those that converted to
             # text. A source rendered to pictures alone would otherwise convert
             # successfully and then be absent from the run entirely (R6.15).
-            documents.update({key: held[key].snapshot for key in converted.present})
-            media_types.update({key: held[key].media_type for key in converted.present})
+            if audited:
+                documents.update({key: held[key].snapshot for key in converted.present})
+                media_types.update({key: held[key].media_type for key in converted.present})
             # A document that could not be read is not silently absent from the
             # run. It is excluded from what gets audited -- the rest of the work
             # survives it -- and it is named, with its reason, and the command

@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
 **Status:** Partially implemented
-**Rules:** R4.1 – R4.15
+**Rules:** R4.1 – R4.17
 
 ## Purpose
 

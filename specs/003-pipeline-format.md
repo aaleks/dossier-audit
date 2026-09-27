@@ -1,7 +1,7 @@
 # 003 — Configuration format
 
-**Status:** Partially implemented
-**Rules:** R3.1 – R3.16
+**Status:** Implemented
+**Rules:** R3.1 – R3.18
 
 ## Purpose
 
@@ -618,7 +618,7 @@ listing.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run.execute`), cli (`dossier.cli.main.run`)
 - **Proved by:** `tests/unit/test_R003_17__a_reference_document_is_never_audited.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
