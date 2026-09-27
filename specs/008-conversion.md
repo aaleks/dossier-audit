@@ -616,7 +616,7 @@ row 6 holds for it, and its note is the one it had.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.jira_issue.note`)
 - **Proved by:** `tests/unit/test_R008_31__an_issues_custom_fields_are_written_under_their_names.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
