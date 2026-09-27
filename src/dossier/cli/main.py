@@ -308,6 +308,7 @@ def sync(
                         "known": report.known,
                         "changed": report.changed,
                         "new": report.new,
+                        "returned": len(report.returned),
                         "fetched": report.fetched,
                         "failed": len(report.failed),
                     },
