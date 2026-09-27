@@ -12,6 +12,8 @@ alone (R4.15).
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 SEPARATOR = "/"
 
 
@@ -25,3 +27,16 @@ def group_of(key: str) -> str:
     into page `81920114`'s group from its extension (spec 003, open question 1).
     """
     return key.split(SEPARATOR, 1)[0]
+
+
+def filed_under(members: Iterable[str]) -> list[str]:
+    """The keys a call shown `members` finds an earlier step's answers under, in order.
+
+    A `per_file` step files an answer under its document, and a `per_group` step
+    under its group (R3.15), so the call reads both: `ACME-2024`'s members and
+    `ACME-2024`. Looked up under the members alone, a group step's answer was
+    never found, and `{{extract}}` rendered empty in every call that read one
+    (R3.16 rows 1 and 2). Nothing outside the set is let in: a group is named by
+    its first segment, so a document keyed by a group's name is in that group.
+    """
+    return sorted({*members, *(group_of(key) for key in members)})
