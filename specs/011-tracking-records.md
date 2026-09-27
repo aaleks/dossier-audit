@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.23
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.26
 
 ## Purpose
 
@@ -20,8 +20,8 @@ that could disagree with the terminal would leave nobody sure which to believe.
 |---|---|---|---|
 | `dossier run` | one, named after the dossier run id | one per (step, document) | documents, cache hits, model calls, failed |
 | `dossier eval` | one, linked to the gold set's dataset (R11.7) | the judge's calls, if any | `accuracy/<field>`, `accuracy/overall` |
-| `dossier sync` | one | none | `<source>/known`, `/changed`, `/new`, `/fetched`, `/failed`; `changes.json` attached (R11.6) |
-| `dossier convert` | one | none | `<source>/held`, `/converted`, `/cached`, `/failed` |
+| `dossier sync` | one | none | `<source>/known`, `/changed`, `/new`, `/returned`, `/fetched`, `/failed` (R11.25); `changes.json` attached (R11.6, R11.24) |
+| `dossier convert` | one | none | `<source>/held`, `/converted`, `/cached`, `/left_out`, `/failed` (R11.26) |
 | `dossier calibrate` | one, per gold set | one per sample case | `judge/<field>/agreement`, `judge/<field>/cases` |
 | `dossier eval --compare a b` | one | none | `a/<field>`, `b/<field>`, `delta/<field>`, and the same three for the overall (R11.8) |
 | `dossier run --plan`, `--replay` | none | none | none |
@@ -171,7 +171,7 @@ ledger -- the principle this spec opens with.
 | # | Given | Then |
 |---|-------|------|
 | 1 | `INC-4822` repointed `0e52dd18` to `77c1b40a`, `INC-4821` tombstoned | `changes.json` holds `changed: [{incidents-jira, INC-4822, 0e52dd18…, 77c1b40a…}]` and `tombstoned: [{incidents-jira, INC-4821}]`, full hashes |
-| 2 | a sync where nothing changed | `changes.json` attached with two empty lists; an absent artifact is indistinguishable from a sync that never ran (R11.4 row 3) |
+| 2 | a sync where nothing changed | `changes.json` attached with every list empty; an absent artifact is indistinguishable from a sync that never ran (R11.4 row 3) |
 | 3 | *counter-example* — `dossier run --plan` after that sync | no MLflow run, so nothing attached (R11.1 row 5); the record belongs to the command that fetched |
 
 ### R11.7 — a `dossier eval` links its MLflow run to the dataset of the gold set it scored, and names a stale one
@@ -646,3 +646,66 @@ open.
 | 7 | `dossier eval incident-audit --gold gold/incidents`, a `root_cause` verdict not in the cache, and the judge unreachable | the eval run ends `FAILED`; the command still fails with R9.20's line and exit 2 |
 | 8 | the same eval, interrupted while the judge is asked | the eval run ends `FAILED`, and the interrupt goes on |
 | 9 | *counter-example* — `dossier eval incident-audit --gold gold/incidents --compare 20260806T142203Z-4f1a 20260907T090000Z-bbbb`, the judge unreachable | no run at all: a comparison opens its run only once both sides are scored (R11.8 row 4), so there is nothing to close |
+
+### R11.24 — a sync's `changes.json` names each item that came back, under `returned`
+
+R11.6 hands over what R2.18 and R2.20 print. R2.25 added a third kind of
+line under a source, and the record did not carry it: a sync that revived
+`audit-note.pdf` named it in the terminal, and its `changes.json` held two empty
+lists. That record says nothing happened.
+
+`returned` is a list of `{source, key}`, beside `changed` and `tombstoned`. An
+item that came back with other bytes than it held also carries `from` and `to`,
+the two addresses its terminal line prints. An item that came back unchanged
+carries neither, because its line has none. It stays out of `changed`, as it
+does in the terminal: `changed` lists items that were known.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.sync.changes_artifact`)
+- **Proved by:** `tests/unit/test_R011_24__changes_json_names_what_came_back.py`, `tests/acceptance/test_R011_24__sync_records_what_came_back.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `audit-note.pdf` restored to `incidents-manual`'s folder with the bytes it had (R2.25 row 1) | `returned: [{source: incidents-manual, key: audit-note.pdf}]`, with no `from` or `to`; `changed` and `tombstoned` empty |
+| 2 | `INC-4821` back in `incidents-jira` with other bytes, held `0e52dd18…`, now `77c1b40a…` (R2.25 row 2) | `returned: [{incidents-jira, INC-4821, from 0e52dd18…, to 77c1b40a…}]`, full hashes; `changed` stays empty |
+| 3 | *counter-example* — a sync where nothing came back | `returned: []`, present and empty (R11.6 row 2's reason) |
+
+### R11.25 — a `dossier sync` records `<source>/returned` beside the other counts
+
+R2.25 found that `known`, `changed` and `new` do not account for everything
+`fetched` counts unless `returned` is beside them. A record without it reads the
+way the terminal line did before R2.25: `/fetched` 3 against `/known` 2,
+`/changed` 0 and `/new` 0. The terminal prints `returned` only when there is one
+(R2.13's shape). The metric is recorded at zero as well, because R11.4 row 3
+records a source's zeros: a missing count reads the same as one never measured.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.sync.sync_counts`)
+- **Proved by:** `tests/unit/test_R011_25__a_sync_counts_what_came_back.py`, `tests/acceptance/test_R011_25__sync_records_the_returned_count.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the sync of R2.25 row 1: `incidents-manual  2 known · 0 changed · 0 new · 1 returned -> 3 fetched` | `incidents-manual/known` 2, `/changed` 0, `/new` 0, `/returned` 1, `/fetched` 3 -- the numbers the line prints |
+| 2 | `INC-4821` back in `incidents-jira` with other bytes | `incidents-jira/returned` 1 and `/changed` 0, as the line counts them (R2.25 row 2) |
+| 3 | *counter-example* — a sync where nothing came back | `/returned` 0, recorded rather than omitted (R11.4 row 3) |
+
+### R11.26 — a `dossier convert` records `<source>/left_out` beside the other counts
+
+A document R8.27 leaves out is counted in `held` and printed as `· 1 left out`,
+but the record did not carry that count. `/held` 3 against `/converted` 2,
+`/cached` 0 and `/failed` 0 leaves one document unaccounted for. That is R11.25's
+gap on the convert side. The count is recorded at zero like every other (R11.4
+row 3), though the terminal prints it only when there is one.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.convert.convert_counts`)
+- **Proved by:** `tests/unit/test_R011_26__a_convert_counts_what_it_left_out.py`, `tests/acceptance/test_R011_26__convert_records_the_left_out_count.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the folder of R8.27 row 1, `convert: {application/json: []}` | `3 held · 2 converted · 0 cached · 1 left out`, and `<source>/held` 3, `/converted` 2, `/cached` 0, `/left_out` 1, `/failed` 0 |
+| 2 | the same folder converted again | `/converted` 0, `/cached` 2 and `/left_out` 1: a document left out is left out on every run, and never counted as cached |
+| 3 | *counter-example* — the same folder declaring no `convert:` | `PLAY-4006-indexer-alerts.json` fails (R8.25): `/failed` 1, `/left_out` 0 |
