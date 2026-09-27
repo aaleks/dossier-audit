@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.29
 
 ## Purpose
@@ -952,7 +952,7 @@ picture has no text to draw.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters._pdfium`)
 - **Proved by:** `tests/unit/test_R008_28__a_page_is_drawn_with_pdfiums_own_fonts.py`, `tests/integration/test_R008_28__docling_draws_a_page_the_same_on_every_machine.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

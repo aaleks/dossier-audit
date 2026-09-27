@@ -21,6 +21,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from dossier.domain.conversion import pack_parts
+from dossier.infrastructure.converters._pdfium import pdfium as load_pdfium
 from dossier.infrastructure.converters._png import png
 
 # Rendering scale, as a multiple of the PDF's own 72 dpi. 2.0 is 144 dpi: enough
@@ -46,7 +47,8 @@ class PdfImagesConverter:
     # compresses each page (R8.29): all decide what the bytes are, and none can
     # be discovered from the artifact afterwards. 1.1.0: pages written by `_png`,
     # not Pillow's encoder, whose bytes differed between Windows and Linux.
-    version = "1.1.0"
+    # 1.2.0: drawn with PDFium's own fonts, not the machine's (R8.28).
+    version = "1.2.0"
     media_type = "application/pdf"
     kind = "page_images"
 
@@ -59,7 +61,8 @@ class PdfImagesConverter:
         (R8.24, R8.25).
         """
         try:
-            import pypdfium2 as pdfium
+            # Drawing with PDFium's own fonts, never the machine's (R8.28).
+            pdfium = load_pdfium()
         except ImportError as error:  # pragma: no cover - depends on the install
             raise ValueError(
                 f"{self.id} needs the 'pdf' extra: install dossier[pdf]"
