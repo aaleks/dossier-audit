@@ -32,11 +32,11 @@ a group, and the step asks one question per contract (R3.15).
 
 ```
 resources/documents/
-  ACME-2024/
+  PLAY-ACME-2024/
     master.md          the liability cap, and a term ending 2026-03-31
     amendment-1.md     a new invoicing address; answers nothing audited
     amendment-3.md     the term extended to 2027-03-31
-  GLOBEX-2023/
+  PLAY-GLOBEX-2023/
     master.md          a contract with no amendments
 resources/later/
   amendment-4.md       an ACME amendment filed after the first run (task 5)
@@ -66,7 +66,7 @@ Make a workspace under `playground/work/16/`. Copy `resources/documents/` to
 contracts  0 known · 0 changed · 4 new -> 4 fetched
 ```
 
-Four documents, and every key starts with its contract: `ACME-2024/master.md`.
+Four documents, and every key starts with its contract: `PLAY-ACME-2024/master.md`.
 Where did that prefix come from? Nobody wrote it anywhere.
 
 ## Task 2 — ask each file alone
@@ -78,7 +78,7 @@ It must say that a contract may be several files and that a later amendment
 overrides the clause it amends. Run it.
 
 **Checkpoint.** `extract: 4 document(s)`, four calls in the log, each holding one
-document. Now open `extract/ACME-2024/master.md.json`:
+document. Now open `extract/PLAY-ACME-2024/master.md.json`:
 
 ```
 renewal_date  2026-03-31  | The agreement runs until 2026-03-31
@@ -101,27 +101,27 @@ Change the mode to `per_group`. Nothing else. Run again.
 and two new lines in the log:
 
 ```
-['ACME-2024/amendment-1.md', 'ACME-2024/amendment-3.md', 'ACME-2024/master.md']
-['GLOBEX-2023/master.md']
+['PLAY-ACME-2024/amendment-1.md', 'PLAY-ACME-2024/amendment-3.md', 'PLAY-ACME-2024/master.md']
+['PLAY-GLOBEX-2023/master.md']
 ```
 
-`extract/` now holds `ACME-2024.json` and `GLOBEX-2023.json`. Open ACME's: one
-answer, `"document": "ACME-2024"`, with `renewal_date` cited from amendment 3
+`extract/` now holds `PLAY-ACME-2024.json` and `PLAY-GLOBEX-2023.json`. Open ACME's: one
+answer, `"document": "PLAY-ACME-2024"`, with `renewal_date` cited from amendment 3
 and `liability_cap` from the master.
 
 - Why is GLOBEX a call of its own, and why is its call identical to the one task
   2 made for its only file?
 - If the calls are identical, why was GLOBEX **not** served from cache? Look at
-  the `inputs` of `GLOBEX-2023.meta.json` and find the one that is not a document.
+  the `inputs` of `PLAY-GLOBEX-2023.meta.json` and find the one that is not a document.
   Then read R5.14 row 5 for what a live run of this exercise found before it
   was there.
-- A folder under `ACME-2024/amendments/` would put a file two levels down. Which
+- A folder under `PLAY-ACME-2024/amendments/` would put a file two levels down. Which
   group would it join? (R3.15 row 5.)
 
 ## Task 4 — verified per contract
 
 Copy `resources/verified-answers/` to `gold/contracts/` and read one. Its
-`document` is `ACME-2024`, the contract, not a file. Eval.
+`document` is `PLAY-ACME-2024`, the contract, not a file. Eval.
 
 **Checkpoint.**
 
@@ -129,13 +129,13 @@ Copy `resources/verified-answers/` to `gold/contracts/` and read one. Its
 2 groups · 2 fields · overall 100.0%
 ```
 
-Then say what a gold file whose `document` is `ACME-2024/master.md` would score,
+Then say what a gold file whose `document` is `PLAY-ACME-2024/master.md` would score,
 and why (R7.32 row 3). Which member a value was cited from is grounding's
 question, not scoring's: what makes `renewal_date` right?
 
 ## Task 5 — an amendment is filed
 
-Copy `resources/later/amendment-4.md` into `inbox/contracts/ACME-2024/`, sync,
+Copy `resources/later/amendment-4.md` into `inbox/contracts/PLAY-ACME-2024/`, sync,
 and run.
 
 **Checkpoint.** `2 group(s) · 1 from cache`, and one new line in the log, holding
@@ -168,7 +168,7 @@ mode: per_group and answers once per group. Only a per_group or aggregate step
 can read it (R3.16).
 ```
 
-Which answer would a `per_file` call about `ACME-2024/master.md` have been
+Which answer would a `per_file` call about `PLAY-ACME-2024/master.md` have been
 handed? Say why both possibilities are wrong. Then make `verify` `per_group`,
 and say what each of its calls holds. Put the pipeline back before task 8.
 
@@ -182,7 +182,7 @@ that reply, ACME's `renewal_date` is quoted from GLOBEX's contract. Delete
 
 ```
   extract: 2 group(s) · 0 from cache · 0 failed · 1 finding(s)
-    ACME-2024  renewal_date: cites 'GLOBEX-2023/master.md', which was not an input to this stage. ...
+    PLAY-ACME-2024  renewal_date: cites 'PLAY-GLOBEX-2023/master.md', which was not an input to this stage. ...
 ```
 
 The sentence is really in GLOBEX's contract, so a reviewer who followed the
