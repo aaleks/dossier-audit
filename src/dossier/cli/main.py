@@ -335,9 +335,12 @@ def _source_line(report: SourceReport) -> str:
     indistinguishable from one that was skipped, and the whole promise of
     incremental sync is that you can see what it did.
     """
+    # Printed only when something came back, so a sync where nothing did reads
+    # as it always has (R2.25).
+    returned = f" · {len(report.returned)} returned" if report.returned else ""
     return (
         f"{report.source_id}  {report.known} known · {report.changed} changed · "
-        f"{report.new} new -> {report.fetched} fetched"
+        f"{report.new} new{returned} -> {report.fetched} fetched"
     )
 
 
@@ -352,6 +355,11 @@ def _named_lines(report: SourceReport) -> list[str]:
     """
     return [
         *(f"      {item.key}  {item.held} -> {item.now}" for item in report.repointed),
+        *(
+            f"      {item.key}  returned"
+            + (f"  {item.moved.held} -> {item.moved.now}" if item.moved else "")
+            for item in report.returned
+        ),
         *(f"      {key}  tombstoned" for key in report.departed),
     ]
 

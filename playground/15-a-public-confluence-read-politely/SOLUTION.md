@@ -839,7 +839,8 @@ $ dossier sync export-check
 atlassian-docs  2 known · 0 changed · 0 new -> 0 fetched
 ledger updated · 0 new snapshots · 0 tombstoned
 $ dossier sync export-check        # export: pdf put back
-atlassian-docs  2 known · 0 changed · 0 new -> 0 fetched
+atlassian-docs  2 known · 0 changed · 0 new · 1 returned -> 0 fetched
+      792498257.pdf  returned
 ledger updated · 0 new snapshots · 0 tombstoned
 $ $L ledger | grep atlassian
 atlassian-docs  792498257                        v1                   application/vnd.dossier.confluence-page+json  active
@@ -859,6 +860,11 @@ again, so the page was listed, and `attachments()` reported `792498257.pdf` at
 R2.1 skipped the fetch and the row came back as it was. The marker, not the
 bytes, decided that the server need not be asked again. A new export would
 differ anyway, in the random `/ID` in its trailer.
+
+It is counted and named as `returned`: it was not one of the two rows active
+before this sync, and not a key the ledger had never held (R2.25). Until R2.25
+the line read `2 known · 0 changed · 0 new -> 0 fetched`, and said nothing
+about it.
 
 **[derived]** Before R2.24, the first sync here did nothing, and the PDF stayed
 `active` until a `sync --full`. That was this exercise's first pass, and R2.24's

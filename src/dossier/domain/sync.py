@@ -330,6 +330,20 @@ class Repointed:
     now: str
 
 
+@dataclass(frozen=True)
+class Returned:
+    """One item a listing offered again after it was tombstoned (R2.25).
+
+    Neither known, which counts the rows active before a sync, nor new, which
+    counts the keys never held, so it was fetched and counted nowhere. `moved`
+    is its two addresses when its bytes changed while it was gone: it is counted
+    as returned rather than changed, and the addresses travel with it instead.
+    """
+
+    key: str
+    moved: Repointed | None = None
+
+
 def repointed(
     *, key: str, outcome: Change, previous: str | None, stored: str
 ) -> Repointed | None:

@@ -13,6 +13,29 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`dossier sync` now counts an item that comes back after it was tombstoned (spec
+002, R2.25).
+
+- **Why.** `known` counts the rows that were active before the sync, and `new`
+  the keys the ledger has never held. A file put back in its folder is neither,
+  so it was fetched and counted nowhere. The sync printed
+  `2 known · 0 changed · 0 new -> 3 fetched`: three fetched, and two accounted
+  for. Playground exercise 04 found it.
+- **The count.** `returned` is printed beside the other counts, only when there
+  is one. Each returned item is named under its source line, with both addresses
+  if its bytes changed while it was gone. It is counted as returned, not as
+  changed, because `changed` counts items that were known.
+- **A bug fixed on the way.** An item goes back to `active` in any sync, as R2.7
+  row 3 always said. Only a complete listing did that before, so an item that
+  came back unchanged in a windowed listing stayed tombstoned.
+- **R2.20's counter-example** now says the item is not named *as tombstoned*.
+  It is named as returned.
+- **Checked live.** Exercise 15's export, put back, was re-run against
+  confluence.atlassian.com: `2 known · 0 changed · 0 new · 1 returned -> 0
+  fetched`.
+
+---
+
 A converted PDF is now the same bytes on every machine (spec 008, R8.28 and
 R8.29). That resolves open question 2, which had been answered with a finding: R8.1
 did not hold between Windows and Linux. `INC-4830`'s postmortem does not embed its

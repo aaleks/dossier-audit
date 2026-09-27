@@ -29,6 +29,7 @@ from dossier.domain.store import snapshot_path
 from dossier.domain.sync import (
     Change,
     Repointed,
+    Returned,
     State,
     classify,
     configured_overlap,
@@ -71,6 +72,9 @@ class SourceReport:
     # listing (R2.7) and the file its item no longer carries (R2.6 row 3) alike.
     # `1 tombstoned` says something left and not what (R2.20).
     departed: tuple[str, ...] = ()
+    # Each key a listing offered again after it was tombstoned, in key order:
+    # neither known nor new, and counted as neither (R2.25).
+    returned: tuple[Returned, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -211,6 +215,7 @@ def sync_source(
     failed: list[str] = []
     failures: list[tuple[str, str]] = []
     moved: list[Repointed] = []
+    returned: list[Returned] = []
 
     # What earlier syncs failed to fetch, and are owed (R2.23). Read before the
     # listing, because this sync settles and adds to it as it goes.
@@ -250,20 +255,34 @@ def sync_source(
             *(_Target(a.key, a.remote_version, None, False, ref.key) for a in attached),
         ):
             listed.add(target.key)
+            recorded = held.get(target.key)
             outcome = _store(
                 target,
                 config=config,
                 connector=connector,
                 store=store,
                 ledger=ledger,
-                recorded=held.get(target.key),
+                recorded=recorded,
                 now=now,
                 force_fetch=must_refetch(reevaluating=reevaluating, is_item=target.is_item),
             )
             fetched += outcome.fetched
-            changed += outcome.changed
-            new += outcome.new
             written += outcome.written
+            if (
+                recorded is not None
+                and recorded.state is State.TOMBSTONED
+                and outcome.failure is None
+            ):
+                # Back from tombstoned: not known before this sync, and not new
+                # to the ledger. Its bytes may have changed while it was gone,
+                # and then it carries both addresses rather than counting as a
+                # change to something that was known (R2.25).
+                returned.append(Returned(key=target.key, moved=outcome.repointed))
+            else:
+                changed += outcome.changed
+                new += outcome.new
+                if outcome.repointed is not None:
+                    moved.append(outcome.repointed)
             if outcome.failure is not None:
                 failed.append(outcome.failure[0])
                 failures.append(outcome.failure)
@@ -278,8 +297,6 @@ def sync_source(
                 )
             elif target.key in owed_keys:
                 ledger.settle(config.id, [target.key])
-            if outcome.repointed is not None:
-                moved.append(outcome.repointed)
 
         # A file owed but no longer carried is owed nothing: there is nothing
         # left to fetch, and nothing held to tombstone (R2.23 row 4).
@@ -321,8 +338,10 @@ def sync_source(
             config.id, [key for key, item_key in owed if (item_key or key) not in listed]
         )
 
-        returned = reactivated(listed=listed, already_tombstoned=already)
-        ledger.set_state(config.id, returned, State.ACTIVE)
+    # Whatever listing offered it, windowed or complete, an item that came back
+    # is in scope again (R2.7 row 3). Deciding this only against a complete
+    # listing left an item that came back unchanged in a windowed one tombstoned.
+    ledger.set_state(config.id, sorted(item.key for item in returned), State.ACTIVE)
 
     if not failed:
         # R2.8: a partial sync must not be mistaken for a complete one, so the
@@ -345,6 +364,7 @@ def sync_source(
         fetched=fetched,
         snapshots_written=written,
         tombstoned=len(departed_keys),
+        returned=tuple(sorted(returned, key=lambda item: item.key)),
         failed=tuple(failed),
         failures=tuple(failures),
         # Sorted here rather than where it is printed: a connector lists in

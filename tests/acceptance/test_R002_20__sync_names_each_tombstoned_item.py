@@ -154,7 +154,8 @@ class TestSyncNamesEachTombstonedItem:
         """Counter-example (row 4): the one where `INC-4821` comes back unchanged (R2.7 row 3).
 
         Not tombstoned, so R2.20 has nothing to say; and its hash did not move,
-        so R2.18 has nothing to say either.
+        so R2.18 has nothing to say either. What is said is that it came back,
+        once, as returned (R2.25).
         """
         gone = held.issues.pop("INC-4821")
         _declare(workspace, "key, summary, description")
@@ -167,4 +168,6 @@ class TestSyncNamesEachTombstonedItem:
 
         assert result.exit_code == 0, result.output
         assert _summary(result.output).endswith("· 0 tombstoned")
-        assert not [line for line in result.output.splitlines() if "INC-4821" in line]
+        assert [line for line in result.output.splitlines() if "INC-4821" in line] == [
+            f"{INDENT}INC-4821  returned"
+        ]

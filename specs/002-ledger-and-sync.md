@@ -1,6 +1,6 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R2.1 – R2.25
 
 ## Purpose
@@ -477,7 +477,7 @@ not what.
 | 1 | `INC-4821` active in the ledger, absent from a full listing | under the `incidents-jira` line: `      INC-4821  tombstoned` |
 | 2 | `INC-4821` and `INC-4822` both absent | two lines, in key order, and the summary still reads `2 tombstoned` (R2.13) |
 | 3 | *counter-example* — an incremental listing with `since` set, `INC-4821` legitimately absent | nothing tombstoned, nothing named (R2.7 row 4) |
-| 4 | *counter-example* — `INC-4821` returning to scope with the same bytes (R2.7 row 3) | not named: it is not tombstoned, and R2.18 does not name an unchanged hash |
+| 4 | *counter-example* — `INC-4821` returning to scope with the same bytes (R2.7 row 3) | not named as tombstoned: it is not tombstoned. It is named as returned (R2.25), and R2.18 does not name an unchanged hash |
 
 ### R2.21 — tombstones are computed against any listing that is complete, whether nothing was subtracted or the connector never subtracts
 
@@ -604,7 +604,7 @@ item that came back unchanged in a windowed listing stayed tombstoned.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.sync`)
 - **Proved by:** `tests/unit/test_R002_25__a_returning_item_is_counted_as_returned.py`, `tests/acceptance/test_R002_25__sync_names_what_came_back.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
