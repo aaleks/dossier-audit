@@ -99,9 +99,15 @@ class TestStepReferences:
         """Counter-example (row 4): the one where the name is not a step id.
 
         `documents` and `reference` name sources. No step produces them, and a
-        first step reading one is entirely ordinary.
+        first step reading one is entirely ordinary. The pipeline declares a
+        reference source, as one reading `reference` must (R3.18 row 4).
         """
-        path = write_pipeline(tmp_path, steps=["extract"], inputs={"extract": keyword})
+        path = write_pipeline(
+            tmp_path,
+            steps=["extract"],
+            inputs={"extract": keyword},
+            reference=["procedures-confluence"],
+        )
 
         assert load_pipeline(path, providers=PROVIDERS).steps[0].inputs == [keyword]
 
