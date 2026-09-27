@@ -1,7 +1,7 @@
 ---
 name: discover
 model: claude-opus-5-5
-allowed-tools: Read, Glob, Grep, Write, AskUserQuestion
+allowed-tools: Read, Glob, Grep, Write, AskUserQuestion, WebSearch, WebFetch
 description: Turn a feature idea into a specification with testable rules, resolving the unknowns with the user interactively before anything is written to disk. Use at the START of a new capability or behaviour change, before any test exists. First step of the SDD loop; /accept comes next.
 argument-hint: "<the feature request, in quotes>"
 ---
@@ -39,7 +39,7 @@ Two places `dossier` departs from the original method, both deliberate:
   false; "a connector that cannot supply `remote_version` sets it to `None`" can.
 - **An unresolved question can survive into the saved spec.** The original deletes
   the red cards before saving. Here, a question whose answer does not exist yet is
-  recorded as `OPEN` with what would resolve it — see step 6.
+  recorded as `OPEN` with what would resolve it — see step 7.
 
 ## Workflow
 
@@ -70,7 +70,74 @@ If a spec covers the area, **add rules to it** rather than starting a new file. 
 specs describing one feature is how they start disagreeing. Adding a rule means
 appending `R<spec>.<next>` — never renumbering, because test filenames encode the ids.
 
-## 2. Split the request into rules
+## 2. Challenge the build — what exists outside the repo
+
+Step 1 asked what already exists *in this repository*. This step asks what exists
+*outside it*, and it is the question the loop never asks by itself.
+
+The loop turns a request into rules, and it does that equally well whether or not the
+code should be this project's to own. "Crawl a site, retry failures, resume after a
+stop" splits into eleven clean deterministic rules; eleven rules is eleven cycles; and
+a hand-written crawler is the result. Nobody decides to build from scratch. The method
+turns the request into rules and the rules into code, and no step asks whether a
+maintained library already does most of it — unless this one does. So ask it here,
+before any rule is drafted, because a rule once written is a thing to build:
+
+> Not *"how do I implement what was described?"* —
+> **"what is the best engineering solution to the problem that was described?"**
+
+**When it applies:** the request names a capability with an established category of
+tooling — crawling and scraping, document parsing, retries and rate limiting,
+scheduling, auth, vector stores, evaluation harnesses, HTTP clients. **When it does
+not:** glue between this project's own parts, a decision about its own configuration, a
+change to an existing rule. Then say "no established option; project-specific glue" in
+one line and move on. Do not manufacture a survey to look diligent.
+
+When it applies:
+
+1. **Name two or three maintained options.** For each, say whether it is maintained
+   and popular — a release in recent months, issues being answered, real adoption — and
+   **say what you checked**. `WebSearch` and `WebFetch` are allowed for exactly this.
+   If you could not check, say so rather than asserting it.
+2. **State what each covers of the request, and the delta** — what the request needs
+   that the option does not do. The extras the user listed (retry, page export, resume)
+   are the delta to cover *on top of* an option, not the reason to build one.
+3. **Say how the delta would be covered.** Usually a thin layer: the option does the
+   capability, `domain/` holds the decisions the request adds, `infrastructure/` wraps
+   the call. Sometimes the delta is the whole feature, and then building is right —
+   but say so, with the reason.
+4. **Recommend one**, with the trade-off in a sentence: a dependency to own versus code
+   to own. A library brings its install weight, its release cadence and its opinions; a
+   hand-rolled implementation brings every bug not yet found and every maintenance hour
+   not yet spent.
+5. **Put the choice to the user** with `AskUserQuestion`. In step 7's terms this is a
+   question a human can answer right now: it is never left OPEN and never decided
+   silently.
+
+The shape the user should see, before any rule:
+
+```
+Before writing rules for a crawler: two maintained options cover most of this.
+  Crawl4AI   - Python library, active. Covers: crawl, depth limit, robots, Markdown
+               extraction, concurrency, retries. Missing: a resumable state file,
+               single-host scope.
+  Firecrawl  - hosted API, self-hostable. Covers the same plus JS-rendered pages.
+               Missing: the same, and it is a service to run or pay for.
+  Delta either way: a checkpoint/resume layer and the scope rule — about three rules
+  in domain/, rather than eleven.
+  Recommend: Crawl4AI plus that layer. Building means owning the fetch loop, the
+  parser and the robots reader ourselves, for no capability the library lacks.
+Adopt Crawl4AI, adopt Firecrawl, or build it?
+```
+
+Whatever is chosen, **record it in the spec** under `## Existing options considered`
+— the options, the delta, the decision and why — so it is not re-litigated, and so the
+next reader knows the delta was seen rather than missed. When an option is adopted, the
+rules that follow are the delta and the boundary. Do not write rules proving that the
+library does what its own tests already prove.
+
+
+## 3. Split the request into rules
 
 Ask, repeatedly: *what would I have to observe to say this is wrong?* Each answer is a
 rule.
@@ -100,7 +167,7 @@ the end of the spec, and mark the old one `**Status:** SUPERSEDED by R<new>`. Te
 user you did — a superseded rule is a change of mind about the product, and it should
 be reviewed as one.
 
-## 3. Classify each rule — the determinism boundary
+## 4. Classify each rule — the determinism boundary
 
 The step that matters most, and the one specific to a project with a model in it.
 
@@ -120,9 +187,9 @@ In `dossier` the expected ratio is lopsided, and deliberately so: 69 of the 71 r
 currently in `specs/` are deterministic. The two that are not are both judgements about
 narrative text (R7.11, R7.12). If your draft is mostly `evaluated`, you have not
 separated the decisions from the generation yet — read
-`references/splitting-rules.md` and go back to step 2.
+`references/splitting-rules.md` and go back to step 3.
 
-## 4. Ground each rule in concrete cases
+## 5. Ground each rule in concrete cases
 
 Real values, **from `specs/_fixtures.md`**. Never "some input". `INC-4821`, `a3f9c1e2`,
 `2026-08-06T09:00:00Z`, `anthropic:claude-sonnet-4-5-20250929`. If you need a value the
@@ -210,7 +277,7 @@ The detail behind each:
 - **An example needing three paragraphs of setup** means the design is wrong, or the
   rule crosses a layer boundary it should not.
 
-## 5. Name the layer and the test
+## 6. Name the layer and the test
 
 ```markdown
 - **Kind:** deterministic
@@ -227,7 +294,7 @@ The test does not exist yet. Name it anyway, in the
 `test_R<spec>_<rule>__<description>.py` form, and set `Status: NOT MET`. `NOT MET` is
 the only exemption from the test having to exist, and it is explicit on purpose.
 
-## 6. Triage the unknowns — ask, or record
+## 7. Triage the unknowns — ask, or record
 
 Two kinds of unknown, and the difference decides what you do:
 
