@@ -148,6 +148,23 @@ is ours:
 | comments, with `comments: true` (R1.23) | `81920501` by `m.keller`, created `2026-08-05T17:10:00.000Z`, at version 2; `81920502`, `a.aleks`'s reply to it, at version 1 |
 | included (R1.26) | `Escalation contacts`, id `81920130`, version 2, in `OPS`; it includes `On-call rota`, id `81920131` |
 
+## A website (R1.29 – R1.34)
+
+A documentation site, the case the `web` connector was written against.
+
+`vendor-docs`, a `web` source with `url: https://docs.example.org/ops/`. Its
+sitemap is `https://docs.example.org/sitemap.xml`. `example.org` is reserved
+for documentation, so no example here names a real site.
+
+| URL | Key | `<lastmod>` | Served as |
+|---|---|---|---|
+| `https://docs.example.org/ops/` | `index` | `2026-08-05` | `text/html; charset=utf-8` |
+| `https://docs.example.org/ops/escalation` | `escalation` | `2026-08-05T16:02:00+00:00` | `text/html; charset=utf-8` |
+| `https://docs.example.org/ops/runbooks/dns-failover.html` | `runbooks/dns-failover.html` | none | `text/html; charset=utf-8` |
+| `https://docs.example.org/ops/escalation-matrix.pdf` | `escalation-matrix.pdf` | `2026-08-04` | `application/pdf` |
+| `https://docs.example.org/ops/drafts/escalation-v2` | -- | `2026-08-06` | disallowed by `robots.txt` (`Disallow: /ops/drafts/`) |
+| `https://docs.example.org/blog/release-notes` | -- | `2026-08-06` | outside the prefix |
+
 ## Gold set
 
 A workspace asset, resolved where `dossier` runs rather than against a pipeline's
