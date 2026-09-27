@@ -77,23 +77,31 @@ def normalise(payload: bytes, *, fields: list[str] | None) -> bytes:
     return json.dumps(projected, **_CANONICAL).encode()
 
 
-def source_config_hash(config: SourceConfig) -> str:
+def source_config_hash(config: SourceConfig, *, fetch_asks: str = "") -> str:
     """The hash of what a source's configuration says about hashing its payloads (R2.3).
 
-    The projection, and nothing else. `watermark_overlap` is deliberately absent:
-    it decides what is *asked for*, never what a payload hashes to, so a source
-    that widened its overlap has not changed what its recorded hashes mean, and
-    re-fetching a corpus over it would be an afternoon's work for no answer
-    (R2.3 row 4).
+    The projection, and what the connector's fetch asks for beyond an item's
+    address (R2.26): a fetch that asks for more returns other bytes, so the
+    recorded hashes answer a question about a payload no longer fetched.
+    `watermark_overlap` is deliberately absent: it decides what is *listed*,
+    never what a payload hashes to, so a source that widened its overlap has
+    not changed what its recorded hashes mean, and re-fetching a corpus over it
+    would be an afternoon's work for no answer (R2.3 row 4).
 
     The field list is treated as a set -- deduplicated and sorted before hashing
     -- because a projection is one: an author who reordered two lines has not
     changed their source. Declaring no `fields` at all is a different question
     from any projection, not the same question with an empty answer, so it
     hashes differently (R2.10).
+
+    A connector that declares nothing hashes to the bytes it hashed to before
+    R2.26, so a source whose connector did not change is not fetched again.
     """
     projection = None if config.fields is None else sorted(set(config.fields))
-    return content_hash(json.dumps({"fields": projection}, **_CANONICAL).encode())
+    hashed: dict[str, object] = {"fields": projection}
+    if fetch_asks:
+        hashed["fetch_asks"] = fetch_asks
+    return content_hash(json.dumps(hashed, **_CANONICAL).encode())
 
 
 def listing_hash(config: SourceConfig) -> str:
