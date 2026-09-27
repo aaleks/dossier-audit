@@ -13,6 +13,15 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`eval --compare` refuses two runs whose calls were shown different reference
+documents, by key or by snapshot (R7.35). R7.8 already refused different
+audited documents, for the reason that applies here too: a field can move with
+what the call read, and the delta would credit the configuration with it. By
+snapshot, because a procedure tightened in place keeps its key. What a call was
+*shown* is the test, so a pipeline that declares `reference:` and never reads it
+still compares. To compare two configurations fairly after a procedure changed,
+run the earlier one again; what did not read the procedure comes from cache.
+
 `dossier run`'s warning that the source has moved now names a moved reference
 document too, marked `(reference)` (R4.9 row 5). A tightened procedure used to
 go unmentioned until two runs were compared, although `--plan` already named it
