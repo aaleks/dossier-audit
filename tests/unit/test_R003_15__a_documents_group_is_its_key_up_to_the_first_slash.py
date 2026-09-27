@@ -59,3 +59,26 @@ class TestADocumentsGroupIsItsKeyUpToTheFirstSlash:
         """
         assert _group_of("81920114.pdf") == "81920114.pdf"
         assert _group_of("81920114/escalation-matrix.png") == "81920114"
+
+
+class TestAStepMayBeAskedPerGroup:
+    """R3.15 — `per_group` is a mode a step may declare."""
+
+    def test_a_step_declaring_per_group_loads(self):
+        """Row 1's pipeline: the one where `extract` asks per contract.
+
+        The fourth mode, beside `per_file`, `aggregate` and `per_part`. Before
+        this rule the loader refused it by name, which is what the acceptance
+        test first failed on.
+        """
+        from dossier.domain.pipeline import StepConfig
+
+        step = StepConfig(
+            id="extract",
+            prompt="prompts/extract.md",
+            input="documents",
+            mode="per_group",
+            output="schemas/incident.yaml",
+        )
+
+        assert step.mode == "per_group"
