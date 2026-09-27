@@ -858,6 +858,7 @@ def convert(
                         "converted": report.converted,
                         "cached": report.cached,
                         "failed": len(report.failed),
+                        "left_out": len(report.left_out),
                     },
                 )
             )

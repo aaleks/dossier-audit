@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.26
 
 ## Purpose
@@ -21,7 +21,7 @@ that could disagree with the terminal would leave nobody sure which to believe.
 | `dossier run` | one, named after the dossier run id | one per (step, document) | documents, cache hits, model calls, failed |
 | `dossier eval` | one, linked to the gold set's dataset (R11.7) | the judge's calls, if any | `accuracy/<field>`, `accuracy/overall` |
 | `dossier sync` | one | none | `<source>/known`, `/changed`, `/new`, `/returned`, `/fetched`, `/failed` (R11.25); `changes.json` attached (R11.6, R11.24) |
-| `dossier convert` | one | none | `<source>/held`, `/converted`, `/cached`, `/left_out`, `/failed` (R11.26) |
+| `dossier convert` | one | none | `<source>/held`, `/converted`, `/cached`, `/failed`, `/left_out` (R11.26) |
 | `dossier calibrate` | one, per gold set | one per sample case | `judge/<field>/agreement`, `judge/<field>/cases` |
 | `dossier eval --compare a b` | one | none | `a/<field>`, `b/<field>`, `delta/<field>`, and the same three for the overall (R11.8) |
 | `dossier run --plan`, `--replay` | none | none | none |
@@ -700,9 +700,9 @@ gap on the convert side. The count is recorded at zero like every other (R11.4
 row 3), though the terminal prints it only when there is one.
 
 - **Kind:** deterministic
-- **Layer:** application (`dossier.application.convert.convert_counts`)
+- **Layer:** domain (`dossier.domain.tracking.count_metrics`)
 - **Proved by:** `tests/unit/test_R011_26__a_convert_counts_what_it_left_out.py`, `tests/acceptance/test_R011_26__convert_records_the_left_out_count.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

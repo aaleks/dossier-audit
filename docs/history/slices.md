@@ -13,6 +13,21 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+What came back and what was left out now reach MLflow (spec 011, R11.24 to
+R11.26). R2.25 added `returned` to a sync's line, and R8.27 added `left out` to
+a convert's, but neither reached the record. A sync that revived `audit-note.pdf`
+named it in the terminal and attached a `changes.json` holding two empty lists.
+It recorded `/fetched` 3 against `/known` 2, `/changed` 0 and `/new` 0: the
+unbalanced line R2.25 had just fixed on screen, still unbalanced in MLflow.
+`changes.json` now carries `returned` beside `changed` and `tombstoned`, with
+`from` and `to` only when the item came back with other bytes, as its line does.
+A sync records `/returned`, and a convert records `/left_out`, both at zero too,
+because a missing count reads as one never measured (R11.4 row 3). Which counts
+are recorded stays one decision in `dossier.domain.tracking`, so the change was
+two names in a tuple and the counts that fill them.
+
+---
+
 A step can ask one question of several files: `per_group`, the fourth mode (spec
 003, R3.15 and R3.16, with R4.15, R5.14, R6.22, R7.32 and R7.33). It resolves
 `docs/second-use-case.md` finding 1, which had been open since before spec 004

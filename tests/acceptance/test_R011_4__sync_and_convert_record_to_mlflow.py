@@ -113,6 +113,7 @@ class TestSyncAndConvertRecordToMLflow:
             f"{SOURCE}/converted": 3,
             f"{SOURCE}/cached": 0,
             f"{SOURCE}/failed": 0,
+            f"{SOURCE}/left_out": 0,
         }
 
     def test_neither_command_records_a_trace(
