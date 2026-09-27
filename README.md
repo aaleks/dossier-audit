@@ -33,6 +33,7 @@ specs: 296 rules across 16 specs | 281 MET, 0 IN PROGRESS, 0 NOT MET, 15 SUPERSE
 | `src/dossier/` | The package: `domain/`, `application/`, `infrastructure/`, `config/`, `cli/` |
 | `tests/` | `architecture/`, `unit/`, `acceptance/`, `integration/`, `evals/` |
 | `playground/` | Fifteen hands-on exercises. Ten offline, seconds, zero cost; the eleventh runs a real Jira in Docker; the twelfth to fourteenth need a local MLflow server; the fifteenth reads a public Confluence over the network. Not part of `dossier`. |
+| `dev/` | A Jira and a Confluence Data Center in Docker, to run a source against a server you can write to. Not part of `dossier` |
 | `.claude/` | The spec-driven toolchain: skills, agents, rules, hooks |
 | `.github/workflows/ci.yml` | The gate every pull request passes: the lock, conflict markers, ruff, the architecture tests, the default suite, and the outer loop reported beside them |
 
