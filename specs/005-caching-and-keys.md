@@ -1,7 +1,7 @@
 # 005 — Cache keys, cascade and provenance
 
-**Status:** Implemented
-**Rules:** R5.1 – R5.13
+**Status:** Partially implemented
+**Rules:** R5.1 – R5.14
 
 ## Purpose
 
@@ -29,6 +29,10 @@ generated from it and shown to the model, taken over canonical JSON (R6.12). A
 step with no `output` has neither.
 
 **Stage, aggregate** — as above, over the sorted hashes of all input artifacts.
+
+**Stage, per_group** — as `per_file`, over the sorted hashes of the input artifacts
+of the group's members, each value wrapped under its member's key (R3.13), and of
+the `reference` documents every call reads.
 
 ## Cascade
 
@@ -403,3 +407,21 @@ was written.
 | 4 | the same | convert keys unchanged; conversion does not involve a model (R5.3 row 2) |
 | 5 | *counter-example* — the same model reached through a different endpoint or gateway | the identifier is unchanged, so keys are unchanged (R5.3 row 4) |
 | 6 | *counter-example* — `verify` naming the pipeline's own model | its key is the key of naming none |
+
+### R5.14 — a `per_group` step's key holds every member's inputs and no other document's
+
+R5.10's promise, with the group as the unit: one amendment filed asks about one
+contract again, and not four hundred. A member added, replaced or tombstoned moves
+its group's key and no other group's.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R005_14__a_group_key_holds_its_members_and_no_others.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `ACME-2024/amendment-4.pdf` added | `ACME-2024` asked again with four members, `GLOBEX-2023` served from cache: one model call |
+| 2 | `ACME-2024/amendment-3.pdf` replaced, a new snapshot (R2.6) | `ACME-2024`'s key moves with the same three members; one call |
+| 3 | `ACME-2024/amendment-3.pdf` tombstoned | `ACME-2024` asked again with two members |
+| 4 | *counter-example* — `GLOBEX-2023/amendment-1.pdf` added | `ACME-2024`'s key unchanged; served from cache, no call for it |

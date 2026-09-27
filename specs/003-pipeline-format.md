@@ -1,7 +1,7 @@
 # 003 — Configuration format
 
-**Status:** Implemented
-**Rules:** R3.1 – R3.14
+**Status:** Partially implemented
+**Rules:** R3.1 – R3.16
 
 ## Purpose
 
@@ -103,6 +103,10 @@ what judges an eval (spec 007).
 
 - `per_file` — one model call per document; output is one artifact per document.
 - `aggregate` — one model call over all inputs; output is a single artifact.
+- `per_part` — one model call per part of a container, such as a page image;
+  output is one artifact per part (R3.12).
+- `per_group` — one model call per group of documents, a group being the documents
+  whose keys share a first segment; output is one artifact per group (R3.15).
 
 An `aggregate` step's single artifact is filed under the document key `*`, and
 that key is reserved: a source may not hold a document called `*`. The step read
@@ -139,6 +143,20 @@ asked to carry a key it was never shown has to guess one, and a guessed key is
 `invalid` under R6.3 however right the value beside it is (R3.13).
 Documents appear in key order, so the same set of inputs produces the same prompt
 on every machine (R0.4).
+
+## Existing options considered
+
+No established tool applies: a group is computed from this project's own keys, and
+its consequences are this project's cache, manifest and scoring. Three places a
+group could come from were weighed:
+
+| Option | For | Against |
+|---|---|---|
+| **The key's first segment** (adopted) | no configuration; Jira, Confluence and folder sources already key a file under what it belongs to; a replay recomposes groups from the keys its manifest pins (R4.15) | a folder of contracts named by convention must be sorted into subfolders first |
+| A pattern per source, `group: <regex>` | handles a flat folder named by convention | a regex for an analyst to write and get wrong, one more key checked at load time (R1.10), and the pattern would enter every key |
+| A committed file listing each group's members | explicit and reviewable | kept by hand, a new document is in no group until someone adds it, and the file would have to be pinned in the manifest |
+
+Decided 2026-09-27 by the project owner.
 
 ## Must hold
 
@@ -508,3 +526,83 @@ and checked before its own first call (R9.4, R9.6).
 | 9 | *counter-example* — `extract` naming `model: anthropic:claude-sonnet-4-5` | load-time error naming `pipeline.yaml`, the line, `steps.0.model` and the alias (R3.4); nothing asked |
 | 10 | *counter-example* — `extract` naming `model: mistral:mistral-large-2411`, which no installed package provides | load-time error naming the providers available (R9.1) |
 | 11 | *counter-example* — `dossier eval` and `dossier calibrate` over row 1's pipeline | the judge is the pipeline's `model:`; a step's own model answers that step and judges nothing (spec 007) |
+
+### R3.15 — a `per_group` step asks the model once per group, and a document's group is its key up to the first `/`
+
+`per_file` asks about one document and `aggregate` about all of them. A supplier
+contract is neither. It is a master agreement and its amendments: the renewal date
+is in amendment 3 and the liability cap is in the master
+(`docs/second-use-case.md`, finding 1). No single file answers the question, and
+one call over every contract is the enormous call R5.10 and R7.2 exist to avoid.
+
+`per_group` is the fourth mode. A document's group is its key up to the first `/`,
+and a key with no `/` is a group of one, named by the key itself. No configuration
+says so, because every connector already keys a file under what it belongs to: a
+Jira attachment is `INC-4821/report.pdf` (R1.6), a Confluence file is
+`81920114/escalation-matrix.png` (R1.18), and a folder's file is its path under
+the folder, so a contract kept in its own subfolder is `ACME-2024/amendment-3.pdf`.
+It is the first segment, not the last directory, so
+`ACME-2024/amendments/amendment-3.pdf` is still `ACME-2024`. Keys are unique across
+a pipeline's sources (R4.10), so a group may take members from more than one: a
+postmortem dropped in a folder under `INC-4821/` joins the Jira issue `INC-4821`.
+
+A group's call holds what an `aggregate` call holds, limited to the group's
+documents: each wrapped under its own key, in key order (R3.13), with every
+`reference` document beside them. Its artifact is filed under the group's name,
+`extract/ACME-2024.json`, and `dossier` writes that name as the artifact's
+`document`, as it writes a document's key for `per_file` (R5.10 row 5).
+Everything a `per_file` step does per document, a `per_group` step does per group:
+the key (R5.14), the cache entry, the retry and the failure (R6.2, R6.9), the trace
+(R11.1), and what `--concurrency` counts (R9.19).
+
+A flat folder is a folder of groups of one, and on it `per_group` asks exactly
+what `per_file` asks. Contracts named by convention in one folder,
+`ACME-2024-master.pdf` beside `ACME-2024-amendment-3.pdf`, are sorted into
+subfolders first (see "Existing options considered").
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.groups.group_of`), application (`dossier.application.run`)
+- **Proved by:** `tests/acceptance/test_R003_15__a_per_group_step_asks_once_per_group.py`, `tests/unit/test_R003_15__a_documents_group_is_its_key_up_to_the_first_slash.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `ACME-2024/master.pdf`, `ACME-2024/amendment-1.pdf`, `ACME-2024/amendment-3.pdf` and `GLOBEX-2023/master.pdf`, `extract` in `per_group` mode | two model calls; `extract/ACME-2024.json` and `extract/GLOBEX-2023.json`, each naming its group as `document`; `extract: 2 group(s) · 0 from cache · 0 failed` |
+| 2 | `ACME-2024`'s call | `{{documents}}` holds three `<document key="…">` blocks -- `ACME-2024/amendment-1.pdf`, `ACME-2024/amendment-3.pdf`, `ACME-2024/master.pdf`, in that order -- and no `GLOBEX-2023` document |
+| 3 | `INC-4821` and its attachment `INC-4821/report.pdf`, from `incidents-jira` | one group, `INC-4821`, holding both |
+| 4 | `INC-4821` from `incidents-jira`, and `INC-4821/postmortem.pdf` from `incidents-manual` | one group of two, across two sources: a group is a prefix of keys, and keys are unique across sources (R4.10) |
+| 5 | `ACME-2024/amendments/amendment-3.pdf` | group `ACME-2024`: the first segment, not the last directory |
+| 6 | `GLOBEX-2023`'s answer fails validation twice | that group fails alone -- `extract: 2 group(s) · 0 from cache · 1 failed` -- and `extract/ACME-2024.json` is written (R6.9) |
+| 7 | the same run, tracked | one trace per group, named for it, holding each member's key among its inputs (R11.1) |
+| 8 | *counter-example* — `PLAY-1001.md`, a key with no `/`, in a flat folder | a group of one, `PLAY-1001.md`: on a flat folder, `per_group` asks exactly what `per_file` asks |
+| 9 | *counter-example* — `81920114.pdf`, a page's PDF export (R1.19) | its own group, not page `81920114`'s: its key has no `/` (open question 1) |
+| 10 | *counter-example* — the same four documents, `extract` in `per_file` mode | four calls, as before: grouping is a step's choice, and a step that does not make it is unchanged |
+
+### R3.16 — a step that reads a `per_group` step's output is `per_group` or `aggregate`, and anything else is refused at load time
+
+A `per_group` step answers once per group, so its outputs are named for groups. A
+`per_file` step reading them would be asked about `ACME-2024/master.pdf` and
+handed either the group's answer, which is about three documents, or none, which
+drops the evidence. Neither is right, so it is refused when the pipeline loads, as
+a `per_part` step over text is (R3.12 row 5). The other direction is sound: a
+`per_group` step reading a `per_file` step's outputs gets each member's, under the
+member's key, as it gets each member's text.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.pipeline`)
+- **Proved by:** `tests/unit/test_R003_16__only_a_group_or_aggregate_step_reads_a_group_step.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `verify` in `per_group` mode, `input: [documents, extract]`, `extract` in `per_group` mode | accepted; `ACME-2024`'s call holds its three documents and `extract/ACME-2024.json` |
+| 2 | `report` in `aggregate` mode, `input: verify` | accepted; it reads every group's answer, each under its group's name |
+| 3 | `verify` in `per_file` mode, `input: [documents, extract]`, `extract` in `per_group` mode | a load-time error naming both steps and both modes, before any work |
+| 4 | *counter-example* — `combine` in `per_group` mode reading `extract` in `per_file` mode | accepted; each group's call holds its members' answers, each under the member's key |
+
+## Open questions
+
+| # | Question | Resolution |
+|---|----------|------------|
+| 1 | A Confluence page's PDF export is keyed `81920114.pdf` (R1.19) and so is a group of its own, apart from page `81920114` and its files. Should they be one group? | OPEN — needs a Confluence audit that wants the page and its export in one call |
+| 2 | A group can outgrow what a model accepts in one call: a 60-page master and its amendments. It fails like any request that is too long | OPEN — needs a real contract corpus to measure against |
