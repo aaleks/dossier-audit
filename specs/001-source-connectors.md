@@ -1,7 +1,7 @@
 # 001 — Source connectors
 
 **Status:** Implemented
-**Rules:** R1.1 – R1.39
+**Rules:** R1.1 – R1.43
 
 ## Purpose
 
@@ -72,7 +72,7 @@ An attachment is addressed exactly as an item is, and `fetch` takes either key:
 what fetches those bytes. That is what R1.6 means by independently addressable,
 and it is why there is no fourth operation — a second way to fetch bytes at an
 address would be one question asked twice, and the two answers could come to
-disagree about R1.2.
+disagree about R1.43.
 
 The `Connector` protocol and its value objects live in `dossier.domain.ports`.
 They are pure types; the implementations live in
@@ -108,18 +108,19 @@ core's. Everything else belongs to one type, and only its connector knows it.
   `user_env`, read as a Jira source reads them (R1.21); and `export: pdf`, which
   asks for the PDF (R1.19). Read against Data Center.
 - **web** — scoped by a URL prefix, and listed from the site's sitemap or, when
-  the source asks, by following its links. A page as the server sent it,
-  labelled with the media type the server stated. Its keys: `url`, the prefix;
-  `sitemap`, where the listing is read from; `crawl`, the most URLs a crawl
-  asks, in place of a sitemap (R1.37); and `delay`, the seconds between
-  requests (R1.36). One connector for every website: a site is configuration,
-  never code.
+  the source asks, by following its links. A page as the server sent it, or,
+  when the source asks, as a browser draws it, labelled with the media type the
+  server stated. Its keys: `url`, the prefix; `sitemap`, where the listing is
+  read from; `crawl`, the most URLs a crawl asks, in place of a sitemap (R1.37);
+  `render: browser`, which draws each HTML page in a headless browser (R1.40);
+  and `delay`, the seconds between requests (R1.36). One connector for every
+  website: a site is configuration, never code.
 
 ## A Confluence page
 
 **What is held.** A page is fetched as Confluence renders it for export --
 `GET /rest/api/content/{id}?expand=body.export_view,version,space` -- stored as
-the bytes Confluence sent (R1.2), and labelled
+the bytes Confluence sent (R1.43), and labelled
 `application/vnd.dossier.confluence-page+json` (R1.17), the type
 `confluence-page-markdown` claims (R8.19). The rendered body, and not the storage
 format: storage holds `<ac:structured-macro>` elements that only Confluence knows
@@ -191,7 +192,7 @@ as `<ri:page ri:content-title="…" ri:space-key="…"/>`.
 **Two consequences, accepted.** The table-of-contents macro is drawn with a class
 name that holds the time it was rendered (`div.rbtoc1790332347793`), and a PDF
 export carries a random `/ID`. So two fetches of one version are not the same
-bytes. A fetch is stored as sent (R1.2), so re-fetching an unchanged version
+bytes. A fetch is stored as sent (R1.43), so re-fetching an unchanged version
 stores a new snapshot. That happens only when `fields:` changes (R2.3), because
 an unchanged marker is otherwise never fetched (R2.1). The converter drops the
 table of contents (R8.20). The note is therefore the same bytes, and a stage
@@ -208,7 +209,7 @@ alone (R8.26).
 | Option | Checked | Covers | Missing |
 |---|---|---|---|
 | [`atlassian-python-api`](https://github.com/atlassian-api/atlassian-python-api) 5.0.5 | Apache-2.0, released 2026-09-14, active | CQL search, pages, attachments, and the PDF export through the same action and header used here | It is built on `requests`, a second HTTP client beside `httpx`, which `MockTransport` does not reach. Its Confluence class has hundreds of methods that create, update, move and delete. R1.1's strongest form -- the write is absent from the class, not guarded against -- could not hold |
-| [`confluence-markdown-exporter`](https://pypi.org/project/confluence-markdown-exporter/) 5.4.0 | MIT, released 2026-08-17 | Fetches pages and writes them as markdown files, through `atlassian-python-api` and `markdownify` | It is an application, not a library. It writes converted markdown to disk, so no payload is kept as sent (R1.2). Fetching and converting are one step, where `dossier` keys them separately (R5.4) |
+| [`confluence-markdown-exporter`](https://pypi.org/project/confluence-markdown-exporter/) 5.4.0 | MIT, released 2026-08-17 | Fetches pages and writes them as markdown files, through `atlassian-python-api` and `markdownify` | It is an application, not a library. It writes converted markdown to disk, so no payload is kept as sent (R1.43). Fetching and converting are one step, where `dossier` keys them separately (R5.4) |
 | A connector over `httpx`, as Jira's is | -- | Five `GET` routes, and the authorization Jira's connector already decides | The whole delta, about the size of the Jira connector |
 
 **Chosen: `httpx`**, as the Jira connector uses. What turns the body into
@@ -225,8 +226,8 @@ example below is one; nothing in the connector is specific to them.
 What it reads well is a site that publishes a sitemap, serves its pages as
 HTML from the server, and lets an anonymous reader in. A site with no sitemap
 is crawled when its source asks (R1.37). A site that builds its pages in the
-browser with JavaScript is held as the empty shell the server sent (question
-10), and one behind a login is question 8.
+browser with JavaScript is drawn by a headless browser when its source asks
+(R1.40). A site behind a login is question 8.
 
 ```yaml
 - id: vendor-docs
@@ -234,6 +235,7 @@ browser with JavaScript is held as the empty shell the server sent (question
   url: https://docs.example.org/ops/
   # sitemap: https://docs.example.org/sitemap.xml   (the default: the host's own)
   # crawl: 200   (in place of a sitemap: follow links, asking at most 200 URLs)
+  # render: browser   (draw each HTML page in a headless browser; needs dossier[browser])
   # delay: 2   (seconds between requests; the default: none)
 ```
 
@@ -274,7 +276,7 @@ changed, and over-fetching is always allowed (R1.4). A generator that never
 moves `<lastmod>` would leave a page stale, and the fix is `fields:` or a full
 re-sync (R2.3), not a marker `dossier` invents.
 
-**What is fetched.** `GET` of the page's URL, the bytes as sent (R1.2), labelled
+**What is fetched.** `GET` of the page's URL, the bytes as sent (R1.43), or with `render: browser` the page as a browser drew it (R1.40), labelled
 with the media type the `Content-Type` header states (R1.32). A page is
 `text/html`, and `html-markdown` converts it (R8.21). A PDF the sitemap lists is
 `application/pdf`, and the PDF converters take it. A page carries nothing:
@@ -378,11 +380,91 @@ on PyPI, 2026-09-28:
 Every rule a request follows (R1.33 to R1.36) is already in the one path the
 connector sends through.
 
+**A page built in the browser.** Some sites send a page as a script that
+writes it. The server sends a shell, `<div id="app"></div>` and a `<script>`,
+and what a reader sees is drawn in the browser. Held as sent, such a page has
+nothing in it to read. A source that says `render: browser` holds each HTML page
+as a headless Chromium draws it (R1.40).
+
+- **Asking.** The page is asked as every page is, through the one path every
+  request takes, so `robots.txt`, redirects, `429` and `delay:` hold as before
+  (R1.33 to R1.36).
+- **Drawing.** When the answer is HTML, it is handed to the browser at the URL
+  it was answered at, and the browser does not ask for the page again. It runs
+  the page's scripts.
+- **What is held.** Once the page has loaded and no request has been open for
+  half a second (Playwright's `networkidle`), the page is held as the browser
+  then holds it: its DOM written out as HTML, in UTF-8 behind a byte-order
+  mark. A browser reads a byte-order mark before any charset a page declares,
+  and so does R8.32. A drawn page still carries the `<meta charset>` the site
+  wrote, and that can disagree with the header the site's server sent, which a
+  browser reads first. Encoded in either charset, the page could be read back
+  in the other.
+- **Failures and other types.** A page that has not gone quiet within sixty
+  seconds fails: half a page is not held. A page that is not HTML is held as
+  sent, and no browser sees it.
+- **With `crawl:`**, links are read from the drawn page, so a menu that a script
+  writes is followed.
+
+So a drawn page is not the bytes the site sent. It is the page the site's
+scripts drew, and its bytes are the browser's. That is the one exception to
+R1.2, and R1.43 supersedes R1.2 to say so. A drawn page is also what its scripts
+wrote on this load. A script that writes the time, or a random id, gives a page
+whose bytes move on every sync, and it is stored again each time (R2.2).
+
+**What the browser asks for** (R1.41). Only what the page needs to draw its
+text: its scripts and styles, and what its scripts ask for.
+
+- **Not its images, video, audio or fonts.** The note is the page's text, and
+  an image is its alt text (R8.22).
+- **Not another page.** A frame holds another page, which is not part of the
+  drawn one. A script that sends the browser elsewhere, to a login form for
+  instance, is not followed, and the page is held as drawn.
+- **Nothing but `GET`.** A connector reads and never writes (R1.1), and a
+  script that posts -- a view counter, an analytics beacon -- would write.
+- **A request to the site** goes the way every request to it goes. `robots.txt`
+  may keep it out, `delay:` and `Crawl-delay` space it, and a `429` to it is
+  R1.35's: the page fails, and nothing more is asked that sync. A script or
+  stylesheet is asked once a sync, however many pages load it.
+- **A request to another host** (a CDN, an API) is the page's own, and the
+  browser sends it as a browser does. `dossier` reads no other host's
+  `robots.txt`.
+
+**Installing.** Playwright is an extra, `dossier[browser]`. Its Chromium is a
+second step, `playwright install chromium-headless-shell`, about 115 MB.
+`dossier` never downloads a browser itself (R1.42):
+
+- a source that says `render: browser` on a machine without Playwright is
+  refused when its connector is built, and the error names the extra;
+- a page drawn on a machine without Chromium fails, and the error names the
+  command.
+
+**Existing options considered for drawing a page**, read from each package's
+source on PyPI, 2026-09-28:
+
+| Option | Covers | Missing |
+|---|---|---|
+| [Playwright](https://playwright.dev/python/) 1.63 | Apache-2.0, Microsoft's. Chromium, Firefox or WebKit driven from Python. Every request a page makes goes through a handler, which may answer it, send it or refuse it | A browser to install, about 115 MB. The package is three: `playwright`, `greenlet`, `pyee` |
+| crawl4ai 0.9.4 | Playwright underneath, with waits, scrolling and overlay removal, and its own crawl | 86 packages beyond Playwright, among them `openai`, `huggingface-hub`, `scipy`, `nltk`, a pinned fork of `litellm`, `patchright` and `playwright-stealth`. What `dossier` would use -- draw one page from bytes already fetched, and route its requests -- is Playwright's own API. Its crawl was declined above |
+| Firecrawl | Pages drawn on its servers | Every page goes through a third party (the table below), and no site behind a firewall can be reached |
+
+**Chosen: Playwright, as the extra `browser`.** Verified on 2026-09-28. A
+windows-1252 page handed to a headless Chromium was drawn by its script, with
+its text intact. Its image and its frame were never asked for. A script's move
+to another page, answered `204`, left the drawn page in place. A navigation that
+is refused outright replaces the page with Chromium's error page.
+
+Two more things were measured there. Chromium read a page by the charset in its
+`Content-Type` header when that disagreed with its `<meta>`, which is why a
+drawn page is held in UTF-8 behind a byte-order mark. And a script's
+`fetch(…).text()` is UTF-8 whatever its answer declares, as the Fetch standard
+says.
+
 **Navigation.** A page is held as the site sent it, navigation, header and
 footer included. `html-markdown` writes a page that declares one `<main>` as
 that element, without the `<nav>` in it (R8.33), and so they are not in the note.
 Leaving them out is a converter's decision, not a connector's: a snapshot is
-what the site sent (R1.2), and deciding what is content is a key a converter's
+what the site sent (R1.43), and deciding what is content is a key a converter's
 version can move (R5.4).
 
 **Not yet.** No credential: every request is anonymous (question 8).
@@ -440,7 +522,7 @@ changes what is stored.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors`)
 - **Proved by:** `tests/unit/test_R001_2__fetch_returns_payload_unmodified.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R1.43
 
 | # | Given | Then |
 |---|-------|------|
@@ -697,7 +779,7 @@ an issue carries is still what Jira says that file is (R2.16).
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `INC-4821` fetched | `media_type` `application/vnd.dossier.jira-issue+json`, and the payload the bytes Jira sent (R1.2) |
+| 1 | `INC-4821` fetched | `media_type` `application/vnd.dossier.jira-issue+json`, and the payload the bytes Jira sent (R1.43) |
 | 2 | *counter-example* — `INC-4821/report.pdf` fetched, Jira reporting `application/pdf` | `application/pdf`; what the issue carries is labelled by what Jira says it is, not by the issue (R2.16) |
 | 3 | *counter-example* — a folder source holding `export.json` | `application/json`, as R2.16 assigns it; a folder has only the name to go on and cannot know what wrote the file |
 
@@ -748,7 +830,7 @@ writes it in a page's history, and no marker is made up for a page without one
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `fetch("81920114")` | `GET …/rest/api/content/81920114?expand=body.export_view,version,space`; the payload the bytes Confluence sent (R1.2), `media_type` `application/vnd.dossier.confluence-page+json` |
+| 1 | `fetch("81920114")` | `GET …/rest/api/content/81920114?expand=body.export_view,version,space`; the payload the bytes Confluence sent (R1.43), `media_type` `application/vnd.dossier.confluence-page+json` |
 | 2 | *counter-example* — the page's table of contents, whose class name holds the time it was rendered | stored as sent, table of contents included. What reaches a stage is the converter's decision (R8.20); a payload edited here would be hashed from bytes nobody received |
 | 3 | *counter-example* — `81920114/escalation-matrix.png`, which Confluence reports as `image/png` | `image/png`; a file is labelled by what Confluence says it is (R2.16), not by its page |
 
@@ -1072,7 +1154,7 @@ would tombstone every page held (R1.11, R2.7).
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `escalation` served `text/html; charset=utf-8` | `media_type == "text/html"`, and the payload the bytes as sent (R1.2) |
+| 1 | `escalation` served `text/html; charset=utf-8` | `media_type == "text/html"`, and the payload the bytes as sent (R1.43) |
 | 2 | `escalation-matrix.pdf` served `application/pdf` | `application/pdf` |
 | 3 | `attachments("escalation")` | nothing: a web page carries no files |
 | 4 | *counter-example* — `runbooks/dns-failover.html` served `text/plain` | `text/plain`; a name is not evidence about content (R2.16) |
@@ -1224,6 +1306,86 @@ listing and names why. That happens when:
 | 3 | `crawl: 50` and `sitemap: https://docs.example.org/sitemap.xml` | refused, naming both keys: a source is listed one way |
 | 4 | *counter-example* — neither | listed from the host's sitemap (R1.29) |
 
+### R1.40 — with `render: browser`, a web page answered as HTML is held as a headless browser draws it
+
+The page is asked as every page is (R1.29 – R1.36). What the site answered is
+handed to the browser at the URL it was answered at, and the browser does not
+ask for it again. Once the page has loaded and no request has been open for
+half a second, it is held as the browser holds it: its DOM written out as HTML,
+in UTF-8 behind a byte-order mark, which a browser and R8.32 both read before any
+charset the page declares, and labelled `text/html`. A crawl reads its links
+from the drawn page. A page that is not HTML is held as sent (R1.32), and no
+browser sees it.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.web`, `dossier.infrastructure.connectors.browser`)
+- **Proved by:** `tests/unit/test_R001_40__a_page_is_held_as_a_browser_draws_it.py`, `tests/integration/test_R001_40__chromium_draws_a_page_from_bytes_already_fetched.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `escalation` served as a shell, as the fixtures say, with `render: browser` | held with `<h1>Escalation</h1>` and the fixture's paragraph in it, and its note is `# Escalation` and the paragraph (R8.33) |
+| 2 | that page, synced | `…/ops/escalation` is asked once, by `dossier`. The browser asks for `/assets/app.js` and `/api/escalation`, and not for the page |
+| 3 | `index` served as a shell whose script writes its links, with `crawl: 50` | `escalation`, `escalation-matrix.pdf` and `runbooks/dns-failover.html` are found through the drawn links, and listed |
+| 4 | a shell served and declared as `windows-1252`, holding `Déclaré`, whose script writes `résolu` | held in UTF-8 behind a byte-order mark, and its note has both `Déclaré` and `résolu` (R8.32) |
+| 5 | *counter-example* — the same source without `render:` | held as the shell, and its note has no `# Escalation` and no paragraph |
+| 6 | *counter-example* — `escalation-matrix.pdf` | held as sent, `application/pdf`, and no browser sees it |
+| 7 | *counter-example* — a page whose requests never go quiet within sixty seconds | that page fails, naming it and the wait. Half a page is not held |
+
+### R1.41 — a browser drawing a page asks for no image, font, media or other page, sends nothing but `GET`, and asks its site only as the site's pages are asked
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.web.browser_asks`), answered in infrastructure (`dossier.infrastructure.connectors.web`, `dossier.infrastructure.connectors.browser`)
+- **Proved by:** `tests/unit/test_R001_41__a_browser_asks_only_for_what_draws_the_text.py`, `tests/integration/test_R001_41__chromium_asks_only_for_what_draws_the_text.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `escalation`'s `<img src="/img/escalation-diagram.png" alt="Escalation diagram">` | not asked for. The note has `![Escalation diagram](escalation-diagram.png)` (R8.22) |
+| 2 | `robots.txt` disallowing `/api/` | `/api/escalation` is not asked for, and the page is held as drawn without it |
+| 3 | `/api/escalation` answered `429` | the page fails, and nothing more is asked of the site that sync (R1.35) |
+| 4 | `delay: 2` | `/assets/app.js` is asked 2 s after the page, and `/api/escalation` 2 s after that (R1.36) |
+| 5 | `index` and `escalation` drawn in one crawl, both loading `/assets/app.js` | `/assets/app.js` is asked once |
+| 6 | a script that sends the browser to `/ops/login` once it has drawn the page | not followed: the page is held as drawn |
+| 7 | an `<iframe src="https://video.example.org/embed">` | not asked for |
+| 8 | a script that posts to `/api/views` | not sent (R1.1) |
+| 9 | *counter-example* — a script from `https://cdn.example.net/app.js` | asked for, by the browser: a request to another host is the page's own |
+
+### R1.42 — `render:` is `browser` or absent, and a browser that is not installed is named, never fetched
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.web`, `dossier.infrastructure.connectors.browser`)
+- **Proved by:** `tests/unit/test_R001_42__render_is_browser_and_a_missing_browser_is_named.py`, `tests/integration/test_R001_42__a_missing_chromium_is_named.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `render: chrome`, or `render: true` | `sources.yaml` is refused, naming `vendor-docs` and `render` (R1.10) |
+| 2 | `render: browser`, and Playwright not installed | building the connector fails, naming the extra `dossier[browser]` |
+| 3 | `render: browser`, with Playwright installed and its Chromium not | the page fails, naming `playwright install chromium-headless-shell`. Nothing is downloaded |
+| 4 | *counter-example* — no `render:` | every page is held as sent (R1.43), and no browser is started |
+
+### R1.43 — `fetch` returns the payload byte-for-byte as received, from the source, or from the browser that drew it
+
+Supersedes R1.2, which a page drawn with `render: browser` (R1.40) is not: its
+bytes are not the site's. Normalisation happens later, in the ledger layer, for
+hashing only. It never changes what is stored. A drawn page is held as the
+browser gave it, in UTF-8 behind a byte-order mark (R1.40), and nothing else in it is
+changed.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors`)
+- **Proved by:** `tests/unit/test_R001_43__fetch_returns_the_payload_as_received.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a transport returning JSON with keys in the order `summary, key, status` | `RawItem.payload` preserves that byte order; no re-serialisation |
+| 2 | a payload with a UTF-8 BOM and CRLF line endings | both survive into `RawItem.payload` unchanged |
+| 3 | a payload of `0` bytes | returned as `b""`, not as `None` and not as an error |
+| 4 | `escalation` with `render: browser` | the payload is the page as the browser gave it, not the shell the site sent |
+| 5 | *counter-example* — the hash recorded in the ledger for that item | computed over the *normalised* projection, not over these bytes (R2.3) |
+
 ## Open questions
 
 | # | Question | Resolution |
@@ -1237,4 +1399,4 @@ listing and names why. That happens when:
 | 7 | A website with no sitemap | RESOLVED by R1.37 to R1.39 — a source that says `crawl:` is listed by following its links within `url`, asking each URL once and at most `crawl:` URLs. A crawl that cannot finish fails the listing rather than tombstoning what it did not reach. The site that asked: `www.python.org`, whose listing failed on its missing sitemap. Decided 2026-09-28 |
 | 8 | A website behind a credential | OPEN — `token_env` and `user_env` as R1.21 reads them would carry over. Needs a site that asks for one |
 | 9 | Politeness: the requests are sequential and undelayed | RESOLVED by R1.35 and R1.36 — `djangoproject.com`, 2026-09-27: 70 of the 91 pages under `/foundation/` were answered `429` within seven seconds, with no `Retry-After`, and every one of the 70 was asked after the first refusal. A `429` now ends the sync's requests to the site, and a source's `delay:`, or its site's `Crawl-delay`, spaces them. Decided 2026-09-27 |
-| 10 | A website that builds its pages with JavaScript | OPEN — the server sends a shell, and the text is drawn in the browser, so what is held has nothing in it to read. A browser is the answer that exists (crawl4ai, or Firecrawl's rendering; see the options above), and it is a second way of fetching a page, not a change to this one. Needs such a site a workspace reads |
+| 10 | A website that builds its pages with JavaScript | RESOLVED by R1.40 to R1.43 — a source that says `render: browser` holds each HTML page as a headless Chromium draws it. The browser is driven by Playwright, an extra, and is handed the bytes `dossier` already fetched. It asks for no image, font or other page, sends nothing but `GET`, and asks the site only as the site's pages are asked. R1.43 supersedes R1.2, because a drawn page is not the site's bytes. Decided 2026-09-28 |

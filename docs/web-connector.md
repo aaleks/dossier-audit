@@ -2,7 +2,7 @@
 
 A quick tour of `src/dossier/infrastructure/connectors/web.py`: what you write
 to point `dossier` at a website, what a sync does, and what a
-stage then reads. Written against spec 001 R1.29 – R1.39.
+stage then reads. Written against spec 001 R1.29 – R1.43.
 
 ## Where it lives and how it is found
 
@@ -14,6 +14,9 @@ stage then reads. Written against spec 001 R1.29 – R1.39.
   `web = "...web:WebConnector.from_config"`. `sources.yaml` says `type: web`.
 - Left of the hash boundary, like Jira and Confluence (R0.10). `httpx` and
   `protego` are imported lazily.
+- A page drawn by a browser: `src/dossier/infrastructure/connectors/browser.py`
+  (`Chromium`), which imports Playwright only when a browser is opened. What a
+  page being drawn may ask for is decided in `domain/web.py` (`browser_asks`).
 
 ## What you write
 
@@ -25,6 +28,7 @@ sources:
     url: https://docs.example.org/ops/              # the prefix this source covers
     # sitemap: https://docs.example.org/sitemap.xml # the default: the host's own
     # crawl: 200                                    # instead of a sitemap: follow links, asking at most 200 URLs
+    # render: browser                               # draw each HTML page in a headless browser
     # delay: 2                                      # seconds between requests; the default: none
 ```
 
@@ -142,8 +146,70 @@ Measured on 2026-09-28, notes shrank by about half:
 6,480, and `www.djangoproject.com/foundation/` from 17,815 to 7,800. The article
 text is whole in both.
 
+## A page drawn in the browser
+
+Some sites send a page as a script that writes it. What the server sends is a
+shell, and the text is drawn in the browser. `html-markdown` takes scripts out,
+so the note of such a page is empty. Say `render: browser`, and each HTML page is
+held as a headless Chromium draws it (R1.40):
+
+```yaml
+  - id: quotes
+    type: web
+    url: https://quotes.toscrape.com/js/
+    crawl: 30
+    render: browser
+```
+
+It needs the extra and its browser, once:
+
+```bash
+pip install dossier[browser]
+playwright install chromium-headless-shell   # about 115 MB
+```
+
+What happens to each page:
+
+- **Asking.** `dossier` asks for the page as it asks for every page, so
+  `robots.txt`, redirects, `429` and `delay:` hold.
+- **Drawing.** If the answer is HTML, `dossier` hands those bytes to the
+  browser, which does not ask for the page again. It runs the page's scripts,
+  and when no request has been open for half a second, the page is held as the
+  browser holds it.
+- **Encoding.** A drawn page is stored as UTF-8 behind a byte-order mark, so
+  `html-markdown` reads it as drawn, whatever charset the page declared.
+- **With `crawl:`**, links are read from the drawn page.
+
+Every request the page's scripts make comes back to the connector first (R1.41):
+
+- **Not asked for:** images, fonts, video, audio, another frame's page, and
+  anything but `GET`. A script that moves the browser to a login form is not
+  followed.
+- **Requests to the site** go the way every request to it goes. `robots.txt`
+  may keep them out, `delay:` spaces them, a `429` fails the page and stops the
+  sync's requests, and a script or stylesheet is asked once a sync.
+- **Requests to other hosts** (a CDN, an API) are sent by the browser itself.
+
+A page that has not gone quiet within sixty seconds fails; half a page is not
+held. A PDF, or anything else that is not HTML, is stored as sent, and no browser
+sees it. A site that routes its pages by fragment (`…/#/escalation`) is one page
+to `dossier`, because a fragment is not part of an address (R1.30).
+
+Measured on 2026-09-28, `quotes.toscrape.com/js/`, a site built to be read this
+way, with `crawl: 30`:
+
+| | Pages | First sync | Second sync | What the note of `index` holds |
+|---|---|---|---|---|
+| without `render:` | 11 | 6.7 s | 6.2 s, nothing stored | the site's name, `Login`, `Next →`, and no quote |
+| `render: browser` | 11 | 19.3 s | 18.9 s, nothing stored | every quote on the page, with its author and tags |
+
+Draw only the sites that need it. `docs.astral.sh/uv`, which needs no browser,
+took 217 seconds drawn against 12 to 20 read as sent. From a sitemap, a browser
+is started for each page fetched; a crawl starts one for all of its pages. And
+the site's theme rewrites every in-page link as an absolute URL when its scripts
+run, so the note of `getting-started/installation/` grew from 6,480 characters
+to 7,751 without a word more of text.
+
 ## What it does not do yet
 
 - Send a credential (open question 8).
-- Read a page the browser builds with JavaScript: it holds the empty shell the
-  server sends (open question 10).

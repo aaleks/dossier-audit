@@ -84,6 +84,12 @@ docling = [
     "onnxruntime==1.30.0",
     "pypdfium2>=4.30",
 ]
+# A web page built in the browser, drawn by a headless Chromium (spec 001,
+# R1.40 - R1.42). Apache-2.0, Microsoft's; three packages, where crawl4ai, built
+# on it, is 86 more. The Chromium it drives is a second step, `playwright
+# install chromium-headless-shell`, which dossier never runs itself (R1.42).
+# Only `dossier.infrastructure.connectors` may import it (R0.10).
+browser = ["playwright>=1.49"]
 
 [dependency-groups]
 dev = [

@@ -56,6 +56,9 @@ NETWORK_MODULES = frozenset(
         "mlflow",
         "ollama",
         "openai",
+        # A browser asks for whatever the page it draws asks for. Only the web
+        # connector may drive one (R1.40, R0.10).
+        "playwright",
         "requests",
         "smtplib",
         "socket",

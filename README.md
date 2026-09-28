@@ -41,7 +41,17 @@ pip install dossier            # markdown-text, text-plain, text-csv, html-markd
 pip install dossier[pdf]       # and pdf-markdown, pdf-images, jpeg-pages
 pip install dossier[tracking]  # and MLflow runs, traces and metrics
 pip install dossier[docling]   # and docling-markdown: a PDF with no text layer, read by OCR
+pip install dossier[browser]   # and render: browser, for a website that draws its pages in JavaScript
 ```
+
+A `web` source that says `render: browser` has each HTML page drawn by a
+headless Chromium, through Playwright. Install the browser once:
+
+```bash
+playwright install chromium-headless-shell   # about 115 MB; dossier never downloads it itself
+```
+
+Spec 001, R1.40-R1.43, and `docs/web-connector.md`.
 
 `docling-markdown` is for a photocopy -- a scanned contract, a faxed incident
 note -- which `pdf-markdown` converts to page anchors and nothing else. It claims
