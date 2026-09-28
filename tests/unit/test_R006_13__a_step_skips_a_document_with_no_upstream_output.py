@@ -21,7 +21,7 @@ from tests.fakes import FakeModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
-from dossier.application.run import RunReport, execute
+from dossier.application.run import RunInputs, RunReport, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -90,13 +90,15 @@ def run(
 ) -> RunReport:
     config = pipeline(second)
     return execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash=PIPELINE_HASH,
+            schemas=schemas,
+            prompts={step.id: prompt_for(step.inputs) for step in config.steps},
+            documents=DOCUMENTS,
+            document_text=TEXT,
+        ),
         workspace=workspace,
-        pipeline=config,
-        pipeline_hash=PIPELINE_HASH,
-        documents=DOCUMENTS,
-        document_text=TEXT,
-        schemas=schemas,
-        prompts={step.id: prompt_for(step.inputs) for step in config.steps},
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=RUN_ID,

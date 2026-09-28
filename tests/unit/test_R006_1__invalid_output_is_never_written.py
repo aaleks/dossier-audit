@@ -153,7 +153,7 @@ class TestTheCacheClaimsAreAssertedHere:
 
         from tests.pipelines import prompt_for
 
-        from dossier.application.run import execute
+        from dossier.application.run import RunInputs, execute
         from dossier.domain.pipeline import PipelineConfig, StepConfig
         from dossier.infrastructure.cache import ArtifactCache
 
@@ -171,13 +171,15 @@ class TestTheCacheClaimsAreAssertedHere:
             ],
         )
         report = execute(
+            RunInputs(
+                pipeline=config,
+                pipeline_hash="0e52dd18" * 8,
+                schemas={"extract": OUTPUT},
+                prompts={"extract": prompt_for(["documents"])},
+                documents={"INC-4821": "a3f9c1e2" * 8},
+                document_text=STAGE_INPUTS,
+            ),
             workspace=tmp_path,
-            pipeline=config,
-            pipeline_hash="0e52dd18" * 8,
-            documents={"INC-4821": "a3f9c1e2" * 8},
-            document_text=STAGE_INPUTS,
-            schemas={"extract": OUTPUT},
-            prompts={"extract": prompt_for(["documents"])},
             model=FakeModelClient(responses=responses),
             cache=ArtifactCache(tmp_path, namespace="stage"),
             run_id="20260806T142203Z-4f1a",

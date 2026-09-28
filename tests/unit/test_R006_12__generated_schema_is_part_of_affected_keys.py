@@ -20,7 +20,7 @@ from tests.fakes import FakeModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import DECLARATION, prompt_for
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -93,13 +93,15 @@ def run(workspace: Path, model, *, shown: dict, run_id: str):
     config = chain()
     output = OutputSchema(schema=shown, declaration_hash=DECLARATION_HASH)
     return execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash=PIPELINE_HASH,
+            schemas={step.id: output for step in config.steps if step.output is not None},
+            prompts={step.id: prompt_for(step.inputs) for step in config.steps},
+            documents=DOCUMENTS,
+            document_text=TEXT,
+        ),
         workspace=workspace,
-        pipeline=config,
-        pipeline_hash=PIPELINE_HASH,
-        documents=DOCUMENTS,
-        document_text=TEXT,
-        schemas={step.id: output for step in config.steps if step.output is not None},
-        prompts={step.id: prompt_for(step.inputs) for step in config.steps},
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,

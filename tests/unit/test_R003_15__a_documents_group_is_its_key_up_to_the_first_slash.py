@@ -100,7 +100,7 @@ class TestAPerGroupStepIsAskedOncePerGroup:
 
         from tests.pipelines import prompt_for
 
-        from dossier.application.run import execute
+        from dossier.application.run import RunInputs, execute
         from dossier.domain.fields import OutputSchema
         from dossier.domain.pipeline import PipelineConfig, StepConfig
         from dossier.infrastructure.cache import ArtifactCache
@@ -136,17 +136,19 @@ class TestAPerGroupStepIsAskedOncePerGroup:
         )
 
         report = execute(
+            RunInputs(
+                pipeline=config,
+                pipeline_hash="0e52dd18" * 8,
+                schemas={
+                    "extract": OutputSchema(
+                        schema={"type": "object"}, declaration_hash="6e0d4b27" * 8
+                    )
+                },
+                prompts={"extract": prompt_for(["documents"])},
+                documents={key: f"{index:064d}" for index, key in enumerate(keys)},
+                document_text={key: f"# {key}\n" for key in keys},
+            ),
             workspace=tmp_path,
-            pipeline=config,
-            pipeline_hash="0e52dd18" * 8,
-            documents={key: f"{index:064d}" for index, key in enumerate(keys)},
-            document_text={key: f"# {key}\n" for key in keys},
-            schemas={
-                "extract": OutputSchema(
-                    schema={"type": "object"}, declaration_hash="6e0d4b27" * 8
-                )
-            },
-            prompts={"extract": prompt_for(["documents"])},
             model=Model(),
             cache=ArtifactCache(tmp_path, namespace="stage"),
             run_id="20260806T142203Z-4f1a",

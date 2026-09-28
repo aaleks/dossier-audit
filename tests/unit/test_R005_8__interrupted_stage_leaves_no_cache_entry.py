@@ -24,7 +24,7 @@ from tests.fakes import FakeModelClient, FakeModelClientError
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -67,18 +67,17 @@ def pipeline() -> PipelineConfig:
 
 def run(workspace: Path, model, *, documents, cache=None, run_id: str = RUN_ID):
     return execute(
+        RunInputs(
+            pipeline=pipeline(),
+            pipeline_hash=PIPELINE_HASH,
+            schemas={"extract": SCHEMA},
+            prompts={"extract": prompt_for(["documents"])},
+            documents=documents,
+            document_text={
+                key: STAGE_INPUTS["INC-4821"] + f"\n\nFiled as {key}.\n" for key in documents
+            },
+        ),
         workspace=workspace,
-        pipeline=pipeline(),
-        pipeline_hash=PIPELINE_HASH,
-        documents=documents,
-        # Distinct text per document, so each is its own stage key. Identical
-        # text would make them one computation and four cache hits, which is
-        # correct behaviour and not what these rows are about (R5.7 row 4).
-        document_text={
-            key: STAGE_INPUTS["INC-4821"] + f"\n\nFiled as {key}.\n" for key in documents
-        },
-        schemas={"extract": SCHEMA},
-        prompts={"extract": prompt_for(["documents"])},
         model=model,
         cache=cache or ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,

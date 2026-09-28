@@ -21,7 +21,7 @@ from tests.fakes import FakeModelClient
 from tests.pipelines import prompt_for, write_pipeline
 from tests.scoring_example import ISSUES
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.config.load import ConfigError, load_pipeline
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
@@ -268,37 +268,39 @@ def _execute(workspace: Path, *, default, models, extract_model: str | None = EX
 
     declared = OutputSchema(schema={"type": "object"}, declaration_hash="d24c86e1" * 8)
     return execute(
-        workspace=workspace,
-        pipeline=PipelineConfig(
-            name="incident-audit",
-            sources=["incidents-jira"],
-            model=PIPELINE_MODEL,
-            steps=[
-                StepConfig(
-                    id="extract",
-                    prompt="prompts/extract.md",
-                    input="documents",
-                    mode="per_file",
-                    output="schemas/incident.yaml",
-                    model=extract_model,
-                ),
-                StepConfig(
-                    id="verify",
-                    prompt="prompts/verify.md",
-                    input=["documents", "extract"],
-                    mode="per_file",
-                    output="schemas/incident.yaml",
-                ),
-            ],
+        RunInputs(
+            pipeline=PipelineConfig(
+                name="incident-audit",
+                sources=["incidents-jira"],
+                model=PIPELINE_MODEL,
+                steps=[
+                    StepConfig(
+                        id="extract",
+                        prompt="prompts/extract.md",
+                        input="documents",
+                        mode="per_file",
+                        output="schemas/incident.yaml",
+                        model=extract_model,
+                    ),
+                    StepConfig(
+                        id="verify",
+                        prompt="prompts/verify.md",
+                        input=["documents", "extract"],
+                        mode="per_file",
+                        output="schemas/incident.yaml",
+                    ),
+                ],
+            ),
+            pipeline_hash="6e0d4b27" * 8,
+            schemas={"extract": declared, "verify": declared},
+            prompts={
+                "extract": prompt_for(["documents"]),
+                "verify": prompt_for(["documents", "extract"]),
+            },
+            documents={"INC-4821": "a3f9c1e2" * 8},
+            document_text={"INC-4821": ISSUES["INC-4821"]},
         ),
-        pipeline_hash="6e0d4b27" * 8,
-        documents={"INC-4821": "a3f9c1e2" * 8},
-        document_text={"INC-4821": ISSUES["INC-4821"]},
-        schemas={"extract": declared, "verify": declared},
-        prompts={
-            "extract": prompt_for(["documents"]),
-            "verify": prompt_for(["documents", "extract"]),
-        },
+        workspace=workspace,
         model=default,
         models=models,
         cache=ArtifactCache(workspace, namespace="stage"),

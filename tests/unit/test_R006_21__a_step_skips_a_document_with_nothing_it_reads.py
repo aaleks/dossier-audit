@@ -23,7 +23,7 @@ from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
 from dossier.application.manifest import Manifest
-from dossier.application.run import RunReport, execute, replay
+from dossier.application.run import RunInputs, RunReport, execute, replay
 from dossier.domain.conversion import PART_TYPE
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
@@ -69,15 +69,17 @@ def run(
         name="procedures-audit", sources=["procedures-confluence"], model=MODEL, steps=[step]
     )
     return execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash=PIPELINE_HASH,
+            schemas={step.id: SCHEMA if step.mode != "aggregate" else None},
+            prompts={step.id: prompt_for(step.inputs)},
+            documents={key: f"{n:08x}" * 8 for n, key in enumerate((NOTE, *pictures), 1)},
+            document_text=TEXT,
+            document_content={"markdown": TEXT},
+            document_parts=parts(*pictures),
+        ),
         workspace=workspace,
-        pipeline=config,
-        pipeline_hash=PIPELINE_HASH,
-        documents={key: f"{n:08x}" * 8 for n, key in enumerate((NOTE, *pictures), 1)},
-        document_text=TEXT,
-        document_content={"markdown": TEXT},
-        document_parts=parts(*pictures),
-        schemas={step.id: SCHEMA if step.mode != "aggregate" else None},
-        prompts={step.id: prompt_for(step.inputs)},
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=RUN_ID,

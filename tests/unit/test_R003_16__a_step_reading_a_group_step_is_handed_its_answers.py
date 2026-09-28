@@ -25,7 +25,7 @@ from pathlib import Path
 from tests.pipelines import prompt_for
 
 from dossier.application.manifest import Manifest
-from dossier.application.run import execute, replay
+from dossier.application.run import RunInputs, execute, replay
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -66,21 +66,25 @@ class Model:
 def _run(tmp_path: Path, model: Model, *steps: tuple[str, str, list[str]]):
     """`(id, mode, inputs)` steps over `CONTRACTS`, in order; the run's report."""
     return execute(
-        workspace=tmp_path,
-        pipeline=PipelineConfig(
-            name="contract-renewal",
-            sources=["contracts"],
-            model=MODEL,
-            steps=[
-                StepConfig(id=step, prompt=f"prompts/{step}.md", input=inputs, mode=mode)
-                for step, mode, inputs in steps
-            ],
+        RunInputs(
+            pipeline=PipelineConfig(
+                name="contract-renewal",
+                sources=["contracts"],
+                model=MODEL,
+                steps=[
+                    StepConfig(id=step, prompt=f"prompts/{step}.md", input=inputs, mode=mode)
+                    for step, mode, inputs in steps
+                ],
+            ),
+            pipeline_hash="0e52dd18" * 8,
+            schemas={step: SCHEMA for step, _, _ in steps},
+            prompts={step: prompt_for(inputs) for step, _, inputs in steps},
+            documents={
+                key: sha256(text.encode()).hexdigest() for key, text in CONTRACTS.items()
+            },
+            document_text=CONTRACTS,
         ),
-        pipeline_hash="0e52dd18" * 8,
-        documents={key: sha256(text.encode()).hexdigest() for key, text in CONTRACTS.items()},
-        document_text=CONTRACTS,
-        schemas={step: SCHEMA for step, _, _ in steps},
-        prompts={step: prompt_for(inputs) for step, _, inputs in steps},
+        workspace=tmp_path,
         model=model,
         cache=ArtifactCache(tmp_path, namespace="stage"),
         run_id="20260806T142203Z-4f1a",

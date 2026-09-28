@@ -21,7 +21,7 @@ from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
 from dossier.application.manifest import Manifest
-from dossier.application.run import MissingFromReplay, execute, replay
+from dossier.application.run import MissingFromReplay, RunInputs, execute, replay
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -81,18 +81,22 @@ def first_run(workspace: Path, *, documents=None, text=None) -> Manifest:
     config = pipeline()
     held = documents or {"INC-4821": PINNED}
     execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash=PIPELINE_HASH,
+            schemas={"extract": SCHEMA},
+            prompts={"extract": prompt_for(["documents"])},
+            documents=held,
+            media_types=dict.fromkeys(held, "text/markdown"),
+            document_text=text or ORIGINAL_TEXT,
+            converters=[
+                PinnedConverter(
+                    id=c.id, version=c.version, media_type=c.media_type, kind=c.kind
+                )
+                for c in answering(installed_converters(), named=[])
+            ],
+        ),
         workspace=workspace,
-        pipeline=config,
-        pipeline_hash=PIPELINE_HASH,
-        documents=held,
-        media_types=dict.fromkeys(held, "text/markdown"),
-        converters=[
-            PinnedConverter(id=c.id, version=c.version, media_type=c.media_type, kind=c.kind)
-            for c in answering(installed_converters(), named=[])
-        ],
-        document_text=text or ORIGINAL_TEXT,
-        schemas={"extract": SCHEMA},
-        prompts={"extract": prompt_for(["documents"])},
         model=FakeModelClient(responses=[answer("INC-4821")]),
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id="20260806T142203Z-4f1a",
@@ -160,13 +164,15 @@ class TestAReplayReadsWhatItPinned:
         config = pipeline()
         moved_text = {"INC-4821": ORIGINAL_TEXT["INC-4821"] + "\n\nAmended.\n"}
         execute(
+            RunInputs(
+                pipeline=config,
+                pipeline_hash=PIPELINE_HASH,
+                schemas={"extract": SCHEMA},
+                prompts={"extract": prompt_for(["documents"])},
+                documents={"INC-4821": SUPERSEDED},
+                document_text=moved_text,
+            ),
             workspace=tmp_path,
-            pipeline=config,
-            pipeline_hash=PIPELINE_HASH,
-            documents={"INC-4821": SUPERSEDED},
-            document_text=moved_text,
-            schemas={"extract": SCHEMA},
-            prompts={"extract": prompt_for(["documents"])},
             model=FakeModelClient(responses=[answer("INC-4821", value=49000.00)]),
             cache=ArtifactCache(tmp_path, namespace="stage"),
             run_id="20260907T090000Z-bbbb",
@@ -190,13 +196,15 @@ class TestAReplayReadsWhatItPinned:
         moved_text = {"INC-4821": ORIGINAL_TEXT["INC-4821"] + "\n\nAmended.\n"}
         config = pipeline()
         execute(
+            RunInputs(
+                pipeline=config,
+                pipeline_hash=PIPELINE_HASH,
+                schemas={"extract": SCHEMA},
+                prompts={"extract": prompt_for(["documents"])},
+                documents={"INC-4821": SUPERSEDED},
+                document_text=moved_text,
+            ),
             workspace=tmp_path,
-            pipeline=config,
-            pipeline_hash=PIPELINE_HASH,
-            documents={"INC-4821": SUPERSEDED},
-            document_text=moved_text,
-            schemas={"extract": SCHEMA},
-            prompts={"extract": prompt_for(["documents"])},
             model=FakeModelClient(responses=[answer("INC-4821", value=49000.00)]),
             cache=ArtifactCache(tmp_path, namespace="stage"),
             run_id="20260907T090000Z-bbbb",
@@ -247,13 +255,15 @@ class TestAReplayReproducesTheArtifactsByteForByte:
 
         config = pipeline()
         original = execute(
+            RunInputs(
+                pipeline=config,
+                pipeline_hash=PIPELINE_HASH,
+                schemas={"extract": SCHEMA},
+                prompts={"extract": prompt_for(["documents"])},
+                documents={"INC-4821": PINNED},
+                document_text=ORIGINAL_TEXT,
+            ),
             workspace=tmp_path,
-            pipeline=config,
-            pipeline_hash=PIPELINE_HASH,
-            documents={"INC-4821": PINNED},
-            document_text=ORIGINAL_TEXT,
-            schemas={"extract": SCHEMA},
-            prompts={"extract": prompt_for(["documents"])},
             model=FakeModelClient(responses=[answer("INC-4821")]),
             cache=ArtifactCache(tmp_path, namespace="stage"),
             run_id="20260806T142203Z-4f1a",
@@ -292,13 +302,15 @@ class TestAReplayReproducesTheArtifactsByteForByte:
         """
         config = pipeline()
         original = execute(
+            RunInputs(
+                pipeline=config,
+                pipeline_hash=PIPELINE_HASH,
+                schemas={"extract": SCHEMA},
+                prompts={"extract": prompt_for(["documents"])},
+                documents={"INC-4821": PINNED},
+                document_text=ORIGINAL_TEXT,
+            ),
             workspace=tmp_path,
-            pipeline=config,
-            pipeline_hash=PIPELINE_HASH,
-            documents={"INC-4821": PINNED},
-            document_text=ORIGINAL_TEXT,
-            schemas={"extract": SCHEMA},
-            prompts={"extract": prompt_for(["documents"])},
             model=FakeModelClient(responses=[answer("INC-4821")]),
             cache=ArtifactCache(tmp_path, namespace="stage"),
             run_id="20260806T142203Z-4f1a",

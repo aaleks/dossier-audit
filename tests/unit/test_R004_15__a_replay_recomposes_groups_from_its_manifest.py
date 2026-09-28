@@ -22,7 +22,7 @@ from pathlib import Path
 from tests.pipelines import prompt_for
 
 from dossier.application.manifest import Manifest
-from dossier.application.run import execute, replay
+from dossier.application.run import RunInputs, execute, replay
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -63,15 +63,19 @@ def _run(workspace: Path, text: dict[str, str], model: Model, *, run_id: str):
         ],
     )
     return execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash="0e52dd18" * 8,
+            schemas={
+                "extract": OutputSchema(
+                    schema={"type": "object"}, declaration_hash="6e0d4b27" * 8
+                )
+            },
+            prompts={"extract": prompt_for(["documents"])},
+            documents={key: sha256(body.encode()).hexdigest() for key, body in text.items()},
+            document_text=text,
+        ),
         workspace=workspace,
-        pipeline=config,
-        pipeline_hash="0e52dd18" * 8,
-        documents={key: sha256(body.encode()).hexdigest() for key, body in text.items()},
-        document_text=text,
-        schemas={
-            "extract": OutputSchema(schema={"type": "object"}, declaration_hash="6e0d4b27" * 8)
-        },
-        prompts={"extract": prompt_for(["documents"])},
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,

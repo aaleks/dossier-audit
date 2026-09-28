@@ -16,7 +16,7 @@ from tests.fakes import FakeModelClient, NoModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.domain.ports import Reply
@@ -67,13 +67,15 @@ def extract() -> PipelineConfig:
 def run(workspace: Path, model, *, run_id: str = RUN_ID):
     config = extract()
     return execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash=PIPELINE_HASH,
+            schemas={"extract": SCHEMA},
+            prompts={"extract": prompt_for(["documents"])},
+            documents=DOCUMENTS,
+            document_text=STAGE_INPUTS,
+        ),
         workspace=workspace,
-        pipeline=config,
-        pipeline_hash=PIPELINE_HASH,
-        documents=DOCUMENTS,
-        document_text=STAGE_INPUTS,
-        schemas={"extract": SCHEMA},
-        prompts={"extract": prompt_for(["documents"])},
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,

@@ -24,7 +24,7 @@ from tests.pipelines import prompt_for
 
 import dossier.infrastructure.converters.registry as registry
 from dossier.application.manifest import Manifest
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.keys import ConvertInputs, cache_key, provenance
 from dossier.domain.resolution import PinnedConverter
@@ -126,22 +126,26 @@ def run(workspace: Path, converters: list[PinnedConverter]) -> Manifest:
         ],
     )
     execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash="0e52dd18" * 8,
+            schemas={
+                "extract": OutputSchema(
+                    schema={"type": "object"}, declaration_hash="6e0d4b27" * 8
+                )
+            },
+            prompts={"extract": prompt_for(["documents"])},
+            documents={"INC-4821": "a3f9c1e2" * 8},
+            media_types={"INC-4821": "application/pdf"},
+            document_text=STAGE_INPUTS,
+            converters=converters,
+        ),
         workspace=workspace,
-        pipeline=config,
-        pipeline_hash="0e52dd18" * 8,
-        documents={"INC-4821": "a3f9c1e2" * 8},
-        media_types={"INC-4821": "application/pdf"},
-        document_text=STAGE_INPUTS,
-        schemas={
-            "extract": OutputSchema(schema={"type": "object"}, declaration_hash="6e0d4b27" * 8)
-        },
-        prompts={"extract": prompt_for(["documents"])},
         model=FakeModelClient(responses=[answer()]),
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=RUN_ID,
         started_at=datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC),
         dossier_version="0.1.0",
-        converters=converters,
     )
     return Manifest.read(workspace / "runs" / RUN_ID / "manifest.json")
 

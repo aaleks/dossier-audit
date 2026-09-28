@@ -19,7 +19,7 @@ from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
 from dossier.application.extract import run_stage
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -121,25 +121,29 @@ class TestRetryBudget:
         assert result.attempts == 2
 
         execute(
-            workspace=tmp_path,
-            pipeline=PipelineConfig(
-                name="incident-audit",
-                sources=["incidents-manual"],
-                model=model.model_id,
-                steps=[
-                    StepConfig(
-                        id="extract",
-                        prompt="prompts/01_extract.md",
-                        input="documents",
-                        mode="per_file",
-                    )
-                ],
+            RunInputs(
+                pipeline=PipelineConfig(
+                    name="incident-audit",
+                    sources=["incidents-manual"],
+                    model=model.model_id,
+                    steps=[
+                        StepConfig(
+                            id="extract",
+                            prompt="prompts/01_extract.md",
+                            input="documents",
+                            mode="per_file",
+                        )
+                    ],
+                ),
+                pipeline_hash="0e52dd18" * 8,
+                schemas={
+                    "extract": OutputSchema(schema=SCHEMA, declaration_hash="6e0d4b27" * 8)
+                },
+                prompts={"extract": prompt_for(["documents"])},
+                documents={"INC-4821": "a3f9c1e2" * 8},
+                document_text=STAGE_INPUTS,
             ),
-            pipeline_hash="0e52dd18" * 8,
-            documents={"INC-4821": "a3f9c1e2" * 8},
-            document_text=STAGE_INPUTS,
-            schemas={"extract": OutputSchema(schema=SCHEMA, declaration_hash="6e0d4b27" * 8)},
-            prompts={"extract": prompt_for(["documents"])},
+            workspace=tmp_path,
             model=FakeModelClient(responses=[MALFORMED, VALID]),
             cache=ArtifactCache(tmp_path, namespace="stage"),
             run_id="20260806T142203Z-4f1a",

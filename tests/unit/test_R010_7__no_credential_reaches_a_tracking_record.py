@@ -22,7 +22,7 @@ from tests.fakes import FakeTracker
 from tests.pipelines import prompt_for
 from tests.scoring_example import ISSUES
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, RunRecording, execute
 from dossier.config.endpoints import EndpointUnset, endpoint_for
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
@@ -73,22 +73,25 @@ def _openwebui(status: int) -> httpx.MockTransport:
 
 def _execute(workspace: Path, model, tracker: FakeTracker) -> None:
     execute(
+        RunInputs(
+            pipeline=_config(model.model_id),
+            pipeline_hash="6e0d4b27" * 8,
+            schemas={
+                "extract": OutputSchema(
+                    schema={"type": "object"}, declaration_hash="d24c86e1" * 8
+                )
+            },
+            prompts={"extract": prompt_for(["documents"])},
+            documents={DOCUMENT: "a3f9c1e2" * 8},
+            document_text={DOCUMENT: ISSUES[DOCUMENT]},
+        ),
         workspace=workspace,
-        pipeline=_config(model.model_id),
-        pipeline_hash="6e0d4b27" * 8,
-        documents={DOCUMENT: "a3f9c1e2" * 8},
-        document_text={DOCUMENT: ISSUES[DOCUMENT]},
-        schemas={
-            "extract": OutputSchema(schema={"type": "object"}, declaration_hash="d24c86e1" * 8)
-        },
-        prompts={"extract": prompt_for(["documents"])},
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id="20260806T142203Z-4f1a",
         started_at=datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC),
         dossier_version="0.1.0",
-        tracker=tracker,
-        experiment="dossier-audit/incident-audit/run",
+        recording=RunRecording(tracker=tracker, experiment="dossier-audit/incident-audit/run"),
     )
 
 

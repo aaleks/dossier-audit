@@ -20,7 +20,7 @@ from tests.fakes import FakeModelClient, NoModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
-from dossier.application.run import _wrapped, execute
+from dossier.application.run import RunInputs, _wrapped, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.hashing import content_hash
 from dossier.domain.pipeline import PipelineConfig, StepConfig
@@ -83,13 +83,15 @@ def extract_only() -> PipelineConfig:
 def run(workspace: Path, model, *, run_id: str = RUN_ID, config: PipelineConfig | None = None):
     config = config or pipeline()
     return execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash=PIPELINE_HASH,
+            schemas=dict.fromkeys([step.id for step in config.steps], SCHEMA),
+            prompts={step.id: prompt_for(step.inputs) for step in config.steps},
+            documents=DOCUMENTS,
+            document_text=STAGE_INPUTS,
+        ),
         workspace=workspace,
-        pipeline=config,
-        pipeline_hash=PIPELINE_HASH,
-        documents=DOCUMENTS,
-        document_text=STAGE_INPUTS,
-        schemas=dict.fromkeys([step.id for step in config.steps], SCHEMA),
-        prompts={step.id: prompt_for(step.inputs) for step in config.steps},
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,

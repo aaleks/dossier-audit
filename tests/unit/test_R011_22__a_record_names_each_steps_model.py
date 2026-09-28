@@ -23,7 +23,7 @@ from tests.pipelines import prompt_for
 from tests.scoring_example import ISSUES
 
 from dossier.application.eval import start_eval
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, RunRecording, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.domain.resolution import PinnedDocument, ResolvedPlan, ResolvedStep
@@ -121,37 +121,39 @@ class TestTheRunRecordsIt:
         tracker = FakeTracker()
         declared = OutputSchema(schema={"type": "object"}, declaration_hash="d24c86e1" * 8)
         execute(
-            workspace=tmp_path,
-            pipeline=PipelineConfig(
-                name="incident-audit",
-                sources=["incidents-jira"],
-                model=PIPELINE_MODEL,
-                steps=[
-                    StepConfig(
-                        id="extract",
-                        prompt="prompts/extract.md",
-                        input="documents",
-                        mode="per_file",
-                        output="schemas/incident.yaml",
-                        model=EXTRACT_MODEL,
-                    ),
-                    StepConfig(
-                        id="verify",
-                        prompt="prompts/verify.md",
-                        input=["documents", "extract"],
-                        mode="per_file",
-                        output="schemas/incident.yaml",
-                    ),
-                ],
+            RunInputs(
+                pipeline=PipelineConfig(
+                    name="incident-audit",
+                    sources=["incidents-jira"],
+                    model=PIPELINE_MODEL,
+                    steps=[
+                        StepConfig(
+                            id="extract",
+                            prompt="prompts/extract.md",
+                            input="documents",
+                            mode="per_file",
+                            output="schemas/incident.yaml",
+                            model=EXTRACT_MODEL,
+                        ),
+                        StepConfig(
+                            id="verify",
+                            prompt="prompts/verify.md",
+                            input=["documents", "extract"],
+                            mode="per_file",
+                            output="schemas/incident.yaml",
+                        ),
+                    ],
+                ),
+                pipeline_hash="6e0d4b27" * 8,
+                schemas={"extract": declared, "verify": declared},
+                prompts={
+                    "extract": prompt_for(["documents"]),
+                    "verify": prompt_for(["documents", "extract"]),
+                },
+                documents={"INC-4821": "a3f9c1e2" * 8},
+                document_text={"INC-4821": ISSUES["INC-4821"]},
             ),
-            pipeline_hash="6e0d4b27" * 8,
-            documents={"INC-4821": "a3f9c1e2" * 8},
-            document_text={"INC-4821": ISSUES["INC-4821"]},
-            schemas={"extract": declared, "verify": declared},
-            prompts={
-                "extract": prompt_for(["documents"]),
-                "verify": prompt_for(["documents", "extract"]),
-            },
+            workspace=tmp_path,
             model=FakeModelClient(responses=[_abstains("INC-4821")], model_id=PIPELINE_MODEL),
             models={
                 EXTRACT_MODEL: FakeModelClient(
@@ -162,8 +164,9 @@ class TestTheRunRecordsIt:
             run_id="20260806T142203Z-4f1a",
             started_at=datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC),
             dossier_version="0.1.0",
-            tracker=tracker,
-            experiment="dossier-audit/incident-audit/run",
+            recording=RunRecording(
+                tracker=tracker, experiment="dossier-audit/incident-audit/run"
+            ),
         )
 
         (run,) = tracker.runs
