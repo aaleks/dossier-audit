@@ -1307,7 +1307,7 @@ gold answer in the wrong shape is a definition of correct nobody can meet.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring`), application (`dossier.application.eval`)
 - **Proved by:** `tests/unit/test_R007_44__a_list_in_gold_is_an_array.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

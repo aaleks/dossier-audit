@@ -13,6 +13,7 @@ from dossier.application.eval import (
     Judging,
     deltas_artifact,
     finish_eval,
+    gold_refusals,
     judge_prompt_hash,
     judge_scores,
     load_calibration,
@@ -189,6 +190,15 @@ def eval_(
         raise typer.Exit(code=2)
     step = declaring[0]
     kinds = load_fields(path.parent / step.output)
+
+    # Before anything reads the gold set to score: an answer in a shape no run
+    # can meet is the gold set's fault, and scoring against it would blame the
+    # run. Here, so a comparison is refused as an eval is (R7.44).
+    refused = gold_refusals(load_gold(workspace / gold), kinds)
+    if refused:
+        for line in refused:
+            typer.echo(f"{pipeline}: {line}", err=True)
+        raise typer.Exit(code=2)
 
     if compare[0] is not None:
         _compare_runs(

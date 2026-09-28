@@ -46,6 +46,7 @@ from dossier.domain.scoring import (
     FieldTotal,
     GoldField,
     Verdict,
+    gold_shape_errors,
     overall,
     regressed_fields,
     score_document,
@@ -104,6 +105,20 @@ def score_run(
             )
         )
     return tuple(scores)
+
+
+def gold_refusals(
+    gold: Mapping[str, GoldDocument], kinds: Mapping[str, FieldKind]
+) -> tuple[str, ...]:
+    """Every gold answer across the set whose shape no run could meet (R7.44).
+
+    In document order, so two evals of one gold set refuse it identically.
+    """
+    return tuple(
+        error
+        for document in sorted(gold)
+        for error in gold_shape_errors(document, _gold_fields(gold[document]), kinds)
+    )
 
 
 def record_eval(
