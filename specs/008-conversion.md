@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.32
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.33
 
 ## Purpose
 
@@ -315,6 +315,23 @@ a machine has, and R8.1 forbids that. A declaration is not a guess. A file in
 another encoding that declares none fails, naming UTF-8, as a text file does
 (R8.6).
 
+**A web page** is the same file, served by a site (spec 001's `web` source).
+Every page of a site also carries the site: a header with its name and a search
+box, menus, a sidebar, a footer. Written into the note, they come out the same
+on every page. On `docs.astral.sh/uv` in 2026-09 they were about half of the
+median note (spec 001 question 6). So a page that says where its content is gets
+read as that content (R8.33).
+
+HTML's `<main>` element holds "the dominant contents of the document", and
+`role="main"` is the ARIA way of saying the same. A page that declares exactly
+one is written as that element. Every `<nav>` inside it is taken out too, because
+documentation themes put their menus and a page's table of contents inside
+`<main>`; MkDocs Material does. Nothing is chosen by class name, id or amount of
+text, which is how R8.21 row 1 keeps a breadcrumb. A page that declares no
+`<main>` is read whole, as R8.21 reads it. So is a page that declares two, since
+picking one of them would be a guess. An exported file rarely declares one
+(`PLAY-4001` does not), so it is written as before.
+
 **CSV** is written as the text it is (R8.23). A markdown table was the obvious
 alternative and was rejected. A table rewrites every row: `a,b` becomes
 `| a | b |`, and a cell holding `|` needs an escape. A model quotes what it is
@@ -330,9 +347,12 @@ model reading its text.
 | [`trafilatura`](https://github.com/adbar/trafilatura) | Apache-2.0, active | The main content of a web page, without navigation and advertising | It decides what is boilerplate by heuristic. An export is a document, not a web page, and a heuristic that drops a paragraph drops evidence without a word. A new release would change what counts as boilerplate under an unchanged key |
 | `html2text` | GPL-3.0 | HTML to markdown | Its licence would reach everyone who installs `dossier`, as PyMuPDF's AGPL would have (the `pdf` extra) |
 | [`tabulate`](https://github.com/astanin/python-tabulate) or [`pytablewriter`](https://github.com/thombashi/pytablewriter), for CSV | MIT, both maintained | A CSV as a markdown table | See **CSV** above. What is missing is the reason to rewrite the file at all |
+| [crawl4ai](https://github.com/unclecode/crawl4ai) 0.9.4's `PruningContentFilter`, for a web page | Apache-2.0, read from its source on PyPI, 2026-09-28 | A page without its boilerplate | It scores every block on text density, link density, tag, and class and id names, then drops anything scoring under `0.48`. That is a heuristic, and a short paragraph that is mostly a link can fall under the line. Importing any part of crawl4ai also imports its browser and HTTP clients, and a converter sits right of the hash boundary (R0.10) |
+| The page's own `<main>`, for a web page | The HTML Standard | Where the page's author says its content is | A page that declares none. It is read whole |
 
-**Chosen:** `markdownify` for HTML, through the reader R8.20 already pins. No
-library for CSV: its text is its note.
+**Chosen:** `markdownify` for HTML, through the reader R8.20 already pins, over
+the page's `<main>` when it declares one (R8.33). No library for CSV: its text is
+its note.
 
 ## Must hold
 
@@ -680,6 +700,29 @@ Python reads it.
 | 7 | *counter-example* — `<meta charset="utf-16">`, and no byte-order mark | read as UTF-8, as a browser reads it |
 | 8 | `<?xml version="1.0" encoding="windows-1252"?>` at the start of the page, and `é` written as the byte `0xE9` | the note has `é` |
 
+### R8.33 — `html-markdown` writes a page that declares one `<main>` as that element, without the `<nav>` in it
+
+`<main>`, or any element with `role="main"`, is where the page's author says
+its content is. What nobody sees is taken out first (R8.21). If the page then
+declares exactly one, the note is that element, minus every `<nav>` and every
+`role="navigation"` inside it. A page that declares none, or more than one, is
+read whole, as R8.21 reads it. No element is chosen by its class, its id or how
+much text it holds.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.converters.html_markdown`)
+- **Proved by:** `tests/unit/test_R008_33__a_page_that_declares_its_main_is_written_as_it.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `escalation`, as `vendor-docs` serves it | `# Escalation` and its text. Not `Vendor Docs`, the search box, the menu of the site's sections, the menu of its ops pages, or `© 2026 Vendor` |
+| 2 | the same page with `<div role="main">` in place of `<main>` | the same note |
+| 3 | a `<main>` whose `<article>` opens with a `<header>` holding `<h1>Escalation</h1>` | `# Escalation` is in the note. Only `<nav>` is taken from inside `<main>`, and a header there belongs to the article |
+| 4 | *counter-example* — `PLAY-4001-payment-retries.html`, which declares no `<main>` | read whole: its breadcrumb is in the note, as R8.21 row 1 says |
+| 5 | *counter-example* — a page with two `<main>` elements | read whole: choosing one of the two would be a guess |
+| 6 | *counter-example* — a `<main>` inside a `<template>`, beside the page's text | read whole. A template is taken out first (R8.21), and a `<main>` no reader sees declares nothing |
+
 ## Open questions
 
 | # | Question | Resolution |
@@ -892,7 +935,8 @@ converting it (R8.1).
 
 The page's `<body>`, written as R8.20 writes a Confluence page's body. The
 whole `<head>` is taken out, and so are `<style>`, `<script>` and `<template>`
-wherever they are.
+wherever they are. A page that declares one `<main>` is written as that element
+instead (R8.33).
 
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.html_markdown`)

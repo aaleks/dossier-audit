@@ -168,6 +168,15 @@ for documentation, so no example here names a real site.
 Its pace, where a rule needs one (R1.36): `delay: 2` on the source, and
 `Crawl-delay: 5` in `robots.txt` under `User-agent: *`.
 
+`escalation`, as the site serves it, where a rule needs a whole page (R8.33):
+
+- a `<header>` holding the site's name, `Vendor Docs`, and a search box;
+- a `<nav>` of the site's sections: `Ops`, `Blog`;
+- a `<main>` holding a `<nav>` of the ops pages (`Escalation`, `DNS failover`)
+  and an `<article>`: `<h1>Escalation</h1>`, then `Page the incident commander,
+  m.keller, before a Sev 2 is fifteen minutes old.`;
+- a `<footer>`: `© 2026 Vendor`.
+
 ## Gold set
 
 A workspace asset, resolved where `dossier` runs rather than against a pipeline's
