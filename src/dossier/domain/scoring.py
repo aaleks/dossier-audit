@@ -138,10 +138,36 @@ class FieldScore:
     # Whether a judge decided this verdict (R7.17). Carried so a field's total
     # can say how many of its verdicts were judged rather than implying it.
     judged: bool = False
+    # A list's items beside its verdict (R7.43); `None` for every other kind.
+    items: ItemCounts | None = None
 
     @property
     def correct(self) -> bool:
         return self.verdict is Verdict.CORRECT
+
+
+@dataclass(frozen=True)
+class ItemCounts:
+    """What a list's items say beside its one verdict (R7.43).
+
+    `matched` of the `named` items are in gold, out of the `expected` gold holds.
+    An item whose record failed its check counts as named and never as matched,
+    as an ungrounded value is never right (R7.4).
+    """
+
+    matched: int
+    named: int
+    expected: int
+
+    @property
+    def precision(self) -> float | None:
+        """Of the items the run named, the share gold names; `None` when it named none."""
+        return 100.0 * self.matched / self.named if self.named else None
+
+    @property
+    def recall(self) -> float | None:
+        """Of gold's items, the share the run named; `None` when gold holds none."""
+        return 100.0 * self.matched / self.expected if self.expected else None
 
 
 @dataclass(frozen=True)
@@ -281,46 +307,66 @@ def score_list(
     A record with no value is an abstention, so a list whose every record
     abstains abstained, and is decided as any field is (R7.3).
     """
+    paired = list(zip(records, checks, strict=True))
+    named = [record.value for record in records if record.value is not None]
+    run = _items(named)
+    # A scalar is one item rather than its characters. R7.44 refuses a list
+    # written as one string before scoring; this only keeps a string from being
+    # read letter by letter should one arrive.
+    if gold.value is None:
+        expected: dict[str, str] = {}
+    else:
+        expected = _items(gold.value if isinstance(gold.value, list) else [gold.value])
+    # Counted before any verdict, since every verdict carries them (R7.43). Only
+    # an item whose evidence held can match: an ungrounded one is named, and is
+    # never right (R7.4).
+    shown = _items(
+        [
+            record.value
+            for record, check in paired
+            if record.value is not None and not check.is_failure
+        ]
+    )
+    counts = ItemCounts(
+        matched=len(set(shown) & set(expected)), named=len(run), expected=len(expected)
+    )
+
+    def verdict(outcome: Verdict, detail: str | None = None) -> FieldScore:
+        return FieldScore(field, outcome, detail, items=counts)
+
     # Before any comparison, as for any field (R7.4): each item carries its own
     # evidence, and one the document does not show fails the list however well
     # the others are grounded (R7.42). An abstaining record is not a failure
     # (R6.5); beside items it adds nothing, and the list is its items.
     ungrounded = [
         str(record.value)
-        for record, check in zip(records, checks, strict=True)
+        for record, check in paired
         if check.verdict is FieldVerdict.UNGROUNDED
     ]
     if ungrounded:
-        return FieldScore(field, Verdict.INCORRECT, f"ungrounded: {', '.join(ungrounded)}")
+        return verdict(Verdict.INCORRECT, f"ungrounded: {', '.join(ungrounded)}")
     invalid = [
         check.detail or "invalid record"
         for check in checks
         if check.verdict is FieldVerdict.INVALID
     ]
     if invalid:
-        return FieldScore(field, Verdict.INCORRECT, "; ".join(invalid))
+        return verdict(Verdict.INCORRECT, "; ".join(invalid))
 
-    named = [record.value for record in records if record.value is not None]
     if not named and gold.value is None:
-        return FieldScore(field, Verdict.CORRECT, "abstained, and gold abstains")
+        return verdict(Verdict.CORRECT, "abstained, and gold abstains")
     if not named:
-        return FieldScore(field, Verdict.INCORRECT, f"abstained; gold states {gold.value!r}")
+        return verdict(Verdict.INCORRECT, f"abstained; gold states {gold.value!r}")
     if gold.value is None:
-        return FieldScore(
-            field,
+        return verdict(
             Verdict.INCORRECT,
             f"answered {named!r}; gold abstains, so the correct answer was to abstain too",
         )
 
-    run = _items(named)
-    # A scalar is one item rather than its characters. R7.44 refuses a list
-    # written as one string before scoring; this only keeps a string from being
-    # read letter by letter should one arrive.
-    expected = _items(gold.value if isinstance(gold.value, list) else [gold.value])
     missing = sorted(spelled for item, spelled in expected.items() if item not in run)
     extra = sorted(spelled for item, spelled in run.items() if item not in expected)
     if not missing and not extra:
-        return FieldScore(field, Verdict.CORRECT)
+        return verdict(Verdict.CORRECT)
     # Both named, and apart: a system the run missed and one it invented are
     # different mistakes, and R7.25 prints this line to tell them apart.
     detail = "; ".join(
@@ -331,7 +377,7 @@ def score_list(
         )
         if part
     )
-    return FieldScore(field, Verdict.INCORRECT, detail)
+    return verdict(Verdict.INCORRECT, detail)
 
 
 def _items(values: Sequence[object]) -> dict[str, str]:
@@ -441,10 +487,30 @@ class FieldTotal:
     scored: int
     # How many of `scored` a judge decided (R7.17): printed, never implied.
     judged: int = 0
+    # A list's items across the documents (R7.43): reported, and read by no
+    # gate. `--compare` decides a regression on `correct` and `scored` alone.
+    items: ItemCounts | None = None
 
     @property
     def percentage(self) -> float:
         return 100.0 * self.correct / self.scored
+
+
+def describe_items(total: FieldTotal) -> str:
+    """A list's items as its report line gives them, or `""` for any other field (R7.43).
+
+    A figure with no items under it is `--` rather than `0.0%`: a run that named
+    nothing named nothing wrong, and gold holding nothing leaves nothing to miss.
+    """
+    if total.items is None:
+        return ""
+    precision = _share("precision", total.items.matched, total.items.named)
+    recall = _share("recall", total.items.matched, total.items.expected)
+    return f"items: {precision}, {recall}"
+
+
+def _share(name: str, part: int, whole: int) -> str:
+    return f"{name} {100.0 * part / whole:.1f}% ({part}/{whole})" if whole else f"{name} --"
 
 
 def per_field(
@@ -464,12 +530,22 @@ def per_field(
     for field in declared:
         results = [r for score in scores for r in score.scored if r.field == field]
         if results:
+            # Summed rather than averaged per document, so a document naming
+            # four systems weighs four items (R7.43).
+            counted = [r.items for r in results if r.items is not None]
             totals.append(
                 FieldTotal(
                     field=field,
                     correct=sum(1 for r in results if r.correct),
                     scored=len(results),
                     judged=sum(1 for r in results if r.judged),
+                    items=ItemCounts(
+                        matched=sum(c.matched for c in counted),
+                        named=sum(c.named for c in counted),
+                        expected=sum(c.expected for c in counted),
+                    )
+                    if counted
+                    else None,
                 )
             )
     return tuple(totals)

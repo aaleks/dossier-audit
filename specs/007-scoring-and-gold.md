@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.45
 
 ## Purpose
@@ -1290,7 +1290,7 @@ figure and never a second way of arriving at one (spec 011).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring`), application (`dossier.application.eval`), cli (`dossier.cli.eval`)
 - **Proved by:** `tests/unit/test_R007_43__a_list_reports_item_precision_and_recall.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -1326,7 +1326,7 @@ miss named with what was missing and what was not in gold (R7.25).
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R007_45__eval_scores_a_list_field.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
