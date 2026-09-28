@@ -1415,7 +1415,7 @@ as the part it came from (R8.11).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring.score_document`), application (`dossier.application.eval.score_run`)
 - **Proved by:** `tests/unit/test_R007_48__every_page_that_answers_must_be_correct.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

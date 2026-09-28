@@ -433,6 +433,7 @@ def score_document(
     checks: Sequence[FieldCheck],
     gold: Mapping[str, GoldField],
     kinds: Mapping[str, FieldKind],
+    parts: Sequence[str] = (),
 ) -> DocumentScore:
     """Score every field of one document that gold has an answer for.
 
@@ -444,14 +445,18 @@ def score_document(
     records answered it: a list's items (R7.41), and a `per_part` step's pages
     (R7.46).
 
+    `parts` names the part each record came from, paired with `records`, for a
+    `per_part` step; empty for every other step. A field is correct only when
+    every page that gave it a value is, and a miss names the page (R7.48).
+
     Fields in the output that gold says nothing about are reported separately
     rather than scored or silently dropped -- a growing `not_in_gold` is how a
     gold set falls behind a pipeline, and it should be visible.
     """
-    paired = list(zip(records, checks, strict=True))
+    named = list(zip(records, checks, parts or [None] * len(records), strict=True))
     results: list[FieldScore] = []
     scored: set[str] = set()
-    for record, check in paired:
+    for record in records:
         if record.field not in gold or record.field in scored:
             continue
         # One verdict per field per document, however many records answered it.
@@ -462,10 +467,14 @@ def score_document(
         kind = kinds[record.field]
         if kind is not FieldKind.LIST:
             results.append(
-                score_field(record=record, gold=gold[record.field], check=check, kind=kind)
+                _score_pages(
+                    [page for page in named if page[0].field == record.field],
+                    gold=gold[record.field],
+                    kind=kind,
+                )
             )
         else:
-            items = [(item, of) for item, of in paired if item.field == record.field]
+            items = [(item, of) for item, of, _ in named if item.field == record.field]
             results.append(
                 score_list(
                     field=record.field,
@@ -481,6 +490,40 @@ def score_document(
             sorted({record.field for record in records if record.field not in gold})
         ),
     )
+
+
+def _score_pages(
+    pages: Sequence[tuple[FieldRecord, FieldCheck, str | None]],
+    *,
+    gold: GoldField,
+    kind: FieldKind,
+) -> FieldScore:
+    """One verdict from every record that answered a field, each `(record, check, part)`.
+
+    Each page that gave a value is scored as a `per_file` record is, and held to
+    gold rather than to the other pages: `critical` and `Critical` agree because
+    each matches gold. One page wrong makes the field wrong, because a run that
+    gives two answers to one question has not given the right one -- R6.24's
+    reason for refusing a reply that does it, and R7.42's for failing a list with
+    one wrong item (R7.48).
+    """
+    answering = [page for page in pages if page[0].value is not None] or list(pages[:1])
+    scores = [
+        (part, score_field(record=record, gold=gold, check=check, kind=kind))
+        for record, check, part in answering
+    ]
+    wrong = [(part, score) for part, score in scores if score.verdict is Verdict.INCORRECT]
+    if wrong:
+        return FieldScore(
+            scores[0][1].field,
+            Verdict.INCORRECT,
+            "; ".join(
+                score.detail if part is None else f"{part}: {score.detail}"
+                for part, score in wrong
+            ),
+        )
+    # Every page is right, or some are still the judge's to decide.
+    return next((score for _, score in scores if not score.correct), scores[0][1])
 
 
 @dataclass(frozen=True)
