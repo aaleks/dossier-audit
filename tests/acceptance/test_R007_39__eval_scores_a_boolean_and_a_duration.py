@@ -20,8 +20,6 @@ from tests.fakes import register_connector
 from tests.pipelines import write_pipeline
 from tests.scoring_example import IssueTracker, RoutedModel, found
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "contract-renewal"
 SOURCE_ID = "contracts-signed"
 SOURCE_TYPE = "contract-register"

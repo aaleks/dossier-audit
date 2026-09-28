@@ -128,6 +128,15 @@ spec 007 at all.
 *Suggested resolution:* an explicit scorer annotation per field in the schema
 model. Small, and it belongs to spec 007 rather than 006.
 
+*Resolved by R7.36 – R7.39,* and with one correction to the finding. A field's
+`kind` in its YAML declaration already was the scorer annotation (R6.10); what
+was missing was the kinds. `auto_renew: {kind: boolean}` is scored by its truth
+value, and `notice_period: {kind: duration}` by its length. But 90 days and
+"3 months" are **not** the same answer: a month is 28 to 31 days, so three
+months' notice and ninety days' notice are different notice, and R7.38 scores
+the pair incorrect and says why. A count such as `contract_value: 90` is an
+`amount` with no currency.
+
 ## Finding 3 — "an analyst, no developer needed" is not yet true
 
 Adding this use case needs a `schemas/contract.json` written as a pydantic model
