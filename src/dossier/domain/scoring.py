@@ -62,6 +62,11 @@ _LITTLE_ENDIAN = re.compile(r"^(\d{2})[./](\d{2})[./](\d{4})$")
 _SPELLED = re.compile(r"^(\d+)\s+(day|week|month|year)s?$")
 _ISO_DURATION = re.compile(r"^p(\d+)([dwmy])$")
 _ISO_UNITS = {"d": "day", "w": "week", "m": "month", "y": "year"}
+# Where a length converts exactly (R7.38): a week is seven days and a year is
+# twelve months. Nothing converts between the two families. A month is 28 to 31
+# days and a year 365 or 366, so three months' notice and ninety days' notice
+# are different notice, and equating them would be right only by convention.
+_LENGTH = {"day": (1, "day"), "week": (7, "day"), "month": (1, "month"), "year": (12, "month")}
 
 
 class FieldKind(Enum):
@@ -249,7 +254,10 @@ def score_field(
     if comparison:
         return FieldScore(record.field, Verdict.CORRECT)
     return FieldScore(
-        record.field, Verdict.INCORRECT, f"{record.value!r} does not match {gold.value!r}"
+        record.field,
+        Verdict.INCORRECT,
+        f"{record.value!r} does not match {gold.value!r}"
+        + _across_calendar(kind, record.value, gold.value),
     )
 
 
@@ -521,7 +529,7 @@ def _compare(kind: FieldKind, produced: object, expected: object) -> bool | None
     if kind is FieldKind.BOOLEAN:
         return _both(_as_boolean(produced), _as_boolean(expected))
     if kind is FieldKind.DURATION:
-        return _both(_as_duration(produced), _as_duration(expected))
+        return _both(_as_length(produced), _as_length(expected))
     # REFERENCE and ENUM are both closed vocabularies compared as text. Which
     # case a model echoed a value back in is not information (R7.1).
     return _folded(produced) == _folded(expected)
@@ -580,6 +588,32 @@ def _as_boolean(value: object) -> bool | None:
     if isinstance(value, str):
         return {"true": True, "false": False}.get(value.strip().casefold())
     return None
+
+
+def _as_length(value: object) -> tuple[int, str] | None:
+    """A duration as a number of days, or of months, whichever its unit is (R7.38)."""
+    duration = _as_duration(value)
+    if duration is None:
+        return None
+    count, unit = duration
+    factor, base = _LENGTH[unit]
+    return count * factor, base
+
+
+def _across_calendar(kind: FieldKind, produced: object, expected: object) -> str:
+    """Why two durations were not compared as lengths, or `""` if they were (R7.38).
+
+    "does not match" alone would send a reviewer to check a number that was
+    never the problem. When one side counts days and the other months, the
+    reason is the unit, and the detail names it.
+    """
+    if kind is not FieldKind.DURATION:
+        return ""
+    sides = [_as_duration(produced), _as_duration(expected)]
+    if None in sides or len({_LENGTH[unit][1] for _, unit in sides}) == 1:
+        return ""
+    unit = next(unit for _, unit in sides if _LENGTH[unit][1] == "month")
+    return f": a {unit} is not a fixed number of days, so the two are not compared as lengths"
 
 
 def _as_duration(value: object) -> tuple[int, str] | None:

@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.39
 
 ## Purpose
@@ -1164,7 +1164,7 @@ detail says so.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring.score_field`)
 - **Proved by:** `tests/unit/test_R007_38__durations_are_compared_by_length.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -1182,7 +1182,7 @@ own percentages (R7.2), and a miss named with the reason R7.38 gave (R7.25).
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R007_39__eval_scores_a_boolean_and_a_duration.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -13,6 +13,26 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A field may be declared `kind: boolean` or `kind: duration` (R7.36 – R7.39),
+which is what the contract audit's `auto_renew` and `notice_period` needed
+(`docs/second-use-case.md`, finding 2). A boolean is `true` or `false`, or
+those two words quoted, and nothing else: `1` and `yes` are reported
+unreadable, and `false` is an answer where `null` is the abstention. A duration
+is a whole number of days, weeks, months or years, or ISO 8601 with one
+component, and a bare `90` is refused as `07/08/2026` is. Lengths convert only
+where the conversion is exact -- a week to seven days, a year to twelve months
+-- so `3 months` against a gold `90 days` is incorrect, with a detail that says
+a month is not a fixed number of days. The finding had assumed the two were one
+answer; the maintainer decided they are not. There is no `number` kind, since
+an `amount` with no currency is a count. A kind is not in the schema the model
+is shown, so declaring one moves no key. Earlier the same day, `cli/main.py`
+(2,485 lines) became one module per command plus a `bootstrap` holding the
+builders tests replace, and `execute()`'s 30 keyword arguments became
+`RunInputs` (what can change an output, R0.5), `RunRecording` (what may not,
+R10.4) and nine arguments of its own.
+
+---
+
 A source whose listing fails no longer stops `dossier sync` (R2.27). Before,
 the failure left the command as a traceback, and the sources after it were never
 synced. The web connector's crawl, which fails a listing on purpose rather than
