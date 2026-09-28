@@ -240,7 +240,7 @@ fields:
   root_cause:      {kind: free_text, judge: rubrics/root_cause.md}
 ```
 
-Five kinds, and the kind is what picks the scorer (spec 007):
+Seven kinds, and the kind is what picks the scorer (spec 007):
 
 | `kind` | Compared by | Needs a model |
 |---|---|---|
@@ -248,7 +248,18 @@ Five kinds, and the kind is what picks the scorer (spec 007):
 | `date` | the date, in unambiguous forms only | no |
 | `enum` | membership in `values`, case folded | no |
 | `reference` | text, case folded | no |
+| `boolean` | the truth value (R7.36) | no |
+| `duration` | the length, in days and weeks or in months and years, never across (R7.37, R7.38) | no |
 | `free_text` | a judge against the named rubric | yes |
+
+A count is an `amount` with no `currency`. There is no `number` kind: it would
+compare exactly as `amount` does, and a second name for one scorer is a second
+thing to read (R7.39 row 3).
+
+A kind is not shown to the model. The generated JSON Schema limits `field` to the
+declared names and nothing more, so declaring a `boolean` or a `duration` changes
+no key that a declaration without one has (R6.12). The prompt says what each
+field holds.
 
 Two things are generated from that one file and never written by hand: the JSON
 Schema shown to the model, and the field list a scorer works from. That is what
