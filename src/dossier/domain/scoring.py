@@ -281,6 +281,25 @@ def score_list(
     A record with no value is an abstention, so a list whose every record
     abstains abstained, and is decided as any field is (R7.3).
     """
+    # Before any comparison, as for any field (R7.4): each item carries its own
+    # evidence, and one the document does not show fails the list however well
+    # the others are grounded (R7.42). An abstaining record is not a failure
+    # (R6.5); beside items it adds nothing, and the list is its items.
+    ungrounded = [
+        str(record.value)
+        for record, check in zip(records, checks, strict=True)
+        if check.verdict is FieldVerdict.UNGROUNDED
+    ]
+    if ungrounded:
+        return FieldScore(field, Verdict.INCORRECT, f"ungrounded: {', '.join(ungrounded)}")
+    invalid = [
+        check.detail or "invalid record"
+        for check in checks
+        if check.verdict is FieldVerdict.INVALID
+    ]
+    if invalid:
+        return FieldScore(field, Verdict.INCORRECT, "; ".join(invalid))
+
     named = [record.value for record in records if record.value is not None]
     if not named and gold.value is None:
         return FieldScore(field, Verdict.CORRECT, "abstained, and gold abstains")
