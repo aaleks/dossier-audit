@@ -55,6 +55,14 @@ _CURRENCY_SUFFIX = re.compile(r"\s*([A-Z]{3})$")
 _ISO = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 _LITTLE_ENDIAN = re.compile(r"^(\d{2})[./](\d{2})[./](\d{4})$")
 
+# `90 days`, `1 Year`, and ISO 8601's `P90D`: one whole number and one of four
+# units (R7.37). Nothing else is a duration. A bare `90` names no unit, and is
+# refused as `07/08/2026` is; `90 business days` is a count on a calendar, not a
+# length; `P1Y6M` has two units where `18 months` has one.
+_SPELLED = re.compile(r"^(\d+)\s+(day|week|month|year)s?$")
+_ISO_DURATION = re.compile(r"^p(\d+)([dwmy])$")
+_ISO_UNITS = {"d": "day", "w": "week", "m": "month", "y": "year"}
+
 
 class FieldKind(Enum):
     """What kind of answer a field holds, which is what picks its scorer.
@@ -75,6 +83,7 @@ class FieldKind(Enum):
     REFERENCE = "reference"
     ENUM = "enum"
     BOOLEAN = "boolean"
+    DURATION = "duration"
     FREE_TEXT = "free_text"
 
     @property
@@ -511,6 +520,8 @@ def _compare(kind: FieldKind, produced: object, expected: object) -> bool | None
         return _both(_as_date(produced), _as_date(expected))
     if kind is FieldKind.BOOLEAN:
         return _both(_as_boolean(produced), _as_boolean(expected))
+    if kind is FieldKind.DURATION:
+        return _both(_as_duration(produced), _as_duration(expected))
     # REFERENCE and ENUM are both closed vocabularies compared as text. Which
     # case a model echoed a value back in is not information (R7.1).
     return _folded(produced) == _folded(expected)
@@ -568,6 +579,20 @@ def _as_boolean(value: object) -> bool | None:
         return value
     if isinstance(value, str):
         return {"true": True, "false": False}.get(value.strip().casefold())
+    return None
+
+
+def _as_duration(value: object) -> tuple[int, str] | None:
+    """A value as a number of one unit, or `None` if it is not a duration (R7.37)."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip().casefold()
+    spelled = _SPELLED.match(text)
+    if spelled:
+        return int(spelled.group(1)), spelled.group(2)
+    iso = _ISO_DURATION.match(text)
+    if iso:
+        return int(iso.group(1)), _ISO_UNITS[iso.group(2)]
     return None
 
 

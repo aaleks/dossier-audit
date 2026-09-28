@@ -1143,7 +1143,7 @@ well-formed duration rather than as a mismatch.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring.score_field`)
 - **Proved by:** `tests/unit/test_R007_37__a_duration_names_its_unit.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
