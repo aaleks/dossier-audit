@@ -148,7 +148,7 @@ is ours:
 | comments, with `comments: true` (R1.23) | `81920501` by `m.keller`, created `2026-08-05T17:10:00.000Z`, at version 2; `81920502`, `a.aleks`'s reply to it, at version 1 |
 | included (R1.26) | `Escalation contacts`, id `81920130`, version 2, in `OPS`; it includes `On-call rota`, id `81920131` |
 
-## A website (R1.29 – R1.39)
+## A website (R1.29 – R1.43)
 
 A documentation site, the case the `web` connector was written against.
 
@@ -186,6 +186,21 @@ the page that holds it:
 | `escalation` | `./` (to `index`), `drafts/escalation-v2`, `/blog/release-notes` |
 | `runbooks/dns-failover.html` | `../escalation` |
 | `escalation-matrix.pdf` | none: it is not HTML |
+
+`escalation` as a page built in the browser, where a rule needs one (R1.40 –
+R1.43). The server sends a shell:
+
+```html
+<main><div id="app" data-fetch="/api/escalation"></div>
+<img src="/img/escalation-diagram.png" alt="Escalation diagram"></main>
+<script src="/assets/app.js"></script>
+```
+
+`/assets/app.js` asks for the address in `data-fetch` and writes the answer
+into the `div`. `/api/escalation` answers `<h1>Escalation</h1><p>Page the
+incident commander, m.keller, before a Sev 2 is fifteen minutes old.</p>`.
+`index`, built the same way, is answered by `/api/index` with its links as the
+table above gives them.
 
 ## Gold set
 
