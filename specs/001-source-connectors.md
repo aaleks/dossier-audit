@@ -314,9 +314,14 @@ says nothing about how long to wait -- `djangoproject.com` sent no
 either wastes a sync or sends the refused requests again. The failure names
 `delay:`, which is the remedy a person can apply.
 
-**Not yet.** No credential: every request is anonymous (question 8). A page is
-held with its navigation, header and footer, which `html-markdown` keeps; taking
-them out is a converter's decision, not a connector's (question 6).
+**Navigation.** A page is held as the site sent it, navigation, header and
+footer included. `html-markdown` writes a page that declares one `<main>` as
+that element, without the `<nav>` in it (R8.33), and so they are not in the note.
+Leaving them out is a converter's decision, not a connector's: a snapshot is
+what the site sent (R1.2), and deciding what is content is a key a converter's
+version can move (R5.4).
+
+**Not yet.** No credential: every request is anonymous (question 8).
 
 **Existing options considered**, before writing the connector (PyPI, 2026-09-27):
 
@@ -1091,7 +1096,7 @@ back to back.
 | 3 | A page that includes another page's text (`include`, `excerpt-include`) renders it without its own version moving, so a change to the included page is not fetched | RESOLVED by R1.26 and R1.27 — it is fetched: the including page's marker moves with what it includes. Decided 2026-09-27, and read against a Data Center 9.2.21 in Docker |
 | 4 | Does CQL `lastmodified` move when a file is uploaded again to a page whose version does not? If not, a windowed listing leaves the page out, and R1.18 row 2 holds only under a complete listing (R2.22, R2.24) | RESOLVED by R1.22 — it does not. A local Data Center 9.2.21 in Docker, 2026-09-27: neither a file added nor a file uploaded again moved the page's `lastmodified`, and neither did a file removed |
 | 5 | Does a file or a comment on a Jira issue move its `updated`, as R1.6 row 1 needs under a windowed listing? | RESOLVED — it does. A Jira Software Data Center 10.3 in Docker, 2026-09-27: a file added, a file replaced, a file removed, a comment added and a comment edited each moved `INC-3`'s `updated`, and a windowed JQL search found it after each. Nothing needed changing |
-| 6 | Should a web page's navigation, header and footer be taken out of its note? `html-markdown` keeps them, and every page of a site repeats them | OPEN — a converter option (a CSS selector such as `main`) belongs in spec 008, as the next slice. Needs a site whose chrome a stage has been seen to read |
+| 6 | Should a web page's navigation, header and footer be taken out of its note? `html-markdown` keeps them, and every page of a site repeats them | RESOLVED by R8.33 — yes, by the page's own declaration: a page with one `<main>` is written as that element, without its `<nav>`. No selector to configure. Decided 2026-09-28. The note of `docs.astral.sh/uv/getting-started/installation/` went from 12,446 characters to 6,480, and `www.djangoproject.com/foundation/`'s from 17,815 to 7,800, with the article text whole in both |
 | 7 | A website with no sitemap | OPEN — a crawl from `url`, following links within it, is the answer that exists. It downloads every page to list them, and needs a page cap. Needs a site a workspace reads that has no sitemap |
 | 8 | A website behind a credential | OPEN — `token_env` and `user_env` as R1.21 reads them would carry over. Needs a site that asks for one |
 | 9 | Politeness: the requests are sequential and undelayed | RESOLVED by R1.35 and R1.36 — `djangoproject.com`, 2026-09-27: 70 of the 91 pages under `/foundation/` were answered `429` within seven seconds, with no `Retry-After`, and every one of the 70 was asked after the first refusal. A `429` now ends the sync's requests to the site, and a source's `delay:`, or its site's `Crawl-delay`, spaces them. Decided 2026-09-27 |

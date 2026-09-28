@@ -71,10 +71,24 @@ back, which is what a documentation site behind a CDN is happy with:
 `/foundation/` were answered `429` within seven seconds, with no `Retry-After`.
 With `delay: 1`, one sync held all 91, in 92 seconds.
 
+## What a stage reads
+
+A page is stored as the site sent it, with its header, menus and footer, and
+`html-markdown` decides what goes into the note (spec 008). If the page declares
+one `<main>` -- HTML's element for "the dominant contents of the document", or
+`role="main"` -- the note is that element, without any `<nav>` inside it
+(R8.33). So the site's name, its search box, its menus, a documentation theme's
+sidebars and the footer are not in it. A page with no `<main>`, or with two, is
+written whole. Nothing is chosen by class name or by how much text a block has,
+so no paragraph is dropped by a guess.
+
+Measured on 2026-09-28, notes shrank by about half:
+`docs.astral.sh/uv/getting-started/installation/` went from 12,446 characters to
+6,480, and `www.djangoproject.com/foundation/` from 17,815 to 7,800. The article
+text is whole in both.
+
 ## What it does not do yet
 
-- Take out navigation, headers and footers. `html-markdown` keeps what the page
-  shows, chrome included (spec 001, open question 6).
 - Read a site with no sitemap (open question 7).
 - Send a credential (open question 8).
 - Read a page the browser builds with JavaScript: it holds the empty shell the

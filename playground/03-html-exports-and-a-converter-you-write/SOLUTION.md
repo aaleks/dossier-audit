@@ -19,7 +19,11 @@ shows `html-markdown` is from that pass, and everything `play-html-markdown`
 printed in it matched the first pass byte for byte. The two stub-model runs,
 task 4's grounding script and the full test runs were not repeated, because
 `html-markdown` is not in them. The one exception is the tie at the very end: its message is from one
-acceptance file, run again. The liberties taken in showing it:
+acceptance file, run again. On 2026-09-28, R8.33 raised `html-markdown` to
+1.3.0, to write a page that declares a `<main>` as that element. None of these
+exports declares one. Each was converted again, and every artifact kept its size
+and its hash, so only the version in these blocks was changed. The liberties
+taken in showing it:
 
 - `dossier` is the repository's CLI, run from `playground/work/03/`, and
   `artifacts.py` is `python ../../03-html-exports-and-a-converter-you-write/resources/artifacts.py`,
@@ -94,9 +98,9 @@ cache updated · 6 converted · 0 cached
 $ artifacts.py
 PLAY-2001-terminal-scan.pdf               snapshot 89d790a8  pdf-markdown        1.1.0    274 bytes  sha256 d728a34f1c22
 PLAY-2002-photocopy-no-text-layer.pdf     snapshot f82d92a3  pdf-markdown        1.1.0     15 bytes  sha256 f4aaa0b27c8b
-PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.2.0   1302 bytes  sha256 ec8a656a0b6d
-PLAY-4002-dns-resolver-flap.html          snapshot 99f12e5e  html-markdown       1.2.0   1308 bytes  sha256 55f07f33dbcc
-PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.2.0     50 bytes  sha256 5bfd3d4bcc44
+PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.3.0   1302 bytes  sha256 ec8a656a0b6d
+PLAY-4002-dns-resolver-flap.html          snapshot 99f12e5e  html-markdown       1.3.0   1308 bytes  sha256 55f07f33dbcc
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.3.0     50 bytes  sha256 5bfd3d4bcc44
 PLAY-4004-incident-register.csv           snapshot 00f25086  text-csv            1.0.0    464 bytes  sha256 00f2508608e2
 ```
 
@@ -130,7 +134,7 @@ $ echo $?
 1
 
 $ artifacts.py PLAY-4005 --cat
-PLAY-4005-connection-pool-exhaustion.html snapshot 3d99a87a  html-markdown       1.2.0    519 bytes  sha256 ad1e83fe5471
+PLAY-4005-connection-pool-exhaustion.html snapshot 3d99a87a  html-markdown       1.3.0    519 bytes  sha256 ad1e83fe5471
   .dossier/cache/convert/38/51/3851fbd56684620f7748580348b7119a8d2378ff9abac2246ee2752d40a0eaf8
     Spaces / Site Reliability / Postmortems / 2026 / PLAY-4005
 
@@ -300,14 +304,14 @@ jira-issue-markdown 1.1.0 application/vnd.dossier.jira-issue+json markdown
 jpeg-pages 1.1.0 image/jpeg page_images
 png-pages 1.0.0 image/png page_images
 text-csv 1.0.0 text/csv markdown
-html-markdown 1.2.0 text/html markdown
+html-markdown 1.3.0 text/html markdown
 play-html-markdown 0.1.0 text/html markdown
 markdown-text 1.0.0 text/markdown markdown
 text-plain 1.0.0 text/plain markdown
 
 $ dossier convert incident-audit
 two converters claim the same pair, and picking either would be picking by installation order:
-  (text/html, markdown) is claimed by both html-markdown 1.2.0 and play-html-markdown 0.1.0
+  (text/html, markdown) is claimed by both html-markdown 1.3.0 and play-html-markdown 0.1.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
 $ echo $?
 2
@@ -330,7 +334,7 @@ counted, unless the workspace names it (`answering`, same file).
 
 The id matters for the same reason. `claims` tells two claims apart by id and
 version, and treats the same pair from the same id and version as one claim made
-twice. A copy calling itself `html-markdown` at `1.2.0` would be taken for the
+twice. A copy calling itself `html-markdown` at `1.3.0` would be taken for the
 shipped converter, and which of the two wrote an artifact would turn on
 installation order, under a key saying it made no difference.
 
@@ -388,7 +392,7 @@ amendment rather than a package.
 
 ```console
 $ artifacts.py PLAY-4001 --cat
-PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.2.0   1302 bytes  sha256 ec8a656a0b6d
+PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.3.0   1302 bytes  sha256 ec8a656a0b6d
   .dossier/cache/convert/f7/07/f707a8edad4001d0171faa80367209008691f2f70ece6a9dac942da31d9f5b61
     Spaces / Site Reliability / Postmortems / 2026 / PLAY-4001
 
@@ -440,7 +444,7 @@ Three differences, and only the first was the point:
 
 ```console
 $ artifacts.py PLAY-4003 --cat
-PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.2.0     50 bytes  sha256 5bfd3d4bcc44
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.3.0     50 bytes  sha256 5bfd3d4bcc44
   .dossier/cache/convert/bd/93/bd930fa81d987bb66630707e3e9bac0539acdff8a654c0158b6cdf7dd39a731c
     ![panel-checkout-p99.png](panel-checkout-p99.png)
 
@@ -500,7 +504,7 @@ postmortems-mixed  6 held · 1 converted · 5 cached
 cache updated · 1 converted · 5 cached
 
 $ artifacts.py PLAY-4001
-PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.2.0   1302 bytes  sha256 ec8a656a0b6d
+PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.3.0   1302 bytes  sha256 ec8a656a0b6d
 PLAY-4001-payment-retries.html            snapshot b16b34b4  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
 PLAY-4001-payment-retries.html            snapshot db6997e7  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
 
@@ -509,8 +513,8 @@ postmortems-mixed  6 held · 1 converted · 5 cached
 cache updated · 1 converted · 5 cached
 
 $ artifacts.py PLAY-4001
-PLAY-4001-payment-retries.html            snapshot b16b34b4  html-markdown       1.2.0   1294 bytes  sha256 d84843e2bdbc
-PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.2.0   1302 bytes  sha256 ec8a656a0b6d
+PLAY-4001-payment-retries.html            snapshot b16b34b4  html-markdown       1.3.0   1294 bytes  sha256 d84843e2bdbc
+PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.3.0   1302 bytes  sha256 ec8a656a0b6d
 PLAY-4001-payment-retries.html            snapshot b16b34b4  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
 PLAY-4001-payment-retries.html            snapshot db6997e7  play-html-markdown  0.1.0   1225 bytes  sha256 8a5412c93b1d
 ```
@@ -569,7 +573,7 @@ $ python -c "…installed_converters…"
 …
 text-csv 1.0.0 text/csv markdown
 play-csv-table 0.1.0 text/csv markdown
-html-markdown 1.2.0 text/html markdown
+html-markdown 1.3.0 text/html markdown
 play-html-markdown 0.1.0 text/html markdown
 …
 
@@ -718,7 +722,7 @@ postmortems-mixed  6 held · 0 converted · 6 cached
 cache updated · 0 converted · 6 cached
 
 $ artifacts.py PLAY-4003 --cat
-PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.2.0     50 bytes  sha256 5bfd3d4bcc44
+PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.3.0     50 bytes  sha256 5bfd3d4bcc44
   .dossier/cache/convert/bd/93/bd930fa81d987bb66630707e3e9bac0539acdff8a654c0158b6cdf7dd39a731c
     ![panel-checkout-p99.png](panel-checkout-p99.png)
 
@@ -839,7 +843,7 @@ nothing, a tracker that saw no run.
 
 ```
 two converters claim the same pair, and picking either would be picking by installation order:
-  (text/html, markdown) is claimed by both html-markdown 1.2.0 and play-html-markdown 0.2.0
+  (text/html, markdown) is claimed by both html-markdown 1.3.0 and play-html-markdown 0.2.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
 ```
 

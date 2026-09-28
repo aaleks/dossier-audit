@@ -11,6 +11,12 @@ written as a line of its own, above the heading that repeats it -- and every
 `<style>`, `<script>` and `<template>`. An image is its alt text and the name of
 its file (R8.22), never its URL, and never the base64 an export inlines.
 
+A page a website serves carries the site around it: a header, menus, a sidebar,
+a footer, the same on every page. A page that says where its content is, with
+one `<main>`, is written as that element, without the `<nav>` inside it (R8.33).
+Nothing is chosen by class name or by how much text a block holds; a page that
+says nothing is written whole.
+
 The bytes are decoded here, in the charset the page declares and otherwise as
 UTF-8 (R8.32), and BeautifulSoup is handed text. Handed bytes, it guesses their
 encoding with `charset-normalizer` or `chardet` if either is installed, and
@@ -28,6 +34,12 @@ from dossier.infrastructure.converters import _html
 
 # What a reader of the page never sees, taken out before anything is written.
 UNSEEN = "head, style, script, template"
+
+# Where a page says its content is (R8.33): HTML's element, and ARIA's role for
+# it. And what is taken from inside it: a theme's menus and a page's table of
+# contents sit there as often as not.
+MAIN = 'main, [role="main"]'
+NAVIGATION = 'nav, [role="navigation"]'
 
 # How far into the page a declared charset is looked for, as a browser looks
 # (R8.32). BeautifulSoup alone would look into 2048 bytes, or 5% of a long page.
@@ -90,7 +102,9 @@ class HtmlMarkdownConverter:
     # 1.1.0: a non-breaking space at the edge of emphasis is kept (R8.21 row 6).
     # 1.2.0: a page is read in the charset it declares, as a browser reads the
     # name, and not always as UTF-8 (R8.32).
-    version = "1.2.0"
+    # 1.3.0: a page that declares one `<main>` is written as that element,
+    # without the `<nav>` in it (R8.33).
+    version = "1.3.0"
     media_type = "text/html"
     kind = "markdown"
 
@@ -102,8 +116,24 @@ class HtmlMarkdownConverter:
         to its one document. No encoding is guessed.
         """
         text = _decoded(payload, converter_id=self.id)
-        written = _html.markdown(text, unseen=UNSEEN, image=_described).strip()
-        return f"{written}\n".encode()
+        written = _html.markdown(text, unseen=UNSEEN, image=_described, content=_declared)
+        return f"{written.strip()}\n".encode()
+
+
+def _declared(tree):
+    """The page's `<main>` without its `<nav>`, when it declares exactly one (R8.33).
+
+    Otherwise the whole page, as R8.21 reads it: a page declaring none has not
+    said where its content is, and one declaring two has said it twice. Nothing
+    is chosen by class, id or how much text a block holds.
+    """
+    mains = tree.select(MAIN)
+    if len(mains) != 1:
+        return tree
+    (main,) = mains
+    for element in main.select(NAVIGATION):
+        element.decompose()
+    return main
 
 
 def _decoded(payload: bytes, *, converter_id: str) -> str:

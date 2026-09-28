@@ -14,6 +14,7 @@ with it (R5.4).
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from typing import Any
 from urllib.parse import unquote, urlsplit
 
 # The choices R8.17 made for wiki markup, for the same reason: the artifact is
@@ -33,9 +34,16 @@ NBSP = "\u00a0"
 # How an `<img>` is written, from its attributes; `None` keeps markdownify's own.
 Image = Callable[[Mapping[str, str]], str]
 
+# Which part of the tree is written, chosen once what nobody sees is out of it;
+# `None` writes all of it. It is handed BeautifulSoup's tree, and returns it or
+# one of its elements.
+Content = Callable[[Any], Any]
 
-def markdown(html: str, *, unseen: str, image: Image | None = None) -> str:
-    """`html` as markdown, without the elements `unseen` selects.
+
+def markdown(
+    html: str, *, unseen: str, image: Image | None = None, content: Content | None = None
+) -> str:
+    """`html` as markdown, without the elements `unseen` selects, of what `content` chooses.
 
     Text, never bytes: handed bytes, BeautifulSoup guesses their encoding with
     whichever detector is installed, and a converter's output may depend on its
@@ -46,6 +54,8 @@ def markdown(html: str, *, unseen: str, image: Image | None = None) -> str:
     tree = BeautifulSoup(html, "html.parser")
     for element in tree.select(unseen):
         element.decompose()
+    if content is not None:
+        tree = content(tree)
     # A non-breaking space as a space. markdownify strips the whitespace at the
     # edges of bold and emphasis and puts back only an ASCII space, so
     # `<strong>Released:&nbsp;</strong>0.10.0.0` lost the space a reader sees
