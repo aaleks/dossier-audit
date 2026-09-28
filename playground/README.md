@@ -1,6 +1,6 @@
 # The dossier playground
 
-Seventeen hands-on exercises for learning `dossier` by running it: syncing a source,
+Hands-on exercises for learning `dossier` by running it: syncing a source,
 converting documents, defining a pipeline, grounding an answer, scoring against a gold
 set, calibrating a judge, reading the whole thing back in MLflow, auditing documents
 whose evidence is a chart rather than a sentence, auditing a real Jira running on
