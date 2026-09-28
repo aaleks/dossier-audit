@@ -13,6 +13,43 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A `per_part` step's fields are scored once per document (R7.46 – R7.51), and a
+field the run never answered is scored at all (R7.50). The list slice had noted
+the first and left it. A step reading one page at a time answers a field once
+per page, and `score_document` gave every record its own verdict:
+
+- `INC-4830` prints `SEV-1` in the header of all three pages, so its `severity`
+  counted three verdicts against a one-page picture's one.
+- A page that said "not on this page" was a miss against gold's value. That is
+  why exercise 10's prompt tells a page to leave a field out, not abstain.
+- A judged field sent the judge only the last page's record, an abstention as
+  often as not, and gave its verdict to every page. That was code disagreeing
+  with R7.17, found while writing the rules, and fixed by R7.49 rather than
+  patched on the side.
+
+Now a field is one verdict per document. Pages that abstain are left out while
+another page answers, and the field is correct only when every page that gave
+a value is. A miss names its page, `page-002.png: '2026-07-30' does not match
+'2026-07-28'`: a document's result carries the part each record came from, set
+where the run and its replay know it. A judged field is judged once per
+distinct answer and evidence, and one unsupported page fails it. Decided with
+the maintainer over "any page right is enough", "the first page wins", and
+refusing `output:` on a `per_part` step, which would have taken the vision
+judge with it.
+
+R7.50 applies in every mode. A declared field gold verifies and the run gave no
+record for was unscored, so a run that left out what it was unsure of was never
+wrong about it. It is now an abstention, named `not answered`. **`per_file`
+scores can fall** for a pipeline whose model leaves fields out. No test in the
+suite depended on it, and exercise 10's stub replies answer each field gold
+verifies on exactly one page, so none of its figures move.
+
+Not yet run against a real model: the slice changes scoring, which reads
+stored answers, and the suite's `per_part` acceptance test is the four-call
+run over the committed PDF that R7.51 describes.
+
+---
+
 A field may be declared `kind: list` (R6.24, R7.40 – R7.45), which is what
 `affected_systems` always was: `_fixtures.md` gave `INC-4821`'s gold answer as
 `["payments-api", "ledger-batch"]` while the scoring example kept it as one

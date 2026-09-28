@@ -218,6 +218,21 @@ def with_judged(
     )
 
 
+def judged_pages(pages: Sequence[tuple[str | None, bool, str]]) -> tuple[bool, str]:
+    """A field's judged verdict from each page's, each `(part, supported, evidence)` (R7.49).
+
+    Supported only when the judge supported every page that gave a value, as a
+    field is correct only when every such page is (R7.48); otherwise the pages
+    it did not support, each named with the judge's evidence.
+    """
+    refused = [(part, evidence) for part, supported, evidence in pages if not supported]
+    if not refused:
+        return True, pages[0][2]
+    return False, "; ".join(
+        evidence if part is None else f"{part}: {evidence}" for part, evidence in refused
+    )
+
+
 def score_field(
     *, record: FieldRecord, gold: GoldField, check: FieldCheck, kind: FieldKind
 ) -> FieldScore:

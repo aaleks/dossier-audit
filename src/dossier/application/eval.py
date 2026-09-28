@@ -17,11 +17,12 @@ from dataclasses import dataclass
 from dataclasses import field as _default
 from pathlib import Path
 
+from dossier.application.extract import DocumentResult
 from dossier.application.prompts import link_published
 from dossier.application.recording import failed_if_stopped
 from dossier.application.run import StepReport
 from dossier.domain.gold import CalibrationCase, GoldDocument, gold_set_hash
-from dossier.domain.grounding import DESCRIBED, GROUNDED, FieldVerdict, judge_name
+from dossier.domain.grounding import DESCRIBED, GROUNDED, FieldCheck, FieldVerdict, judge_name
 from dossier.domain.hashing import content_hash
 from dossier.domain.judges import (
     Calibration,
@@ -39,6 +40,7 @@ from dossier.domain.ports import (
 )
 from dossier.domain.prompts import rubric_links
 from dossier.domain.resolution import ResolvedPlan
+from dossier.domain.schemas import FieldRecord
 from dossier.domain.scoring import (
     DocumentScore,
     FieldDelta,
@@ -47,6 +49,7 @@ from dossier.domain.scoring import (
     GoldField,
     Verdict,
     gold_shape_errors,
+    judged_pages,
     overall,
     regressed_fields,
     score_document,
@@ -798,22 +801,7 @@ def judge_scores(
     (R6.15, R7.21).
     """
     prompt_hash = judge_prompt_hash()
-    records = {
-        result.document: {record.field: record for record in result.records}
-        for result in report.results
-    }
-    # Which (document, field) the run answered from a picture. Read off the
-    # checks the run already produced rather than inferred from a document
-    # having no text: those are not the same thing, and one of them is R6.3's
-    # failure wearing the other's clothes (R6.15).
-    described = {
-        result.document: {
-            record.field
-            for record, check in zip(result.records, result.checks, strict=True)
-            if check.verdict is FieldVerdict.DESCRIBED
-        }
-        for result in report.results
-    }
+    produced = {result.document: result for result in report.results}
     judged: list[DocumentScore] = []
     for score in scores:
         verdicts: dict[str, tuple[bool, str]] = {}
@@ -821,55 +809,88 @@ def judge_scores(
             if result.verdict is not Verdict.NEEDS_JUDGE or result.field not in judging.rubrics:
                 continue
             rubric, rubric_hash = judging.rubrics[result.field]
-            candidate = str(records[score.document][result.field].value)
+            asked: dict[tuple[str, str], tuple[bool, str]] = {}
+            per_page: list[tuple[str | None, bool, str]] = []
+            # Every page that gave this field a value, each judged: a `per_part`
+            # document gives one answer per page (R7.49). One that abstained
+            # said nothing about the document, and is left out here as it was
+            # from the score (R7.47).
+            for record, check, part in _answering(produced[score.document], result.field):
+                candidate = str(record.value)
+                # Read off the check the run produced rather than inferred from
+                # a document having no text: those are not the same thing, and
+                # one of them is R6.3's failure wearing the other's clothes
+                # (R6.15). Per page, since one page may be text and the next a
+                # picture (R7.49 row 4).
+                if check.verdict is FieldVerdict.DESCRIBED:
+                    shown = tuple(judging.parts.get(score.document, ()))
+                    if not shown:
+                        # A field the run answered from a picture, in a
+                        # workspace that no longer holds the pages. Judging it
+                        # against an empty prompt would produce a verdict about
+                        # nothing, and guessing the text would judge different
+                        # evidence -- so it is left unscored, which is what a
+                        # deferred verdict with no answer already means (R7.21
+                        # row 5).
+                        per_page = []
+                        break
+                    text = with_context(SHOWN_AS_PAGES, judging.context)
+                    # The pages stand where the text hash stands, so a
+                    # described verdict and a grounded one about the same
+                    # candidate are two entries and neither serves the other
+                    # (R7.18, R7.21). The context beside them is evidence too:
+                    # a procedure edited asks again (R7.34).
+                    evidence_hash = content_hash(
+                        b"".join(page.data for page in shown) + judging.context.encode("utf-8")
+                    )
+                else:
+                    shown = ()
+                    text = judging.documents[score.document]
+                    evidence_hash = content_hash(text.encode("utf-8"))
 
-            if result.field in described.get(score.document, ()):
-                parts = tuple(judging.parts.get(score.document, ()))
-                if not parts:
-                    # A field the run answered from a picture, in a workspace
-                    # that no longer holds the pages. Judging it against an
-                    # empty prompt would produce a verdict about nothing, and
-                    # guessing the text would judge different evidence -- so it
-                    # is left unscored, which is what a deferred verdict with no
-                    # answer already means (R7.21 row 5).
-                    continue
-                text = with_context(SHOWN_AS_PAGES, judging.context)
-                # The pages stand where the text hash stands, so a described
-                # verdict and a grounded one about the same candidate are two
-                # entries and neither serves the other (R7.18, R7.21). The
-                # context beside them is evidence too: a procedure edited
-                # asks again (R7.34).
-                evidence_hash = content_hash(
-                    b"".join(part.data for part in parts) + judging.context.encode("utf-8")
-                )
-            else:
-                parts = ()
-                text = judging.documents[score.document]
-                evidence_hash = content_hash(text.encode("utf-8"))
-
-            verdicts[result.field] = judged_cached(
-                judging.model,
-                judging.cache,
-                inputs=JudgeInputs(
-                    judge_model=judging.judge_model,
-                    rubric_hash=rubric_hash,
-                    prompt_hash=prompt_hash,
-                    document_hash=evidence_hash,
-                    candidate_hash=content_hash(candidate.encode("utf-8")),
-                ),
-                rubric=rubric,
-                document=score.document,
-                text=text,
-                answer=candidate,
-                parts=parts,
-                run_id=judging.run_id,
-                dossier_version=judging.dossier_version,
-                tracker=judging.tracker,
-                field=result.field,
-                capture=judging.capture,
-            )
+                # The same words on the same evidence are one key (R7.18), so a
+                # second page saying them asks nothing more (R7.49 row 3).
+                question = (candidate, evidence_hash)
+                if question not in asked:
+                    asked[question] = judged_cached(
+                        judging.model,
+                        judging.cache,
+                        inputs=JudgeInputs(
+                            judge_model=judging.judge_model,
+                            rubric_hash=rubric_hash,
+                            prompt_hash=prompt_hash,
+                            document_hash=evidence_hash,
+                            candidate_hash=content_hash(candidate.encode("utf-8")),
+                        ),
+                        rubric=rubric,
+                        document=score.document,
+                        text=text,
+                        answer=candidate,
+                        parts=shown,
+                        run_id=judging.run_id,
+                        dossier_version=judging.dossier_version,
+                        tracker=judging.tracker,
+                        field=result.field,
+                        capture=judging.capture,
+                    )
+                supported, evidence = asked[question]
+                per_page.append((part, supported, evidence))
+            if per_page:
+                verdicts[result.field] = judged_pages(per_page)
         judged.append(with_judged(score, verdicts))
     return tuple(judged)
+
+
+def _answering(
+    result: DocumentResult, field: str
+) -> list[tuple[FieldRecord, FieldCheck, str | None]]:
+    """Each record that gave `field` a value, with its check and the part it came from."""
+    parts = result.parts or [None] * len(result.records)
+    return [
+        (record, check, part)
+        for record, check, part in zip(result.records, result.checks, parts, strict=True)
+        if record.field == field and record.value is not None
+    ]
 
 
 # Where a measurement is kept, beside the gold set it was measured against. A

@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.51
 
 ## Purpose
@@ -1439,7 +1439,7 @@ supported, and `rc-02`, the planted claim.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.judge_scores`), domain (`dossier.domain.scoring.with_judged`)
 - **Proved by:** `tests/unit/test_R007_49__each_pages_judged_value_must_be_supported.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
