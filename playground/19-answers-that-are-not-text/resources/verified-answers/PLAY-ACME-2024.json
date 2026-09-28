@@ -1,0 +1,10 @@
+{
+  "document": "PLAY-ACME-2024.md",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-28",
+  "fields": {
+    "auto_renew":    {"value": true},
+    "notice_period": {"value": "90 days"},
+    "sites":         {"value": ["Zurich", "Basel", "Geneva"]}
+  }
+}

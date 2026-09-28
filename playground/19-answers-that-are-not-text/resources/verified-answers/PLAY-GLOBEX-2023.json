@@ -1,0 +1,10 @@
+{
+  "document": "PLAY-GLOBEX-2023.md",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-28",
+  "fields": {
+    "auto_renew":    {"value": false},
+    "notice_period": {"value": "3 months"},
+    "sites":         {"value": ["Basel"]}
+  }
+}

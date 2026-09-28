@@ -1,0 +1,6 @@
+# One folder of contracts, one file per contract. A folder source keys a file by
+# its name, so each contract's key is its filename: `PLAY-ACME-2024.md`.
+sources:
+  - id: contracts
+    type: folder
+    path: inbox/contracts/

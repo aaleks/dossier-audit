@@ -1,0 +1,11 @@
+# Three kinds whose answers are not text. A kind picks the scorer and is never
+# shown to the model, so declaring one moves no key (R6.12) -- and so the prompt
+# is what tells the model how to answer each field.
+#
+#   boolean   true or false; null abstains, and false does not (R7.36)
+#   duration  a whole number and one unit; a month is never a number of days (R7.37, R7.38)
+#   list      one record per item, scored as a set (R6.24, R7.40)
+fields:
+  auto_renew:    {kind: boolean}
+  notice_period: {kind: duration}
+  sites:         {kind: list}

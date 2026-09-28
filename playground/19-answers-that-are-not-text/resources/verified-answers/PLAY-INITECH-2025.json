@@ -1,0 +1,10 @@
+{
+  "document": "PLAY-INITECH-2025.md",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-09-28",
+  "fields": {
+    "auto_renew":    {"value": null, "reason": "the agreement says nothing about renewal"},
+    "notice_period": {"value": null, "reason": "the agreement states no notice period"},
+    "sites":         {"value": ["Zurich"]}
+  }
+}
