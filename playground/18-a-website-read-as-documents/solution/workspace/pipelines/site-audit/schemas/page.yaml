@@ -1,0 +1,5 @@
+# What `summarise` would ask for, if this exercise ran it. It does not: the
+# exercise stops at `dossier convert`, at the note a stage would read.
+fields:
+  title:   {kind: reference}
+  teaches: {kind: reference}
