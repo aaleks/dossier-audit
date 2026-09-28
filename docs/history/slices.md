@@ -13,6 +13,16 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`render: browser` is part of what a web source's fetch asks (R2.26, R1.40 rows
+8 and 9). Added to a source already held from a sitemap, it had changed
+nothing: no `<lastmod>` moved, so no page was fetched, and every page stayed held
+as a shell. The crawled site that exercise 18 was being written against hid it,
+because a crawled page has no marker and is fetched every sync anyway. Checked
+live: `docs.astral.sh/uv/concepts/projects/`, held from its sitemap, drew all
+10 pages at the next sync, and the sync after that fetched none.
+
+---
+
 A field may be declared `kind: boolean` or `kind: duration` (R7.36 – R7.39),
 which is what the contract audit's `auto_renew` and `notice_period` needed
 (`docs/second-use-case.md`, finding 2). A boolean is `true` or `false`, or

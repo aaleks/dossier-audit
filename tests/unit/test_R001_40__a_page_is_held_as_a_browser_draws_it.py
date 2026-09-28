@@ -143,3 +143,46 @@ class TestAPageIsHeldAsABrowserDrawsIt:
             connector(site, NeverQuiet()).fetch("escalation")
 
         assert ESCALATION in str(raised.value) and "quiet" in str(raised.value)
+
+    def test_render_added_to_a_held_source_draws_every_page_once(self, tmp_path: Path):
+        """Example 8: the one where no `<lastmod>` moved, and the shells are drawn anyway."""
+        site = drawn_site(escalation=shell("/api/escalation"))
+        plain = SourceConfig(id="vendor-docs", type="web", options={"url": URL})
+        drawn = SourceConfig(
+            id="vendor-docs", type="web", options={"url": URL, "render": "browser"}
+        )
+        synced(tmp_path, plain, WebConnector(url=URL, transport=site.transport()), day=6)
+
+        report = synced(tmp_path, drawn, connector(site, FakeBrowser()), day=7)
+
+        # The three HTML pages are held as drawn now; the PDF is held as sent.
+        assert report.fetched == 4 and report.changed == 3
+        with Ledger(tmp_path) as ledger:
+            held = SnapshotStore(tmp_path).get(ledger.row("vendor-docs", "escalation").snapshot)
+        assert b"<h1>Escalation</h1>" in held
+
+    def test_the_sync_after_that_fetches_nothing(self, tmp_path: Path):
+        """Counter-example, row 9: the one where the hash is recorded."""
+        site = drawn_site(escalation=shell("/api/escalation"))
+        plain = SourceConfig(id="vendor-docs", type="web", options={"url": URL})
+        drawn = SourceConfig(
+            id="vendor-docs", type="web", options={"url": URL, "render": "browser"}
+        )
+        synced(tmp_path, plain, WebConnector(url=URL, transport=site.transport()), day=6)
+        synced(tmp_path, drawn, connector(site, FakeBrowser()), day=7)
+
+        report = synced(tmp_path, drawn, connector(site, FakeBrowser()), day=8)
+
+        assert report.fetched == 1  # the one page with no `<lastmod>`, as ever (R1.31)
+        assert report.changed == 0
+
+
+def synced(workspace: Path, config: SourceConfig, web: WebConnector, *, day: int):
+    with Ledger(workspace) as ledger:
+        return sync_source(
+            config=config,
+            connector=web,
+            store=SnapshotStore(workspace),
+            ledger=ledger,
+            now=datetime(2026, 8, day, 9, 0, tzinfo=UTC),
+        )

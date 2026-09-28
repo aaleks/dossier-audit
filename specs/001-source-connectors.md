@@ -405,6 +405,10 @@ as a headless Chromium draws it (R1.40).
   sent, and no browser sees it.
 - **With `crawl:`**, links are read from the drawn page, so a menu that a script
   writes is followed.
+- **Added to a source already held**, `render: browser` fetches and draws every
+  page again, once. It is part of what a fetch asks (R2.26), and the pages'
+  `<lastmod>` did not move, so otherwise they would stay held as shells.
+  Taking it away fetches them once more, as sent.
 
 So a drawn page is not the bytes the site sent. It is the page the site's
 scripts drew, and its bytes are the browser's. That is the one exception to
@@ -1331,6 +1335,8 @@ browser sees it.
 | 5 | *counter-example* — the same source without `render:` | held as the shell, and its note has no `# Escalation` and no paragraph |
 | 6 | *counter-example* — `escalation-matrix.pdf` | held as sent, `application/pdf`, and no browser sees it |
 | 7 | *counter-example* — a page whose requests never go quiet within sixty seconds | that page fails, naming it and the wait. Half a page is not held |
+| 8 | `render: browser` added to `vendor-docs`, whose four pages are held as sent and whose `<lastmod>`s have not moved | the next sync fetches and draws every page, once. `render` is part of what a fetch asks, and so of the source configuration hash (R2.26) |
+| 9 | *counter-example* — the sync after that | nothing is fetched: the hash is recorded, and no `<lastmod>` moved |
 
 ### R1.41 — a browser drawing a page asks for no image, font, media or other page, sends nothing but `GET`, and asks its site only as the site's pages are asked
 
