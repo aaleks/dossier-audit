@@ -99,3 +99,43 @@ class TestEveryPageThatAnswersMustBeCorrect:
         )
 
         assert result.verdict is Verdict.CORRECT
+
+
+class TestTheRunHandsThePagesToTheScorer:
+    """R7.48, the application's half: a joined document carries the page of each record."""
+
+    def test_the_page_a_joined_document_answered_on_reaches_the_miss(self):
+        """Row 1, through `score_run` — the one where the page is not lost in the join."""
+        from datetime import date
+
+        from dossier.application.eval import score_run
+        from dossier.application.extract import DocumentResult
+        from dossier.application.run import StepReport
+        from dossier.domain.gold import GoldDocument
+
+        records = (
+            answered("resolution_date", "2026-07-28"),
+            answered("resolution_date", "2026-07-30"),
+        )
+        report = StepReport(
+            step="extract",
+            results=(
+                DocumentResult(
+                    document=POSTMORTEM,
+                    records=records,
+                    checks=(GROUNDED, GROUNDED),
+                    parts=("page-001.png", "page-002.png"),
+                ),
+            ),
+        )
+        gold = GoldDocument(
+            document=POSTMORTEM,
+            verified_by="a.aleks",
+            verified_at=date(2026, 9, 28),
+            fields={"resolution_date": {"value": "2026-07-28"}},
+        )
+
+        (score,) = score_run(report=report, gold={POSTMORTEM: gold}, kinds=KINDS)
+
+        (result,) = score.results
+        assert result.detail == "page-002.png: '2026-07-30' does not match '2026-07-28'"

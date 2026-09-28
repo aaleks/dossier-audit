@@ -24,8 +24,6 @@ from pathlib import Path
 import pytest
 from tests.pipelines import write_pipeline
 
-pytestmark = pytest.mark.outer_loop
-
 pytest.importorskip("pypdfium2", reason="INC-4830 is a PDF: needs dossier[pdf]")
 pytest.importorskip("PIL.Image", reason="the picture converters need Pillow")
 

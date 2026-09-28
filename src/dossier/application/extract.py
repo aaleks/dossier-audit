@@ -64,6 +64,10 @@ class DocumentResult:
     # the refused one cost as much as the one that stood (R5.11). Nothing, for
     # an answer served from cache: that is a count, not an absence of one.
     tokens: Tokens = Tokens(input=0, output=0)
+    # The part each of `records` came from, paired with them, for a `per_part`
+    # step's document; empty for every other step. It is what lets a miss name
+    # the page that gave it, rather than the document it is somewhere in (R7.48).
+    parts: tuple[str, ...] = ()
 
     @property
     def failed(self) -> bool:
