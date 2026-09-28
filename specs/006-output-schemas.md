@@ -1,6 +1,6 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R6.1 – R6.24
 
 ## Purpose
@@ -699,9 +699,9 @@ document's fields are its pages' fields (R3.12), so two pages each answering a
 field once are two answers, each naming it once.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.fields`), application (`dossier.application.extract`)
-- **Proved by:** `tests/unit/test_R006_24__only_a_list_field_is_answered_more_than_once.py`
-- **Status:** NOT MET
+- **Layer:** domain (`dossier.domain.fields`), application (`dossier.application.extract`, `dossier.application.run`), config (`dossier.config.load`)
+- **Proved by:** `tests/unit/test_R006_24__only_a_list_field_is_answered_more_than_once.py`, `tests/integration/test_R006_24__a_declared_list_reaches_the_reply_check.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

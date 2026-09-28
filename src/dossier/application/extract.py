@@ -17,6 +17,7 @@ from dataclasses import dataclass
 
 from pydantic import ValidationError
 
+from dossier.domain.fields import answered_twice
 from dossier.domain.grounding import FieldCheck, check_field, with_derived_page
 from dossier.domain.ports import ImagePart, ModelClient, Tracker
 from dossier.domain.schemas import FieldRecord, StageOutput
@@ -92,6 +93,7 @@ def run_stage(
     tracker: Tracker | None = None,
     capture: str = "full",
     hashes: Mapping[str, object] | None = None,
+    lists: Collection[str] = (),
 ) -> DocumentResult:
     """Run one stage for one document, validating and grounding the answer.
 
@@ -99,6 +101,9 @@ def run_stage(
     `aggregate` step to do. There is then nothing to validate against and nothing
     to retry for, so the first answer is the answer -- and R6.2's one retry stays
     exactly what it is, a response to a *validation* failure.
+
+    `lists` names the fields declared `list`, the only ones an answer may give
+    more than one record (R6.24).
     """
     if schema is None:
         text = _asked(
@@ -144,6 +149,16 @@ def run_stage(
 
         try:
             output = StageOutput.model_validate_json(response)
+            # A validation failure like any other, so the retry carries it and a
+            # second one fails the document alone (R6.24, R6.2). The schema cannot
+            # say it without showing the model a kind, which would move every key.
+            repeated = answered_twice(output.fields, lists=lists)
+            if repeated:
+                raise ValueError(
+                    f"{', '.join(repeated)}: answered more than once. Only a field "
+                    "declared `list` is answered once per item; answer every other "
+                    "field once"
+                )
         except (ValidationError, ValueError) as error:
             correction = str(error)
             _llm_span(

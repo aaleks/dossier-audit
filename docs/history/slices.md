@@ -13,6 +13,28 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A field may be declared `kind: list` (R6.24, R7.40 – R7.45), which is what
+`affected_systems` always was: `_fixtures.md` gave `INC-4821`'s gold answer as
+`["payments-api", "ledger-batch"]` while the scoring example kept it as one
+string, "because a field record's value is a scalar". A list is answered one
+record per item, each with its own span, so every system is grounded on its own
+evidence and the record and the schema the model is shown are unchanged: no key
+moves. Only a list may be answered twice in one reply; any other field answered
+twice is refused on the reply, where the one retry can put it right. A list is
+one verdict per document, correct when the run's items and gold's are the same
+set, case folded, order and repeats aside, and one ungrounded item fails it.
+Gold writes it as an array; `"payments-api, ledger-batch"` is refused rather
+than split, and so is `[]`, since a run cannot say "none" apart from "not
+stated". Beside the percentage, the line prints item precision and recall --
+`50.0%   items: precision 75.0% (3/4), recall 60.0% (3/5)` -- and MLflow records
+them, and nothing gates on them. `score_document` now takes checks paired with
+records rather than keyed by field: keyed by field they collapsed to one check
+per field, which items with their own evidence could not survive. Noticed on
+the way and not changed: a non-list field a `per_part` step answers on several
+pages is still scored once per page.
+
+---
+
 `render: browser` is part of what a web source's fetch asks (R2.26, R1.40 rows
 8 and 9). Added to a source already held from a sitemap, it had changed
 nothing: no `<lastmod>` moved, so no page was fetched, and every page stayed held
