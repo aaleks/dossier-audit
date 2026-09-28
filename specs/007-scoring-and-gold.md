@@ -1397,7 +1397,7 @@ is (R7.3).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring.score_document`)
 - **Proved by:** `tests/unit/test_R007_47__a_page_that_abstains_does_not_answer_for_its_document.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
