@@ -192,6 +192,11 @@ class WebConnector:
         # Whether an HTML page is drawn by a browser, and what opens one: a
         # headless Chromium, unless a test hands in another (R1.40).
         self._render = render == "browser"
+        # A drawn page is not the page as sent, so drawing is part of what a
+        # fetch asks: added or taken away, every page is fetched once more,
+        # though no `<lastmod>` moved (R2.26, R1.40 row 8). Nothing, otherwise,
+        # so a source that draws nothing hashes as it always has.
+        self.fetch_asks = "render=browser" if self._render else ""
         self._browser = browser or (
             lambda: browsers.Chromium(user_agent=USER_AGENT, timeout_seconds=TIMEOUT_SECONDS)
         )

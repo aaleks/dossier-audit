@@ -1,6 +1,6 @@
 # 001 — Source connectors
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R1.1 – R1.43
 
 ## Purpose
@@ -1324,7 +1324,7 @@ browser sees it.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.web`, `dossier.infrastructure.connectors.browser`)
 - **Proved by:** `tests/unit/test_R001_40__a_page_is_held_as_a_browser_draws_it.py`, `tests/integration/test_R001_40__chromium_draws_a_page_from_bytes_already_fetched.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
