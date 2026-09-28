@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from enum import Enum
 
@@ -507,7 +507,18 @@ def _score_pages(
     reason for refusing a reply that does it, and R7.42's for failing a list with
     one wrong item (R7.48).
     """
-    answering = [page for page in pages if page[0].value is not None] or list(pages[:1])
+    answering = [page for page in pages if page[0].value is not None]
+    if not answering:
+        # "Not on this page" says nothing about the document while another page
+        # answers; only when every page says it is it the document's answer, and
+        # scored as one (R7.47). Said so, since no single page is what was wrong.
+        record, check, part = pages[0]
+        score = score_field(record=record, gold=gold, check=check, kind=kind)
+        if part is None or score.detail is None:
+            return score
+        return replace(
+            score, detail=score.detail.replace("abstained;", "abstained on every page;", 1)
+        )
     scores = [
         (part, score_field(record=record, gold=gold, check=check, kind=kind))
         for record, check, part in answering
