@@ -210,6 +210,12 @@ the site's theme rewrites every in-page link as an absolute URL when its scripts
 run, so the note of `getting-started/installation/` grew from 6,480 characters
 to 7,751 without a word more of text.
 
+## Try it
+
+`playground/18-a-website-read-as-documents` reads uv's documentation, part of
+`www.python.org` and `quotes.toscrape.com` with each of the above, from the
+command line, and says what to look for at each step.
+
 ## What it does not do yet
 
 - Send a credential (open question 8).

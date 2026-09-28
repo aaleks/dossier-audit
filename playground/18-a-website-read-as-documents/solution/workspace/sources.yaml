@@ -1,0 +1,24 @@
+# Three websites, as task 4 leaves them. Each is read politely: a narrow `url`,
+# and a site that is asked for a few dozen pages at most.
+sources:
+  # A documentation site with a sitemap, and a `<lastmod>` on every page.
+  - id: uv-projects
+    type: web
+    url: https://docs.astral.sh/uv/concepts/projects/
+    sitemap: https://docs.astral.sh/uv/sitemap.xml
+
+  # A site with no sitemap, crawled from `url` (R1.37). Seven pages: `crawl: 20`
+  # is room to spare, and a number you chose, not a default (R1.39).
+  - id: python-about
+    type: web
+    url: https://www.python.org/about/
+    crawl: 20
+    delay: 0.5
+
+  # A site whose pages are drawn by a script. Held as sent, a page is a shell;
+  # drawn by a browser, it holds its quotes (R1.40).
+  - id: quotes
+    type: web
+    url: https://quotes.toscrape.com/js/
+    crawl: 12
+    render: browser

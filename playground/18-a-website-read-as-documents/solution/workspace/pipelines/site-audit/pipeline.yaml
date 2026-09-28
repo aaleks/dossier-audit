@@ -1,0 +1,16 @@
+# The pipeline this exercise syncs and converts for. Nothing here is what the
+# exercise is about: it runs no model, and exists because `dossier sync` and
+# `dossier convert` take a pipeline, and a pipeline says which sources it reads.
+#
+# The sources are listed in the order task 3 needs: `python-about` before
+# `uv-projects`, so that a source that cannot be listed comes first (R2.27).
+sources: [python-about, uv-projects, quotes]
+
+model: openai:gpt-5.4-mini
+
+steps:
+  - id: summarise
+    prompt: prompts/01_summarise.md
+    input: documents
+    mode: per_file
+    output: schemas/page.yaml
