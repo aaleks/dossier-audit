@@ -1182,7 +1182,7 @@ own percentages (R7.2), and a miss named with the reason R7.38 gave (R7.25).
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R007_39__eval_scores_a_boolean_and_a_duration.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
