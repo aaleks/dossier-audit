@@ -423,8 +423,9 @@ the system.
 
 Four documents, the five fields `incident.yaml` declares. The gold table is what
 a person writes into `gold/incidents/<document>.json`, in spec 007's format; the
-tests do not write it. `affected_systems` is one reference string, because a
-field record's value is a scalar (spec 006). `root_cause` is `null` throughout,
+tests do not write it. `affected_systems` is declared a `reference` here, one
+string per document; "A list field" below declares it a `list`, with gold
+written as arrays (R7.40 – R7.45). `root_cause` is `null` throughout,
 so it is scored on abstention (R7.3) and every verdict is deterministic.
 
 | Document | `loss_amount` | `resolution_date` | `severity` | `affected_systems` | `root_cause` |
@@ -469,6 +470,26 @@ except here:
 Overall 80.0% to 90.0%: the figure improved while `affected_systems` got worse,
 which is the case the change gate exists for. `INC-5102` (from the corpus above)
 is the fifth document that makes two runs cover different documents.
+
+## A list field (R7.40 – R7.45)
+
+The scoring example's four incidents, with `incident.yaml` declaring
+`severity: {kind: enum}` and `affected_systems: {kind: list}`, and gold writing
+each list as an array. The run answers one record per system, each citing the
+system's own name in the document's "Affected systems:" line -- except
+`INC-5455`, where it names the system the document says was "checked and ruled
+out", so its wrong item is grounded and the miss is about the value.
+
+| Document | `severity` | `affected_systems` gold | Run answers | Verdict | matched / named / in gold |
+|---|---|---|---|---|---|
+| `INC-4821` | `major` | `["payments-api", "ledger-batch"]` | `payments-api` | incorrect; missing `ledger-batch` | 1 / 1 / 2 |
+| `INC-4822` | `minor` | `["ledger-batch"]` | `ledger-batch` | correct | 1 / 1 / 1 |
+| `INC-4901` | `critical` | `["payments-api"]` | `payments-api` | correct | 1 / 1 / 1 |
+| `INC-5455` | `major` | `["upload-service"]` | `payments-api` | incorrect; missing `upload-service`, and `payments-api` not in gold | 0 / 1 / 1 |
+
+`affected_systems` 50.0%, 2 of 4; item precision 75.0% (3 of the 4 named), recall
+60.0% (3 of the 5 in gold). The run answers `severity` as gold has it throughout,
+100.0%. Overall 75.0%, 6 of 8. Every figure is exact.
 
 ## Pipeline versions in MLflow
 

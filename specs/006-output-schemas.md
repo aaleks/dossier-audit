@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Implemented
-**Rules:** R6.1 – R6.23
+**Status:** Partially implemented
+**Rules:** R6.1 – R6.24
 
 ## Purpose
 
@@ -240,7 +240,7 @@ fields:
   root_cause:      {kind: free_text, judge: rubrics/root_cause.md}
 ```
 
-Seven kinds, and the kind is what picks the scorer (spec 007):
+Eight kinds, and the kind is what picks the scorer (spec 007):
 
 | `kind` | Compared by | Needs a model |
 |---|---|---|
@@ -250,6 +250,7 @@ Seven kinds, and the kind is what picks the scorer (spec 007):
 | `reference` | text, case folded | no |
 | `boolean` | the truth value (R7.36) | no |
 | `duration` | the length, in days and weeks or in months and years, never across (R7.37, R7.38) | no |
+| `list` | its items as a set, each as text with case folded (R7.40) | no |
 | `free_text` | a judge against the named rubric | yes |
 
 A count is an `amount` with no `currency`. There is no `number` kind: it would
@@ -257,9 +258,34 @@ compare exactly as `amount` does, and a second name for one scorer is a second
 thing to read (R7.39 row 3).
 
 A kind is not shown to the model. The generated JSON Schema limits `field` to the
-declared names and nothing more, so declaring a `boolean` or a `duration` changes
-no key that a declaration without one has (R6.12). The prompt says what each
-field holds.
+declared names and nothing more, so declaring a `boolean`, a `duration` or a
+`list` changes no key that a declaration without one has (R6.12). The prompt says
+what each field holds.
+
+### A list is answered one record per item
+
+```json
+{"field": "affected_systems", "value": "payments-api",
+ "source": {"document": "INC-4821", "span": "payments-api"}},
+{"field": "affected_systems", "value": "ledger-batch",
+ "source": {"document": "INC-4821", "span": "ledger-batch"}}
+```
+
+A field declared `list` is answered by as many records as it has items, each
+holding one value with its own source. So every item is grounded on its own span,
+and a system the document never names cannot shelter behind the evidence for one
+it does. The record keeps its shape and the schema the model is shown does not
+change, which is why no key moves; the prompt says the field is answered once per
+item, as it says what every other field holds.
+
+A list with nothing in it is an abstention: one record, `value: null`, and a
+reason (R6.5). "The document names none" and "the document does not say" are
+both said in that reason, and neither is scored apart from the other (R7.44).
+
+Every other field is answered at most once in one answer (R6.24). Declaring an
+existing field `list` changes its declaration, and so every key its step wrote
+(R6.11): the model is asked again, which is what should happen, since the prompt
+has to change with it to ask for one record per item.
 
 Two things are generated from that one file and never written by hand: the JSON
 Schema shown to the model, and the field list a scorer works from. That is what
@@ -659,3 +685,28 @@ In each mode, every reference document is added when the step reads
 | 5 | a `per_part` field on a page of `INC-4821` citing `INC-4822` | invalid, as row 2 |
 | 6 | a `per_group` step reading `reference`, a field on `ACME-2024` citing `OPS-114` | accepted |
 | 7 | *counter-example* — an `aggregate` field citing `INC-4822` | accepted: every audited document was an input of its one call |
+
+### R6.24 — only a `list` field may be answered by more than one record in one answer
+
+A second record for any other field is two answers to one question, and nothing
+downstream could say which the model meant. It is refused where it can still be
+put right: on the model's reply, as a validation failure, so the one retry
+carries the error (R6.2) and a second failure fails that document alone (R6.9).
+A stored answer is read as it was written.
+
+It is a rule about one answer. A `per_part` step asks once per page, and a
+document's fields are its pages' fields (R3.12), so two pages each answering a
+field once are two answers, each naming it once.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.fields`), application (`dossier.application.extract`)
+- **Proved by:** `tests/unit/test_R006_24__only_a_list_field_is_answered_more_than_once.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `affected_systems: {kind: list}`; `INC-4821` answered by two records, `payments-api` and `ledger-batch`, each with its own span | valid; each record grounded on its own span |
+| 2 | `INC-4822` answered by one record, `ledger-batch` | valid; a list of one is one record |
+| 3 | *counter-example* — `loss_amount` answered twice in one answer, `48200.00` and `48'200` | the answer fails validation naming `loss_amount`: one retry carrying that error (R6.2), and a second failure fails the document with nothing written or cached (R6.1, R6.9) |
+| 4 | *counter-example* — a `per_part` step whose two pages each answer `loss_amount` once | valid; each page's answer names it once (R3.12) |
+| 5 | *counter-example* — `affected_systems` as one record holding `["payments-api", "ledger-batch"]` | fails validation, as it did before this rule: a record holds one value, and the shape the model is shown is unchanged |
