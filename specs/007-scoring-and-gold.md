@@ -1460,7 +1460,7 @@ said the document is silent.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring.score_document`)
 - **Proved by:** `tests/unit/test_R007_50__a_field_never_answered_is_scored_as_an_abstention.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

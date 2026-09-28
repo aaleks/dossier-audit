@@ -104,7 +104,7 @@ class TestAFieldNeverAnsweredIsScoredAsAnAbstention:
         assert set(scored) == {"severity"}
 
     def test_a_document_the_step_failed_on_is_not_scored(self):
-        """Row 6, counter-example — the one reported as failed, not as answering nothing (R6.9)."""
+        """Row 6, counter-example — the one reported as failed, not as silent (R6.9)."""
         from datetime import date
 
         from dossier.application.eval import score_run
