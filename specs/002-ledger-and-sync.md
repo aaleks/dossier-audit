@@ -1,7 +1,7 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Implemented
-**Rules:** R2.1 – R2.26
+**Status:** Partially implemented
+**Rules:** R2.1 – R2.27
 
 ## Purpose
 
@@ -634,3 +634,35 @@ not fetched again.
 | 2 | the sync after that | `0 fetched`: the hash is recorded, and nothing changed |
 | 3 | *counter-example* — `incidents-manual`, a folder source, whose connector declares nothing | the hash is the one it had before this rule, and nothing is fetched again |
 | 4 | *counter-example* — `fields` reordered on `incidents-jira` | the hash does not change, as R2.3 row 2 says |
+
+### R2.27 — a source whose listing fails is reported with the reason, is left as it was, and does not stop the sources after it
+
+A listing can fail. A sitemap cannot be read (R1.29), a crawl cannot finish
+(R1.38), a site answers `429` (R1.35), a server rejects a query. The sync of
+that source stops there, and the source is left as a listing that never finished
+leaves it:
+
+- nothing it held is tombstoned, because the listing was not complete (R2.7);
+- its watermark, configuration hash and listing hash stay where they were
+  (R2.8, R2.3, R2.24);
+- what it is owed stays owed (R2.23);
+- an item stored before the listing failed stays stored.
+
+The sources after it sync as they would have. `dossier sync` names the source
+and the reason, ends a tracked run `FAILED`, and exits `1`. Before this rule the
+failure left the command as a traceback, and the sources after it were not
+synced at all. `www.python.org/about/` with `crawl: 5` did that on 2026-09-28.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.sync.sync_source`), reported in `dossier.cli.sync`
+- **Proved by:** `tests/unit/test_R002_27__a_failed_listing_leaves_its_source_as_it_was.py`, `tests/acceptance/test_R002_27__a_source_that_cannot_be_listed_does_not_stop_the_others.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `vendor-docs`, whose sitemap answers `503`, synced before `incidents-manual` | `vendor-docs: listing failed:` and the reason, naming the sitemap and `503`. `incidents-manual` syncs, and the command exits `1` |
+| 2 | `vendor-docs` holding its four pages, then its sitemap answering `503` | the four stay active, and its watermark and listing hash are the ones the last sync recorded |
+| 3 | `escalation` owed from a fetch that failed (R2.23), and then the listing fails | `escalation` is still owed |
+| 4 | a listing that returns two items and then fails | both are stored, and nothing held is tombstoned |
+| 5 | a tracked sync of row 1 | the run ends `FAILED` |
+| 6 | *counter-example* — a fetch that fails (R1.9) | not this rule: the listing goes on, and the item is owed (R2.23) |
