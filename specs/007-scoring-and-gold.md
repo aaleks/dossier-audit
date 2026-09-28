@@ -1271,7 +1271,7 @@ one that fails its check fails the list.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring`)
 - **Proved by:** `tests/unit/test_R007_42__an_ungrounded_item_fails_its_list.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
