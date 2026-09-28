@@ -102,6 +102,8 @@ def score_run(
                 checks=result.checks,
                 gold=_gold_fields(gold[result.document]),
                 kinds=kinds,
+                # Which page each record came from, so a miss names it (R7.48).
+                parts=result.parts,
             )
         )
     return tuple(scores)

@@ -32,7 +32,7 @@ import json
 import threading
 from collections.abc import Callable, Collection, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 
@@ -554,7 +554,7 @@ def execute(
                             record=cache.record(stage_key),
                             part=None if part is None else part[0],
                         )
-                    parts_done.append(result)
+                    parts_done.append(_on_part(result, part))
 
                 if not parts_done:
                     # A per_part step whose document has no parts. The document
@@ -1156,6 +1156,18 @@ def _parts_for(
     return []
 
 
+def _on_part(result: DocumentResult, part: tuple[str, ImagePart] | None) -> DocumentResult:
+    """A part's result, each of its records labelled with the part it came from (R7.48).
+
+    Labelled here, where the part is known, because the join below is where a
+    document's pages become one list of records, and the page each came from
+    would be lost in it.
+    """
+    if part is None:
+        return result
+    return replace(result, parts=(part[0],) * len(result.records))
+
+
 def _joined_parts(results: Sequence[DocumentResult], *, document: str) -> DocumentResult:
     """One document's parts as the single result a later step reads (R3.12).
 
@@ -1181,6 +1193,7 @@ def _joined_parts(results: Sequence[DocumentResult], *, document: str) -> Docume
         document=document,
         records=tuple(record for part in kept for record in part.records),
         checks=tuple(check for part in kept for check in part.checks),
+        parts=tuple(name for part in kept for name in part.parts),
         attempts=sum(result.attempts for result in results),
         tokens=total(result.tokens for result in results),
         text=body,
@@ -1651,7 +1664,7 @@ def replay(
                     cache=cache,
                     part=part,
                 )
-                served.append(result)
+                served.append(_on_part(result, part))
                 reproduced.append(
                     (
                         step.id,

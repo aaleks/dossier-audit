@@ -1479,7 +1479,7 @@ documents, and the page that got one wrong named under it (R7.25).
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R007_51__eval_scores_a_per_part_field_once_per_document.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
