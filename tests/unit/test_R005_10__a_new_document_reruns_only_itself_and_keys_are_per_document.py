@@ -32,7 +32,7 @@ from tests.fakes import FakeModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
-from dossier.application.run import AGGREGATE_KEY, _as_text, execute
+from dossier.application.run import AGGREGATE_KEY, RunInputs, _as_text, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -98,13 +98,15 @@ def pipeline(*, with_report: bool) -> PipelineConfig:
 def run(workspace: Path, model, *, keys: list[str], with_report: bool, run_id: str):
     config = pipeline(with_report=with_report)
     return execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash=PIPELINE_HASH,
+            schemas={step.id: SCHEMA for step in config.steps if step.mode == "per_file"},
+            prompts={step.id: prompt_for(step.inputs) for step in config.steps},
+            documents={key: f"{index:064d}" for index, key in enumerate(keys)},
+            document_text=text_for(keys),
+        ),
         workspace=workspace,
-        pipeline=config,
-        pipeline_hash=PIPELINE_HASH,
-        documents={key: f"{index:064d}" for index, key in enumerate(keys)},
-        document_text=text_for(keys),
-        schemas={step.id: SCHEMA for step in config.steps if step.mode == "per_file"},
-        prompts={step.id: prompt_for(step.inputs) for step in config.steps},
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,
@@ -213,13 +215,15 @@ class TestOnlyTheNewDocumentReruns:
 
         model = FakeModelClient(responses=scripted([duplicate]))
         report = execute(
+            RunInputs(
+                pipeline=config,
+                pipeline_hash=PIPELINE_HASH,
+                schemas={"extract": SCHEMA, "verify": SCHEMA},
+                prompts={step.id: prompt_for(step.inputs) for step in config.steps},
+                documents={key: f"{index:064d}" for index, key in enumerate(keys)},
+                document_text=text,
+            ),
             workspace=tmp_path,
-            pipeline=config,
-            pipeline_hash=PIPELINE_HASH,
-            documents={key: f"{index:064d}" for index, key in enumerate(keys)},
-            document_text=text,
-            schemas={"extract": SCHEMA, "verify": SCHEMA},
-            prompts={step.id: prompt_for(step.inputs) for step in config.steps},
             model=model,
             cache=ArtifactCache(tmp_path, namespace="stage"),
             run_id="20260907T090000Z-cccc",
@@ -253,13 +257,15 @@ class TestOnlyTheNewDocumentReruns:
         text[duplicate] = text["INC-4821"]
 
         report = execute(
+            RunInputs(
+                pipeline=config,
+                pipeline_hash=PIPELINE_HASH,
+                schemas={"extract": SCHEMA, "verify": SCHEMA},
+                prompts={step.id: prompt_for(step.inputs) for step in config.steps},
+                documents={key: f"{index:064d}" for index, key in enumerate(keys)},
+                document_text=text,
+            ),
             workspace=tmp_path,
-            pipeline=config,
-            pipeline_hash=PIPELINE_HASH,
-            documents={key: f"{index:064d}" for index, key in enumerate(keys)},
-            document_text=text,
-            schemas={"extract": SCHEMA, "verify": SCHEMA},
-            prompts={step.id: prompt_for(step.inputs) for step in config.steps},
             model=FakeModelClient(responses=scripted([duplicate])),
             cache=ArtifactCache(tmp_path, namespace="stage"),
             run_id="20260907T090000Z-dddd",

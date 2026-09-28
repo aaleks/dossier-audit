@@ -25,7 +25,7 @@ from tests.fakes import FakeModelClient, FakeTracker
 from tests.pipelines import prompt_for
 from tests.scoring_example import ISSUES
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, RunRecording, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.hashing import content_hash
 from dossier.domain.pipeline import PipelineConfig, StepConfig
@@ -95,48 +95,53 @@ def _run(workspace: Path, model, *, capture: str = "full", run_id: str = RUN_ID)
     declared = OutputSchema(schema={"type": "object"}, declaration_hash="d24c86e1" * 8)
     tracker = FakeTracker()
     execute(
-        workspace=workspace,
-        pipeline=PipelineConfig(
-            name="incident-audit",
-            sources=["incidents-jira"],
-            model="anthropic:claude-sonnet-4-5-20250929",
-            steps=[
-                StepConfig(
-                    id="extract",
-                    prompt="prompts/extract.md",
-                    input="documents",
-                    mode="per_file",
-                    output="schemas/incident.yaml",
-                ),
-                StepConfig(
-                    id="verify",
-                    prompt="prompts/verify.md",
-                    input=["documents", "extract"],
-                    mode="per_file",
-                    output="schemas/incident.yaml",
-                ),
-                StepConfig(
-                    id="report", prompt="prompts/report.md", input="verify", mode="aggregate"
-                ),
-            ],
+        RunInputs(
+            pipeline=PipelineConfig(
+                name="incident-audit",
+                sources=["incidents-jira"],
+                model="anthropic:claude-sonnet-4-5-20250929",
+                steps=[
+                    StepConfig(
+                        id="extract",
+                        prompt="prompts/extract.md",
+                        input="documents",
+                        mode="per_file",
+                        output="schemas/incident.yaml",
+                    ),
+                    StepConfig(
+                        id="verify",
+                        prompt="prompts/verify.md",
+                        input=["documents", "extract"],
+                        mode="per_file",
+                        output="schemas/incident.yaml",
+                    ),
+                    StepConfig(
+                        id="report",
+                        prompt="prompts/report.md",
+                        input="verify",
+                        mode="aggregate",
+                    ),
+                ],
+            ),
+            pipeline_hash="6e0d4b27" * 8,
+            schemas={"extract": declared, "verify": declared, "report": None},
+            prompts={
+                "extract": prompt_for(["documents"]),
+                "verify": prompt_for(["documents", "extract"]),
+                "report": prompt_for(["verify"]),
+            },
+            documents={"INC-4821": "a3f9c1e2" * 8, "INC-4822": "77c1b40a" * 8},
+            document_text={key: ISSUES[key] for key in ("INC-4821", "INC-4822")},
         ),
-        pipeline_hash="6e0d4b27" * 8,
-        documents={"INC-4821": "a3f9c1e2" * 8, "INC-4822": "77c1b40a" * 8},
-        document_text={key: ISSUES[key] for key in ("INC-4821", "INC-4822")},
-        schemas={"extract": declared, "verify": declared, "report": None},
-        prompts={
-            "extract": prompt_for(["documents"]),
-            "verify": prompt_for(["documents", "extract"]),
-            "report": prompt_for(["verify"]),
-        },
+        workspace=workspace,
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,
         started_at=datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC),
         dossier_version="0.1.0",
-        tracker=tracker,
-        experiment="dossier-audit/incident-audit/run",
-        capture=capture,
+        recording=RunRecording(
+            tracker=tracker, experiment="dossier-audit/incident-audit/run", capture=capture
+        ),
     )
     return tracker
 

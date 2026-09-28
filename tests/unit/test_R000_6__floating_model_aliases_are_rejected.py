@@ -18,7 +18,7 @@ from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
 from dossier.application.manifest import Manifest
-from dossier.application.run import execute, replay
+from dossier.application.run import RunInputs, execute, replay
 from dossier.domain.fields import OutputSchema
 from dossier.domain.model_id import check_pinned
 from dossier.domain.pipeline import PipelineConfig, StepConfig
@@ -94,17 +94,19 @@ class TestFloatingModelAliasesAreRejected:
             }
         )
         execute(
+            RunInputs(
+                pipeline=config,
+                pipeline_hash="0e52dd18" * 8,
+                schemas={
+                    "extract": OutputSchema(
+                        schema={"type": "object"}, declaration_hash="6e0d4b27" * 8
+                    )
+                },
+                prompts={"extract": prompt_for(["documents"])},
+                documents={"INC-4821": "a3f9c1e2" * 8},
+                document_text=TEXT,
+            ),
             workspace=tmp_path,
-            pipeline=config,
-            pipeline_hash="0e52dd18" * 8,
-            documents={"INC-4821": "a3f9c1e2" * 8},
-            document_text=TEXT,
-            schemas={
-                "extract": OutputSchema(
-                    schema={"type": "object"}, declaration_hash="6e0d4b27" * 8
-                )
-            },
-            prompts={"extract": prompt_for(["documents"])},
             model=FakeModelClient(responses=[answer], model_id=model),
             cache=ArtifactCache(tmp_path, namespace="stage"),
             run_id=RUN_ID,

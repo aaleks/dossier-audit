@@ -22,7 +22,7 @@ from tests.fakes import FakeModelClient
 from tests.pipelines import prompt_for, write_pipeline
 
 from dossier.application.manifest import Manifest
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.ledger import Ledger
@@ -79,13 +79,15 @@ def run(workspace: Path, run_id: str) -> Manifest:
         ],
     )
     execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash=PIPELINE_HASH,
+            schemas={"extract": None},
+            prompts={"extract": prompt_for(["documents"])},
+            documents=documents,
+            document_text={key: f"# {key}\n\nAs held.\n" for key in documents},
+        ),
         workspace=workspace,
-        pipeline=config,
-        pipeline_hash=PIPELINE_HASH,
-        documents=documents,
-        document_text={key: f"# {key}\n\nAs held.\n" for key in documents},
-        schemas={"extract": None},
-        prompts={"extract": prompt_for(["documents"])},
         model=FakeModelClient(responses=[f"Reviewed {key}." for key in sorted(documents)]),
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,

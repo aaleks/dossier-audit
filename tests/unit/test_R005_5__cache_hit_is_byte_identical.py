@@ -19,7 +19,7 @@ from tests.fakes import FakeModelClient, NoModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -62,13 +62,15 @@ def pipeline(**inputs: str) -> PipelineConfig:
 def run(workspace: Path, model, *, config=None, run_id: str = RUN_ID, documents=None):
     config = config or pipeline(extract="documents")
     return execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash=PIPELINE_HASH,
+            schemas=dict.fromkeys([step.id for step in config.steps], SCHEMA),
+            prompts={step.id: prompt_for(step.inputs) for step in config.steps},
+            documents=documents or DOCUMENTS,
+            document_text=STAGE_INPUTS,
+        ),
         workspace=workspace,
-        pipeline=config,
-        pipeline_hash=PIPELINE_HASH,
-        documents=documents or DOCUMENTS,
-        document_text=STAGE_INPUTS,
-        schemas=dict.fromkeys([step.id for step in config.steps], SCHEMA),
-        prompts={step.id: prompt_for(step.inputs) for step in config.steps},
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,
@@ -181,13 +183,15 @@ class TestACacheHitIsIdentical:
 
         config = pipeline(extract="documents")
         execute(
+            RunInputs(
+                pipeline=config,
+                pipeline_hash=PIPELINE_HASH,
+                schemas={"extract": SCHEMA},
+                prompts={"extract": prompt_for(["documents"])},
+                documents=DOCUMENTS,
+                document_text=moved,
+            ),
             workspace=tmp_path,
-            pipeline=config,
-            pipeline_hash=PIPELINE_HASH,
-            documents=DOCUMENTS,
-            document_text=moved,
-            schemas={"extract": SCHEMA},
-            prompts={"extract": prompt_for(["documents"])},
             model=FakeModelClient(responses=[answer()]),
             cache=ArtifactCache(tmp_path, namespace="stage"),
             run_id="20260907T090000Z-dddd",

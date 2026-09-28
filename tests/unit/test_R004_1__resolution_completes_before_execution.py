@@ -26,7 +26,7 @@ from tests.fakes import FakeModelClient, NoModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -68,9 +68,11 @@ def pipeline(**inputs: str) -> PipelineConfig:
 
 
 def run(workspace: Path, config: PipelineConfig, model, **overrides):
-    """Execute a pipeline, with everything this layer refuses to look up itself."""
-    arguments = {
-        "workspace": workspace,
+    """Execute a pipeline, with everything this layer refuses to look up itself.
+
+    `overrides` replace what the run is run over (`documents`, `schemas`).
+    """
+    inputs = {
         "pipeline": config,
         "pipeline_hash": PIPELINE_HASH,
         "documents": DOCUMENTS,
@@ -79,13 +81,16 @@ def run(workspace: Path, config: PipelineConfig, model, **overrides):
         # A prompt per step naming exactly that step's declared inputs, which
         # is what R3.6 requires and what load_pipeline would have enforced.
         "prompts": {step.id: prompt_for(step.inputs) for step in config.steps},
-        "cache": ArtifactCache(workspace, namespace="stage"),
-        "model": model,
-        "run_id": RUN_ID,
-        "started_at": STARTED_AT,
-        "dossier_version": "0.1.0",
     }
-    return execute(**{**arguments, **overrides})
+    return execute(
+        RunInputs(**{**inputs, **overrides}),
+        workspace=workspace,
+        cache=ArtifactCache(workspace, namespace="stage"),
+        model=model,
+        run_id=RUN_ID,
+        started_at=STARTED_AT,
+        dossier_version="0.1.0",
+    )
 
 
 class TestResolutionFailureIsTotal:

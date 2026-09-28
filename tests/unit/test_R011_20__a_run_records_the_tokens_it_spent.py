@@ -18,7 +18,7 @@ from tests.fakes import FakeModelClient, FakeTracker, NoModelClient
 from tests.pipelines import prompt_for
 from tests.scoring_example import ISSUES
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, RunRecording, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.domain.ports import Reply
@@ -72,23 +72,27 @@ def _run(workspace: Path, model, *, run_id: str = RUN_ID, capture: str = "full")
 
     tracker = FakeTracker()
     execute(
+        RunInputs(
+            pipeline=CONFIG,
+            pipeline_hash="6e0d4b27" * 8,
+            schemas={
+                "extract": OutputSchema(
+                    schema={"type": "object"}, declaration_hash="d24c86e1" * 8
+                )
+            },
+            prompts={"extract": prompt_for(["documents"])},
+            documents=SNAPSHOTS,
+            document_text=ISSUES,
+        ),
         workspace=workspace,
-        pipeline=CONFIG,
-        pipeline_hash="6e0d4b27" * 8,
-        documents=SNAPSHOTS,
-        document_text=ISSUES,
-        schemas={
-            "extract": OutputSchema(schema={"type": "object"}, declaration_hash="d24c86e1" * 8)
-        },
-        prompts={"extract": prompt_for(["documents"])},
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,
         started_at=datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC),
         dossier_version="0.1.0",
-        tracker=tracker,
-        experiment="dossier-audit/incident-audit/run",
-        capture=capture,
+        recording=RunRecording(
+            tracker=tracker, experiment="dossier-audit/incident-audit/run", capture=capture
+        ),
     )
     return tracker
 

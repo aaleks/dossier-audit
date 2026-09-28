@@ -26,7 +26,7 @@ from pathlib import Path
 from tests.pipelines import prompt_for
 
 from dossier.application.manifest import Manifest
-from dossier.application.run import execute, replay
+from dossier.application.run import RunInputs, execute, replay
 from dossier.domain.conversion import PART_TYPE
 from dossier.domain.fields import OutputSchema
 from dossier.domain.grounding import FieldVerdict
@@ -90,27 +90,31 @@ def _run(
     """One step over `documents`, with `OPS-114` as reference; the run's report."""
     declared = inputs if isinstance(inputs, list) else [inputs]
     return execute(
-        workspace=tmp_path,
-        pipeline=PipelineConfig(
-            name="incident-audit",
-            sources=["incidents-jira"],
-            reference=["procedures-confluence"],
-            model=MODEL,
-            steps=[
-                StepConfig(id="verify", prompt="prompts/verify.md", input=inputs, mode=mode)
-            ],
+        RunInputs(
+            pipeline=PipelineConfig(
+                name="incident-audit",
+                sources=["incidents-jira"],
+                reference=["procedures-confluence"],
+                model=MODEL,
+                steps=[
+                    StepConfig(id="verify", prompt="prompts/verify.md", input=inputs, mode=mode)
+                ],
+            ),
+            pipeline_hash="0e52dd18" * 8,
+            schemas={"verify": SCHEMA},
+            prompts={"verify": prompt_for(declared)},
+            documents={
+                key: sha256(text.encode()).hexdigest() for key, text in documents.items()
+            },
+            document_text=documents,
+            document_content={"markdown": documents},
+            document_parts=parts,
+            reference_content={"markdown": PROCEDURES},
+            reference_documents={
+                key: sha256(t.encode()).hexdigest() for key, t in PROCEDURES.items()
+            },
         ),
-        pipeline_hash="0e52dd18" * 8,
-        documents={key: sha256(text.encode()).hexdigest() for key, text in documents.items()},
-        document_text=documents,
-        document_content={"markdown": documents},
-        document_parts=parts,
-        reference_content={"markdown": PROCEDURES},
-        reference_documents={
-            key: sha256(t.encode()).hexdigest() for key, t in PROCEDURES.items()
-        },
-        schemas={"verify": SCHEMA},
-        prompts={"verify": prompt_for(declared)},
+        workspace=tmp_path,
         model=answers,
         cache=ArtifactCache(tmp_path, namespace="stage"),
         run_id="20260806T142203Z-4f1a",

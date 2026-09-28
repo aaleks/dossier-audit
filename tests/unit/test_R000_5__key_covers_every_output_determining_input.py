@@ -21,7 +21,7 @@ from tests.fakes import FakeModelClient
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.keys import ArtifactInput, StageInputs, cache_key
 from dossier.domain.pipeline import PipelineConfig, StepConfig
@@ -95,16 +95,18 @@ def run(workspace: Path, run_id: str) -> list[str]:
         ],
     )
     execute(
-        workspace=workspace,
-        pipeline=config,
-        pipeline_hash="0e52dd18" * 8,
-        documents={"INC-4821": "a3f9c1e2" * 8},
-        document_text=STAGE_INPUTS,
-        schemas=dict.fromkeys(
-            ["extract", "verify"],
-            OutputSchema(schema={"type": "object"}, declaration_hash="6e0d4b27" * 8),
+        RunInputs(
+            pipeline=config,
+            pipeline_hash="0e52dd18" * 8,
+            schemas=dict.fromkeys(
+                ["extract", "verify"],
+                OutputSchema(schema={"type": "object"}, declaration_hash="6e0d4b27" * 8),
+            ),
+            prompts={step.id: prompt_for(step.inputs) for step in config.steps},
+            documents={"INC-4821": "a3f9c1e2" * 8},
+            document_text=STAGE_INPUTS,
         ),
-        prompts={step.id: prompt_for(step.inputs) for step in config.steps},
+        workspace=workspace,
         model=FakeModelClient(responses=[answer(), answer()]),
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,

@@ -21,7 +21,7 @@ from pathlib import Path
 
 from tests.pipelines import prompt_for
 
-from dossier.application.run import _as_text, execute
+from dossier.application.run import RunInputs, _as_text, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -62,15 +62,15 @@ def _run(
         ],
     )
     return execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash="0e52dd18" * 8,
+            schemas={"extract": SCHEMA},
+            prompts={"extract": prompt_for(["documents"])},
+            documents={key: sha256(body.encode()).hexdigest() for key, body in text.items()},
+            document_text=text,
+        ),
         workspace=workspace,
-        pipeline=config,
-        pipeline_hash="0e52dd18" * 8,
-        # A snapshot address per document that moves with its text, as a
-        # content hash does (R2.6).
-        documents={key: sha256(body.encode()).hexdigest() for key, body in text.items()},
-        document_text=text,
-        schemas={"extract": SCHEMA},
-        prompts={"extract": prompt_for(["documents"])},
         model=model,
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,

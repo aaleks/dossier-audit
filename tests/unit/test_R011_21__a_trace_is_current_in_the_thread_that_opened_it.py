@@ -23,7 +23,7 @@ from tests.fakes import FakeTracker
 from tests.pipelines import prompt_for
 from tests.scoring_example import ISSUES
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, RunRecording, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.tracking.best_effort import BestEffortTracker
@@ -272,39 +272,42 @@ def _recorded_run(workspace: Path, **options) -> FakeTracker:
 
     tracker = FakeTracker()
     execute(
-        workspace=workspace,
-        pipeline=PipelineConfig(
-            name="incident-audit",
-            sources=["incidents-jira"],
-            model=MODEL,
-            steps=[
-                StepConfig(
-                    id="extract",
-                    prompt="prompts/extract.md",
-                    input="documents",
-                    mode="per_file",
-                    output="schemas/incident.yaml",
+        RunInputs(
+            pipeline=PipelineConfig(
+                name="incident-audit",
+                sources=["incidents-jira"],
+                model=MODEL,
+                steps=[
+                    StepConfig(
+                        id="extract",
+                        prompt="prompts/extract.md",
+                        input="documents",
+                        mode="per_file",
+                        output="schemas/incident.yaml",
+                    )
+                ],
+            ),
+            pipeline_hash="6e0d4b27" * 8,
+            documents={
+                "INC-4821": "a3f9c1e2" * 8,
+                "INC-4822": "77c1b40a" * 8,
+                "INC-4901": "0e52dd18" * 8,
+            },
+            document_text=ISSUES,
+            schemas={
+                "extract": OutputSchema(
+                    schema={"type": "object"}, declaration_hash="d24c86e1" * 8
                 )
-            ],
+            },
+            prompts={"extract": prompt_for(["documents"])},
         ),
-        pipeline_hash="6e0d4b27" * 8,
-        documents={
-            "INC-4821": "a3f9c1e2" * 8,
-            "INC-4822": "77c1b40a" * 8,
-            "INC-4901": "0e52dd18" * 8,
-        },
-        document_text=ISSUES,
-        schemas={
-            "extract": OutputSchema(schema={"type": "object"}, declaration_hash="d24c86e1" * 8)
-        },
-        prompts={"extract": prompt_for(["documents"])},
+        workspace=workspace,
         model=Abstaining(),
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id="20260806T142203Z-4f1a",
         started_at=datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC),
         dossier_version="0.1.0",
-        tracker=tracker,
-        experiment="dossier-audit/incident-audit/run",
+        recording=RunRecording(tracker=tracker, experiment="dossier-audit/incident-audit/run"),
         **options,
     )
     return tracker

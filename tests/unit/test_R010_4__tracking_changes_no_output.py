@@ -32,7 +32,7 @@ from tests.scoring_example import (
     RoutedModel,
 )
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, RunRecording, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -83,22 +83,28 @@ def _answer(document: str) -> str:
 def _execute(workspace: Path, *, run_id: str, started_at: datetime, tracker=None) -> Path:
     """The same run of `extract` over the four incidents; its manifest's path."""
     report = execute(
+        RunInputs(
+            pipeline=CONFIG,
+            pipeline_hash="6e0d4b27" * 8,
+            schemas={
+                "extract": OutputSchema(
+                    schema={"type": "object"}, declaration_hash="d24c86e1" * 8
+                )
+            },
+            prompts={"extract": prompt_for(["documents"])},
+            documents=SNAPSHOTS,
+            document_text=ISSUES,
+        ),
         workspace=workspace,
-        pipeline=CONFIG,
-        pipeline_hash="6e0d4b27" * 8,
-        documents=SNAPSHOTS,
-        document_text=ISSUES,
-        schemas={
-            "extract": OutputSchema(schema={"type": "object"}, declaration_hash="d24c86e1" * 8)
-        },
-        prompts={"extract": prompt_for(["documents"])},
         model=FakeModelClient(responses=[_answer(key) for key in sorted(SNAPSHOTS)]),
         cache=ArtifactCache(workspace, namespace="stage"),
         run_id=run_id,
         started_at=started_at,
         dossier_version="0.1.0",
-        tracker=tracker,
-        experiment="dossier-audit/incident-audit/run" if tracker is not None else None,
+        recording=RunRecording(
+            tracker=tracker,
+            experiment="dossier-audit/incident-audit/run" if tracker is not None else None,
+        ),
     )
     return report.manifest_path
 

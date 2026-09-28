@@ -20,7 +20,7 @@ from pathlib import Path
 
 from tests.pipelines import prompt_for
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.grounding import FieldVerdict
 from dossier.domain.pipeline import PipelineConfig, StepConfig
@@ -69,13 +69,15 @@ def _verdicts(tmp_path: Path, text: dict[str, str], model) -> dict:
         ],
     )
     report = execute(
+        RunInputs(
+            pipeline=config,
+            pipeline_hash="0e52dd18" * 8,
+            schemas={"extract": SCHEMA},
+            prompts={"extract": prompt_for(["documents"])},
+            documents={key: sha256(body.encode()).hexdigest() for key, body in text.items()},
+            document_text=text,
+        ),
         workspace=tmp_path,
-        pipeline=config,
-        pipeline_hash="0e52dd18" * 8,
-        documents={key: sha256(body.encode()).hexdigest() for key, body in text.items()},
-        document_text=text,
-        schemas={"extract": SCHEMA},
-        prompts={"extract": prompt_for(["documents"])},
         model=model,
         cache=ArtifactCache(tmp_path, namespace="stage"),
         run_id="20260806T142203Z-4f1a",

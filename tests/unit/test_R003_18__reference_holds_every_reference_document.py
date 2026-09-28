@@ -17,7 +17,7 @@ from pathlib import Path
 
 from tests.pipelines import prompt_for
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
 from dossier.infrastructure.cache import ArtifactCache
@@ -61,27 +61,31 @@ def _run(tmp_path: Path, *, mode: str) -> Model:
     """One `verify` step over the two incidents, reading the three procedures."""
     model = Model()
     execute(
-        workspace=tmp_path,
-        pipeline=PipelineConfig(
-            name="incident-audit",
-            sources=["incidents-jira"],
-            reference=["procedures-confluence"],
-            model=MODEL,
-            steps=[
-                StepConfig(
-                    id="verify",
-                    prompt="prompts/verify.md",
-                    input=["documents", "reference"],
-                    mode=mode,
-                )
-            ],
+        RunInputs(
+            pipeline=PipelineConfig(
+                name="incident-audit",
+                sources=["incidents-jira"],
+                reference=["procedures-confluence"],
+                model=MODEL,
+                steps=[
+                    StepConfig(
+                        id="verify",
+                        prompt="prompts/verify.md",
+                        input=["documents", "reference"],
+                        mode=mode,
+                    )
+                ],
+            ),
+            pipeline_hash="0e52dd18" * 8,
+            schemas={"verify": SCHEMA},
+            prompts={"verify": prompt_for(["documents", "reference"])},
+            documents={
+                key: sha256(text.encode()).hexdigest() for key, text in INCIDENTS.items()
+            },
+            document_text=INCIDENTS,
+            reference_content={"markdown": PROCEDURES},
         ),
-        pipeline_hash="0e52dd18" * 8,
-        documents={key: sha256(text.encode()).hexdigest() for key, text in INCIDENTS.items()},
-        document_text=INCIDENTS,
-        reference_content={"markdown": PROCEDURES},
-        schemas={"verify": SCHEMA},
-        prompts={"verify": prompt_for(["documents", "reference"])},
+        workspace=tmp_path,
         model=model,
         cache=ArtifactCache(tmp_path, namespace="stage"),
         run_id="20260806T142203Z-4f1a",

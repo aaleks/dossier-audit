@@ -15,6 +15,8 @@ from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.plan import Plan, build_plan, latest_manifest, pinned_documents
 from dossier.application.run import (
     MissingFromReplay,
+    RunInputs,
+    RunRecording,
     execute,
     key_hashes,
     replay,
@@ -464,25 +466,28 @@ def _execute(
 
     try:
         report = execute(
+            RunInputs(
+                pipeline=config,
+                pipeline_hash=text_hash(path),
+                schemas=schemas,
+                prompts=prompts,
+                documents=documents,
+                media_types=media_types,
+                document_text=text,
+                document_content=content,
+                document_parts=parts,
+                reference_content=reference,
+                reference_documents=reference_documents,
+                converters=[
+                    PinnedConverter(
+                        id=c.id, version=c.version, media_type=c.media_type, kind=c.kind
+                    )
+                    for c in used_converters(requests=requests, available=converters)
+                ],
+                source_configs=declared,
+            ),
             workspace=workspace,
-            pipeline=config,
-            pipeline_hash=text_hash(path),
-            documents=documents,
-            media_types=media_types,
-            document_text=text,
-            document_content=content,
-            document_parts=parts,
-            reference_content=reference,
-            reference_documents=reference_documents,
-            schemas=schemas,
-            prompts=prompts,
-            # Built at the first cache miss, never before. That also keeps it
-            # behind resolution: constructed up front, a pipeline with both a
-            # bad reference and an unreachable model reported the model (R4.1).
             model=bootstrap.BuiltOnFirstCall(config.model),
-            # One for each model a step names instead, each built at its own
-            # step's first miss and never before, so a step served from cache
-            # needs no endpoint for its model either (R3.14, R9.2 row 5).
             models={
                 own: bootstrap.BuiltOnFirstCall(own)
                 for own in sorted(
@@ -490,30 +495,21 @@ def _execute(
                 )
             },
             cache=ArtifactCache(workspace, namespace="stage"),
-            tracker=tracker,
-            experiment=experiment,
-            environ=environment(workspace),
-            label=label_for(label, environment(workspace)),
-            capture=capture,
-            versions=versions,
-            prompt_registry=prompt_registry,
-            # The same variable a publish reads, so a run asks for the name it
-            # would have published under (R14.8 row 3).
-            prompt_prefix=environment(workspace).get(NAMESPACE, ""),
-            version_experiment=experiment or "",
             concurrency=asked_at_once,
             run_id=this_run,
             started_at=started_at,
             dossier_version=version("dossier"),
-            # What each source was told to make, so a step asking for a kind
-            # nobody produces is refused before anything else happens (R4.13).
-            source_configs=declared,
-            converters=[
-                PinnedConverter(
-                    id=c.id, version=c.version, media_type=c.media_type, kind=c.kind
-                )
-                for c in used_converters(requests=requests, available=converters)
-            ],
+            recording=RunRecording(
+                tracker=tracker,
+                experiment=experiment,
+                environ=environment(workspace),
+                label=label_for(label, environment(workspace)),
+                capture=capture,
+                versions=versions,
+                version_experiment=experiment or "",
+                prompt_registry=prompt_registry,
+                prompt_prefix=environment(workspace).get(NAMESPACE, ""),
+            ),
         )
     except ValueError as error:
         # Resolution failed, so nothing ran and nothing was written (R4.1).

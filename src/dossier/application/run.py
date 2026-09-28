@@ -215,63 +215,110 @@ class RunReport:
         return sum(len(report.served_from_cache) for report in self.steps)
 
 
+@dataclass(frozen=True)
+class RunInputs:
+    """What a run is run over: everything that can change what it produces (R0.5).
+
+    The pipeline and what it was loaded with, and the documents it reads. Every
+    field reaches a key or the manifest, which is why they travel together: a
+    field added here is a field the plan has to account for.
+
+    `reference_content` is what the `reference:` sources hold, by kind and then
+    by key: the context every call reading `reference` is shown whole (R3.18).
+    `reference_documents` pins each by snapshot, as `documents` pins the
+    audited ones, so a replay shows those calls the same context (R4.16).
+    """
+
+    pipeline: PipelineConfig
+    pipeline_hash: str
+    schemas: Mapping[str, OutputSchema | None]
+    prompts: Mapping[str, str]
+    documents: Mapping[str, str]
+    document_text: Mapping[str, str]
+    media_types: Mapping[str, str] | None = None
+    document_content: Mapping[str, Mapping[str, str]] | None = None
+    document_parts: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]] | None = None
+    reference_content: Mapping[str, Mapping[str, str]] | None = None
+    reference_documents: Mapping[str, str] | None = None
+    converters: Sequence[PinnedConverter] | None = None
+    source_configs: Mapping[str, SourceConfig] | None = None
+
+
+@dataclass(frozen=True)
+class RunRecording:
+    """Where a run is recorded, and how much of it: nothing here changes an output (R10.4).
+
+    With a `tracker`, the run is also recorded to `experiment`: one MLflow run
+    named after the run id, one trace per (step, document), and the counts and
+    the manifest once the steps are done (R11.1). `versions` registers the
+    pipeline version it produced (spec 013), and `prompt_registry` links the
+    prompts its steps rendered (spec 014). The default records nothing.
+    """
+
+    tracker: Tracker | None = None
+    experiment: str | None = None
+    environ: Mapping[str, str] | None = None
+    label: str = ""
+    capture: str = "full"
+    versions: VersionRegistry | None = None
+    version_experiment: str = ""
+    prompt_registry: PromptRegistry | None = None
+    prompt_prefix: str = ""
+
+
+# A run nothing records: no tracker, no registry. Frozen, so one serves every call.
+NOT_RECORDED = RunRecording()
+
+
 def execute(
+    inputs: RunInputs,
     *,
     workspace: Path,
-    pipeline: PipelineConfig,
-    pipeline_hash: str,
-    documents: Mapping[str, str],
-    media_types: Mapping[str, str] | None = None,
-    document_text: Mapping[str, str],
-    document_content: Mapping[str, Mapping[str, str]] | None = None,
-    document_parts: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]] | None = None,
-    reference_content: Mapping[str, Mapping[str, str]] | None = None,
-    reference_documents: Mapping[str, str] | None = None,
-    schemas: Mapping[str, OutputSchema | None],
-    prompts: Mapping[str, str],
     model: ModelClient,
     cache: ArtifactStore,
     run_id: str,
     started_at: datetime,
     dossier_version: str,
-    converters: Sequence[PinnedConverter] | None = None,
-    source_configs: Mapping[str, SourceConfig] | None = None,
-    tracker: Tracker | None = None,
-    experiment: str | None = None,
-    environ: Mapping[str, str] | None = None,
-    label: str = "",
-    capture: str = "full",
-    versions: VersionRegistry | None = None,
-    version_experiment: str = "",
-    prompt_registry: PromptRegistry | None = None,
-    prompt_prefix: str = "",
-    concurrency: int = 1,
     models: Mapping[str, ModelClient] | None = None,
+    concurrency: int = 1,
+    recording: RunRecording = NOT_RECORDED,
 ) -> RunReport:
     """Resolve the pipeline, freeze it, then run it.
 
     Raises `ValueError` if resolution fails, having written nothing and called
     nothing. Returns a report if it succeeded, whatever individual documents did.
 
+    What is run is `inputs`, and where it is recorded is `recording`: the one
+    can change an output and the other may not (R0.5, R10.4), so the two are
+    never one argument list.
+
     `model` asks every step that names no model of its own; `models` holds a
     client for each model a step does name, by its identifier (R3.14). A step
     whose model has no client stops the run before anything is written.
-
-    `reference_content` is what the `reference:` sources hold, by kind and then
-    by key: the context every call reading `reference` is shown whole (R3.18).
-    `reference_documents` pins each by snapshot, as `documents` pins the
-    audited ones, so a replay shows those calls the same context (R4.16).
 
     `concurrency` is how many of a step's documents are asked about at once
     (R9.19). Steps still run one after another, and every result is put back in
     document order, so nothing this returns or writes depends on it.
 
-    With a `tracker`, the run is also recorded to `experiment`: one MLflow run
-    named after `run_id`, one trace per (step, document), and the counts and the
-    manifest once the steps are done (R11.1). Recording starts only after
-    resolution, so a run that resolution refused records nothing either.
-    Tracking observes; nothing it holds is read back into this run (R0.10).
+    Recording starts only after resolution, so a run that resolution refused
+    records nothing either. Tracking observes; nothing it holds is read back
+    into this run (R0.10).
     """
+    pipeline, pipeline_hash = inputs.pipeline, inputs.pipeline_hash
+    schemas, prompts = inputs.schemas, inputs.prompts
+    documents, media_types = inputs.documents, inputs.media_types
+    document_text, document_content = inputs.document_text, inputs.document_content
+    document_parts = inputs.document_parts
+    reference_content, reference_documents = (
+        inputs.reference_content,
+        inputs.reference_documents,
+    )
+    converters, source_configs = inputs.converters, inputs.source_configs
+    tracker, experiment, environ = recording.tracker, recording.experiment, recording.environ
+    label, capture = recording.label, recording.capture
+    versions, version_experiment = recording.versions, recording.version_experiment
+    prompt_registry, prompt_prefix = recording.prompt_registry, recording.prompt_prefix
+
     if tracker is not None and not experiment:
         raise ValueError("a tracker records to an experiment, and none was named")
     # What each kind holds, for the steps that name one (R3.11). A caller that

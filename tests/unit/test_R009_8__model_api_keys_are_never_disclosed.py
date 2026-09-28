@@ -21,7 +21,7 @@ import pytest
 from tests.grounding_fixtures import LOSS_SPAN, STAGE_INPUTS
 from tests.pipelines import prompt_for, write_pipeline
 
-from dossier.application.run import execute
+from dossier.application.run import RunInputs, execute
 from dossier.config.endpoints import EndpointUnset, endpoint_for
 from dossier.config.load import ConfigError, load_pipeline
 from dossier.domain.fields import OutputSchema
@@ -122,17 +122,19 @@ class TestModelAPIKeysAreNeverDisclosed:
         )
 
         report = execute(
+            RunInputs(
+                pipeline=config,
+                pipeline_hash="0e52dd18" * 8,
+                schemas={
+                    "extract": OutputSchema(
+                        schema={"type": "object"}, declaration_hash="6e0d4b27" * 8
+                    )
+                },
+                prompts={"extract": prompt_for(["documents"])},
+                documents={"INC-4821": "a3f9c1e2" * 8},
+                document_text=TEXT,
+            ),
             workspace=tmp_path,
-            pipeline=config,
-            pipeline_hash="0e52dd18" * 8,
-            documents={"INC-4821": "a3f9c1e2" * 8},
-            document_text=TEXT,
-            schemas={
-                "extract": OutputSchema(
-                    schema={"type": "object"}, declaration_hash="6e0d4b27" * 8
-                )
-            },
-            prompts={"extract": prompt_for(["documents"])},
             model=ollama(
                 PINNED, url=endpoint.url, api_key=endpoint.api_key, transport=_server()
             ),
