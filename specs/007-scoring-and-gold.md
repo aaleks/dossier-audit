@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.39
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.45
 
 ## Purpose
 
@@ -38,6 +38,7 @@ generated text, and they are the exception the design works hard to keep small.
 | enum (status, severity, category) | allowed-value membership + equality | no |
 | boolean (auto-renews, signed) | the same truth value | no |
 | duration (notice period, term) | the same length, within one calendar unit family | no |
+| list (affected systems, parties) | the same set of items, each compared as text with case folded | no |
 | evidence span | occurs in source text (spec 006) | no |
 | free text (cause, summary) | LLM judge with a written rubric | yes |
 
@@ -83,6 +84,33 @@ to a year. **A month is never a number of days**, nor a year: three months is 89
 to 92 days depending on where it starts, and a contract that gives three months'
 notice and one that gives ninety days' notice give different notice. So `3 months`
 against a gold `90 days` is incorrect, and the detail says why (R7.38).
+
+**A list is the set of its items.** A `list` field is answered one record per
+item (spec 006, "A list is answered one record per item") and scored as one
+answer per document: correct when the run's items and gold's are the same set
+(R7.40, R7.41). Order is not information, and a system named on two pages is one
+system named. An item is compared as a `reference` is, as text with its case
+folded and its surrounding whitespace trimmed, and it matches whole: `payments`
+is not `payments-api`. One ungrounded item makes the list incorrect, as an
+ungrounded value makes any field incorrect (R7.4): a list is not more right for
+being mostly grounded (R7.42).
+
+Gold writes a list as an array, `{"value": ["payments-api", "ledger-batch"]}`,
+and never as one string: splitting `"payments-api, ledger-batch"` on its comma
+would be a guess, and an item may hold a comma. An empty array is refused, and
+`null` with a reason written instead. A run answering one record per item says
+"there are none" and "the document does not say" the same way, as an abstention
+with a reason, so a gold set able to hold the difference would score it against
+answers that cannot (R7.44).
+
+**A list reports its items as well as its verdict.** One verdict per document
+says a list was wrong, not whether the run missed systems or invented them. So a
+list's line carries its item precision -- of the items the run named, how many
+gold names -- and its recall -- of gold's items, how many the run named -- each
+summed over the documents scored. They are reported and not gated, as a
+calibration's lower bound and kappa are (R7.26, R7.27): the percentage is what
+`--compare` gates on (R7.8), and a gate on either would need a threshold nobody
+has agreed (R7.43).
 
 Grounding and abstention are decided before the field's type is consulted. Both
 are facts rather than judgements: whether a span was locatable, and whether the
@@ -167,6 +195,13 @@ durations into a `timedelta`, which has no months or years, so it cannot hold
 the one distinction R7.38 exists to keep. `isodate` reads `P3M` as three months,
 and lives outside what `domain/` may import. What R7.37 reads is a number and one
 of four units, a few lines of `re`. Decided by `a.aleks` on 2026-09-28.
+
+A list's item precision and recall are the standard micro-averaged figures,
+what scikit-learn's `precision_score(average="micro")` computes over a
+multi-label set. Three sums over sets cost less than a dependency the purity
+boundary would not admit, so they are written in `domain/` beside the others.
+That a list is answered one record per item, and scored as an exact set with the
+two figures reported beside it, was decided by `a.aleks` on 2026-09-28.
 
 ## The review loop
 
@@ -1189,3 +1224,112 @@ own percentages (R7.2), and a miss named with the reason R7.38 gave (R7.25).
 | 1 | `schemas/contract.yaml` declaring `auto_renew: {kind: boolean}` and `notice_period: {kind: duration}`; gold for `ACME-2024` and `GLOBEX-2023` as `_fixtures.md` has it; a run answering `auto_renew` `true` and `false`, and `notice_period` `90 days` for both | `auto_renew 100.0%` and `notice_period 50.0%`, each on its own line |
 | 2 | the same | under `notice_period`, `GLOBEX-2023` is named with the detail that `90 days` does not match `3 months` and that a month is not a fixed number of days |
 | 3 | *counter-example* — `schemas/contract.yaml` declaring `notice_days: {kind: number}` | a load-time error naming `notice_days` and the kinds there are, `boolean` and `duration` among them; a count is an `amount` with no `currency` |
+
+### R7.40 — a `list` field is correct when the run's items and gold's items are the same set
+
+Order, case and repetition are not information. An item is compared as text with
+its case folded and its surrounding whitespace trimmed, and it matches whole. The
+values are `_fixtures.md`'s "A list field".
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring`)
+- **Proved by:** `tests/unit/test_R007_40__a_list_is_scored_as_a_set.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `affected_systems` on `INC-4821` answered `payments-api` and `ledger-batch`, against gold `["payments-api", "ledger-batch"]` | correct |
+| 2 | answered `ledger-batch` and `Payments-API` | correct; order and case are not information |
+| 3 | `payments-api` answered on two pages, and `ledger-batch` | correct; one system named twice is one system |
+| 4 | `payments-api` alone | incorrect, `missing: ledger-batch` |
+| 5 | `payments-api`, `ledger-batch` and `upload-service` | incorrect, `not in gold: upload-service` |
+| 6 | *counter-example* — `payments` against gold `["payments-api"]` | incorrect; an item matches whole, never as part of another |
+| 7 | *counter-example* — the run abstains, and gold is `null` | correct, as for any field; an abstention is not an empty list (R7.3) |
+
+### R7.41 — a `list` field is one verdict per document, however many records answered it
+
+A field's percentage counts documents (R7.2). A list counted per item would
+weigh a document by how many systems it names, and one incident with nine
+systems would outvote eight incidents with one.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring`)
+- **Proved by:** `tests/unit/test_R007_41__a_list_is_one_verdict_per_document.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821` answered by two records, both in gold | `affected_systems` scored 1 of 1 for `INC-4821`, not 2 of 2 |
+| 2 | one item in gold and one not | one incorrect verdict, not one correct and one incorrect |
+| 3 | *counter-example* — a gold file with no `affected_systems` entry | no verdict for that document, rather than a zero (R7.3 row 4) |
+
+### R7.42 — an ungrounded item makes its list incorrect, even when every value matches gold
+
+R7.4 for each item. An item's record is checked as any record is (spec 006), and
+one that fails its check fails the list.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring`)
+- **Proved by:** `tests/unit/test_R007_42__an_ungrounded_item_fails_its_list.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `payments-api` grounded, and `ledger-batch` with a span not found in `INC-4821` | incorrect, `ungrounded: ledger-batch` (R7.4) |
+| 2 | an item on `INC-4821` citing `INC-4822` | incorrect; the item is invalid (R6.23) |
+| 3 | *counter-example* — a record abstaining with a reason, beside `payments-api` and `ledger-batch`, both grounded | correct; an abstention is not a failure (R6.5), and the list is its items |
+
+### R7.43 — a `list` field's item precision and recall are printed and recorded beside its percentage, and gate nothing
+
+Precision is, of the items the run named, how many gold names; recall is, of
+gold's items, how many the run named. Each is summed over the documents scored.
+An item whose record failed its check counts as named and never as matched. The
+same figures go to the terminal and to MLflow, which is a second place to read a
+figure and never a second way of arriving at one (spec 011).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring`), application (`dossier.application.eval`), cli (`dossier.cli.eval`)
+- **Proved by:** `tests/unit/test_R007_43__a_list_reports_item_precision_and_recall.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the list example | `affected_systems  50.0%   items: precision 75.0% (3/4), recall 60.0% (3/5)`; and `precision/affected_systems` 75.0 and `recall/affected_systems` 60.0 recorded beside `accuracy/affected_systems` 50.0 (R11.3) |
+| 2 | gold `null` for `INC-4822`, and the run names `ledger-batch` | one item named and none matched: precision falls, recall is unchanged |
+| 3 | *counter-example* — `--compare` of two runs at the same percentage, the second's precision lower | not a regression; R7.8 gates on the percentage alone |
+| 4 | *counter-example* — a run that abstains on every document | `precision --`, not 0.0%: nothing was named, so nothing named was wrong |
+
+### R7.44 — gold for a `list` field is a non-empty array of strings, and only a `list` field holds one
+
+Refused when `dossier eval` reads the gold set, before anything is scored: a
+gold answer in the wrong shape is a definition of correct nobody can meet.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring`), application (`dossier.application.eval`)
+- **Proved by:** `tests/unit/test_R007_44__a_list_in_gold_is_an_array.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `{"value": ["payments-api", "ledger-batch"]}` for `affected_systems: {kind: list}` | two items |
+| 2 | `{"value": null, "reason": "not stated in document"}` | a verified abstention, as for any field (R7.3) |
+| 3 | *counter-example* — `{"value": "payments-api, ledger-batch"}` | refused, naming `INC-4821` and `affected_systems` and saying a list is written as an array; not split on the comma, which an item may hold |
+| 4 | *counter-example* — `{"value": []}` | refused, naming `null` with a reason as what to write instead |
+| 5 | *counter-example* — `{"value": ["major"]}` for `severity: {kind: enum}` | refused, naming `severity`; only a `list` field holds an array |
+
+### R7.45 — `dossier eval` scores a `list` field per field, beside the others
+
+What a person auditing incidents sees once `affected_systems` is declared a
+list: its own percentage (R7.2), what the items say beside it (R7.43), and each
+miss named with what was missing and what was not in gold (R7.25).
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.eval`)
+- **Proved by:** `tests/acceptance/test_R007_45__eval_scores_a_list_field.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `schemas/incident.yaml` declaring `severity: {kind: enum}` and `affected_systems: {kind: list}`; gold and a run as `_fixtures.md`'s "A list field" has them | `severity 100.0%` and `affected_systems 50.0%` with its items line, each on its own line; four model calls, all made by `run` (R7.10) |
+| 2 | the same | under `affected_systems`, `INC-4821` named with `missing: ledger-batch`, and `INC-5455` with `missing: upload-service` and `not in gold: payments-api` |
+| 3 | *counter-example* — `gold/incidents/INC-4821.json` holding `affected_systems` as `"payments-api, ledger-batch"` | exit code 2 naming `INC-4821` and `affected_systems`, before any score is printed (R7.44) |
