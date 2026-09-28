@@ -1,4 +1,4 @@
-"""The web connector: a website, read from its sitemap or its links (spec 001, R1.29 - R1.39).
+"""The web connector: a website, read from its sitemap or its links (spec 001, R1.29 - R1.43).
 
 One connector for every website. A site is a `url` in
 `sources.yaml`, never code: the pages under it are what its sitemap names
@@ -8,6 +8,13 @@ One connector for every website. A site is a `url` in
 that cannot finish lists nothing (R1.38). What a sitemap says, which URLs a
 source covers, which links a crawl follows and how far apart its requests go
 are decided in `dossier.domain.web`; this module asks.
+
+A page built in the browser is drawn by one when its source says
+`render: browser` (R1.40). The page is asked here, as every page is, and what
+the site sent is handed to a headless Chromium (`browser`), which runs its
+scripts. Every request they make comes back here to be answered, sent or
+refused (R1.41), so the site is asked by a browser only as it is asked by this
+module.
 
 It asks politely. A site that answers `429` is asked nothing more that sync
 (R1.35), and requests are spaced by the longer of the source's `delay:` and the
@@ -22,11 +29,13 @@ never builds this connector should not pay for the import.
 
 from __future__ import annotations
 
+import codecs
 import time
 from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, model_validator
@@ -34,9 +43,11 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, m
 from dossier.domain.conversion import reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.domain.web import (
+    ASKED_ONCE,
     Frontier,
     Listed,
     SitemapPage,
+    browser_asks,
     in_scope,
     lastmod_time,
     links,
@@ -46,6 +57,14 @@ from dossier.domain.web import (
     same_host,
     sitemap,
     spacing,
+)
+from dossier.infrastructure.connectors import browser as browsers
+from dossier.infrastructure.connectors.browser import (
+    Answer,
+    Asked,
+    Browser,
+    Decision,
+    DrawFailed,
 )
 
 # Who `dossier` says it is, to the server and to its `robots.txt` (R1.33).
@@ -61,8 +80,15 @@ TIMEOUT_SECONDS = 60.0
 # What a site answers when it is asked too often (R1.35).
 TOO_MANY_REQUESTS = 429
 
-# The one media type a crawl reads links from (R1.37 row 7).
+# The one media type a crawl reads links from (R1.37 row 7), and a browser
+# draws (R1.40 row 6).
 PAGE = "text/html"
+
+# What an answer handed to a browser does not carry on: httpx has already
+# undone the encoding, and the length is the browser's to count.
+NOT_PASSED_ON = frozenset(
+    {"content-encoding", "content-length", "transfer-encoding", "connection"}
+)
 
 
 class WebRequestFailed(RuntimeError):
@@ -90,7 +116,8 @@ class WebKeys(BaseModel):
     `url` is the prefix the source covers, read as a directory whether or not it
     ends in `/` (R1.30 row 5). `sitemap` is where its pages are listed from;
     absent, it is the host's own `/sitemap.xml`. `crawl` lists them by their
-    links instead, asking at most that many URLs (R1.37). `delay` is the seconds
+    links instead, asking at most that many URLs (R1.37). `render: browser`
+    draws each HTML page in a headless browser (R1.40). `delay` is the seconds
     between its requests; absent, none but what the site's `Crawl-delay` asks
     (R1.36).
     """
@@ -102,6 +129,9 @@ class WebKeys(BaseModel):
     # How many URLs, so a whole number and at least one; strict, so `true` is
     # refused rather than read as `1` by a person who meant "crawl it" (R1.39).
     crawl: Annotated[StrictInt, Field(ge=1)] | None = None
+    # One way to draw a page, named, so that a second is a new value and not a
+    # `true` that meant the first (R1.42 row 1).
+    render: Literal["browser"] | None = None
     # A wait, so no less than 0, and finite: `.inf` in YAML would be a sync
     # that never asks its second request (R1.36 row 7).
     delay: Annotated[float, Field(ge=0, allow_inf_nan=False)] | None = None
@@ -142,8 +172,10 @@ class WebConnector:
         url: str,
         sitemap_url: str | None = None,
         crawl: int | None = None,
+        render: Literal["browser"] | None = None,
         delay: float | None = None,
         transport: Any | None = None,
+        browser: Callable[[], AbstractContextManager[Browser]] | None = None,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -157,6 +189,15 @@ class WebConnector:
         # What a crawl was answered, by key, so that `fetch` asks nothing: a
         # crawl has already downloaded every page to list it (R1.37 row 2).
         self._bodies: dict[str, tuple[bytes, str]] = {}
+        # Whether an HTML page is drawn by a browser, and what opens one: a
+        # headless Chromium, unless a test hands in another (R1.40).
+        self._render = render == "browser"
+        self._browser = browser or (
+            lambda: browsers.Chromium(user_agent=USER_AGENT, timeout_seconds=TIMEOUT_SECONDS)
+        )
+        # A script or stylesheet of the site's, as it was answered, so that a
+        # second page loading it asks nothing (R1.41 row 5).
+        self._assets: dict[str, Answer] = {}
         self._transport = transport
         self._robots: Any | None = None
         # The wait and the clock are handed in, so a test about waiting five
@@ -196,7 +237,10 @@ class WebConnector:
             )
 
     def fetch(self, key: str) -> RawItem:
-        """The page at `key`, byte for byte, labelled as its server said (R1.2, R1.32).
+        """The page at `key`, byte for byte, labelled as its server said (R1.32, R1.43).
+
+        As its server sent it, or with `render: browser` and an HTML page, as a
+        browser drew it (R1.40).
 
         A key this connector has not listed yet is looked up by listing: sync
         may ask again for a key whose fetch failed without listing it first
@@ -229,11 +273,13 @@ class WebConnector:
             raise WebRequestFailed(
                 f"GET {listed.url} answered {response.status_code} {response.reason_phrase}"
             )
+        media_type = reported_media_type(None, response.headers.get("content-type"))
+        payload = response.content
+        if self._render and media_type == PAGE:
+            with self._opened() as browser:
+                _, payload = self._drawn(browser, response)
         return RawItem(
-            key=key,
-            payload=response.content,
-            media_type=reported_media_type(None, response.headers.get("content-type")),
-            remote_version=listed.lastmod,
+            key=key, payload=payload, media_type=media_type, remote_version=listed.lastmod
         )
 
     def attachments(self, key: str) -> Iterator[AttachmentRef]:
@@ -276,39 +322,155 @@ class WebConnector:
         found: list[SitemapPage] = []
         bodies: dict[str, tuple[bytes, str]] = {}
         start = True
-        while (url := frontier.next()) is not None:
-            first, start = start, False
-            try:
-                response = self._get(
-                    url,
-                    may_follow=lambda target: in_scope(target, self._scope),
-                    refused=f"outside {self._scope}, which this source covers (R1.34)",
-                )
-            except WebRedirectRefused:
-                if first:
-                    raise
-                continue
-            if not response.is_success:
-                if first or not response.is_client_error:
-                    raise WebRequestFailed(
-                        f"GET {url} answered {response.status_code} "
-                        f"{response.reason_phrase}; a crawl that cannot read a page "
-                        "cannot say which pages it did not reach, so nothing is "
-                        "listed (R1.38)"
-                    )
-                continue
-            answered = str(response.url)
-            if answered in bodies:
-                continue
-            frontier.answered(answered)
-            media_type = reported_media_type(None, response.headers.get("content-type"))
-            found.append(SitemapPage(loc=answered, lastmod=None))
-            bodies[answered] = (response.content, media_type)
-            if media_type == PAGE:
-                frontier.add(links(response.text, answered))
+        with self._opened() if self._render else nullcontext() as browser:
+            while (url := frontier.next()) is not None:
+                first, start = start, False
+                page = self._crawl_one(url, first=first, browser=browser)
+                if page is None:
+                    continue
+                answered, payload, media_type, html = page
+                if answered in bodies:
+                    continue
+                frontier.answered(answered)
+                found.append(SitemapPage(loc=answered, lastmod=None))
+                bodies[answered] = (payload, media_type)
+                if html is not None:
+                    frontier.add(links(html, answered))
         listed = listing(found, self._scope, allowed=lambda _: True)
         self._bodies = {key: bodies[page.url] for key, page in listed.pages.items()}
         return listed.pages, frontier.disallowed
+
+    def _crawl_one(self, url: str, *, first: bool, browser: Browser | None):
+        """One URL of a crawl: where it was answered, its bytes, its media type and its
+        HTML to read links from, or `None` for a link that is not a page (R1.37, R1.38)."""
+        try:
+            response = self._get(
+                url,
+                may_follow=lambda target: in_scope(target, self._scope),
+                refused=f"outside {self._scope}, which this source covers (R1.34)",
+            )
+        except WebRedirectRefused:
+            if first:
+                raise
+            return None
+        if not response.is_success:
+            if first or not response.is_client_error:
+                raise WebRequestFailed(
+                    f"GET {url} answered {response.status_code} "
+                    f"{response.reason_phrase}; a crawl that cannot read a page "
+                    "cannot say which pages it did not reach, so nothing is "
+                    "listed (R1.38)"
+                )
+            return None
+        media_type = reported_media_type(None, response.headers.get("content-type"))
+        if media_type != PAGE:
+            return str(response.url), response.content, media_type, None
+        if browser is None:
+            return str(response.url), response.content, media_type, response.text
+        html, payload = self._drawn(browser, response)
+        return str(response.url), payload, media_type, html
+
+    @contextmanager
+    def _opened(self) -> Iterator[Browser]:
+        """A browser, for one crawl or one page (R1.40).
+
+        One that cannot be started fails what needed it -- the page, or the
+        crawl -- naming why, as any request that cannot be made does (R1.42).
+        """
+        try:
+            with self._browser() as browser:
+                yield browser
+        except DrawFailed as error:
+            raise WebRequestFailed(str(error)) from None
+
+    def _drawn(self, browser: Browser, response) -> tuple[str, bytes]:
+        """The page `response` answered, as `browser` draws it: its HTML, and its bytes.
+
+        The browser is handed what the site sent, at the URL it was answered at,
+        and asks for nothing without `_decision` answering first (R1.40, R1.41).
+        The bytes are the drawn page in UTF-8 behind a byte-order mark, which a
+        browser and `html-markdown` read before any charset the page declares
+        (R8.32, R1.43): the `<meta charset>` it still carries may not be the one
+        the browser read it in.
+        """
+        url = str(response.url)
+        page = Answer(
+            status=response.status_code,
+            headers=_passed_on(response.headers),
+            body=response.content,
+        )
+        robots = self._robots_txt()
+        drawn = [False]
+
+        def decide(asked: Asked) -> Decision:
+            return self._decision(
+                asked,
+                url=url,
+                page=page,
+                drawn=drawn,
+                allowed=lambda target: robots.can_fetch(target, USER_AGENT),
+            )
+
+        refused_before = self._refused
+        try:
+            drawn_html = browser.draw(url, decide)
+        except DrawFailed as error:
+            raise WebRequestFailed(str(error)) from None
+        if self._refused is not None and refused_before is None:
+            raise WebRequestFailed(
+                f"{self._refused} answered 429 Too Many Requests while {url} was being "
+                f"drawn, so the page is not held; {self._site} is asked nothing more this "
+                "sync (R1.35). A `delay:` on the source asks it more slowly (R1.36)"
+            )
+        return drawn_html, codecs.BOM_UTF8 + drawn_html.encode("utf-8")
+
+    def _decision(
+        self,
+        asked: Asked,
+        *,
+        url: str,
+        page: Answer,
+        drawn: list[bool],
+        allowed: Callable[[str], bool],
+    ) -> Decision:
+        """What becomes of one request a page being drawn makes (R1.41).
+
+        Which is the domain's to decide. Answering is this module's: the page
+        itself from what the site already sent, and a request to the site through
+        `_get`, where `robots.txt`, `delay:` and a `429` hold as for any page. A
+        failure there refuses the request, and the page is drawn without it.
+        """
+        verdict = browser_asks(
+            url=asked.url,
+            method=asked.method,
+            kind=asked.kind,
+            navigation=asked.navigation,
+            main_frame=asked.main_frame,
+            page=url,
+            drawn=drawn[0],
+            allowed=allowed,
+        )
+        if verdict == "page":
+            drawn[0] = True
+            return page
+        if verdict != "site":
+            return verdict
+        if asked.url in self._assets:
+            return self._assets[asked.url]
+        try:
+            response = self._get(
+                asked.url, may_follow=lambda _target: True, refused="which is not followed"
+            )
+        except WebRequestFailed:
+            return "refuse"
+        answer = Answer(
+            status=response.status_code,
+            headers=_passed_on(response.headers),
+            body=response.content,
+        )
+        if asked.kind in ASKED_ONCE and response.is_success:
+            self._assets[asked.url] = answer
+        return answer
 
     def _sitemap_pages(self):
         """The pages of the sitemap and of every sitemap it indexes on the same host (R1.29)."""
@@ -454,12 +616,27 @@ class WebConnector:
             # Checked again because a connector is built from whatever config it
             # is handed, and one built by hand never went through the loader.
             raise ValueError(f"source {config.id!r} has type 'web' and needs a `url`.")
+        render = config.options.get("render")
+        if render == "browser" and not browsers.installed():
+            # Refused here, before a request: every page of the source would
+            # otherwise fail one at a time, each for the same missing package.
+            raise ValueError(
+                f"source {config.id!r} says `render: browser`, and Playwright is not "
+                f"installed. Install the extra `{browsers.EXTRA}`, then "
+                f"`{browsers.INSTALL_CHROMIUM}` (R1.42)."
+            )
         return cls(
             url=url,
             sitemap_url=config.options.get("sitemap") or None,
             crawl=config.options.get("crawl"),
+            render=render,
             delay=config.options.get("delay"),
         )
+
+
+def _passed_on(headers) -> dict[str, str]:
+    """A response's headers, as a browser handed its body is to see them (R1.40)."""
+    return {name: value for name, value in headers.items() if name.lower() not in NOT_PASSED_ON}
 
 
 # The entry point resolves to `WebConnector.from_config`, and a bound method

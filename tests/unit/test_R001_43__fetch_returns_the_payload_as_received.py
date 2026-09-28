@@ -1,11 +1,14 @@
-"""R1.2 — `fetch` returns the payload byte-for-byte as received.
+"""R1.43 — `fetch` returns the payload byte-for-byte as received, from the source,
+or from the browser that drew it.
 
-Normalisation happens later, in the ledger layer, for hashing only. It never
-changes what is stored.
+Supersedes R1.2, whose rows it keeps: a page drawn with `render: browser`
+(R1.40) is not the bytes its site sent, and is the one exception. Normalisation
+happens later, in the ledger layer, for hashing only. It never changes what is
+stored.
 
-Proved here for the `folder` connector. The JSON key-order row (example 1)
-belongs to the Jira connector, which returns `response.content` verbatim
-(`jira.py`); that row is not transcribed here yet.
+Proved here for the `folder` connector, and for a drawn web page. The JSON
+key-order row (example 1) belongs to the Jira connector, which returns
+`response.content` verbatim (`jira.py`); that row is not transcribed here yet.
 """
 
 from __future__ import annotations
@@ -13,14 +16,42 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from tests.docs_site import URL
+from tests.drawing import FakeBrowser, drawn_site, shell
 
 from dossier.infrastructure.connectors.folder import FolderConnector
+from dossier.infrastructure.connectors.web import WebConnector
 
 BOM_AND_CRLF = b"\xef\xbb\xbf# INC-4821\r\ntotal exposure CHF 48'200\r\n"
 
 
+class TestADrawnPageIsTheBrowsers:
+    """R1.43 — the exception, and only that one."""
+
+    def test_a_drawn_page_is_held_as_the_browser_gave_it(self):
+        """Example 4: the one where `escalation` is drawn, and its shell is not held."""
+        sent = shell("/api/escalation")
+        site = drawn_site(escalation=sent)
+
+        item = WebConnector(
+            url=URL, render="browser", browser=FakeBrowser(), transport=site.transport()
+        ).fetch("escalation")
+
+        assert item.payload != sent.encode()
+        assert b"<h1>Escalation</h1>" in item.payload
+
+    def test_without_render_a_web_page_is_the_bytes_its_site_sent(self):
+        """Example 2's promise, for a web page: nothing re-serialised."""
+        sent = shell("/api/escalation").replace("<main>", "\r\n<main>")
+        site = drawn_site(escalation=sent)
+
+        item = WebConnector(url=URL, transport=site.transport()).fetch("escalation")
+
+        assert item.payload == sent.encode()
+
+
 class TestFetchReturnsWhatWasThere:
-    """R1.2 — a connector that tidies a payload changes every hash it touches."""
+    """R1.43 — a connector that tidies a payload changes every hash it touches."""
 
     def test_a_bom_and_crlf_endings_survive(self, tmp_path: Path):
         """Example 2: the one where 'helpful' normalisation would be a defect.

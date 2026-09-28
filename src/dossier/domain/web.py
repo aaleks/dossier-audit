@@ -291,6 +291,51 @@ class Frontier:
         return None
 
 
+# What a page loads that draws no text: the note is the page's text, and an
+# image is its alt text (R1.41 row 1, R8.22). Named as Playwright names them.
+UNDRAWN = frozenset({"image", "media", "font"})
+
+# What every page of a site loads alike, and is asked for once a sync however
+# many pages load it (R1.41 row 5).
+ASKED_ONCE = frozenset({"script", "stylesheet"})
+
+
+def browser_asks(
+    *,
+    url: str,
+    method: str,
+    kind: str,
+    navigation: bool,
+    main_frame: bool,
+    page: str,
+    drawn: bool,
+    allowed: Callable[[str], bool],
+) -> Literal["page", "site", "send", "refuse", "stay"]:
+    """What becomes of one request a page being drawn at `page` makes (R1.40, R1.41).
+
+    - `page`: the page's own document, the first time it is asked for. The
+      connector answers it with what the site already sent, so the browser
+      never asks for it again (R1.40 row 2).
+    - `stay`: any other move of the page's own frame -- a script sending the
+      browser to a login form. It is not followed, and the page is held as drawn.
+    - `refuse`: another frame's page; anything but `GET`, which could write
+      (R1.1); an image, video, audio or font; a request to the site that
+      `robots.txt` disallows (R1.33).
+    - `site`: a request to the page's own host, asked as its pages are asked.
+    - `send`: a request to another host, which is the page's own, and which the
+      browser sends.
+
+    `drawn` is whether the page's own document has been answered already.
+    """
+    if navigation and main_frame:
+        return "page" if _address(url) == _address(page) and not drawn else "stay"
+    if navigation or method.upper() != "GET" or kind in UNDRAWN:
+        return "refuse"
+    if not same_host(url, page):
+        return "send"
+    return "site" if allowed(url) else "refuse"
+
+
 def spacing(delay: float | None, crawl_delay: float | None) -> float:
     """How far apart, in seconds, a web source starts its requests to its site (R1.36).
 

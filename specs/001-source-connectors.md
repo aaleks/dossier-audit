@@ -1,6 +1,6 @@
 # 001 — Source connectors
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R1.1 – R1.43
 
 ## Purpose
@@ -1320,7 +1320,7 @@ browser sees it.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.web`, `dossier.infrastructure.connectors.browser`)
 - **Proved by:** `tests/unit/test_R001_40__a_page_is_held_as_a_browser_draws_it.py`, `tests/integration/test_R001_40__chromium_draws_a_page_from_bytes_already_fetched.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -1337,7 +1337,7 @@ browser sees it.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.web.browser_asks`), answered in infrastructure (`dossier.infrastructure.connectors.web`, `dossier.infrastructure.connectors.browser`)
 - **Proved by:** `tests/unit/test_R001_41__a_browser_asks_only_for_what_draws_the_text.py`, `tests/integration/test_R001_41__chromium_asks_only_for_what_draws_the_text.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -1356,7 +1356,7 @@ browser sees it.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.web`, `dossier.infrastructure.connectors.browser`)
 - **Proved by:** `tests/unit/test_R001_42__render_is_browser_and_a_missing_browser_is_named.py`, `tests/integration/test_R001_42__a_missing_chromium_is_named.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -1376,7 +1376,7 @@ changed.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors`)
 - **Proved by:** `tests/unit/test_R001_43__fetch_returns_the_payload_as_received.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

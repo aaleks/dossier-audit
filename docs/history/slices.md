@@ -13,6 +13,34 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A `web` source that says `render: browser` holds each HTML page as a headless
+Chromium draws it (R1.40 – R1.43), which resolves spec 001's open question 10.
+`dossier` still asks for the page itself, and hands what the site sent to the
+browser. Every request the page's scripts make comes back to the connector:
+
+- requests to the site go through the same path as every page, so
+  `robots.txt`, `delay:` and `429` hold, and a script is asked once a sync;
+- requests to other hosts are the browser's own;
+- images, fonts, media, other frames and anything but `GET` are refused.
+
+A script that navigates away is answered `204`, because an aborted navigation
+replaced the drawn page with Chromium's error page. R1.43 supersedes R1.2: a
+drawn page is not the site's bytes. It is held in UTF-8 behind a byte-order
+mark, because Chromium read a test page by its header's charset over its
+`<meta>`, and a page held in either could be read back in the other.
+
+Playwright is the extra `browser`: three packages, where crawl4ai, built on it,
+was 86 more for the same API. A missing Chromium is named, never downloaded. A
+`FakeBrowser` draws in the unit suite, and three `live` files have a real
+Chromium draw the same pages offline.
+
+- **Checked live.** `quotes.toscrape.com/js/`, crawled: 11 pages either way,
+  and the notes held no quote until drawn (19 s against 7). A second sync
+  stored nothing. `docs.astral.sh/uv` drawn took 217 s against 12 to 20, and its
+  theme rewrote every in-page link as absolute.
+
+---
+
 A `web` source with no sitemap is crawled when it says `crawl:` (R1.37 –
 R1.39), which resolves spec 001's open question 7. `www.python.org` asked for
 this: it publishes no sitemap, and its listing failed on the `404`. The crawl
