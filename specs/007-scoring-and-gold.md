@@ -1234,7 +1234,7 @@ values are `_fixtures.md`'s "A list field".
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring`)
 - **Proved by:** `tests/unit/test_R007_40__a_list_is_scored_as_a_set.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
