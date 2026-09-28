@@ -1,6 +1,6 @@
 # 002 — Ledger and incremental sync
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R2.1 – R2.27
 
 ## Purpose
@@ -656,7 +656,7 @@ synced at all. `www.python.org/about/` with `crawl: 5` did that on 2026-09-28.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.sync.sync_source`), reported in `dossier.cli.sync`
 - **Proved by:** `tests/unit/test_R002_27__a_failed_listing_leaves_its_source_as_it_was.py`, `tests/acceptance/test_R002_27__a_source_that_cannot_be_listed_does_not_stop_the_others.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

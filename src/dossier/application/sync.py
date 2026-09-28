@@ -75,6 +75,10 @@ class SourceReport:
     # Each key a listing offered again after it was tombstoned, in key order:
     # neither known nor new, and counted as neither (R2.25).
     returned: tuple[Returned, ...] = ()
+    # Why the listing failed, if it did. The source is then left as a listing
+    # that never finished leaves it, and the sources after it still sync
+    # (R2.27).
+    listing_failed: str | None = None
 
 
 @dataclass(frozen=True)
@@ -233,6 +237,8 @@ def sync_source(
     owed = ledger.owed(config.id)
     owed_keys = {key for key, _ in owed}
     visited: set[str] = set()
+    # Why the listing stopped, when it did not finish (R2.27).
+    listing_failed: list[str] = []
 
     def listed_then_owed() -> Iterator[ItemRef]:
         """The listing, then the items owed keys hang off that it did not return.
@@ -242,7 +248,20 @@ def sync_source(
         for a file keeps its recorded marker, so it is not fetched unless its own
         fetch is owed too (R2.1).
         """
-        for listed_ref in connector.list(since):
+        refs = iter(connector.list(since))
+        while True:
+            # Only the listing's own failure is caught here. One raised while an
+            # item is stored is the store's, and a failed fetch is R1.9's.
+            try:
+                listed_ref = next(refs)
+            except StopIteration:
+                break
+            except Exception as error:
+                # A listing that did not finish answers nothing about what it
+                # did not reach: no owed item is asked for, and nothing held
+                # is tombstoned (R2.27).
+                listing_failed.append(str(error))
+                return
             visited.add(listed_ref.key)
             yield listed_ref
         for item, item_owed in owed_items(owed, visited=visited, complete=complete):
@@ -326,7 +345,8 @@ def sync_source(
         )
 
     departed_keys: set[str] = set(departed_files)
-    if complete:
+    finished = not listing_failed
+    if complete and finished:
         active = {key for key, row in held.items() if row.state is State.ACTIVE}
         # The files just tombstoned are already handled. `held` was read before
         # this sync, so without them here they would be counted a second time.
@@ -354,7 +374,7 @@ def sync_source(
     # listing left an item that came back unchanged in a windowed one tombstoned.
     ledger.set_state(config.id, sorted(item.key for item in returned), State.ACTIVE)
 
-    if not failed:
+    if not failed and finished:
         # R2.8: a partial sync must not be mistaken for a complete one, so the
         # watermark only advances when every item was handled.
         ledger.set_watermark(config.id, started_at)
@@ -365,7 +385,8 @@ def sync_source(
     # Recorded once a listing under these keys has run to the end, failed
     # fetches or not: what a failed key is owed is kept by the ledger itself
     # (R2.23), and the listing's own question has been answered (R2.24).
-    ledger.set_listing_hash(config.id, listed_under)
+    if finished:
+        ledger.set_listing_hash(config.id, listed_under)
 
     return SourceReport(
         source_id=config.id,
@@ -383,6 +404,7 @@ def sync_source(
         # as well as what the terminal shows (R11.6).
         repointed=tuple(sorted(moved, key=lambda item: item.key)),
         departed=tuple(sorted(departed_keys)),
+        listing_failed=listing_failed[0] if listing_failed else None,
     )
 
 

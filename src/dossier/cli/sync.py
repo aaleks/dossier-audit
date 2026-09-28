@@ -104,6 +104,11 @@ def sync(
             reports.append(report)
             printed.append(_source_line(report))
             typer.echo(printed[-1])
+            if report.listing_failed is not None:
+                # A summary of the source, not an item's line, so the record
+                # keeps it too; and the sources after it still sync (R2.27).
+                printed.append(f"{report.source_id}: listing failed: {report.listing_failed}")
+                typer.echo(printed[-1], err=True)
             for line in _named_lines(report):
                 typer.echo(line)
             for key, error in report.failures:
@@ -165,12 +170,18 @@ def sync(
         # Written as the run closes, because none of these counts exist
         # until the sources have been asked (R11.17).
         tracker.describe(sync_description(pipeline=pipeline, lines=printed))
-        failed_items = any(report.failed for report in reports)
+        failed_items = any(report.failed or report.listing_failed for report in reports)
         tracker.end_run(status="FAILED" if failed_items else "FINISHED")
 
     failed = [key for report in reports for key in report.failed]
+    unlisted = [report.source_id for report in reports if report.listing_failed is not None]
     if failed:
         typer.echo(f"{len(failed)} item(s) failed: {', '.join(sorted(failed))}", err=True)
+    if unlisted:
+        typer.echo(
+            f"{len(unlisted)} source(s) could not be listed: {', '.join(unlisted)}", err=True
+        )
+    if failed or unlisted:
         raise typer.Exit(code=1)
 
 

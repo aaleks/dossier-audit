@@ -58,14 +58,16 @@ def held_then_crawled(site: DocsSite, workspace: Path) -> set[State]:
             now=datetime(2026, 8, 6, 9, 0, tzinfo=UTC),
         )
     with Ledger(workspace) as ledger:
-        with pytest.raises(WebRequestFailed):
-            sync_source(
-                config=SOURCE,
-                connector=WebConnector(url=URL, crawl=50, transport=site.transport()),
-                store=SnapshotStore(workspace),
-                ledger=ledger,
-                now=datetime(2026, 8, 7, 9, 0, tzinfo=UTC),
-            )
+        # The failed listing is the report's to say, and sync goes on to the
+        # next source (R2.27).
+        report = sync_source(
+            config=SOURCE,
+            connector=WebConnector(url=URL, crawl=50, transport=site.transport()),
+            store=SnapshotStore(workspace),
+            ledger=ledger,
+            now=datetime(2026, 8, 7, 9, 0, tzinfo=UTC),
+        )
+        assert report.listing_failed is not None
         return {row.state for row in ledger.rows(SOURCE.id)}
 
 

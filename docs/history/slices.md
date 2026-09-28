@@ -13,6 +13,24 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A source whose listing fails no longer stops `dossier sync` (R2.27). Before,
+the failure left the command as a traceback, and the sources after it were never
+synced. The web connector's crawl, which fails a listing on purpose rather than
+tombstoning what it did not reach (R1.38), made that an everyday case.
+
+Now `sync_source` catches a failure raised while listing, as it already caught a
+failed fetch (R1.9), and leaves the source as a listing that never finished
+leaves it: nothing tombstoned, no mark moved, anything owed still owed. The
+command names the source and the reason, syncs the rest, ends a tracked run
+`FAILED`, and exits `1`.
+
+- **Checked live.** `www.python.org/about/` with `crawl: 5`, before
+  `quotes.toscrape.com/js/` with `render: browser`. The first was named with
+  its reason, and the second still synced its 11 pages, drawn by Chromium
+  through the installed entry point.
+
+---
+
 A `web` source that says `render: browser` holds each HTML page as a headless
 Chromium draws it (R1.40 – R1.43), which resolves spec 001's open question 10.
 `dossier` still asks for the page itself, and hands what the site sent to the
