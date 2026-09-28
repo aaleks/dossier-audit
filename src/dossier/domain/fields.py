@@ -13,11 +13,12 @@ decision here be tested without a file.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections import Counter
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
 from dossier.domain.hashing import content_hash
-from dossier.domain.schemas import StageOutput
+from dossier.domain.schemas import FieldRecord, StageOutput
 from dossier.domain.scoring import FieldKind
 
 # What a kind cannot be scored without. An enum with no vocabulary can match
@@ -40,6 +41,10 @@ class OutputSchema:
 
     schema: dict
     declaration_hash: str
+    # The fields declared `list`, which alone may be answered more than once in
+    # one answer (R6.24). Derived from the same declaration as the schema, so the
+    # declaration hash already moves when it does.
+    lists: frozenset[str] = frozenset()
 
     @property
     def generated_schema_hash(self) -> str:
@@ -71,6 +76,26 @@ def json_schema(kinds: Mapping[str, FieldKind]) -> dict:
         "enum": list(kinds),
     }
     return schema
+
+
+def answered_twice(
+    records: Sequence[FieldRecord], *, lists: Collection[str]
+) -> tuple[str, ...]:
+    """The fields one answer gives more than one record, other than lists, sorted (R6.24).
+
+    A list is answered one record per item. Any other field answered twice is two
+    answers to one question, and nothing downstream could say which one the model
+    meant -- so the answer is refused where the retry can still put it right.
+    """
+    counted = Counter(record.field for record in records)
+    return tuple(
+        sorted(field for field, count in counted.items() if count > 1 and field not in lists)
+    )
+
+
+def list_fields(kinds: Mapping[str, FieldKind]) -> frozenset[str]:
+    """The declared fields a reply may answer more than once (R6.24)."""
+    return frozenset(name for name, kind in kinds.items() if kind is FieldKind.LIST)
 
 
 def declare_fields(

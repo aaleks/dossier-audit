@@ -25,7 +25,13 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from dossier.domain.fields import OutputSchema, declare_fields, enum_values, json_schema
+from dossier.domain.fields import (
+    OutputSchema,
+    declare_fields,
+    enum_values,
+    json_schema,
+    list_fields,
+)
 from dossier.domain.gold import CalibrationCase, GoldDocument
 from dossier.domain.grounding import DESCRIBED, GROUNDED, JUDGED_STATES
 from dossier.domain.hashing import text_hash
@@ -403,7 +409,10 @@ def load_output_schema(path: Path) -> OutputSchema:
     configuration file -- so an edit the generated schema cannot see still moves
     the key.
     """
-    return OutputSchema(schema=json_schema(load_fields(path)), declaration_hash=text_hash(path))
+    kinds = load_fields(path)
+    return OutputSchema(
+        schema=json_schema(kinds), declaration_hash=text_hash(path), lists=list_fields(kinds)
+    )
 
 
 def load_output_schemas(pipeline: PipelineConfig, path: Path) -> dict[str, OutputSchema]:

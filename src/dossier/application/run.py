@@ -535,6 +535,7 @@ def execute(
                         produced=produced,
                         part=part,
                         schema=None if output is None else output.schema,
+                        lists=() if output is None else output.lists,
                         prompt=prompts[step.id],
                         model=clients[step.id],
                         cache=cache,
@@ -769,6 +770,7 @@ def _run_one(
     dossier_version: str,
     tracker: Tracker | None = None,
     capture: str = "full",
+    lists: Collection[str] = (),
 ) -> tuple[DocumentResult, str]:
     """One (step, document), served from cache or asked of the model.
 
@@ -868,6 +870,7 @@ def _run_one(
         shown_as_pictures=shown_as_pictures,
         tracker=tracker,
         capture=capture,
+        lists=lists,
         # What a span may say under `hashes` (R10.8 row 2): the template, the
         # inputs and the key -- the same three the cache key is made of, so a
         # span with no text still says exactly which question was asked.
