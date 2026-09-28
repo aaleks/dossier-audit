@@ -89,7 +89,7 @@ class TestAnUnreachableServerRefusesBeforeAnyWork:
         The documents are held first, with tracking off, so the run has real
         work it could have done -- and does none of it.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
         _tracking_on(monkeypatch)
@@ -148,7 +148,7 @@ class TestAnUnreachableServerRefusesBeforeAnyWork:
         made, and no calibration file is left behind for a measurement that
         was never traced.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
         gold = workspace / "gold" / "incidents"
@@ -188,7 +188,7 @@ class TestAnUnreachableServerRefusesBeforeAnyWork:
         `--plan` records nothing (R11.1), so it needs no server, and refusing it
         would stop someone checking a pipeline for want of something unused.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
         _tracking_on(monkeypatch)

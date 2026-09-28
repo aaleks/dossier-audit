@@ -51,7 +51,7 @@ def _answer(document: str) -> str:
 
 
 def _use(monkeypatch, client) -> None:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: client, raising=False)
 

@@ -55,7 +55,7 @@ def without_an_image_converter(monkeypatch):
     registry would also hide the converter from `used_converters`, which is a
     different claim (R8.7).
     """
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     keep = [
         converter

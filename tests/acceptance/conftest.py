@@ -78,7 +78,7 @@ def two_runs(workspace: Path, monkeypatch) -> tuple[Path, str, str]:
     Tracking is off for both runs, so the only MLflow run a test then sees is the
     one it is about (R11.1 records a run of its own).
     """
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
@@ -169,7 +169,7 @@ def judged_run(workspace: Path, monkeypatch) -> tuple[Path, str]:
     )
     assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
 
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     answers = {
         **ANSWERS,

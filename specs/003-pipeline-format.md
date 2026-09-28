@@ -509,7 +509,7 @@ and never before (R9.2 row 5). Each is reached where its own provider is (R9.2)
 and checked before its own first call (R9.4, R9.6).
 
 - **Kind:** deterministic
-- **Layer:** config (`dossier.config.load`), domain (`dossier.domain.resolution`, `dossier.domain.plan`), application (`dossier.application.run`), cli (`dossier.cli.main`)
+- **Layer:** config (`dossier.config.load`), domain (`dossier.domain.resolution`, `dossier.domain.plan`), application (`dossier.application.run`), cli (`dossier.cli.run`, `dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R003_14__a_step_is_asked_with_its_own_model.py`, `tests/unit/test_R003_14__which_model_a_step_is_asked_with.py`
 - **Status:** MET
 
@@ -624,7 +624,7 @@ them alone: per document, per part or per group. A source listed under both
 listing.
 
 - **Kind:** deterministic
-- **Layer:** application (`dossier.application.run.execute`), cli (`dossier.cli.main.run`)
+- **Layer:** application (`dossier.application.run.execute`), cli (`dossier.cli.run.run`)
 - **Proved by:** `tests/unit/test_R003_17__a_reference_document_is_never_audited.py`
 - **Status:** MET
 

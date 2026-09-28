@@ -58,7 +58,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 
 def _run(workspace: Path, monkeypatch, answers) -> str:
     """Execute the pipeline with a model scripted to `answers`; return the run id."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     model = RoutedModel(answers)
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: model)
@@ -143,7 +143,7 @@ def tracker(workspace: Path, monkeypatch) -> IssueTracker:
 @pytest.fixture
 def two_runs(workspace: Path, monkeypatch, tracker: IssueTracker) -> tuple[str, str]:
     """Run `a`, the prompt edited, then run `b` -- over the same four documents."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     a = _run(workspace, monkeypatch, ANSWERS)
     _edit_prompt(workspace)

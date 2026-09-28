@@ -766,7 +766,7 @@ Withheld whole, not by state. A field reported as "0.82, of which the described
 verdicts are ungated" is a number every reader will quote without the clause.
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.main._judge_gate`)
+- **Layer:** cli (`dossier.cli.eval._judge_gate`)
 - **Proved by:** `tests/unit/test_R007_23__a_field_is_reported_only_when_every_state_clears.py`
 - **Status:** MET
 
@@ -837,7 +837,7 @@ it, so there is nothing to explain -- and a list of misses under a field whose
 percentage was refused would be the number arriving by the back door.
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.main`)
+- **Layer:** cli (`dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R007_25__eval_names_the_documents_behind_a_score.py`
 - **Status:** MET
 
@@ -1015,7 +1015,7 @@ question (R7.4), and a value grounded in amendment 3 that matches the verified d
 is correct.
 
 - **Kind:** deterministic
-- **Layer:** application (`dossier.application.eval.score_run`), cli (`dossier.cli.main`)
+- **Layer:** application (`dossier.application.eval.score_run`), cli (`dossier.cli.eval`)
 - **Proved by:** `tests/unit/test_R007_32__a_group_is_scored_against_its_own_gold_answer.py`
 - **Status:** MET
 
@@ -1071,7 +1071,7 @@ Decided 2026-09-27 by the project owner, over leaving the reference documents
 out of the judge's evidence.
 
 - **Kind:** deterministic
-- **Layer:** application (`dossier.application.eval`), cli (`dossier.cli.main`)
+- **Layer:** application (`dossier.application.eval`), cli (`dossier.cli.eval`, `dossier.cli.calibrate`)
 - **Proved by:** `tests/unit/test_R007_34__a_field_that_read_reference_is_judged_with_it.py`
 - **Status:** MET
 

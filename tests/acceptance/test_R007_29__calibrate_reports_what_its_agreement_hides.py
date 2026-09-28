@@ -86,7 +86,7 @@ class TestCalibrateReportsWhatItsAgreementHides:
         and 83.9% below it, the gap between what the sample showed and what it
         can support.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         tracker = FakeTracker()
         monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
@@ -137,7 +137,7 @@ class TestCalibrateReportsWhatItsAgreementHides:
         half: the terminal says so, and the file holds `null` and a zero count
         rather than a figure a reader would quote.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         every = [{**case, "supported": True} for case in _cases()]
         (calibratable / "gold" / "incidents" / "samples" / f"{FIELD}.jsonl").write_text(

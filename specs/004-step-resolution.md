@@ -470,7 +470,7 @@ leaves the source takes only its own keys with it, so a plan does not report it
 when one is tombstoned, every one of those keys moves (R5.15 row 3).
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.plan.diff`), cli (`dossier.cli.main`)
+- **Layer:** domain (`dossier.domain.plan.diff`), cli (`dossier.cli.run`)
 - **Proved by:** `tests/unit/test_R004_17__a_moved_reference_document_reruns_the_steps_reading_it.py`
 - **Status:** MET
 

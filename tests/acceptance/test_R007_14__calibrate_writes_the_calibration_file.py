@@ -111,7 +111,7 @@ class TestCalibrateWritesTheCalibrationFile:
         hash of the rubric it was measured against -- the two things R7.6 needs
         to notice later that this figure belongs to a judge nobody is using.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         cases = _cases()
         judge = FakeModelClient(responses=_replies(cases, disagree_at=7))
@@ -143,7 +143,7 @@ class TestCalibrateWritesTheCalibrationFile:
         The file records what is true now. Two answers to "what did this judge
         score" is the state R7.6 exists to prevent anyone reaching.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         cases = _cases()
         monkeypatch.setattr(
@@ -174,7 +174,7 @@ class TestCalibrateWritesTheCalibrationFile:
         back as a calibration, and "refused" would have produced one anyway
         (R7.11 row 3).
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         short = _cases()[:-1]
         (calibratable / "gold" / "incidents" / "samples" / f"{FIELD}.jsonl").write_text(

@@ -31,7 +31,7 @@ class JudgingModel(RoutedModel):
 
 @pytest.fixture
 def tracker(monkeypatch) -> FakeTracker:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

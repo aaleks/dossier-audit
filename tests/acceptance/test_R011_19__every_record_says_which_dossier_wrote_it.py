@@ -28,7 +28,7 @@ FIELD = "root_cause"
 @pytest.fixture
 def tracker(two_runs: tuple[Path, str, str], monkeypatch) -> FakeTracker:
     """Tracking switched on after both runs, so each test records its own command."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
@@ -99,7 +99,7 @@ class TestEveryRecordSaysWhichDossierWroteIt:
         is a different measurement -- which the file it writes cannot say and
         the record now can.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         workspace, _, _ = two_runs
         keys = sorted(ISSUES)

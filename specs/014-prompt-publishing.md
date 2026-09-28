@@ -173,7 +173,7 @@ domain/prompts.py         the projection: a loaded pipeline -> named prompts, pu
 domain/ports.py           PromptRegistry: publish(...) -> PublishedPrompt, latest(name)
 infrastructure/tracking/  the mlflow.genai prompt calls
 application/prompts.py    publish_prompts: compare, send what moved, report
-cli/main.py               the `prompts` sub-app, beside `dataset`
+cli/prompts.py            the `prompts` sub-app, beside `dataset`
 ```
 
 A `FakePromptRegistry` in the default suite counts publishes and versions as
@@ -319,7 +319,7 @@ Both are a machine's configuration, and both are refused where R12.5 and R10.5
 refuse theirs: at startup, naming the thing to fix.
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.main`)
+- **Layer:** cli (`dossier.cli.prompts`)
 - **Proved by:** `tests/acceptance/test_R014_6__publishing_prompts_is_refused_by_name.py`, `tests/integration/test_R014_6__mlflow_prompt_registry_adapter.py`
 - **Status:** MET
 
@@ -430,7 +430,7 @@ mistyped `DOSSIER_MLFLOW_ENABLED` is refused by every command rather than by
 the ones that would have recorded most.
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.main._tracking_for`), over `dossier.domain.prompts.check_prompt_prefix`
+- **Layer:** cli (`dossier.cli.bootstrap.tracking_for`), over `dossier.domain.prompts.check_prompt_prefix`
 - **Proved by:** `tests/acceptance/test_R014_10__a_prefix_mlflow_would_reject_is_refused_before_any_work.py`, `tests/unit/test_R014_10__a_prefix_mlflow_would_reject_is_refused_by_name.py`
 - **Status:** SUPERSEDED by R10.14
 

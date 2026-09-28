@@ -80,7 +80,7 @@ def audited(workspace: Path, monkeypatch) -> Path:
     No calibration is written here: each test writes the one it is about, and the
     test that writes none is the "never measured" row.
     """
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"

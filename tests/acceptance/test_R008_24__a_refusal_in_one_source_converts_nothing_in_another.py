@@ -83,7 +83,7 @@ class TestARefusalInOneSourceConvertsNothingInAnother:
         """Row 3 through `dossier run`: no artifact, and no stage runs."""
         from tests.fakes import NoModelClient
 
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         monkeypatch.setattr(
             cli, "build_model_client", lambda model_id: NoModelClient(), raising=False

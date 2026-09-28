@@ -48,7 +48,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 
 def _run(workspace: Path, monkeypatch, model) -> tuple[object, str]:
     """`dossier run`, answered by `model`; the result and the run id it printed."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: model)
     result = _cli(workspace, monkeypatch, "run", PIPELINE)
@@ -79,7 +79,7 @@ def tracker(workspace: Path, monkeypatch) -> FakeTracker:
     Synced before tracking is on, so the only MLflow run under test is the
     `dossier run` each test makes.
     """
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     source = IssueTracker(ISSUES)
     (workspace / "sources.yaml").write_text(
@@ -189,7 +189,7 @@ class TestARunRecordsOneTracePerStepAndDocument:
 
     def test_a_plan_records_nothing(self, workspace: Path, monkeypatch, tracker: FakeTracker):
         """Counter-example (row 5): the one that only reports what would run (R4.6)."""
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         monkeypatch.setattr(cli, "build_model_client", lambda model_id: NoModelClient())
 

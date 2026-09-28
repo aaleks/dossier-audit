@@ -239,7 +239,7 @@ def _percentage(line: str) -> str | None:
 @pytest.fixture
 def audited(workspace: Path, monkeypatch) -> Path:
     """A workspace where the four documents are synced and run through `extract`."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"

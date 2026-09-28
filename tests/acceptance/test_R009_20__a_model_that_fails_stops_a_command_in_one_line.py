@@ -58,7 +58,7 @@ class Judge:
 
 
 def _serve(monkeypatch, model) -> None:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: model)
 

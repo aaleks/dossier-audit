@@ -25,7 +25,7 @@ FIELD = "root_cause"
 @pytest.fixture
 def recorded(two_runs: tuple[Path, str, str], monkeypatch):
     """Tracking on after both runs, at a fake tracker and a fake registry."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     tracker = FakeTracker()
     versions = FakeVersionRegistry()

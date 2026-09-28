@@ -175,7 +175,7 @@ class TestTrackingChangesNoOutput:
         With tracking on, `dossier run` prints one extra line, naming the MLflow
         run it recorded to. What a person reads may differ; nothing on disk may.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         outputs = {}
         for tracking in ("off", "on"):

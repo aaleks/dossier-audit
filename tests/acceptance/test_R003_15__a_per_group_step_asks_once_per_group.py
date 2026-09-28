@@ -89,7 +89,7 @@ def _contracts(
 
 
 def _serve(monkeypatch, model: Model) -> Model:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: model)
     return model
@@ -217,7 +217,7 @@ class TestAPerGroupStepAsksOncePerGroup:
         tracker = FakeTracker()
         monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
         monkeypatch.setenv("DOSSIER_MLFLOW_TRACKING_URI", URI)
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         monkeypatch.setattr(cli, "build_tracker", lambda settings: tracker, raising=False)
         _contracts(workspace, monkeypatch)

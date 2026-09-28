@@ -65,7 +65,7 @@ def declared(workspace: Path, monkeypatch) -> Path:
 @pytest.fixture
 def registry_down(declared: Path, monkeypatch) -> None:
     """Tracking on, a tracker that works, and a registry that cannot be reached."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
     monkeypatch.setenv("DOSSIER_MLFLOW_TRACKING_URI", URI)
@@ -122,7 +122,7 @@ class TestARunSurvivesARegistryThatIsDown:
         to report -- and a warning here would be a record of a failure that
         never happened.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         monkeypatch.setattr(cli, "build_model_client", lambda model_id: RoutedModel(ANSWERS))
 

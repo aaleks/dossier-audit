@@ -65,7 +65,7 @@ def declared(workspace: Path, monkeypatch) -> Path:
 @pytest.fixture
 def registry(declared: Path, monkeypatch) -> FakeVersionRegistry:
     """Tracking on, at a fake tracker and a fake registry, after the sync."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     versions = FakeVersionRegistry()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

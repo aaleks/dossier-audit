@@ -24,7 +24,7 @@ CHANGED = "dossier.changed_steps"
 @pytest.fixture
 def tracker(two_runs: tuple[Path, str, str], monkeypatch) -> FakeTracker:
     """Tracking switched on after both runs, so the only record is the comparison."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

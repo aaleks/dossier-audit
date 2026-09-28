@@ -48,7 +48,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 @pytest.fixture
 def audited(workspace: Path, monkeypatch) -> Path:
     """The four documents synced and run, with tracking off so only the eval records."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
@@ -89,7 +89,7 @@ def audited(workspace: Path, monkeypatch) -> Path:
 @pytest.fixture
 def recording(audited: Path, monkeypatch) -> tuple[FakeTracker, FakeDatasetRegistry]:
     """Tracking on after the run, with a tracker and a registry that both count."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     tracker, registry = FakeTracker(), FakeDatasetRegistry()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

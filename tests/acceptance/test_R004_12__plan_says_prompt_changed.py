@@ -38,7 +38,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 @pytest.fixture
 def ran(workspace: Path, monkeypatch) -> Path:
     """The four incidents synced and run once, so there is a manifest to plan against."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"

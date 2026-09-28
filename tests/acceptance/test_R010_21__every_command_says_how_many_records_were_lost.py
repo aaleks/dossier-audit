@@ -7,7 +7,7 @@ run (R10.6); this only makes the loss visible.
 
 The CLI is handed a `SilentServer` through the `build_tracker` seam: a
 `FakeTracker` whose server stopped answering after the startup check, so every
-call raises. Every command that records builds its tracker in `_tracking_for`
+call raises. Every command that records builds its tracker in `tracking_for`
 and closes its record with `end_run`, which is where the count is said -- so
 sync, run, convert and eval here stand for compare and calibrate too, which take
 the same path.
@@ -88,7 +88,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 @pytest.fixture
 def held(workspace: Path, monkeypatch) -> Path:
     """The four incidents synced, and a run to score, with tracking still off."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
@@ -104,7 +104,7 @@ def held(workspace: Path, monkeypatch) -> Path:
 
 
 def _tracking(monkeypatch, tracker: FakeTracker) -> None:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
     monkeypatch.setenv("DOSSIER_MLFLOW_TRACKING_URI", URI)
@@ -151,7 +151,7 @@ class TestEveryCommandSaysHowManyRecordsWereLost:
         self, held: Path, monkeypatch, command
     ):
         """Example 3: the same line, from a command with no traces to count."""
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         _tracking(monkeypatch, SilentServer())
         monkeypatch.setattr(cli, "build_model_client", lambda model_id: NoModelClient())

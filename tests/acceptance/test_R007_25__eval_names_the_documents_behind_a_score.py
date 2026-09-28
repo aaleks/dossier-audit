@@ -55,7 +55,7 @@ def _lines_under(output: str, field: str) -> list[str]:
 @pytest.fixture
 def audited(workspace: Path, monkeypatch) -> Path:
     """The scoring example, synced and run, with its gold set in place."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"

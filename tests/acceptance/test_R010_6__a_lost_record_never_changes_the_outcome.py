@@ -98,7 +98,7 @@ def synced(workspace: Path, monkeypatch) -> Path:
 
 def _tracked_run(workspace: Path, monkeypatch, answers):
     """`dossier run` with tracking on, recording to a server that stops answering."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = LosingTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
@@ -120,7 +120,7 @@ class TestALostRecordNeverChangesTheOutcome:
         run, untracked, serves every one of them and asks nothing -- and one
         warning says two traces are missing from the record.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         result, recorder = _tracked_run(synced, monkeypatch, ANSWERS)
 
@@ -157,7 +157,7 @@ class TestALostRecordNeverChangesTheOutcome:
         Not this rule: refused before any work by R10.5, with exit 2 -- never
         run and then warned about.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
         import dossier.infrastructure.tracking.mlflow as adapter
 
         def refused(request: httpx.Request) -> httpx.Response:

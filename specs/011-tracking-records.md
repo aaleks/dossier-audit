@@ -631,7 +631,7 @@ what it came to (R11.4, R11.8). So nothing that stops their work can leave a run
 open.
 
 - **Kind:** deterministic
-- **Layer:** application (`dossier.application.eval.calibrate_fields`, `dossier.application.run.execute`), cli (`dossier.cli.main.eval_`)
+- **Layer:** application (`dossier.application.eval.calibrate_fields`, `dossier.application.run.execute`), cli (`dossier.cli.eval.eval_`)
 - **Proved by:** `tests/unit/test_R011_23__a_stopped_command_closes_its_run_as_failed.py`, `tests/acceptance/test_R011_23__an_eval_that_stops_closes_its_run_as_failed.py`
 - **Status:** MET
 

@@ -178,7 +178,7 @@ It refuses before any work with tracking off, since its whole input is the
 server, and with the server unreachable (R10.5).
 
 - **Kind:** deterministic
-- **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow`), application (`dossier.application.review`), cli (`dossier.cli.main`)
+- **Layer:** infrastructure (`dossier.infrastructure.tracking.mlflow`), application (`dossier.application.review`), cli (`dossier.cli.review`)
 - **Proved by:** `tests/unit/test_R015_3__review_pull_writes_every_human_verdict.py`, `tests/acceptance/test_R015_3__a_reviewers_verdicts_come_back.py`
 - **Status:** MET
 
@@ -214,7 +214,7 @@ whole apply, naming each, before a file is written -- a gold set half-applied is
 a definition of correct nobody agreed to.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.review`, `dossier.domain.gold`), application (`dossier.application.review`), cli (`dossier.cli.main`)
+- **Layer:** domain (`dossier.domain.review`, `dossier.domain.gold`), application (`dossier.application.review`), cli (`dossier.cli.review`)
 - **Proved by:** `tests/unit/test_R015_4__a_candidate_becomes_gold_when_applied.py`, `tests/acceptance/test_R015_4__a_maintainer_applies_what_reviewers_expected.py`
 - **Status:** MET
 
@@ -249,7 +249,7 @@ artifact or score.
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `dossier.cli.main` | `build_review_source` called from `review pull` and from no other command |
+| 1 | every module of `dossier.cli` | `build_review_source` called from `review pull` and from no other command |
 | 2 | the `Tracker` port | still declares no method returning anything read from the server (R0.10 row 5) |
 | 3 | a run of `incident-audit` after reviewers left verdicts on the last one | the same keys, manifest and artifacts as with none; nothing was read |
 | 4 | *counter-example* — `dossier eval` after a pull, with `candidates.jsonl` unapplied | scores against the gold set as it is; a candidate is not gold until applied |

@@ -56,13 +56,15 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 
 
 def _pulled(workspace: Path, monkeypatch, *verdicts: Verdict) -> None:
-    import dossier.cli.main as cli
+    import dossier.cli.review as review_cli
 
     write_pipeline(workspace)
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
     monkeypatch.setenv("DOSSIER_MLFLOW_TRACKING_URI", "http://localhost:5000")
     source = FakeReviewSource({EXPERIMENT: list(verdicts)})
-    monkeypatch.setattr(cli, "build_review_source", lambda settings: source, raising=False)
+    monkeypatch.setattr(
+        review_cli, "build_review_source", lambda settings: source, raising=False
+    )
     result = _cli(workspace, monkeypatch, "review", "pull", PIPELINE)
     assert result.exit_code == 0, result.output
 

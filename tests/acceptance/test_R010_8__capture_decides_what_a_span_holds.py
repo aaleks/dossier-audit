@@ -51,7 +51,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 @pytest.fixture
 def tracker(workspace: Path, monkeypatch) -> FakeTracker:
     """The four incidents held, then tracking switched on and recording to a fake."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
@@ -71,7 +71,7 @@ def tracker(workspace: Path, monkeypatch) -> FakeTracker:
 
 
 def _run(workspace: Path, monkeypatch, model):
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: model)
     return _cli(workspace, monkeypatch, "run", PIPELINE)

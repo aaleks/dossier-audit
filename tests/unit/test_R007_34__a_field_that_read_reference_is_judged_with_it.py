@@ -71,7 +71,7 @@ class Model:
 
 def _workspace(workspace: Path, monkeypatch, model: Model, *, verifying: str) -> Path:
     """One incident, one procedure as reference, one step judging `root_cause`, a bar met."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     ticket = workspace / "inbox" / "tickets" / TICKET
     ticket.parent.mkdir(parents=True)

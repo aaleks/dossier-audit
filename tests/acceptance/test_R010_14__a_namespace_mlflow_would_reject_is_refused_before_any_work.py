@@ -51,7 +51,7 @@ class CountingTracker(IssueTracker):
 
 def _wire(monkeypatch, *, prefix: str = "team/a") -> FakeTracker:
     """Tracking on, a tracker that counts runs, and the prefix under test."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     tracker = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
@@ -79,7 +79,7 @@ def _declared(workspace: Path, monkeypatch) -> Path:
 
 
 def _model(monkeypatch, model):
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: model)
     return model
@@ -160,7 +160,7 @@ class TestANamespaceMlflowWouldRejectIsRefusedBeforeAnyWork:
         One namespace goes in front of every published name, and the name it
         cannot go in front of decides.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         write_pipeline(workspace, sources=[SOURCE_ID])
         datasets = FakeDatasetRegistry()

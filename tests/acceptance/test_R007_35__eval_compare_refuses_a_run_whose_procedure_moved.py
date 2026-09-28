@@ -87,7 +87,7 @@ def _compare(workspace: Path, monkeypatch, a: str, b: str):
 @pytest.fixture
 def run_a(workspace: Path, monkeypatch) -> str:
     """One incident, `extract` reading it and both procedures; run `a`'s id."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     for folder, files in (("tickets", TICKETS), ("procedures", PROCEDURES)):
         for name, text in files.items():

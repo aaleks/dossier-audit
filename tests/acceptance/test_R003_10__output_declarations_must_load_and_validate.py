@@ -56,7 +56,7 @@ def model_calls(monkeypatch) -> list[str]:
     """Every model client the composition root asked for, and every call made."""
     from tests.fakes import FakeModelClient
 
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     record: list = []
     client = FakeModelClient(responses=[], calls=record)

@@ -73,7 +73,7 @@ class TestPublishingIsRefusedByName:
         tracking off has nowhere to publish to, so it says so instead of
         succeeding at nothing.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         registry = FakeDatasetRegistry()
         monkeypatch.setattr(cli, "build_dataset_registry", lambda settings: registry)
@@ -142,7 +142,7 @@ class TestPublishingIsRefusedByName:
         because someone dropped an `s` would be worse than a refusal, and harder
         to notice.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         registry = FakeDatasetRegistry()
         monkeypatch.setattr(cli, "build_dataset_registry", lambda settings: registry)

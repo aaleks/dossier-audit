@@ -47,7 +47,7 @@ class StoppedJudge:
 
 @pytest.fixture
 def tracker(monkeypatch) -> FakeTracker:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
@@ -57,7 +57,7 @@ def tracker(monkeypatch) -> FakeTracker:
 
 
 def _judge(monkeypatch, stop: BaseException) -> StoppedJudge:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     judge = StoppedJudge(stop)
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: judge)

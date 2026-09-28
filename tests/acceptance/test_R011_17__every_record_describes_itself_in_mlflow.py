@@ -52,7 +52,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 
 def _answer_with(monkeypatch, model) -> None:
     """The seam every other acceptance test uses: the CLI's model builder."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: model)
 
@@ -117,7 +117,7 @@ def declared(workspace: Path, monkeypatch) -> Path:
 @pytest.fixture
 def tracker(declared: Path, monkeypatch) -> FakeTracker:
     """Tracking switched on the way a person switches it on, at a fake (R10.1)."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

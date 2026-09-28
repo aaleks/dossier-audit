@@ -52,7 +52,7 @@ EXPECTED = {
 @pytest.fixture
 def tracker(two_runs: tuple[Path, str, str], monkeypatch) -> FakeTracker:
     """Tracking switched on after both runs, recording to a fake that counts."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

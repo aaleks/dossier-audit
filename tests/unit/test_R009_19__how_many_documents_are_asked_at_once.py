@@ -265,7 +265,7 @@ class TestAModelIsReachedOnceHoweverManyAskAtOnce:
         The client is built at the first cache miss and not before (R9.2 row
         5). Three first misses at once are still one first miss.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         built: list[str] = []
 
@@ -281,7 +281,7 @@ class TestAModelIsReachedOnceHoweverManyAskAtOnce:
             return Answering()
 
         monkeypatch.setattr(cli, "build_model_client", build)
-        lazy = cli._BuiltOnFirstCall(MODEL)
+        lazy = cli.BuiltOnFirstCall(MODEL)
 
         _at_once(3, lambda: lazy.complete("x"))
 

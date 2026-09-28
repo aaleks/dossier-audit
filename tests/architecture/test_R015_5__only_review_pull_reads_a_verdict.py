@@ -18,7 +18,9 @@ from pathlib import Path
 
 from .imports_scan import PACKAGE, imports_of, module_files, module_name
 
-CLI = PACKAGE / "cli" / "main.py"
+# Every module of the command line: a command in any of them could build a
+# review source, so the fence is drawn around all of them.
+CLI = sorted((PACKAGE / "cli").glob("*.py"))
 # Every name through which a verdict is read, or through which what was read
 # is written or applied. Anything naming one of these is on the review path.
 REVIEW_NAMES = frozenset(
@@ -33,15 +35,15 @@ REVIEW_NAMES = frozenset(
 )
 REVIEW_MODULES = frozenset({"dossier.application.review", "dossier.domain.review"})
 # The modules allowed to import them: the review use case itself, the port that
-# names what a source returns, the adapter that reads MLflow, and the one
-# composition root that wires the two review commands.
+# names what a source returns, the adapter that reads MLflow, and the module
+# that holds the two review commands and builds their source.
 ALLOWED = frozenset(
     {
         "dossier.application.review",
         "dossier.domain.review",
         "dossier.domain.ports",
         "dossier.infrastructure.tracking.mlflow",
-        "dossier.cli.main",
+        "dossier.cli.review",
     }
 )
 
@@ -57,11 +59,12 @@ def _imports_review_source(path: Path) -> bool:
     )
 
 
-def _commands_naming(path: Path, names: frozenset[str]) -> dict[str, set[str]]:
-    """Each top-level function in `path`, and which of `names` its body uses."""
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+def _commands_naming(paths: list[Path], names: frozenset[str]) -> dict[str, set[str]]:
+    """Each top-level function in `paths`, and which of `names` its body uses."""
     found: dict[str, set[str]] = {}
-    for node in tree.body:
+    for node in (
+        node for path in paths for node in ast.parse(path.read_text(encoding="utf-8")).body
+    ):
         if not isinstance(node, ast.FunctionDef):
             continue
         used = {

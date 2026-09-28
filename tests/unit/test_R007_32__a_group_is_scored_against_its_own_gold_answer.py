@@ -91,7 +91,7 @@ GLOBEX_GOLD = {
 
 def _eval(workspace: Path, monkeypatch, gold: dict[str, str]):
     """Sync, run and eval a `per_group` step over two contracts, against `gold`."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     for key, text in CONTRACTS.items():
         path = workspace / "inbox" / "contracts" / key

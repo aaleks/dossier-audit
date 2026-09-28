@@ -47,7 +47,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 @pytest.fixture
 def registry(workspace: Path, monkeypatch) -> FakeDatasetRegistry:
     """Tracking on, the eval template rendering `{gold}`, and a registry that counts."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     holder = FakeDatasetRegistry()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

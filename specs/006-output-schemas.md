@@ -480,7 +480,7 @@ reason -- and, like it, absent when there are none, because `· 0 findings` on
 every line of every clean run is noise (R6.15).
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.main`)
+- **Layer:** cli (`dossier.cli.run`)
 - **Proved by:** `tests/acceptance/test_R006_16__a_run_names_its_field_findings.py`
 - **Status:** MET
 

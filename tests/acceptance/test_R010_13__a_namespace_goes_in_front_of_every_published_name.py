@@ -32,7 +32,7 @@ EXPERIMENT = "dossier-audit/incident-audit/eval/incidents"
 
 def _registries(monkeypatch) -> tuple[FakePromptRegistry, FakeDatasetRegistry]:
     """Tracking on, the eval template rendering `{gold}`, and one server's two registries."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     prompts, datasets = FakePromptRegistry(), FakeDatasetRegistry()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
@@ -111,7 +111,7 @@ class TestANamespaceGoesInFrontOfEveryPublishedName:
 
     def test_an_eval_and_a_run_look_up_under_the_namespace(self, judged_run, monkeypatch):
         """Row 4: the one where every lookup asks for the name a publish would send."""
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         workspace, _ = judged_run
         judge = JudgingModel({})

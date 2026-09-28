@@ -22,7 +22,7 @@ from tests.scoring_example import PIPELINE
 @pytest.fixture
 def recording(two_runs: tuple[Path, str, str], monkeypatch):
     """Tracking on after both runs, with a tracker and a registry that both count."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     tracker, registry = FakeTracker(), FakeDatasetRegistry()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

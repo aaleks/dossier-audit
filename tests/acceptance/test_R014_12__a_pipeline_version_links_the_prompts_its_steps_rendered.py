@@ -52,7 +52,7 @@ def declared(workspace: Path, monkeypatch) -> Path:
 
 def _wire(monkeypatch) -> tuple[FakePromptRegistry, FakeTracker, FakeVersionRegistry]:
     """Tracking on, with a prompt registry, a tracker and a version registry that count."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     prompts, tracker, versions = FakePromptRegistry(), FakeTracker(), FakeVersionRegistry()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
@@ -71,7 +71,7 @@ def wired(declared, monkeypatch):
 
 
 def _model(monkeypatch, answers=ANSWERS, *, judge: RoutedModel | None = None) -> RoutedModel:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     model = judge or RoutedModel(answers)
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: model)
@@ -176,12 +176,12 @@ class TestAPipelineVersionLinksThePromptsItsStepsRendered:
         self, declared: Path, monkeypatch, wired
     ):
         """Counter-example (row 6): the one where the server cannot hold a logged model."""
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         _, tracker, _ = wired
         _model(monkeypatch)
         _publish(declared, monkeypatch)
-        monkeypatch.setattr(cli, "_versions_for", lambda workspace: None)
+        monkeypatch.setattr(cli, "versions_for", lambda workspace: None)
 
         result = _cli(declared, monkeypatch, "run", PIPELINE)
 

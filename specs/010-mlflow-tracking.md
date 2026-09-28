@@ -325,7 +325,7 @@ Checked once, at startup. An hour of model calls nobody can inspect afterwards i
 the failure this prevents.
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.main`)
+- **Layer:** cli (`dossier.cli.bootstrap.tracking_for`)
 - **Proved by:** `tests/acceptance/test_R010_5__an_unreachable_server_refuses_before_any_work.py`
 - **Status:** MET
 
@@ -545,7 +545,7 @@ namespace is refused for `dataset publish` all the same. It is one namespace in
 front of every published name, and the name it cannot go in front of decides.
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.main._tracking_for`), over `dossier.domain.tracking.check_namespace`
+- **Layer:** cli (`dossier.cli.bootstrap.tracking_for`), over `dossier.domain.tracking.check_namespace`
 - **Proved by:** `tests/acceptance/test_R010_14__a_namespace_mlflow_would_reject_is_refused_before_any_work.py`, `tests/unit/test_R010_14__a_namespace_mlflow_would_reject_is_refused_by_name.py`
 - **Status:** MET
 
@@ -639,7 +639,7 @@ identity provider's login page, which a command cannot follow. Neither is
 reported as "no MLflow server answers here".
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.main`)
+- **Layer:** cli (`dossier.cli.bootstrap.tracking_for`)
 - **Proved by:** `tests/acceptance/test_R010_18__a_refused_credential_refuses_before_any_work.py`
 - **Status:** MET
 

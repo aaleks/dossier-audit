@@ -166,7 +166,7 @@ def held(workspace: Path, monkeypatch) -> Path:
 
 
 def _run(workspace: Path, monkeypatch, answers) -> str:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: RoutedModel(answers))
     result = _cli(workspace, monkeypatch, "run", PIPELINE)
@@ -176,7 +176,7 @@ def _run(workspace: Path, monkeypatch, answers) -> str:
 
 def _judge(monkeypatch, *replies: str) -> FakeModelClient:
     """The judge `dossier eval` asks, scripted; it counts what it was asked."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     judge = FakeModelClient(responses=list(replies))
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: judge)
@@ -258,7 +258,7 @@ class TestEvalScoresFreeTextWithTheJudge:
         verdict is R7.3's and the judge is asked nothing. A judge that fails on
         any call is the assertion.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         (held / "gold" / "incidents" / "INC-4830.json").unlink()
         _run(held, monkeypatch, _answers(RC_01, span=RC_01))
@@ -276,7 +276,7 @@ class TestEvalScoresFreeTextWithTheJudge:
         R7.4 scores it incorrect before the field's type is consulted, so the
         judge is never asked about a claim the document could not have supported.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         _run(held, monkeypatch, _answers(RC_01, span="a sentence the document does not hold"))
         _calibrated(held)
@@ -293,7 +293,7 @@ class TestEvalScoresFreeTextWithTheJudge:
         No calibration, so R7.15 withholds the field -- and the judge is not
         asked either. Nothing is measured for a number nobody may quote.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         _run(held, monkeypatch, _answers(RC_01, span=RC_01))
         monkeypatch.setattr(cli, "build_model_client", lambda model_id: NoModelClient())
@@ -312,7 +312,7 @@ class TestEvalScoresFreeTextWithTheJudge:
         quoted, and it is gated the same way: withheld on both sides, with its
         reason, and no delta.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         a = _run(held, monkeypatch, _answers(RC_01, span=RC_01))
         prompt = held / "pipelines" / PIPELINE / "prompts" / "extract.md"

@@ -60,7 +60,7 @@ def declared(workspace: Path, monkeypatch) -> Path:
 @pytest.fixture
 def wired(declared: Path, monkeypatch):
     """Tracking on, a prompt registry that counts, and a model that answers."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     registry = FakePromptRegistry()
     tracker = FakeTracker()

@@ -109,7 +109,7 @@ def held(workspace: Path, monkeypatch) -> Path:
 @pytest.fixture
 def tracker(monkeypatch) -> FakeTracker:
     """Tracking on, recording to a fake that keeps the name it was handed."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
@@ -121,7 +121,7 @@ def tracker(monkeypatch) -> FakeTracker:
 @pytest.fixture
 def scored(held: Path, monkeypatch) -> tuple[Path, str]:
     """The run an eval will score, made before tracking is on; its id."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: RoutedModel(ANSWERS))
     ran = _cli(held, monkeypatch, "run", PIPELINE)
@@ -134,7 +134,7 @@ def scored(held: Path, monkeypatch) -> tuple[Path, str]:
 
 def _eval(workspace: Path, monkeypatch):
     """`dossier eval`, scoring a replay and so asking no model (R7.10)."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: NoModelClient())
     return _cli(workspace, monkeypatch, "eval", PIPELINE, "--gold", GOLD)
@@ -188,7 +188,7 @@ class TestARecordIsNamedFromItsTemplate:
         The model proves *before any work*. It answers every document in this
         pipeline, and a refusal that arrived late would show up here as a call.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         monkeypatch.setenv("DOSSIER_MLFLOW_RUN_NAME_RUN", "{gold} {run_id}")
         model = RoutedModel(ANSWERS)
@@ -233,7 +233,7 @@ class TestARecordIsNamedFromItsTemplate:
         unchanged until someone sets a variable -- which is the whole of why
         `{prefix}` and `{label}` render empty rather than rendering a separator.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         monkeypatch.setattr(cli, "build_model_client", lambda model_id: RoutedModel(ANSWERS))
 

@@ -106,7 +106,7 @@ def ran(workspace: Path, monkeypatch) -> Path:
     """A run over the markdown-only folder source, with a PDF converter installed too."""
     from tests.fakes import FakeModelClient
 
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     installed(monkeypatch, MarkdownText, PdfMarkdown)
     write_pipeline(workspace, steps=["extract"])
@@ -152,7 +152,7 @@ class TestAManifestPinsOnlyTheConvertersTheRunUsed:
         """
         from tests.fakes import NoModelClient
 
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         installed(monkeypatch, MarkdownText)
         monkeypatch.setattr(

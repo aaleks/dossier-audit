@@ -69,7 +69,7 @@ def _calibrate(workspace: Path) -> str:
 @pytest.fixture
 def scored(workspace: Path, monkeypatch) -> tuple[Path, str, str]:
     """The four incidents synced and run, tracking off; the run id and rubric hash."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
@@ -90,7 +90,7 @@ def scored(workspace: Path, monkeypatch) -> tuple[Path, str, str]:
 @pytest.fixture
 def tracker(monkeypatch) -> FakeTracker:
     """Tracking on after the run, so the only record under test is the eval's."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

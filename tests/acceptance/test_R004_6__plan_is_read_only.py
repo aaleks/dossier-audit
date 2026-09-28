@@ -50,7 +50,7 @@ def model_calls(monkeypatch) -> list[str]:
     """
     from tests.fakes import FakeModelClient
 
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     # One list for both events, so a failure message says which of them happened.
     record: list = []

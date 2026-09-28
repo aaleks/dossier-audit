@@ -508,7 +508,7 @@ run stops with is the first failing document's, in document order, which is the
 one a run at `N = 1` stops with.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.concurrency`), application (`dossier.application.run`), cli (`dossier.cli.main`)
+- **Layer:** domain (`dossier.domain.concurrency`), application (`dossier.application.run`), cli (`dossier.cli.run`)
 - **Proved by:** `tests/acceptance/test_R009_19__a_run_asks_about_several_documents_at_once.py`, `tests/unit/test_R009_19__how_many_documents_are_asked_at_once.py`
 - **Status:** MET
 
@@ -546,7 +546,7 @@ on from one sentence, and hiding one nobody expected would make it harder to
 find.
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.main`)
+- **Layer:** cli (`dossier.cli.bootstrap.MODEL_FAILURES`)
 - **Proved by:** `tests/acceptance/test_R009_20__a_model_that_fails_stops_a_command_in_one_line.py`
 - **Status:** MET
 

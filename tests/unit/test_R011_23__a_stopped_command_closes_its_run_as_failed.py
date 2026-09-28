@@ -101,7 +101,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 
 def _tracked(workspace: Path, monkeypatch, source) -> FakeTracker:
     """The scoring example's workspace, with tracking on and recording to a fake."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
@@ -155,7 +155,7 @@ class TestAStoppedCommandClosesItsRunAsFailed:
 
     def test_a_run_whose_model_is_unreachable_ends_failed(self, workspace: Path, monkeypatch):
         """Row 3: `dossier run`, the model unreachable -- true of the code, now stated."""
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         _cli(workspace, monkeypatch, "sync", PIPELINE)
         tracker = _tracked(workspace, monkeypatch, IssueTracker(ISSUES))

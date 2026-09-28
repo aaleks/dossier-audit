@@ -33,7 +33,7 @@ class TestSyncRecordsTheReturnedCount:
 
     def test_the_revived_note_is_counted_in_the_record(self, workspace: Path, monkeypatch):
         """Row 1: the one where 2 known and 1 returned account for 3 fetched."""
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         note = workspace / "inbox" / "incidents" / NOTE
         assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0

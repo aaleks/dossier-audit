@@ -44,7 +44,7 @@ class JudgingModel(RoutedModel):
 
 @pytest.fixture
 def judge(judged_run, monkeypatch) -> JudgingModel:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     model = JudgingModel({})
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: model)
@@ -53,7 +53,7 @@ def judge(judged_run, monkeypatch) -> JudgingModel:
 
 def _wire(monkeypatch) -> tuple[FakePromptRegistry, FakeTracker]:
     """Tracking on, a prompt registry that counts its reads, a tracker that keeps links."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     registry = FakePromptRegistry()
     tracker = FakeTracker()
@@ -124,7 +124,7 @@ class TestAJudgeLinksTheRubricVersionItJudgedWith:
         calibratable = _calibratable(workspace, monkeypatch)
         registry, tracker = _wire(monkeypatch)
         _publish(calibratable, monkeypatch)
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         judge = FakeModelClient(responses=[json.dumps({"supported": v}) for v in VERDICTS])
         monkeypatch.setattr(cli, "build_model_client", lambda model_id: judge)
