@@ -1,21 +1,23 @@
-"""What a web source decides without asking the network (spec 001, R1.29 - R1.36).
+"""What a web source decides without asking the network (spec 001, R1.29 - R1.39).
 
 Which URLs a source's `url` covers, what each is keyed as, what a sitemap says,
-and how far apart its requests go. Each is a pure function of strings, bytes
-and numbers, so the connector asks and
-this decides: the connector holds the requests, and nothing here knows there
-was one.
+which links a crawl follows and when it must stop, and how far apart its
+requests go. Each is a pure function of strings, bytes and numbers, so the
+connector asks and this decides: the connector holds the requests, and nothing
+here knows there was one.
 """
 
 from __future__ import annotations
 
 import xml.etree.ElementTree as ElementTree
 import zlib
+from collections import deque
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from html.parser import HTMLParser
 from typing import Literal
-from urllib.parse import urldefrag, urlsplit
+from urllib.parse import urldefrag, urljoin, urlsplit, urlunsplit
 
 # What a directory's key ends in. A key is also a file name under `runs/`
 # (R0.11), and `runbooks/` is not one.
@@ -205,6 +207,90 @@ def sitemap(payload: bytes) -> Sitemap:
     raise ValueError(f"not a sitemap: the document is <{kind}>, not <urlset> or <sitemapindex>")
 
 
+def links(html: str, url: str) -> tuple[str, ...]:
+    """Where a page's links go: every `<a href>`, absolute, in the order written (R1.37).
+
+    Each is read against the page's first `<base href>`, as a browser reads it,
+    or failing one against `url`, the address the page was answered at. The
+    fragment is dropped, since it is not part of an address (R1.30 row 6). Which
+    of them a crawl follows is `Frontier`'s question, not this one's.
+    """
+    reader = _Links()
+    reader.feed(html)
+    reader.close()
+    base = urljoin(url, reader.base) if reader.base is not None else url
+    found: dict[str, None] = {}
+    for href in reader.hrefs:
+        found.setdefault(urldefrag(urljoin(base, href.strip())).url, None)
+    return tuple(found)
+
+
+class Frontier:
+    """Which URL a crawl asks next, and when it may not ask another (R1.37, R1.38).
+
+    It starts at the source's `scope`, a `prefix`. It follows each link that
+    lies under it (`in_scope`), keeps back the ones `allowed` refuses -- by key,
+    in `disallowed`, as a sitemap's listing does (R1.33) -- and hands each URL
+    out once, in the order the links were found. A URL is one address whatever
+    case its scheme and host are written in.
+
+    It hands out at most `limit` URLs. Asked for one more while any is left, it
+    raises `ValueError`: a crawl that stops short is not a complete listing, and
+    a complete listing tombstones what it does not name (R1.38).
+    """
+
+    def __init__(self, scope: str, *, limit: int, allowed: Callable[[str], bool]) -> None:
+        self._scope = scope
+        self._limit = limit
+        self._allowed = allowed
+        self._queue: deque[str] = deque()
+        self._seen: set[str] = set()
+        self._answered: set[str] = set()
+        self._asked = 0
+        self.disallowed: dict[str, str] = {}
+        self.add([scope])
+        if not self._queue:
+            raise ValueError(
+                f"{scope} is disallowed for this source by robots.txt, and a crawl "
+                "that may not start reaches nothing (R1.33, R1.38)"
+            )
+
+    def add(self, urls: Iterable[str]) -> None:
+        """Queue the links under the scope that have not been seen."""
+        for url in urls:
+            address = _address(url)
+            if address in self._seen or not in_scope(address, self._scope):
+                continue
+            self._seen.add(address)
+            if not self._allowed(address):
+                self.disallowed[page_key(address, self._scope)] = address
+                continue
+            self._queue.append(address)
+
+    def answered(self, url: str) -> None:
+        """A page was answered at `url`, which is therefore not asked again."""
+        address = _address(url)
+        self._seen.add(address)
+        self._answered.add(address)
+
+    def next(self) -> str | None:
+        """The next URL to ask, or `None` once the crawl has reached everything."""
+        while self._queue:
+            url = self._queue.popleft()
+            if url in self._answered:
+                continue
+            if self._asked >= self._limit:
+                raise ValueError(
+                    f"the crawl has asked {self._limit} URLs, as many as `crawl:` "
+                    f"allows, and {url} is still to ask. A crawl that stops short "
+                    "would tombstone every page it did not reach, so nothing is "
+                    "listed; raise `crawl:` to list this source (R1.38)"
+                )
+            self._asked += 1
+            return url
+        return None
+
+
 def spacing(delay: float | None, crawl_delay: float | None) -> float:
     """How far apart, in seconds, a web source starts its requests to its site (R1.36).
 
@@ -249,6 +335,32 @@ def _gunzipped(payload: bytes) -> bytes:
 
 def _same_host(first: str, second: str) -> bool:
     return first.lower() == second.lower()
+
+
+def _address(url: str) -> str:
+    """`url` without its fragment, and with its scheme and host as DNS reads them."""
+    parts = urlsplit(urldefrag(url.strip()).url)
+    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path, parts.query, ""))
+
+
+class _Links(HTMLParser):
+    """The `href` of every `<a>` in a page, and of its first `<base>`."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.hrefs: list[str] = []
+        self.base: str | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        href = dict(attrs).get("href")
+        if href is None:
+            return
+        if tag == "a":
+            self.hrefs.append(href)
+        elif tag == "base" and self.base is None:
+            self.base = href
+
+    handle_startendtag = handle_starttag
 
 
 def _local(tag: str) -> str:

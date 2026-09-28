@@ -18,6 +18,9 @@ ROBOTS = f"{SITE}/robots.txt"
 
 HTML = "text/html; charset=utf-8"
 
+# The fixtures' robots.txt, where a rule needs `drafts/` kept out (R1.33).
+ROBOTS_TXT = "User-agent: *\nDisallow: /ops/drafts/\n"
+
 # The fixtures table, as a sitemap names it: URL and `<lastmod>`.
 PAGES: dict[str, str | None] = {
     f"{SITE}/ops/": "2026-08-05",
@@ -53,8 +56,20 @@ def sitemapindex(children: list[str]) -> bytes:
     ).encode()
 
 
-def page_body(url: str) -> bytes:
-    return f"<html><body><h1>{url}</h1></body></html>".encode()
+# The fixtures' links, where a rule needs a crawl (R1.37 - R1.39): the `href`s
+# each page holds, written relative to it as a site writes them.
+LINKS: dict[str, list[str]] = {
+    f"{SITE}/ops/": ["escalation", "runbooks/dns-failover.html", "escalation-matrix.pdf"],
+    f"{SITE}/ops/escalation": ["./", "drafts/escalation-v2", "/blog/release-notes"],
+    f"{SITE}/ops/runbooks/dns-failover.html": ["../escalation"],
+}
+
+
+def page_body(url: str, links: list[str] | None = None) -> bytes:
+    """A small page naming `url`, linking what `LINKS` says it does unless told otherwise."""
+    hrefs = LINKS.get(url, []) if links is None else links
+    anchors = "".join(f'<a href="{href}">{href}</a>' for href in hrefs)
+    return f"<html><body><h1>{url}</h1>{anchors}</body></html>".encode()
 
 
 @dataclass
@@ -62,11 +77,15 @@ class DocsSite:
     """The site. `responses` overrides what any URL answers; everything else is defaulted.
 
     By default the sitemap names `PAGES`, `robots.txt` is `404`, and each page
-    answers `200` with a small HTML body -- the PDF with PDF bytes.
+    answers `200` with a small HTML body linking what `links` says -- the PDF
+    with PDF bytes.
     """
 
     pages: dict[str, str | None] = field(default_factory=lambda: dict(PAGES))
     responses: dict[str, httpx.Response] = field(default_factory=dict)
+    links: dict[str, list[str]] = field(
+        default_factory=lambda: {k: list(v) for k, v in LINKS.items()}
+    )
     asked: list[httpx.Request] = field(default_factory=list)
 
     def transport(self) -> httpx.MockTransport:
@@ -88,7 +107,9 @@ class DocsSite:
                 )
             if url in self.pages:
                 return httpx.Response(
-                    200, headers={"Content-Type": HTML}, content=page_body(url)
+                    200,
+                    headers={"Content-Type": HTML},
+                    content=page_body(url, self.links.get(url, [])),
                 )
             return httpx.Response(404)
 

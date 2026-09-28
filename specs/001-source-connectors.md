@@ -1,7 +1,7 @@
 # 001 — Source connectors
 
 **Status:** Implemented
-**Rules:** R1.1 – R1.36
+**Rules:** R1.1 – R1.39
 
 ## Purpose
 
@@ -107,10 +107,13 @@ core's. Everything else belongs to one type, and only its connector knows it.
   it, its PDF export beside it. Its keys: `url` and `query`; `token_env` and
   `user_env`, read as a Jira source reads them (R1.21); and `export: pdf`, which
   asks for the PDF (R1.19). Read against Data Center.
-- **web** — scoped by a URL prefix, and listed from the site's sitemap. A page
-  as the server sent it, labelled with the media type the server stated. Its
-  keys: `url`, the prefix, and `sitemap`, where the listing is read from. One
-  connector for every website: a site is configuration, never code.
+- **web** — scoped by a URL prefix, and listed from the site's sitemap or, when
+  the source asks, by following its links. A page as the server sent it,
+  labelled with the media type the server stated. Its keys: `url`, the prefix;
+  `sitemap`, where the listing is read from; `crawl`, the most URLs a crawl
+  asks, in place of a sitemap (R1.37); and `delay`, the seconds between
+  requests (R1.36). One connector for every website: a site is configuration,
+  never code.
 
 ## A Confluence page
 
@@ -220,16 +223,17 @@ Docusaurus, Read the Docs -- are the case it was written against, and the
 example below is one; nothing in the connector is specific to them.
 
 What it reads well is a site that publishes a sitemap, serves its pages as
-HTML from the server, and lets an anonymous reader in. A site that builds its
-pages in the browser with JavaScript is held as the empty shell the server
-sent (question 10); one with no sitemap is question 7, and one behind a login
-question 8.
+HTML from the server, and lets an anonymous reader in. A site with no sitemap
+is crawled when its source asks (R1.37). A site that builds its pages in the
+browser with JavaScript is held as the empty shell the server sent (question
+10), and one behind a login is question 8.
 
 ```yaml
 - id: vendor-docs
   type: web
   url: https://docs.example.org/ops/
   # sitemap: https://docs.example.org/sitemap.xml   (the default: the host's own)
+  # crawl: 200   (in place of a sitemap: follow links, asking at most 200 URLs)
   # delay: 2   (seconds between requests; the default: none)
 ```
 
@@ -241,11 +245,13 @@ ends in `/`: `…/ops` does not match `…/opsx/`. A URL carrying a query string
 left out, because a query is how a site serves one page many ways, and none of
 them is the page's address.
 
-The sitemap is the listing, and nothing is crawled. A sitemap is what a site
+The sitemap is the listing, unless the source asks for a crawl. A sitemap is what a site
 publishes to say which pages it has; the generators behind nearly every
 documentation site write one, and most content management systems do too. A crawl asks every page once just to find the
 next, which is every page downloaded on every sync before anything is known to
-have changed. A site with no sitemap is an open question, not a crawl (question 7).
+have changed. So a crawl is something a source asks for (R1.37). It never
+happens because a sitemap is missing: a sitemap that cannot be read still fails
+the listing.
 
 The listing is complete: `since` is ignored, `lists_everything` is `True`, and
 a page gone from the sitemap is tombstoned (R1.11, R2.7). That is also why a
@@ -313,6 +319,64 @@ says nothing about how long to wait -- `djangoproject.com` sent no
 `Retry-After` -- leaves a retry to invent its interval, and a guessed interval
 either wastes a sync or sends the refused requests again. The failure names
 `delay:`, which is the remedy a person can apply.
+
+**A site with no sitemap.** `www.python.org`, read on 2026-09-27, publishes no
+sitemap and its `robots.txt` names none, so its listing failed on the `404`. A
+source that says `crawl:` is listed by following links instead (R1.37).
+
+- **What a crawl follows.** It starts at `url` and reads each page's links: the
+  `href` of every `<a>`, read against the page's `<base>`, or failing one, the
+  URL the page was answered at. It follows each link that lies under `url` as
+  R1.29 reads it (fragment dropped, a URL with a query left out), and asks each
+  URL once.
+- **Keys.** A page is keyed as a sitemap's page would be, but by the URL it was
+  answered at, after any redirect within `url` (R1.30). So when `escalation`
+  redirects to `escalation/`, the two are one page.
+- **Which pages are read for links.** Only HTML pages. A PDF that a page links
+  to is listed, and its links are not read.
+
+A crawl downloads every page just to list them, so the bytes are kept: `fetch`
+returns what the crawl was answered, and a page is asked once a sync, not twice.
+A crawled page has no marker (R1.31). It is compared by its bytes, and stored
+again only when they changed (R2.2).
+
+- **Links that are not pages.** A link answered `404`, or any `4xx` but `429`,
+  is not a page, and neither is one that redirects out of `url` (a login form,
+  another site). It is left out of the listing, and the crawl goes on: a site's
+  broken links are not its pages.
+- **`robots.txt`** is read as it is for a sitemap. A link it disallows is
+  neither asked nor listed (R1.33), so that page's links are never read either.
+- **`<meta name="robots">`** is not read. It tells a search engine what to
+  index, and `dossier` indexes nothing; what may be asked is `robots.txt`'s to
+  say.
+
+A crawl lists everything it can reach, and sync tombstones any held page it did
+not reach. So a crawl that cannot tell it has reached everything fails the
+listing, and never returns what it has so far (R1.38). That happens when:
+
+- `url` itself is not a page, or `robots.txt` disallows it;
+- a page answers `5xx` or `429` (R1.35), or does not answer;
+- a page redirects more than five times;
+- the crawl would ask more URLs than `crawl:` allows.
+
+That number is the source's to set, and there is no default. Only a site's
+reader knows how many pages it has, and a crawl that stopped where a default
+guessed would tombstone the rest. A source cannot say both `crawl:` and
+`sitemap:` (R1.39).
+
+**Existing options considered for crawling**, read from each package's source
+on PyPI, 2026-09-28:
+
+| Option | Covers | Missing |
+|---|---|---|
+| crawl4ai 0.9.4's `BFSDeepCrawlStrategy` | A breadth-first crawl, filters by URL pattern and domain, a page cap | It reads links only from pages that succeeded, and a failed page is one result among the others. So the crawl ends normally without the pages only that page linked to, and here they would be tombstoned. It fetches each level concurrently, up to twenty at once, and applies its cap in the order pages finish, so which pages a capped crawl lists depends on timing. It fetches through a browser or its own `aiohttp` client, never through the one request path that R1.33 to R1.36 govern. And taking it means taking crawl4ai (the table below) |
+| Scrapy 2.19's `CrawlSpider` | Rules for which links to follow, `robots.txt`, depth and page limits | Its own engine (the table below) |
+| Firecrawl's `crawl` | A site's pages, with or without a sitemap | Every page goes through a third party (the table below), and no site behind a firewall can be reached |
+
+**Chosen: the connector's own requests, and the standard library's
+`html.parser` for links.** What a crawl adds is a queue and a page's links.
+Every rule a request follows (R1.33 to R1.36) is already in the one path the
+connector sends through.
 
 **Navigation.** A page is held as the site sent it, navigation, header and
 footer included. `html-markdown` writes a page that declares one `<main>` as
@@ -1087,6 +1151,79 @@ back to back.
 | 6 | *counter-example* — neither `delay:` nor `Crawl-delay` | no wait at all: `robots.txt`, the sitemap and `escalation` back to back |
 | 7 | *counter-example* — `delay: -1`, or `delay: soon` | `sources.yaml` is refused, naming `vendor-docs` and `delay` (R1.10) |
 
+### R1.37 — with `crawl:`, a web source lists every page its links reach within its `url`, and reads no sitemap
+
+The crawl starts at `url`. It follows the `href` of every `<a>` in an HTML page,
+resolved against the page's `<base>`, or failing one, the URL the page was
+answered at. It follows only links under `url`, as R1.29 reads them, and asks
+each URL once.
+
+- **What is listed.** Every URL answered as a page. Each is keyed by the URL it
+  was answered at, after any redirect within `url` (R1.30), and has no marker
+  (R1.31).
+- **What is left out.** A link answered with a `4xx` other than `429`, or one
+  that redirects out of `url`, is not a page. It is not listed, and the crawl
+  goes on.
+- **`fetch`** returns the bytes the crawl was answered, and asks nothing.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.web.links`, `dossier.domain.web.Frontier`), asked for in infrastructure (`dossier.infrastructure.connectors.web`)
+- **Proved by:** `tests/unit/test_R001_37__a_web_source_crawls_its_links.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `vendor-docs` with `crawl: 50`, its pages linked as the fixtures say | `escalation`, `escalation-matrix.pdf`, `index`, `runbooks/dns-failover.html`. The sitemap is not asked, and neither is `/blog/release-notes` |
+| 2 | that source synced | each page is asked once, and `fetch` asks nothing |
+| 3 | that source synced again, with nothing changed | each page is asked once more, and no snapshot is written (R2.2) |
+| 4 | `index` also links `escalation#paging` and `https://DOCS.example.org/ops/escalation` | one page, `escalation`, asked once |
+| 5 | `escalation` answered with a redirect to `…/ops/escalation/` | one page, keyed `escalation/index`. A link elsewhere to `…/ops/escalation/` is not asked again |
+| 6 | a page whose `<base href="https://docs.example.org/ops/runbooks/">` precedes a link to `dns-failover.html` | `runbooks/dns-failover.html` is listed |
+| 7 | *counter-example* — `escalation-matrix.pdf`, whose bytes spell `<a href="hidden">` | listed, and not read for links: `…/ops/hidden` is not asked |
+| 8 | *counter-example* — `index` also links `old-runbook`, answered `404` | `old-runbook` is not listed; the other four are |
+| 9 | *counter-example* — `index` also links `login`, which redirects to `https://sso.example.org/login` | `login` is not listed, and `sso.example.org` is not asked |
+| 10 | *counter-example* — `escalation` links `drafts/escalation-v2`, which `robots.txt` disallows | neither asked nor listed (R1.33) |
+| 11 | *counter-example* — `index` also links `escalation?print=1` | not asked (R1.29 row 5) |
+
+### R1.38 — a crawl that cannot finish fails the listing, and lists nothing
+
+A crawl's listing is complete, and a held page missing from it is tombstoned
+(R1.11, R2.7). So a crawl that cannot tell it has reached every page fails the
+listing and names why. That happens when:
+
+- `url` itself is not a page, or `robots.txt` disallows it;
+- a page answers `5xx` or `429` (R1.35), or does not answer;
+- a page redirects more than five times (R1.34);
+- one more URL is left to ask once `crawl:` URLs have been asked.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.web.Frontier`), asked for in infrastructure (`dossier.infrastructure.connectors.web`)
+- **Proved by:** `tests/unit/test_R001_38__a_crawl_that_cannot_finish_fails_the_listing.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `crawl: 3`, and the four pages of R1.37 row 1 | the listing fails, naming `3` and the URL it would have asked next. Three pages were asked, and the held pages stay active |
+| 2 | `escalation` answered `503` | the listing fails, naming `…/ops/escalation` and `503`, and the held pages stay active |
+| 3 | `escalation` answered `429` | the listing fails, and nothing more is asked (R1.35) |
+| 4 | `…/ops/` itself answered `404` | the listing fails, naming it: a crawl that reaches nothing is not an empty site |
+| 5 | `robots.txt` disallowing `/ops/` | the listing fails, naming `…/ops/` and `robots.txt`: a crawl that may not start reaches nothing |
+| 6 | *counter-example* — `crawl: 4` and the same four pages | all four listed: a crawl that has asked exactly `crawl:` URLs, with none left, has finished |
+
+### R1.39 — `crawl:` is a whole number of URLs, at least 1, and a source says `crawl:` or `sitemap:`, never both
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.connectors.web.WebKeys`)
+- **Proved by:** `tests/unit/test_R001_39__crawl_is_a_number_of_urls_and_not_a_sitemap.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `crawl: 0` | `sources.yaml` is refused, naming `vendor-docs` and `crawl` (R1.10) |
+| 2 | `crawl: true`, or `crawl: all`, or `crawl: 2.5` | refused the same way: `crawl:` is how many URLs to ask, not a switch |
+| 3 | `crawl: 50` and `sitemap: https://docs.example.org/sitemap.xml` | refused, naming both keys: a source is listed one way |
+| 4 | *counter-example* — neither | listed from the host's sitemap (R1.29) |
+
 ## Open questions
 
 | # | Question | Resolution |
@@ -1097,7 +1234,7 @@ back to back.
 | 4 | Does CQL `lastmodified` move when a file is uploaded again to a page whose version does not? If not, a windowed listing leaves the page out, and R1.18 row 2 holds only under a complete listing (R2.22, R2.24) | RESOLVED by R1.22 — it does not. A local Data Center 9.2.21 in Docker, 2026-09-27: neither a file added nor a file uploaded again moved the page's `lastmodified`, and neither did a file removed |
 | 5 | Does a file or a comment on a Jira issue move its `updated`, as R1.6 row 1 needs under a windowed listing? | RESOLVED — it does. A Jira Software Data Center 10.3 in Docker, 2026-09-27: a file added, a file replaced, a file removed, a comment added and a comment edited each moved `INC-3`'s `updated`, and a windowed JQL search found it after each. Nothing needed changing |
 | 6 | Should a web page's navigation, header and footer be taken out of its note? `html-markdown` keeps them, and every page of a site repeats them | RESOLVED by R8.33 — yes, by the page's own declaration: a page with one `<main>` is written as that element, without its `<nav>`. No selector to configure. Decided 2026-09-28. The note of `docs.astral.sh/uv/getting-started/installation/` went from 12,446 characters to 6,480, and `www.djangoproject.com/foundation/`'s from 17,815 to 7,800, with the article text whole in both |
-| 7 | A website with no sitemap | OPEN — a crawl from `url`, following links within it, is the answer that exists. It downloads every page to list them, and needs a page cap. Needs a site a workspace reads that has no sitemap |
+| 7 | A website with no sitemap | RESOLVED by R1.37 to R1.39 — a source that says `crawl:` is listed by following its links within `url`, asking each URL once and at most `crawl:` URLs. A crawl that cannot finish fails the listing rather than tombstoning what it did not reach. The site that asked: `www.python.org`, whose listing failed on its missing sitemap. Decided 2026-09-28 |
 | 8 | A website behind a credential | OPEN — `token_env` and `user_env` as R1.21 reads them would carry over. Needs a site that asks for one |
 | 9 | Politeness: the requests are sequential and undelayed | RESOLVED by R1.35 and R1.36 — `djangoproject.com`, 2026-09-27: 70 of the 91 pages under `/foundation/` were answered `429` within seven seconds, with no `Retry-After`, and every one of the 70 was asked after the first refusal. A `429` now ends the sync's requests to the site, and a source's `delay:`, or its site's `Crawl-delay`, spaces them. Decided 2026-09-27 |
 | 10 | A website that builds its pages with JavaScript | OPEN — the server sends a shell, and the text is drawn in the browser, so what is held has nothing in it to read. A browser is the answer that exists (crawl4ai, or Firecrawl's rendering; see the options above), and it is a second way of fetching a page, not a change to this one. Needs such a site a workspace reads |
