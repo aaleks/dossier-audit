@@ -88,8 +88,8 @@ def declare_fields(
         try:
             kinds[name] = FieldKind(kind)
         except ValueError:
-            # The kind picks the scorer (spec 007), so a kind outside the five is
-            # a field nobody decided how to score. Naming the five turns the
+            # The kind picks the scorer (spec 007), so a kind outside them is
+            # a field nobody decided how to score. Naming them all turns the
             # error into its own fix (R3.10 row 4).
             known = ", ".join(member.value for member in FieldKind)
             raise ValueError(

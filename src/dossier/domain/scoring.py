@@ -74,6 +74,7 @@ class FieldKind(Enum):
     DATE = "date"
     REFERENCE = "reference"
     ENUM = "enum"
+    BOOLEAN = "boolean"
     FREE_TEXT = "free_text"
 
     @property
@@ -508,6 +509,8 @@ def _compare(kind: FieldKind, produced: object, expected: object) -> bool | None
         return _both(_as_number(produced), _as_number(expected))
     if kind is FieldKind.DATE:
         return _both(_as_date(produced), _as_date(expected))
+    if kind is FieldKind.BOOLEAN:
+        return _both(_as_boolean(produced), _as_boolean(expected))
     # REFERENCE and ENUM are both closed vocabularies compared as text. Which
     # case a model echoed a value back in is not information (R7.1).
     return _folded(produced) == _folded(expected)
@@ -551,6 +554,21 @@ def _as_number(value: object) -> float | None:
         return float(text)
     except ValueError:
         return None
+
+
+def _as_boolean(value: object) -> bool | None:
+    """A value as a truth value, or `None` if it is not a boolean (R7.36).
+
+    `true` and `false`, or the strings `"true"` and `"false"` in any case:
+    whether a model quoted a JSON value is not information, as the case of an
+    enum is not. Nothing else -- `1` is a number and `yes` is a word, and reading
+    either would begin a vocabulary (`y`, `on`, `ja`) nobody agreed to.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return {"true": True, "false": False}.get(value.strip().casefold())
+    return None
 
 
 def _as_date(value: object) -> date | None:

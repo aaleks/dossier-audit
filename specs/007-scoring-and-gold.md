@@ -1122,7 +1122,7 @@ the contracts".
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring.score_field`)
 - **Proved by:** `tests/unit/test_R007_36__a_boolean_is_scored_by_its_truth_value.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
