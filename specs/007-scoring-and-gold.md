@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.45
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.51
 
 ## Purpose
 
@@ -112,6 +112,30 @@ calibration's lower bound and kappa are (R7.26, R7.27): the percentage is what
 `--compare` gates on (R7.8), and a gate on either would need a threshold nobody
 has agreed (R7.43).
 
+**A field is one answer per document, however many pages gave it.** A
+`per_part` step asks once per page (R3.12), and a document's fields are its
+pages' fields, so `INC-4830`'s `severity`, printed in the header of each of its
+three pages, comes back three times. Scored once per page, a three-page document
+weighed three times what a one-page document did, and a page that said "not on
+this page" was a miss against gold's value. So the pages are scored together, as
+one verdict for their document (R7.46). A page that abstains says nothing about
+its document while another page gives a value, and the document abstains only
+when every page does (R7.47). The field is correct only when every page that gave
+a value is correct: a run that answers `2026-07-28` on page 1 and `2026-07-30`
+on page 2 has given two answers to one question, which is R6.24's reason for
+refusing one reply that does it, and R7.42's for failing a list one of whose
+items is wrong (R7.48). A judged field is judged page by page on the same terms
+(R7.49).
+
+**A field gold verifies and the run never answered is scored as an
+abstention.** A step's answer may leave a declared field out: the record shape
+requires none of them, and a `per_part` prompt tells a page to leave out what it
+cannot see. Scored only by the records that exist, a left-out field got no verdict
+at all, so a run that left out every field it was unsure of was never wrong about
+one. That is what R7.3 exists to prevent, so a field with no record is scored as
+if the run had abstained: correct when gold says `null`, incorrect when gold has a
+value, and named `not answered` rather than `abstained` (R7.50).
+
 Grounding and abstention are decided before the field's type is consulted. Both
 are facts rather than judgements: whether a span was locatable, and whether the
 run abstained, mean the same thing for a free-text field as for an amount. R7.3's
@@ -202,6 +226,19 @@ multi-label set. Three sums over sets cost less than a dependency the purity
 boundary would not admit, so they are written in `domain/` beside the others.
 That a list is answered one record per item, and scored as an exact set with the
 two figures reported beside it, was decided by `a.aleks` on 2026-09-28.
+
+How a document's pages are scored together is this project's own question about
+its own records, and no library has an opinion on it. Four answers were weighed:
+
+| Option | For | Against |
+|---|---|---|
+| **Every page that gave a value must be correct** (adopted) | counts documents, as R7.41 says a percentage does; a contradiction between pages is caught; a page may abstain on what it cannot see; each page is scored by the scorer that already exists | one misread page fails a document whose other pages were right |
+| Any page correct is enough | forgiving of a noisy page | `major` on page 1 and `minor` on page 3 is correct, so answering every value on every page pays; whoever reads the answer still sees two |
+| The first page in part order that gave a value | the least to build | a wrong answer on a later page never reaches the score; which page is first is layout, not evidence |
+| Refuse `output:` on a `per_part` step, and reconcile in a `per_file` step after it | the model reconciles with every page in view; scoring is untouched | a `described` field exists only on a `per_part` step's output (R6.15, R7.21), so it would take the vision judge with it; one more call per document |
+
+That every page that gave a value must be correct, and that a field with no record
+is scored as an abstention in every mode, was decided by `a.aleks` on 2026-09-28.
 
 ## The review loop
 
@@ -1333,3 +1370,120 @@ miss named with what was missing and what was not in gold (R7.25).
 | 1 | `schemas/incident.yaml` declaring `severity: {kind: enum}` and `affected_systems: {kind: list}`; gold and a run as `_fixtures.md`'s "A list field" has them | `severity 100.0%` and `affected_systems 50.0%` with its items line, each on its own line; four model calls, all made by `run` (R7.10) |
 | 2 | the same | under `affected_systems`, `INC-4821` named with `missing: ledger-batch`, and `INC-5455` with `missing: upload-service` and `not in gold: payments-api` |
 | 3 | *counter-example* — `gold/incidents/INC-4821.json` holding `affected_systems` as `"payments-api, ledger-batch"` | exit code 2 naming `INC-4821` and `affected_systems`, before any score is printed (R7.44) |
+
+### R7.46 — a field a `per_part` step answers is one verdict per document, however many of its pages answered it
+
+A field's percentage counts documents (R7.41). Counted per page, `INC-4830`'s
+three pages would outvote a one-page document three to one on every field its
+header carries. The values are `_fixtures.md`'s "`INC-4830` page by page".
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring.score_document`), application (`dossier.application.eval.score_run`)
+- **Proved by:** `tests/unit/test_R007_46__a_per_part_field_is_one_verdict_per_document.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `severity` on `INC-4830`, answered `critical` on each of its three pages from the header each prints, against gold `critical` | 1 of 1 for `INC-4830`, not 3 of 3 |
+| 2 | `INC-4830` and `INC-5720-checkout-latency-postmortem.png`, a picture of one page, each answering `severity` as gold does | `severity` scored 2 of 2: a document weighs one, however many pages it has |
+| 3 | *counter-example* — `severity` from a `per_file` step, one record per document | one verdict per document, as before; there is one answer and nothing to combine |
+
+### R7.47 — a page that abstains does not answer for its document while another of its pages gives a value
+
+"Not on this page" is a fact about the page, not about the document. The
+document abstains only when every page did, and is then scored as any abstention
+is (R7.3).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring.score_document`)
+- **Proved by:** `tests/unit/test_R007_47__a_page_that_abstains_does_not_answer_for_its_document.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `resolution_date` `2026-07-28` on `INC-4830`'s page 1, pages 2 and 3 abstaining with the reason `not on this page`, against gold `2026-07-28` | correct. Before this rule, 1 of 3 |
+| 2 | every page abstaining, against a gold `null` | correct: the document abstains, and so does gold (R7.3 row 1) |
+| 3 | *counter-example* — every page abstaining, against gold `2026-07-28` | incorrect, `abstained on every page; gold states '2026-07-28'`: when every page abstains, the abstention is the document's answer (R7.3 row 3) |
+
+### R7.48 — a field is correct only when every page that gave it a value is correct, and the detail names each page that was not
+
+Each page's value is scored as a `per_file` step's record is: grounded (R7.4),
+then compared with gold by its kind. Each page is held to gold and never to the
+other pages, so two pages spelling one answer differently agree. A page is named
+as the part it came from (R8.11).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring.score_document`), application (`dossier.application.eval.score_run`)
+- **Proved by:** `tests/unit/test_R007_48__every_page_that_answers_must_be_correct.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `resolution_date` `2026-07-28` on `INC-4830`'s page 1 and `2026-07-30` on page 2, the day the postmortem review was held, against gold `2026-07-28` | incorrect, `page-002.png: '2026-07-30' does not match '2026-07-28'` |
+| 2 | `loss_amount` `48200.00` CHF on page 1, grounded, and `48200.00` CHF on page 3 with a span not found in `INC-4830` | incorrect, `page-003.png: ungrounded` (R7.4); a right value on one page does not vouch for a page with no evidence |
+| 3 | `severity` `critical` on pages 1 and 2, and `Critical` on page 3 | correct; each page matches gold with its case folded, as an enum is compared |
+| 4 | *counter-example* — `affected_systems` on `INC-4821`, `payments-api` named on one page and `ledger-batch` on another, against gold `["payments-api", "ledger-batch"]` | correct, one set (R7.40 row 3); a list's items on different pages are its items, not a disagreement |
+
+### R7.49 — a judged field is put to the judge once for each page that gave it a value, and is correct only when the judge supports every one
+
+The judge is asked about the run's answer (R7.17), and a document read page by
+page gives one answer per page. Each page's value is judged against the evidence
+R7.17, R7.21 or R7.34 gives it: the document's text for a page whose span was
+found in it, the document's pages for a page that is `described`. Each is a
+verdict key of its own (R7.18). A page whose value fails without a judge --
+ungrounded (R7.4), or citing a document its call was not shown (R6.23) -- fails
+the field before the judge is asked, so the judge is asked only about a field
+every page can still get right. The candidates are `_fixtures.md`'s `rc-01`,
+supported, and `rc-02`, the planted claim.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.judge_scores`), domain (`dossier.domain.scoring.with_judged`)
+- **Proved by:** `tests/unit/test_R007_49__each_pages_judged_value_must_be_supported.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `root_cause` on the photocopied `INC-4830`, page 2 answering `rc-01`'s words, pages 1 and 3 abstaining | one judge call, shown the three pages (R7.21); supported, so correct |
+| 2 | page 2 answering `rc-02`'s words and page 3 `rc-01`'s | two judge calls; incorrect, naming `page-002.png` and the judge's evidence. Before this rule only the last page's answer was judged, and its verdict was given to page 2's as well |
+| 3 | pages 2 and 3 both answering `rc-01`'s words | one judge call: the same candidate on the same evidence is the same key (R7.18), and the second is served from cache |
+| 4 | the half-photocopied `INC-4830`, `rc-01`'s words on page 1, their span found in its text layer, and on page 2, a picture | two judge calls: page 1's against the document's text (R7.17), page 2's against its pages (R7.21). The same words on different evidence are two keys |
+| 5 | page 2 answering `rc-01`'s words, and page 3 a value citing `INC-4821` | incorrect (R6.23), and no judge call: nothing the judge says could make the field correct |
+| 6 | *counter-example* — `root_cause` from a `per_file` step | one value and one judge call, as R7.17 has always asked |
+
+### R7.50 — a declared field gold verifies and the run gave no record for is scored as an abstention, and named `not answered`
+
+In every mode. Only a field the step declares: a field the step was never asked
+for is not one it failed to answer. Named apart from `abstained`, because a
+person reading the miss needs to know the run said nothing at all, not that it
+said the document is silent.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring.score_document`)
+- **Proved by:** `tests/unit/test_R007_50__a_field_never_answered_is_scored_as_an_abstention.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `extract` in `per_file` mode answering `INC-4821` with no `loss_amount` record, against gold `48200.00` CHF | incorrect, `not answered; gold states 48200.0`. Before this rule, no verdict, and `loss_amount`'s percentage counted only the documents that answered it |
+| 2 | `INC-4821` answered with no `root_cause` record, against gold `null` | correct, as an abstention against a gold `null` is (R7.3 row 1) |
+| 3 | `INC-4830` read `per_part`, no page giving `root_cause`, against gold's `the renewed TLS certificate was never deployed to the load balancers` | incorrect, `not answered`, and no judge call: there is no candidate to judge |
+| 4 | *counter-example* — gold holding `root_cause` for a step whose declaration has no `root_cause` | no verdict; the step was never asked for it |
+| 5 | *counter-example* — a gold file with no `loss_amount` entry, and no `loss_amount` record | no verdict (R7.3 row 4); nobody verified an answer to score against |
+| 6 | *counter-example* — `INC-4822`, a document the step failed on after its retry | not scored (R6.9); a failed document is reported as failed, not as one that answered nothing |
+
+### R7.51 — `dossier eval` scores a `per_part` step's fields once per document
+
+What a person auditing postmortems page by page sees: each field counted over
+documents, and the page that got one wrong named under it (R7.25).
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.eval`)
+- **Proved by:** `tests/acceptance/test_R007_51__eval_scores_a_per_part_field_once_per_document.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `extract` in `per_part` mode reading `documents@page_images`, declaring `severity` and `resolution_date` alone, over `INC-4830` and `INC-5720-checkout-latency-postmortem.png`. `INC-4830`'s three pages each answer `severity` `critical`, page 1 answers `resolution_date` `2026-07-28` and page 2 `2026-07-30`; `INC-5720`'s one page answers `major` and `2026-09-02`. Gold as `_fixtures.md` has them | `2 documents · 2 fields · overall 75.0%`, `severity 100.0%` and `resolution_date 50.0%`; four model calls, all made by `run` (R7.10) |
+| 2 | the same | under `resolution_date`, `INC-4830` named with `page-002.png: '2026-07-30' does not match '2026-07-28'` (R7.25) |
+| 3 | the same | `accuracy/severity` 100.0 and `accuracy/resolution_date` 50.0 recorded to MLflow (R11.3), the figures the terminal printed |
+| 4 | *counter-example* — `INC-4830`'s gold file holding no `resolution_date` | `resolution_date 100.0%`, scored on `INC-5720` alone; page 2's date is not named, because nobody verified the answer it disagrees with (R7.3 row 4) |

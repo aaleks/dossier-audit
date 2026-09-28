@@ -399,6 +399,22 @@ test can name the same words.
 | `rc-01` | `The renewed TLS certificate was issued into Vault but never deployed to the load balancers, because deployment needed a Terraform apply that nobody ran; the expiry alert went to an archived Slack channel.` | supported |
 | `rc-02` | `The quarter-end change freeze caused the checkout outage.` | unsupported -- the planted claim (R7.12) |
 
+### `INC-4830` page by page
+
+Read one page at a time (R3.12), `INC-4830` is the document with more than one
+page to answer from. Its three pages each print the same header, the key and
+`SEV-1`, so a field the header carries is answered on every page, and a field one
+page states is answered there or nowhere. Spec 007's rules for scoring a
+`per_part` step use these values (R7.46 – R7.51), read off the committed PDF's
+text layer.
+
+| Field | Gold value | Where the document states it |
+|---|---|---|
+| `severity` | `critical` | the header of every page, `SEV-1`, and page 1's `Severity SEV-1 — complete loss of a revenue-critical function`. A reviewer's reading, as `INC-5720`'s is: the document never writes `critical` |
+| `resolution_date` | `2026-07-28` | page 1 alone, `Resolved 2026-07-28 07:04 CEST`. Page 2's timeline ends on `2026-07-30`, the day the postmortem review was held: the date a page read without page 1 can take for it |
+| `loss_amount` | `48200.00` CHF | page 1, `CHF 48,200 estimated as permanently lost` |
+| `root_cause` | as above | page 2, under `4. Root cause` |
+
 ## Fields on `INC-5720`
 
 The document with no text layer. Every field is visual, which is what makes it
