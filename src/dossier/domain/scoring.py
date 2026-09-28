@@ -115,7 +115,9 @@ class GoldField(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    value: float | int | str | bool | None = None
+    # A list is the one answer gold writes as an array: the run answers it one
+    # record per item, and gold holds the items together (R7.40).
+    value: float | int | str | bool | list[str] | None = None
     currency: str | None = None
     reason: str | None = None
 
@@ -259,6 +261,65 @@ def score_field(
         f"{record.value!r} does not match {gold.value!r}"
         + _across_calendar(kind, record.value, gold.value),
     )
+
+
+def score_list(
+    *,
+    field: str,
+    records: Sequence[FieldRecord],
+    checks: Sequence[FieldCheck],
+    gold: GoldField,
+) -> FieldScore:
+    """Score a `list` field's records, one per item, as one answer (R7.40).
+
+    The answer is the set of values its records hold: order is not information,
+    and a system two pages name is one system. An item is compared as a
+    `reference` is, case folded, and matches whole -- `payments` is not
+    `payments-api`, which a substring match would call right.
+
+    A record with no value is an abstention, so a list whose every record
+    abstains abstained, and is decided as any field is (R7.3).
+    """
+    named = [record.value for record in records if record.value is not None]
+    if not named and gold.value is None:
+        return FieldScore(field, Verdict.CORRECT, "abstained, and gold abstains")
+    if not named:
+        return FieldScore(field, Verdict.INCORRECT, f"abstained; gold states {gold.value!r}")
+    if gold.value is None:
+        return FieldScore(
+            field,
+            Verdict.INCORRECT,
+            f"answered {named!r}; gold abstains, so the correct answer was to abstain too",
+        )
+
+    run = _items(named)
+    # A scalar is one item rather than its characters. R7.44 refuses a list
+    # written as one string before scoring; this only keeps a string from being
+    # read letter by letter should one arrive.
+    expected = _items(gold.value if isinstance(gold.value, list) else [gold.value])
+    missing = sorted(spelled for item, spelled in expected.items() if item not in run)
+    extra = sorted(spelled for item, spelled in run.items() if item not in expected)
+    if not missing and not extra:
+        return FieldScore(field, Verdict.CORRECT)
+    # Both named, and apart: a system the run missed and one it invented are
+    # different mistakes, and R7.25 prints this line to tell them apart.
+    detail = "; ".join(
+        part
+        for part in (
+            f"missing: {', '.join(missing)}" if missing else "",
+            f"not in gold: {', '.join(extra)}" if extra else "",
+        )
+        if part
+    )
+    return FieldScore(field, Verdict.INCORRECT, detail)
+
+
+def _items(values: Sequence[object]) -> dict[str, str]:
+    """Each distinct item, folded, with the first spelling it was written in."""
+    items: dict[str, str] = {}
+    for value in values:
+        items.setdefault(str(value).strip().casefold(), str(value).strip())
+    return items
 
 
 def score_document(
