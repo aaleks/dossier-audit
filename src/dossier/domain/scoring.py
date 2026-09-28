@@ -440,8 +440,9 @@ def score_document(
     field they collapsed to one check per field, which a list answered one
     record per item cannot survive: every item has its own evidence (R7.42).
 
-    A list is one verdict, in the place of its first record, however many
-    records answered it (R7.41).
+    Every field is one verdict, in the place of its first record, however many
+    records answered it: a list's items (R7.41), and a `per_part` step's pages
+    (R7.46).
 
     Fields in the output that gold says nothing about are reported separately
     rather than scored or silently dropped -- a growing `not_in_gold` is how a
@@ -449,17 +450,21 @@ def score_document(
     """
     paired = list(zip(records, checks, strict=True))
     results: list[FieldScore] = []
-    listed: set[str] = set()
+    scored: set[str] = set()
     for record, check in paired:
-        if record.field not in gold:
+        if record.field not in gold or record.field in scored:
             continue
+        # One verdict per field per document, however many records answered it.
+        # A `per_part` step answers once per page, and a field counted per page
+        # would weigh a document by how many pages it has (R7.46), as a list
+        # counted per item would by how many items it names (R7.41).
+        scored.add(record.field)
         kind = kinds[record.field]
         if kind is not FieldKind.LIST:
             results.append(
                 score_field(record=record, gold=gold[record.field], check=check, kind=kind)
             )
-        elif record.field not in listed:
-            listed.add(record.field)
+        else:
             items = [(item, of) for item, of in paired if item.field == record.field]
             results.append(
                 score_list(

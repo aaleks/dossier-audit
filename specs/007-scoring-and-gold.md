@@ -1380,7 +1380,7 @@ header carries. The values are `_fixtures.md`'s "`INC-4830` page by page".
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring.score_document`), application (`dossier.application.eval.score_run`)
 - **Proved by:** `tests/unit/test_R007_46__a_per_part_field_is_one_verdict_per_document.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
