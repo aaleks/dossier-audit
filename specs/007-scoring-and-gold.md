@@ -1326,7 +1326,7 @@ miss named with what was missing and what was not in gold (R7.25).
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R007_45__eval_scores_a_list_field.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
