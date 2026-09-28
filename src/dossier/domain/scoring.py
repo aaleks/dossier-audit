@@ -342,6 +342,44 @@ def _items(values: Sequence[object]) -> dict[str, str]:
     return items
 
 
+def gold_shape_errors(
+    document: str, gold: Mapping[str, GoldField], kinds: Mapping[str, FieldKind]
+) -> tuple[str, ...]:
+    """What is wrong with the shape of one document's gold answers, if anything (R7.44).
+
+    A list is written as an array and nothing else is. Checked against the
+    declaration before anything is scored, because an answer in the wrong shape
+    is a definition of correct no run can meet -- and scoring against it would
+    report the run as wrong rather than the gold set.
+
+    A field the declaration does not have is not this function's business: it is
+    reported as not scored, as it always was.
+    """
+    errors: list[str] = []
+    for field, answer in gold.items():
+        kind = kinds.get(field)
+        if kind is FieldKind.LIST and answer.value == []:
+            # A run answering one record per item says "there are none" and "the
+            # document does not say" the same way, as an abstention with a
+            # reason, so gold cannot usefully hold the difference.
+            errors.append(
+                f"{document}: {field} is an empty list; write null, with a reason, "
+                "for a document that names none"
+            )
+        elif kind is FieldKind.LIST and not isinstance(answer.value, list | None):
+            # Not split on its commas: that would be a guess, and an item may
+            # hold a comma. The shape kept from when the field was a `reference`.
+            errors.append(
+                f"{document}: {field} is a list, and gold writes a list as an array, "
+                f'such as ["a", "b"]; found {answer.value!r}'
+            )
+        elif kind is not None and kind is not FieldKind.LIST and isinstance(answer.value, list):
+            errors.append(
+                f"{document}: {field} is {kind.value}, and only a list field holds an array"
+            )
+    return tuple(errors)
+
+
 def score_document(
     *,
     document: str,
