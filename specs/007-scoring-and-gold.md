@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.35
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.39
 
 ## Purpose
 
@@ -36,6 +36,8 @@ generated text, and they are the exception the design works hard to keep small.
 |---|---|---|
 | amount, date, reference | exact match after normalisation | no |
 | enum (status, severity, category) | allowed-value membership + equality | no |
+| boolean (auto-renews, signed) | the same truth value | no |
+| duration (notice period, term) | the same length, within one calendar unit family | no |
 | evidence span | occurs in source text (spec 006) | no |
 | free text (cause, summary) | LLM judge with a written rubric | yes |
 
@@ -59,6 +61,28 @@ looking for a discrepancy that is not there.
 one country and 8 July in another, and a scorer that picked one would be quietly
 wrong for half of every year. `28.07.2026` is unambiguous — no month is 28 — and
 is read. `2026-07-28` always is.
+
+**A boolean is `true` or `false`, and only `null` abstains.** The strings
+`"true"` and `"false"` read as the same values in any case, because whether a
+model wrote a JSON value in quotes is not information, as the case of an enum is
+not. Nothing else is a boolean: `1` is a number and `yes` is a word, and reading
+either would begin a vocabulary (`y`, `on`, `ja`) nobody agreed to. `false` is an
+answer and needs its evidence as any other value does (R6.6); "the contract does
+not say" is `null` with a reason, and a run that answers `false` where gold
+abstains is scored as supplying a value (R7.3, R7.36 row 7).
+
+**A duration is a whole number of days, weeks, months or years.** `90 days`,
+`1 Year` and ISO 8601's `P90D` all read. A bare `90` does not: ninety of what is
+the question `07/08/2026` asks, and it is refused for the same reason. Nor does
+`90 business days`, whose length depends on a calendar, or `P1Y6M`, which has
+two units where `18 months` has one (R7.37).
+
+Two durations are the same answer when they are the same length, and lengths
+convert only where the conversion is exact: seven days to a week, twelve months
+to a year. **A month is never a number of days**, nor a year: three months is 89
+to 92 days depending on where it starts, and a contract that gives three months'
+notice and one that gives ninety days' notice give different notice. So `3 months`
+against a gold `90 days` is incorrect, and the detail says why (R7.38).
 
 Grounding and abstention are decided before the field's type is consulted. Both
 are facts rather than judgements: whether a span was locatable, and whether the
@@ -137,6 +161,12 @@ only the standard library and pydantic, and each figure is a few lines of `math`
 over four counts. Using a library would put a scoring decision outside the layer
 that decisions live in, for the sake of two formulas. Decided by `a.aleks` on
 2026-09-25. The tests pin the figures below, each computed by hand.
+
+Durations are read the same way, for the same reason. pydantic reads ISO 8601
+durations into a `timedelta`, which has no months or years, so it cannot hold
+the one distinction R7.38 exists to keep. `isodate` reads `P3M` as three months,
+and lives outside what `domain/` may import. What R7.37 reads is a number and one
+of four units, a few lines of `re`. Decided by `a.aleks` on 2026-09-28.
 
 ## The review loop
 
@@ -1081,3 +1111,81 @@ anything, and its runs compare as R7.8 says.
 | 3 | *counter-example* — the same reference keys at the same snapshots, the prompt edited between `a` and `b` | compared, as R7.8 row 1 |
 | 4 | *counter-example* — a pipeline with no `reference:` at all | compared; there is nothing to differ |
 | 5 | *counter-example* — `reference:` declared, `OPS-114` moved between `a` and `b`, and no step of either run reads `reference` | compared; no call was shown it |
+
+### R7.36 — a `boolean` field is correct when the run and gold hold the same truth value
+
+`true` and `false`, or the strings `"true"` and `"false"` in any case. Anything
+else is not a well-formed boolean, and is reported as unreadable rather than as
+a mismatch, as a malformed date is. Values are from `_fixtures.md`'s "Fields on
+the contracts".
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring.score_field`)
+- **Proved by:** `tests/unit/test_R007_36__a_boolean_is_scored_by_its_truth_value.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `ACME-2024`'s `auto_renew` `true`, grounded, against gold `true` | correct |
+| 2 | `GLOBEX-2023`'s `auto_renew` `false`, grounded, against gold `false` | correct; `false` is an answer, not an abstention, and is not scored as one |
+| 3 | `auto_renew` `"True"`, a string, against gold `true` | correct; whether the model quoted the value is not information |
+| 4 | `auto_renew` `false` against gold `true` | incorrect; the detail says `False` does not match `True` |
+| 5 | *counter-example* — `auto_renew` `1` against gold `true` | incorrect, reported as not a well-formed boolean; `1` is a number |
+| 6 | *counter-example* — `auto_renew` `"yes"` against gold `true` | incorrect, reported as not a well-formed boolean; `yes` is a word |
+| 7 | *counter-example* — `INITECH-2025`'s gold `auto_renew: null`, the run answering `false` with a grounded span | incorrect; the contract not saying so is not `false` (R7.3 row 2) |
+
+### R7.37 — a `duration` is a whole number of days, weeks, months or years, and nothing else is a duration
+
+Written `<number> <unit>`, singular or plural, in any case, or as ISO 8601 with
+one component. A value that is not one is unreadable, reported as not a
+well-formed duration rather than as a mismatch.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring.score_field`)
+- **Proved by:** `tests/unit/test_R007_37__a_duration_names_its_unit.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `ACME-2024`'s `notice_period` `"90 days"` against gold `"90 days"` | correct; read as 90 days |
+| 2 | `notice_period` `"P90D"` against gold `"90 days"` | correct; ISO 8601's form of the same length |
+| 3 | `notice_period` `"1 Year"` against gold `"1 year"` | correct; singular, and case folded |
+| 4 | *counter-example* — `notice_period` `90`, a bare number, against gold `"90 days"` | incorrect, reported as not a well-formed duration; ninety of what is not said, and is not guessed |
+| 5 | *counter-example* — `notice_period` `"90 business days"` against gold `"90 days"` | incorrect, reported as not a well-formed duration; a business day's length depends on a calendar |
+| 6 | *counter-example* — `notice_period` `"P1Y6M"` against gold `"18 months"` | incorrect, reported as not a well-formed duration; one number and one unit, and `18 months` is how to say it |
+
+### R7.38 — two durations are the same answer when they are the same length, and a month is never a number of days
+
+A week is seven days and a year is twelve months, exactly, so those convert. A
+month is 28 to 31 days and a year 365 or 366, so nothing converts between days
+or weeks and months or years, and a pair across that line is a mismatch whose
+detail says so.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring.score_field`)
+- **Proved by:** `tests/unit/test_R007_38__durations_are_compared_by_length.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `notice_period` `"12 weeks"` against gold `"84 days"` | correct; a week is exactly seven days |
+| 2 | `notice_period` `"24 months"` against gold `"2 years"` | correct; a year is exactly twelve months |
+| 3 | `notice_period` `"13 weeks"` against gold `"90 days"` | incorrect; 91 days is not 90 |
+| 4 | *counter-example* — `GLOBEX-2023`'s `notice_period` `"90 days"` against gold `"3 months"` | incorrect; the detail says a month is not a fixed number of days, so the two are not compared as lengths |
+| 5 | *counter-example* — `notice_period` `"1 year"` against gold `"365 days"` | incorrect, for the same reason: a year is not a fixed number of days |
+
+### R7.39 — `dossier eval` scores a `boolean` and a `duration` field per field, beside the others
+
+What a person running the contract audit sees: the two fields listed with their
+own percentages (R7.2), and a miss named with the reason R7.38 gave (R7.25).
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.eval`)
+- **Proved by:** `tests/acceptance/test_R007_39__eval_scores_a_boolean_and_a_duration.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `schemas/contract.yaml` declaring `auto_renew: {kind: boolean}` and `notice_period: {kind: duration}`; gold for `ACME-2024` and `GLOBEX-2023` as `_fixtures.md` has it; a run answering `auto_renew` `true` and `false`, and `notice_period` `90 days` for both | `auto_renew 100.0%` and `notice_period 50.0%`, each on its own line |
+| 2 | the same | under `notice_period`, `GLOBEX-2023` is named with the detail that `90 days` does not match `3 months` and that a month is not a fixed number of days |
+| 3 | *counter-example* — `schemas/contract.yaml` declaring `notice_days: {kind: number}` | a load-time error naming `notice_days` and the kinds there are, `boolean` and `duration` among them; a count is an `amount` with no `currency` |

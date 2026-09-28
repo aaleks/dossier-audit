@@ -471,3 +471,19 @@ file's key starts with the contract's name.
 | `GLOBEX-2023/master.pdf` | a second contract, a group of one document |
 | `INC-4821/postmortem.pdf` | a postmortem dropped in a folder under the Jira issue's key (R3.15 row 4) |
 | `termination_terms` | free text on `ACME-2024`: "Either party may terminate on 90 days' notice before 2027-03-31." It stands on the master's clause and amendment 3's date together (R7.33) |
+| `INITECH-2025/master.pdf` | a third contract, a group of one document, that says nothing about renewal or notice. What a gold `null` is verified against (R7.36 row 7) |
+
+## Fields on the contracts (R7.36 – R7.39)
+
+A yes-or-no answer and a length of time: the two contract fields that neither
+`amount`, `date`, `enum` nor `reference` could score (`docs/second-use-case.md`,
+finding 2).
+
+| Contract | `auto_renew` (boolean) | `notice_period` (duration) |
+|---|---|---|
+| `ACME-2024` | `true`: the master's span `renews automatically for successive one-year terms` | `90 days`: amendment 3's span `on ninety (90) days' written notice` |
+| `GLOBEX-2023` | `false`: the master's span `This Agreement shall not renew automatically` | `3 months`: the master's span `three (3) months' written notice` |
+| `INITECH-2025` | `null`, reason `the contract does not mention renewal` | `null`, reason `no notice period is stated` |
+
+`GLOBEX-2023`'s notice is three months, not ninety days, and a run answering
+`90 days` for it is wrong: a month is not a fixed number of days (R7.38).
