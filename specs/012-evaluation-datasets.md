@@ -217,7 +217,7 @@ Both are a machine's configuration, and both are refused where R10.5 refuses an
 unreachable server: at startup, naming the thing to fix.
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.main`)
+- **Layer:** cli (`dossier.cli.dataset`)
 - **Proved by:** `tests/acceptance/test_R012_5__publishing_is_refused_by_name.py`
 - **Status:** MET
 
