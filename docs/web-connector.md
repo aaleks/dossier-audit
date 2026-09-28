@@ -2,13 +2,14 @@
 
 A quick tour of `src/dossier/infrastructure/connectors/web.py`: what you write
 to point `dossier` at a website, what a sync does, and what a
-stage then reads. Written against spec 001 R1.29 – R1.36.
+stage then reads. Written against spec 001 R1.29 – R1.39.
 
 ## Where it lives and how it is found
 
 - Code: `src/dossier/infrastructure/connectors/web.py` (`WebConnector`). What
   it decides without the network -- which URLs a source covers, what each is
-  keyed as, what a sitemap says -- is `src/dossier/domain/web.py`.
+  keyed as, what a sitemap says, which links a crawl follows -- is
+  `src/dossier/domain/web.py`.
 - Registered in `pyproject.toml` under `dossier.connectors` as
   `web = "...web:WebConnector.from_config"`. `sources.yaml` says `type: web`.
 - Left of the hash boundary, like Jira and Confluence (R0.10). `httpx` and
@@ -23,11 +24,13 @@ sources:
     type: web
     url: https://docs.example.org/ops/              # the prefix this source covers
     # sitemap: https://docs.example.org/sitemap.xml # the default: the host's own
+    # crawl: 200                                    # instead of a sitemap: follow links, asking at most 200 URLs
     # delay: 2                                      # seconds between requests; the default: none
 ```
 
-One entry per site, and no code. Any website works that publishes a sitemap,
-serves its pages as HTML from the server, and lets an anonymous reader in.
+One entry per site, and no code. Any website works that publishes a sitemap, or
+links its pages to one another (`crawl:`, below), serves its pages as HTML from
+the server, and lets an anonymous reader in.
 Documentation sites are the case it was written against: MkDocs, Sphinx (with
 `sphinx-sitemap`), Docusaurus and Read the Docs all publish a sitemap, and so
 do most static site generators and content management systems.
@@ -51,6 +54,58 @@ do most static site generators and content management systems.
 
 A redirect is followed within `url` only, five times at most; a page that
 redirects to a login form fails and names both URLs (R1.34).
+
+## A site with no sitemap
+
+Some sites publish no sitemap. `www.python.org` is one: it has none, and its
+`robots.txt` names none. Say `crawl:` instead, with the most URLs the crawl
+may ask:
+
+```yaml
+  - id: python-community
+    type: web
+    url: https://www.python.org/community/
+    crawl: 300
+    delay: 0.5
+```
+
+Steps 2 and 3 above become a crawl (R1.37):
+
+- **What is asked.** It starts at `url`, reads the `<a href>`s of each HTML
+  page, follows each one that lies under `url`, and asks each URL once.
+  `robots.txt` still keeps pages out.
+- **Keys.** A page is keyed by the URL it was answered at, so `…/sigs` that
+  redirects to `…/sigs/` is one page, `sigs/index`.
+- **What is passed over.** A link answered `404` is not a page, and neither is
+  one that redirects out of `url`. The crawl passes over them and goes on.
+- **One request per page per sync.** The crawl has already downloaded every
+  page, so `fetch` hands back those bytes and asks nothing. No page has a
+  marker, so each is compared by its bytes and stored again only if they
+  changed.
+
+**When the crawl fails instead of listing (R1.38).** A crawled listing is
+complete, and anything held that it does not name is tombstoned, so a crawl that
+cannot finish lists nothing:
+
+- `url` is not a page, or `robots.txt` disallows it;
+- a page answers `5xx` or `429`, or does not answer;
+- a page redirects more than five times;
+- there is one more URL to ask after `crawl:` URLs have been asked.
+
+The last failure names the URL that was left, and the fix is a larger `crawl:`.
+There is no default: how many pages a site has is yours to say (R1.39).
+
+Measured on 2026-09-28:
+
+- `www.python.org/community/` with `crawl: 300` and `delay: 0.5` listed 69
+  pages in 70 seconds. Along the way it passed over 14 broken links and followed
+  51 redirects from a URL without its slash to one with it. A second sync wrote
+  nothing.
+- `crawl: 5` on `www.python.org/about/`, which has 7 pages, failed naming
+  `…/about/legal/`.
+- Crawled, `docs.astral.sh/uv` lists the same 84 pages its sitemap names, in
+  about 20 seconds. A sitemap is still the better listing where there is one:
+  it costs one request, and its `<lastmod>` spares every unchanged page.
 
 ## When a site says slow down
 
@@ -89,7 +144,6 @@ text is whole in both.
 
 ## What it does not do yet
 
-- Read a site with no sitemap (open question 7).
 - Send a credential (open question 8).
 - Read a page the browser builds with JavaScript: it holds the empty shell the
   server sends (open question 10).

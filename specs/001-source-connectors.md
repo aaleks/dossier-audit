@@ -1,6 +1,6 @@
 # 001 — Source connectors
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R1.1 – R1.39
 
 ## Purpose
@@ -1169,7 +1169,7 @@ each URL once.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.web.links`, `dossier.domain.web.Frontier`), asked for in infrastructure (`dossier.infrastructure.connectors.web`)
 - **Proved by:** `tests/unit/test_R001_37__a_web_source_crawls_its_links.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -1199,7 +1199,7 @@ listing and names why. That happens when:
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.web.Frontier`), asked for in infrastructure (`dossier.infrastructure.connectors.web`)
 - **Proved by:** `tests/unit/test_R001_38__a_crawl_that_cannot_finish_fails_the_listing.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -1215,7 +1215,7 @@ listing and names why. That happens when:
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.connectors.web.WebKeys`)
 - **Proved by:** `tests/unit/test_R001_39__crawl_is_a_number_of_urls_and_not_a_sitemap.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -13,6 +13,36 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A `web` source with no sitemap is crawled when it says `crawl:` (R1.37 –
+R1.39), which resolves spec 001's open question 7. `www.python.org` asked for
+this: it publishes no sitemap, and its listing failed on the `404`. The crawl
+starts at `url`, follows the `<a href>`s under it, and asks each URL once, by
+way of the path every request already takes, so `robots.txt`, redirects,
+`429` and `delay:` hold as they did. `fetch` hands back the bytes the crawl got.
+
+A crawled listing is complete, so a crawl that cannot tell it reached
+everything lists nothing, rather than letting sync tombstone what it missed.
+That covers a `5xx`, a `429`, no answer, a redirect loop, `url` not being a page
+or being disallowed, and one URL more than `crawl:` allows. `crawl:` has no
+default.
+
+crawl4ai's `BFSDeepCrawlStrategy` was read and declined, because it gets
+exactly that wrong:
+
+- it reads links only from pages that succeeded, and ends normally without the
+  rest;
+- it fetches each level concurrently and caps in the order pages finish;
+- it sends its requests outside the path R1.33 – R1.36 govern.
+
+- **Checked live.** `www.python.org/community/` with `crawl: 300` and
+  `delay: 0.5`: 69 pages in 70 seconds, past 14 broken links and 51 redirects
+  that add a missing slash; a second sync wrote nothing. `/about/` with
+  `crawl: 5` failed naming `…/about/legal/`. `/psf/` failed on its first
+  request, because it redirects to `/psf-landing/`, outside the source.
+  `docs.astral.sh/uv`, crawled, listed the same 84 keys its sitemap names.
+
+---
+
 `html-markdown` 1.3.0 writes a page that declares one `<main>` as that
 element, without the `<nav>` inside it (R8.33). This resolves spec 001's open
 question 6: every page of a website carried the site's header, menus, sidebars

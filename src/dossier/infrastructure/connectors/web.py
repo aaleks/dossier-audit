@@ -1,10 +1,13 @@
-"""The web connector: a website, read from its sitemap (spec 001, R1.29 - R1.36).
+"""The web connector: a website, read from its sitemap or its links (spec 001, R1.29 - R1.39).
 
 One connector for every website. A site is a `url` in
 `sources.yaml`, never code: the pages under it are what its sitemap names
 (R1.29), each keyed by its URL relative to `url` (R1.30) and marked by its
-`<lastmod>` (R1.31). What a sitemap says, which URLs a source covers, and how
-far apart its requests go are decided in `dossier.domain.web`; this module asks.
+`<lastmod>` (R1.31). A site with no sitemap is crawled when its source says
+`crawl:`: the pages are those its links reach within `url` (R1.37), and a crawl
+that cannot finish lists nothing (R1.38). What a sitemap says, which URLs a
+source covers, which links a crawl follows and how far apart its requests go
+are decided in `dossier.domain.web`; this module asks.
 
 It asks politely. A site that answers `429` is asked nothing more that sync
 (R1.35), and requests are spaced by the longer of the source's `delay:` and the
@@ -26,14 +29,17 @@ from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, model_validator
 
 from dossier.domain.conversion import reported_media_type
 from dossier.domain.ports import AttachmentRef, ItemRef, RawItem
 from dossier.domain.web import (
+    Frontier,
     Listed,
+    SitemapPage,
     in_scope,
     lastmod_time,
+    links,
     listing,
     prefix,
     robots_answer,
@@ -55,11 +61,22 @@ TIMEOUT_SECONDS = 60.0
 # What a site answers when it is asked too often (R1.35).
 TOO_MANY_REQUESTS = 429
 
+# The one media type a crawl reads links from (R1.37 row 7).
+PAGE = "text/html"
+
 
 class WebRequestFailed(RuntimeError):
     """A site could not be reached, or did not answer as a page, sitemap or robots.txt should.
 
     The message names the URL and what went wrong.
+    """
+
+
+class WebRedirectRefused(WebRequestFailed):
+    """A redirect led somewhere the request may not follow (R1.34).
+
+    A page a sitemap named fails with it. A link a crawl followed is simply not
+    a page of this source (R1.37 row 9).
     """
 
 
@@ -72,17 +89,31 @@ class WebKeys(BaseModel):
 
     `url` is the prefix the source covers, read as a directory whether or not it
     ends in `/` (R1.30 row 5). `sitemap` is where its pages are listed from;
-    absent, it is the host's own `/sitemap.xml`. `delay` is the seconds between
-    its requests; absent, none but what the site's `Crawl-delay` asks (R1.36).
+    absent, it is the host's own `/sitemap.xml`. `crawl` lists them by their
+    links instead, asking at most that many URLs (R1.37). `delay` is the seconds
+    between its requests; absent, none but what the site's `Crawl-delay` asks
+    (R1.36).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     url: str
     sitemap: str = ""
+    # How many URLs, so a whole number and at least one; strict, so `true` is
+    # refused rather than read as `1` by a person who meant "crawl it" (R1.39).
+    crawl: Annotated[StrictInt, Field(ge=1)] | None = None
     # A wait, so no less than 0, and finite: `.inf` in YAML would be a sync
     # that never asks its second request (R1.36 row 7).
     delay: Annotated[float, Field(ge=0, allow_inf_nan=False)] | None = None
+
+    @model_validator(mode="after")
+    def _listed_one_way(self) -> WebKeys:
+        if self.crawl is not None and self.sitemap:
+            raise ValueError(
+                "`crawl` and `sitemap` are two ways to list one source; "
+                "a web source says one of them (R1.39)"
+            )
+        return self
 
     @field_validator("url", "sitemap")
     @classmethod
@@ -98,11 +129,11 @@ class WebKeys(BaseModel):
 
 
 class WebConnector:
-    """Every page a site's sitemap names under one URL prefix."""
+    """Every page a site's sitemap names under one URL prefix, or that its links reach."""
 
-    # A sitemap names every page each time it is read, and `since` narrows
-    # nothing: every listing is complete, and a page gone from it is
-    # tombstoned (R1.11, R1.29 row 4).
+    # A sitemap names every page each time it is read, and a crawl reaches
+    # every page or fails; `since` narrows neither. Every listing is complete,
+    # and a page gone from it is tombstoned (R1.11, R1.29 row 4, R1.38).
     lists_everything = True
 
     def __init__(
@@ -110,6 +141,7 @@ class WebConnector:
         *,
         url: str,
         sitemap_url: str | None = None,
+        crawl: int | None = None,
         delay: float | None = None,
         transport: Any | None = None,
         sleep: Callable[[float], None] = time.sleep,
@@ -119,6 +151,12 @@ class WebConnector:
         parts = urlsplit(self._scope)
         self._site = f"{parts.scheme}://{parts.netloc}"
         self._sitemap = sitemap_url or f"{self._site}/sitemap.xml"
+        # The most URLs a crawl asks, or `None` for a source listed by its
+        # sitemap (R1.37, R1.39).
+        self._crawl = crawl
+        # What a crawl was answered, by key, so that `fetch` asks nothing: a
+        # crawl has already downloaded every page to list it (R1.37 row 2).
+        self._bodies: dict[str, tuple[bytes, str]] = {}
         self._transport = transport
         self._robots: Any | None = None
         # The wait and the clock are handed in, so a test about waiting five
@@ -140,12 +178,13 @@ class WebConnector:
         self._disallowed: dict[str, str] = {}
 
     def list(self, since: datetime | None = None) -> Iterator[ItemRef]:
-        """Every page the sitemap names under `url`, sorted by key (R1.29).
+        """Every page the sitemap names under `url`, or its links reach, sorted by key.
 
-        `since` is accepted and ignored: a sitemap is read whole, and returning
-        more than asked is always allowed (R1.4). The listing is settled before
-        its first ref is yielded, so a sitemap that fails, or two URLs that
-        claim one key, stop the listing before sync has seen any of it.
+        `since` is accepted and ignored: a sitemap is read whole, a crawl goes
+        everywhere, and returning more than asked is always allowed (R1.4). The
+        listing is settled before its first ref is yielded, so a sitemap that
+        fails, a crawl that cannot finish, or two URLs that claim one key, stop
+        the listing before sync has seen any of it (R1.29, R1.38).
         """
         pages = self._listing()
         for key in sorted(pages):
@@ -173,9 +212,13 @@ class WebConnector:
             )
         listed = pages.get(key)
         if listed is None:
-            raise WebRequestFailed(
-                f"{key!r} is not a page {self._sitemap} names under {self._scope}"
+            named = (
+                f"a crawl of {self._scope} reached" if self._crawl else f"{self._sitemap} names"
             )
+            raise WebRequestFailed(f"{key!r} is not a page {named} under {self._scope}")
+        if key in self._bodies:
+            payload, media_type = self._bodies[key]
+            return RawItem(key=key, payload=payload, media_type=media_type, remote_version=None)
 
         response = self._get(
             listed.url,
@@ -202,18 +245,70 @@ class WebConnector:
         return iter(())
 
     def _listing(self) -> dict[str, Listed]:
-        """Every page in scope, by key, from every sitemap reachable from the first."""
+        """Every page in scope, by key: from every sitemap reachable from the first,
+        or from every link reachable from `url` when the source crawls."""
         robots = self._robots_txt()
+        allowed = lambda url: robots.can_fetch(url, USER_AGENT)  # noqa: E731
         try:
-            listed = listing(
-                self._sitemap_pages(),
-                self._scope,
-                allowed=lambda url: robots.can_fetch(url, USER_AGENT),
-            )
+            if self._crawl is not None:
+                pages, disallowed = self._crawled(allowed)
+            else:
+                listed = listing(self._sitemap_pages(), self._scope, allowed=allowed)
+                pages, disallowed = listed.pages, listed.disallowed
         except ValueError as error:
             raise WebRequestFailed(str(error)) from None
-        self._pages, self._disallowed = listed.pages, listed.disallowed
-        return listed.pages
+        self._pages, self._disallowed = pages, disallowed
+        return pages
+
+    def _crawled(
+        self, allowed: Callable[[str], bool]
+    ) -> tuple[dict[str, Listed], dict[str, str]]:
+        """Every page the links from `url` reach within it, and what robots.txt kept out.
+
+        Each URL is asked once (R1.37). A page is kept by the address it was answered
+        at, with the bytes it was answered with, so `fetch` asks nothing. A link
+        that is not a page -- a `4xx` other than `429`, or a redirect out of
+        `url` -- is passed over. Anything else that is not a page fails the
+        whole crawl, and so does `url` not being one: what a crawl did not reach
+        it cannot say is gone (R1.38).
+        """
+        frontier = Frontier(self._scope, limit=self._crawl or 0, allowed=allowed)
+        found: list[SitemapPage] = []
+        bodies: dict[str, tuple[bytes, str]] = {}
+        start = True
+        while (url := frontier.next()) is not None:
+            first, start = start, False
+            try:
+                response = self._get(
+                    url,
+                    may_follow=lambda target: in_scope(target, self._scope),
+                    refused=f"outside {self._scope}, which this source covers (R1.34)",
+                )
+            except WebRedirectRefused:
+                if first:
+                    raise
+                continue
+            if not response.is_success:
+                if first or not response.is_client_error:
+                    raise WebRequestFailed(
+                        f"GET {url} answered {response.status_code} "
+                        f"{response.reason_phrase}; a crawl that cannot read a page "
+                        "cannot say which pages it did not reach, so nothing is "
+                        "listed (R1.38)"
+                    )
+                continue
+            answered = str(response.url)
+            if answered in bodies:
+                continue
+            frontier.answered(answered)
+            media_type = reported_media_type(None, response.headers.get("content-type"))
+            found.append(SitemapPage(loc=answered, lastmod=None))
+            bodies[answered] = (response.content, media_type)
+            if media_type == PAGE:
+                frontier.add(links(response.text, answered))
+        listed = listing(found, self._scope, allowed=lambda _: True)
+        self._bodies = {key: bodies[page.url] for key, page in listed.pages.items()}
+        return listed.pages, frontier.disallowed
 
     def _sitemap_pages(self):
         """The pages of the sitemap and of every sitemap it indexes on the same host (R1.29)."""
@@ -308,7 +403,7 @@ class WebConnector:
             try:
                 response = http.get(url)
             except _Refused as refusal:
-                raise WebRequestFailed(
+                raise WebRedirectRefused(
                     f"GET {url} redirected to {refusal}, {refused}"
                 ) from None
             except httpx.TooManyRedirects:
@@ -362,6 +457,7 @@ class WebConnector:
         return cls(
             url=url,
             sitemap_url=config.options.get("sitemap") or None,
+            crawl=config.options.get("crawl"),
             delay=config.options.get("delay"),
         )
 
