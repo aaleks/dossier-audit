@@ -10,12 +10,8 @@ Package and CLI: `dossier`.
 **Status: implemented.** The specs came first and the code implements them —
 see "How this is built" below. Where the rules stand is printed by
 `pytest tests/architecture`, which counts them from `specs/` and so cannot fall
-behind. This README can fall behind, so its figure carries a date. On 2026-09-27:
-
-```
-specs: 296 rules across 16 specs | 281 MET, 0 IN PROGRESS, 0 NOT MET, 15 SUPERSEDED
-       293 deterministic, 3 evaluated
-```
+behind. This README keeps no figure of its own, because a figure here falls
+behind with the next rule.
 
 ## Layout
 
@@ -29,10 +25,10 @@ specs: 296 rules across 16 specs | 281 MET, 0 IN PROGRESS, 0 NOT MET, 15 SUPERSE
 | `docs/confluence-connector.md` | The same for Confluence: pages rendered for export, their files, a PDF where the server allows it, and the note a stage reads |
 | `docs/web-connector.md` | The same for a website: one connector for every site, listed from its sitemap |
 | `docs/review-in-mlflow.md` | Reviewing a run's answers in MLflow, for reviewers who never run `dossier`, and bringing their verdicts back |
-| `docs/history/` | How it came to be: `slices.md`, what each slice changed and why, newest first; the first session's kickoff prompt; and the brainstorm that led to page images |
+| `docs/history/` | How it came to be: `slices.md`, what each slice changed and why, newest first; the first session's kickoff prompt; the brainstorm that led to page images; and the findings that led to the web connector |
 | `src/dossier/` | The package: `domain/`, `application/`, `infrastructure/`, `config/`, `cli/` |
 | `tests/` | `architecture/`, `unit/`, `acceptance/`, `integration/`, `evals/` |
-| `playground/` | Fifteen hands-on exercises. Ten offline, seconds, zero cost; the eleventh runs a real Jira in Docker; the twelfth to fourteenth need a local MLflow server; the fifteenth reads a public Confluence over the network. Not part of `dossier`. |
+| `playground/` | Hands-on exercises. Most run offline, in seconds, at zero cost; the rest need a Jira in Docker, a local MLflow server, or a public Confluence over the network, and `playground/README.md` says which. Not part of `dossier`. |
 | `dev/` | A Jira and a Confluence Data Center in Docker, to run a source against a server you can write to. Not part of `dossier` |
 | `.claude/` | The spec-driven toolchain: skills, agents, rules, hooks |
 | `.github/workflows/ci.yml` | The gate every pull request passes: the lock, conflict markers, ruff, the architecture tests, the default suite, and the outer loop reported beside them |
@@ -320,15 +316,17 @@ and it checks that every spec rule and every test file still refer to each other
 
 ## Learning it by running it
 
-`playground/` has thirteen exercises that build a workspace, sync a folder,
-define a pipeline, ground an answer, calibrate a judge, read the run back in
-MLflow, audit a chart, sync a real Jira, publish a gold set, and follow a
-regression through MLflow to the prompt that caused it. The first ten run offline
-against a stub model server in `playground/toolkit/`, so the code path is the
-real one and the answers are yours to control. The eleventh brings up a Jira Data
-Center in Docker -- still on the stub model, with only the source real -- because
-a named credential, someone else's version marker and a listing that cannot
-report a deletion have nowhere to show themselves until a source is remote. The
-twelfth and thirteenth need a SQL-backed MLflow server on your machine, because
-datasets, prompt versions and logged models live in its tables. Start at
-`playground/README.md`.
+`playground/` has exercises that build a workspace, sync a folder, define a
+pipeline, ground an answer, calibrate a judge, read the run back in MLflow,
+audit a chart, sync a real Jira, publish a gold set, follow a regression
+through MLflow to the prompt that caused it, review answers in MLflow, read a
+public Confluence, ask one question of several files, and check documents
+against procedures. Most run offline against a stub model server in
+`playground/toolkit/`, so the code path is the real one and the answers are
+yours to control. The exercise on Jira brings up a Jira Data Center in Docker
+-- still on the stub model, with only the source real -- because a named
+credential, someone else's version marker and a listing that cannot report a
+deletion have nowhere to show themselves until a source is remote. The ones on
+datasets, prompts and review need a SQL-backed MLflow server on your machine,
+because datasets, prompt versions and logged models live in its tables. Start
+at `playground/README.md`, which says what each one needs.
