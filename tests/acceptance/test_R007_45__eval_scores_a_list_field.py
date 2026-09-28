@@ -12,12 +12,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 from tests.fakes import register_connector
 from tests.pipelines import write_pipeline
 from tests.scoring_example import ISSUES, IssueTracker, RoutedModel, found
-
-pytestmark = pytest.mark.outer_loop
 
 PIPELINE = "incident-audit"
 SOURCE_ID = "incidents-jira"

@@ -304,6 +304,18 @@ def finish_eval(
     # withheld, in the figure most people read first (R11.3 row 4).
     reportable = [total for total in totals if total.field not in (withheld or {})]
     metrics = {f"accuracy/{total.field}": total.percentage for total in reportable}
+    # A list's items, beside its accuracy and as the report printed them (R7.43).
+    # A figure with nothing under it is not recorded: a 0.0 would read as a run
+    # that named every item wrong, where the report printed `--`.
+    for total in reportable:
+        if total.items is None:
+            continue
+        for name, figure in (
+            ("precision", total.items.precision),
+            ("recall", total.items.recall),
+        ):
+            if figure is not None:
+                metrics[f"{name}/{total.field}"] = figure
     summed = overall(reportable)
     if summed is not None:
         metrics["accuracy/overall"] = summed.percentage

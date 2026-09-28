@@ -56,6 +56,7 @@ from dossier.domain.scoring import (
     check_same_documents,
     check_same_reference,
     compare_totals,
+    describe_items,
     overall,
     per_field,
     weakest,
@@ -370,7 +371,10 @@ def eval_(
             # percentage over an unknown mix of abstention and judged verdicts is
             # the silent subset R7.17 replaced.
             judged = f"   ({total.judged} judged)" if kinds[field].needs_a_judge else ""
-            typer.echo(f"  {field:<18} {total.percentage:5.1f}%{judged}{marker}")
+            # A list's items on the field's own line, beside the verdict they explain
+            # and never in place of it (R7.43).
+            items = f"   {describe_items(total)}" if total.items is not None else ""
+            typer.echo(f"  {field:<18} {total.percentage:5.1f}%{judged}{items}{marker}")
             # What the percentage above does not say (R7.25). A field at 0.0% is a
             # prompt citing nothing locatable, or a model reading the wrong figure,
             # or a gold set that moved -- three different problems told apart by the
