@@ -99,7 +99,7 @@ class TestAbstentionIsScored:
         report = score_document(
             document="INC-4821",
             records=[answered("severity", "major"), answered("affected_systems", "api")],
-            checks={"severity": GROUNDED, "affected_systems": GROUNDED},
+            checks=[GROUNDED, GROUNDED],
             gold={"severity": GoldField(value="major")},
             kinds={"severity": FieldKind.ENUM, "affected_systems": FieldKind.ENUM},
         )
@@ -133,7 +133,7 @@ class TestAbstentionIsScored:
         report = score_document(
             document="INC-4821",
             records=[abstention("root_cause"), abstention("owner")],
-            checks={"root_cause": ABSTAINED, "owner": ABSTAINED},
+            checks=[ABSTAINED, ABSTAINED],
             gold={"root_cause": GoldField(value=None)},
             kinds={"root_cause": FieldKind.FREE_TEXT, "owner": FieldKind.FREE_TEXT},
         )

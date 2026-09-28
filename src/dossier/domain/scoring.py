@@ -89,6 +89,7 @@ class FieldKind(Enum):
     ENUM = "enum"
     BOOLEAN = "boolean"
     DURATION = "duration"
+    LIST = "list"
     FREE_TEXT = "free_text"
 
     @property
@@ -326,29 +327,48 @@ def score_document(
     *,
     document: str,
     records: Sequence[FieldRecord],
-    checks: Mapping[str, FieldCheck],
+    checks: Sequence[FieldCheck],
     gold: Mapping[str, GoldField],
     kinds: Mapping[str, FieldKind],
 ) -> DocumentScore:
     """Score every field of one document that gold has an answer for.
 
+    `checks` pairs with `records` one to one, as a run produces them. Keyed by
+    field they collapsed to one check per field, which a list answered one
+    record per item cannot survive: every item has its own evidence (R7.42).
+
+    A list is one verdict, in the place of its first record, however many
+    records answered it (R7.41).
+
     Fields in the output that gold says nothing about are reported separately
     rather than scored or silently dropped -- a growing `not_in_gold` is how a
     gold set falls behind a pipeline, and it should be visible.
     """
-    results = tuple(
-        score_field(
-            record=record,
-            gold=gold[record.field],
-            check=checks[record.field],
-            kind=kinds[record.field],
-        )
-        for record in records
-        if record.field in gold
-    )
+    paired = list(zip(records, checks, strict=True))
+    results: list[FieldScore] = []
+    listed: set[str] = set()
+    for record, check in paired:
+        if record.field not in gold:
+            continue
+        kind = kinds[record.field]
+        if kind is not FieldKind.LIST:
+            results.append(
+                score_field(record=record, gold=gold[record.field], check=check, kind=kind)
+            )
+        elif record.field not in listed:
+            listed.add(record.field)
+            items = [(item, of) for item, of in paired if item.field == record.field]
+            results.append(
+                score_list(
+                    field=record.field,
+                    records=[item for item, _ in items],
+                    checks=[of for _, of in items],
+                    gold=gold[record.field],
+                )
+            )
     return DocumentScore(
         document=document,
-        results=results,
+        results=tuple(results),
         not_in_gold=tuple(
             sorted({record.field for record in records if record.field not in gold})
         ),

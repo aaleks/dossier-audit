@@ -72,7 +72,7 @@ class TestScoringIsOffline:
         report = score_document(
             document="INC-4821",
             records=[record for record, _ in DETERMINISTIC.values()],
-            checks=dict.fromkeys(DETERMINISTIC, GROUNDED),
+            checks=[GROUNDED] * len(DETERMINISTIC),
             gold={name: gold for name, (_, gold) in DETERMINISTIC.items()},
             kinds=KINDS,
         )
@@ -110,7 +110,7 @@ class TestScoringIsOffline:
         report = score_document(
             document="INC-4821",
             records=[record for record, _ in DETERMINISTIC.values()],
-            checks=dict.fromkeys(DETERMINISTIC, GROUNDED),
+            checks=[GROUNDED] * len(DETERMINISTIC),
             gold={name: gold for name, (_, gold) in DETERMINISTIC.items()},
             kinds=KINDS,
         )

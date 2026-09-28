@@ -1255,7 +1255,7 @@ systems would outvote eight incidents with one.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring`)
 - **Proved by:** `tests/unit/test_R007_41__a_list_is_one_verdict_per_document.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

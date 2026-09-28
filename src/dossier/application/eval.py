@@ -94,15 +94,11 @@ def score_run(
     for result in report.results:
         if result.failed or result.document not in gold:
             continue
-        checks = {
-            record.field: check
-            for record, check in zip(result.records, result.checks, strict=True)
-        }
         scores.append(
             score_document(
                 document=result.document,
                 records=result.records,
-                checks=checks,
+                checks=result.checks,
                 gold=_gold_fields(gold[result.document]),
                 kinds=kinds,
             )
