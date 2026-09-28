@@ -1,0 +1,12 @@
+# One step, asked once per contract. What is new here is not the pipeline but the
+# declaration it names: three fields whose answers are not text (spec 007).
+sources: [contracts]
+
+model: openai:gpt-5.4-mini
+
+steps:
+  - id: extract
+    prompt: prompts/01_extract.md
+    input: documents
+    mode: per_file
+    output: schemas/contract.yaml

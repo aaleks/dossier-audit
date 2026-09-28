@@ -1,0 +1,111 @@
+{
+  "rules": [
+    {
+      "comment": "ACME: 'yes' is a word, not a boolean; '13 weeks' is 91 days, not 90",
+      "match": [
+        "# Supply agreement: ACME"
+      ],
+      "reply": {
+        "document": "PLAY-ACME-2024.md",
+        "fields": [
+          {
+            "field": "auto_renew",
+            "value": "yes",
+            "source": {
+              "document": "PLAY-ACME-2024.md",
+              "span": "renews automatically for successive one-year terms"
+            }
+          },
+          {
+            "field": "notice_period",
+            "value": "13 weeks",
+            "source": {
+              "document": "PLAY-ACME-2024.md",
+              "span": "ninety (90) days' written notice"
+            }
+          },
+          {
+            "field": "sites",
+            "value": "Zurich",
+            "source": {
+              "document": "PLAY-ACME-2024.md",
+              "span": "sites in Zurich"
+            }
+          },
+          {
+            "field": "sites",
+            "value": "Basel",
+            "source": {
+              "document": "PLAY-ACME-2024.md",
+              "span": "Zurich, Basel and Geneva"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "comment": "GLOBEX: three months, as the contract says it",
+      "match": [
+        "# Logistics agreement: Globex"
+      ],
+      "reply": {
+        "document": "PLAY-GLOBEX-2023.md",
+        "fields": [
+          {
+            "field": "auto_renew",
+            "value": false,
+            "source": {
+              "document": "PLAY-GLOBEX-2023.md",
+              "span": "This Agreement shall not renew automatically"
+            }
+          },
+          {
+            "field": "notice_period",
+            "value": "3 months",
+            "source": {
+              "document": "PLAY-GLOBEX-2023.md",
+              "span": "three (3) months' written notice"
+            }
+          },
+          {
+            "field": "sites",
+            "value": "Basel",
+            "source": {
+              "document": "PLAY-GLOBEX-2023.md",
+              "span": "warehouse in Basel"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "comment": "INITECH: as before",
+      "match": [
+        "# Services agreement: Initech"
+      ],
+      "reply": {
+        "document": "PLAY-INITECH-2025.md",
+        "fields": [
+          {
+            "field": "auto_renew",
+            "value": null,
+            "reason": "the agreement says nothing about renewal"
+          },
+          {
+            "field": "notice_period",
+            "value": null,
+            "reason": "the agreement states no notice period"
+          },
+          {
+            "field": "sites",
+            "value": "Zurich",
+            "source": {
+              "document": "PLAY-INITECH-2025.md",
+              "span": "office in Zurich"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
