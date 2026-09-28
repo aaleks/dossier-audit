@@ -13,6 +13,25 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`html-markdown` 1.3.0 writes a page that declares one `<main>` as that
+element, without the `<nav>` inside it (R8.33). This resolves spec 001's open
+question 6: every page of a website carried the site's header, menus, sidebars
+and footer into its note, and on both sites the live check read, they made up
+about half of it. The page's own declaration was chosen over a CSS selector per
+source. Converter options are part of `K_convert`, but no manifest pins them
+and no replay composes them, so a selector would have needed specs 004 and 005
+as well. crawl4ai's `PruningContentFilter` was read and declined. It is a
+density heuristic, and importing it would put a browser and HTTP clients right
+of the hash boundary. A page with no `<main>`, or two, is written whole. That
+includes every exported file in the playground, so their artifacts kept their
+hashes.
+
+- **Checked live.** `docs.astral.sh/uv/getting-started/installation/` went from
+  12,446 characters to 6,480, and `www.djangoproject.com/foundation/` from
+  17,815 to 7,800. The article text is whole in both.
+
+---
+
 A `web` source stops at a `429` and keeps a pace (R1.35, R1.36), which
 resolves spec 001's open question 9. The live check of R1.29 – R1.34 found the
 site it waited for: `djangoproject.com` answered `429` to 70 of the 91 pages

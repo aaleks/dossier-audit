@@ -159,7 +159,7 @@ names the pair and both converters, and no document:
 
 ```
 two converters claim the same pair, and picking either would be picking by installation order:
-  (text/html, markdown) is claimed by both html-markdown 1.2.0 and play-html-markdown 0.1.0
+  (text/html, markdown) is claimed by both html-markdown 1.3.0 and play-html-markdown 0.1.0
 A workspace settles it by naming one under converters: in sources.yaml (R8.13).
 ```
 

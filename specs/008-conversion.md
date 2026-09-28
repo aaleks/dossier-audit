@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.33
 
 ## Purpose
@@ -712,7 +712,7 @@ much text it holds.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters.html_markdown`)
 - **Proved by:** `tests/unit/test_R008_33__a_page_that_declares_its_main_is_written_as_it.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
