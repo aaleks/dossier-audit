@@ -59,7 +59,7 @@ def completed(workspace: Path, monkeypatch) -> str:
     """
     from tests.fakes import FakeModelClient
 
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     write_pipeline(workspace, steps=["extract"])
     assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
@@ -97,7 +97,7 @@ class TestAReplayReproducesTheRun:
         """
         from tests.fakes import NoModelClient
 
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         monkeypatch.setattr(
             cli, "build_model_client", lambda model_id: NoModelClient(), raising=False

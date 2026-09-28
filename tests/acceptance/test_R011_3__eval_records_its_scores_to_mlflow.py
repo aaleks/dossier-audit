@@ -71,7 +71,7 @@ def audited(workspace: Path, monkeypatch) -> tuple[Path, str]:
     before it would hold two runs, leaving every assertion below about the wrong
     one.
     """
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
@@ -125,7 +125,7 @@ def _calibrate(workspace: Path, *, agreement: float) -> None:
 @pytest.fixture
 def tracker(audited: tuple[Path, str], monkeypatch) -> FakeTracker:
     """Tracking switched on after the run, recording to a fake that counts."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

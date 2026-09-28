@@ -51,7 +51,7 @@ class Model:
 
 def _ran(workspace: Path, monkeypatch) -> tuple[Model, Path]:
     """One run of `extract` then `verify`, which reads the procedure; its run directory."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     for name, text in INCIDENTS.items():
         path = workspace / "inbox" / "tickets" / name

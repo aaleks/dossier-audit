@@ -94,7 +94,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 
 
 def _run(workspace: Path, monkeypatch, answers: dict[str, str]):
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"

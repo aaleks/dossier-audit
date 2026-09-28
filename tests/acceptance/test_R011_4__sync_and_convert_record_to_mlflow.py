@@ -53,7 +53,7 @@ def synced(workspace: Path, monkeypatch) -> Path:
 @pytest.fixture
 def tracker(synced: Path, monkeypatch) -> FakeTracker:
     """Tracking switched on after the setup sync, recording to a fake that counts."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

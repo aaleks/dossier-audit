@@ -84,7 +84,7 @@ def _cache_keys(workspace: Path) -> set[str]:
 
 
 def _run(workspace: Path, monkeypatch) -> str:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: RoutedModel(ANSWERS))
     result = _cli(workspace, monkeypatch, "run", PIPELINE)
@@ -109,7 +109,7 @@ class TestAVersionIdReachesNothingOnDisk:
         untracked = _run(root, monkeypatch)
         keys_before = _cache_keys(root)
 
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
         monkeypatch.setenv("DOSSIER_MLFLOW_TRACKING_URI", URI)
@@ -135,7 +135,7 @@ class TestAVersionIdReachesNothingOnDisk:
         and still be written down -- if both runs got the same id back. This is
         the assertion that catches that.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         root = _workspace(workspace, monkeypatch)
         registry = FakeVersionRegistry()

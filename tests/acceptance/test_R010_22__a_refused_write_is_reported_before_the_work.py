@@ -133,7 +133,7 @@ def held(workspace: Path, monkeypatch) -> Path:
 
 def _as_dossier_ci(monkeypatch, tracker: FakeTracker) -> list[str]:
     """Tracking on as `dossier-ci`; what is warned, and when the model is first asked."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     events: list[str] = []
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

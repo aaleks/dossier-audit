@@ -353,7 +353,7 @@ class TestTheJudgeIsThePipelinesModel:
     def test_an_eval_judges_with_the_pipelines_model(self, tmp_path: Path):
         """Row 11, a counter-example: `dossier eval`'s judge, over a pipeline whose
         `extract` names its own model."""
-        from dossier.cli.main import _judging
+        from dossier.cli.eval import _judging
 
         path = _written(tmp_path, extract=EXTRACT_MODEL)
         pipeline = load_pipeline(path, providers=PROVIDERS)

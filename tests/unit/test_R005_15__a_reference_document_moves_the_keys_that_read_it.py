@@ -58,7 +58,7 @@ class Model:
 
 def _ran_twice(workspace: Path, monkeypatch, change) -> Model:
     """Run, apply `change` to the inbox, sync, and run again; the second run's model."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     inbox = workspace / "inbox"
     for folder, files in (("tickets", TICKETS), ("procedures", PROCEDURES)):

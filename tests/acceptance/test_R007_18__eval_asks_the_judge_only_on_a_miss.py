@@ -51,13 +51,13 @@ def judged(held: Path, monkeypatch) -> Path:  # noqa: F811 -- the imported fixtu
 
 
 def _no_judge(monkeypatch) -> None:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_model_client", lambda model_id: NoModelClient())
 
 
 def _tracked(monkeypatch) -> FakeTracker:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

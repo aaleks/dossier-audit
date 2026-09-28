@@ -41,7 +41,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 @pytest.fixture
 def source(workspace: Path, monkeypatch) -> IssueTracker:
     """The four incidents, synced and run once; the source can then be changed."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     tracker = IssueTracker(ISSUES)
     (workspace / "sources.yaml").write_text(
@@ -123,7 +123,7 @@ class Abstains:
 @pytest.fixture
 def procedures(workspace: Path, monkeypatch) -> Path:
     """One incident verified against two procedures, synced and run once."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     for folder, files in (("tickets", TICKETS), ("procedures", PROCEDURES)):
         for name, text in files.items():

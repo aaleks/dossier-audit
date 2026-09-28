@@ -68,7 +68,7 @@ def _calibrate(workspace: Path, *, agreement: float = 1.0) -> None:
 @pytest.fixture
 def scored(workspace: Path, monkeypatch) -> tuple[Path, str]:
     """The four incidents synced and run with tracking off; the run's id."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
@@ -88,7 +88,7 @@ def scored(workspace: Path, monkeypatch) -> tuple[Path, str]:
 
 @pytest.fixture
 def tracker(monkeypatch) -> FakeTracker:
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

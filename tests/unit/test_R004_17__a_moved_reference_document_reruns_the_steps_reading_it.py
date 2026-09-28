@@ -46,7 +46,7 @@ class Model:
 
 def _ran(workspace: Path, monkeypatch) -> Path:
     """Sync and run `extract`, then `verify` reading the procedures; the inbox."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     inbox = workspace / "inbox"
     for folder, files in (("tickets", TICKETS), ("procedures", PROCEDURES)):

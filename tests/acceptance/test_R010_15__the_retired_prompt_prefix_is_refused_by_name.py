@@ -34,7 +34,7 @@ NAMESPACE = "DOSSIER_MLFLOW_NAMESPACE"
 @pytest.fixture
 def machine(workspace: Path, monkeypatch):
     """A synced workspace with tracking on, whose `.env` still sets the retired variable."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"

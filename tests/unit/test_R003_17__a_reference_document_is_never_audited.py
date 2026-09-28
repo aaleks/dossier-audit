@@ -53,7 +53,7 @@ def _run(
 
     `audited` names sources listed under `sources:` beside `tickets`.
     """
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     for folder, files in (("tickets", INCIDENTS), ("procedures", PROCEDURES)):
         for name, text in files.items():

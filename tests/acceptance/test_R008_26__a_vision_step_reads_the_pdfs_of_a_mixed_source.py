@@ -77,7 +77,7 @@ class TestAVisionStepReadsThePdfsOfAMixedSource:
         """
         from tests.fakes import FakeModelClient
 
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         mixed = _mixed(
             workspace,

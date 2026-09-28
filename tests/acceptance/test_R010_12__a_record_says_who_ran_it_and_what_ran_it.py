@@ -59,7 +59,7 @@ def held(workspace: Path, monkeypatch) -> Path:
 @pytest.fixture
 def tracker(monkeypatch) -> FakeTracker:
     """Tracking on, recording to a fake that keeps the tags it was handed."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

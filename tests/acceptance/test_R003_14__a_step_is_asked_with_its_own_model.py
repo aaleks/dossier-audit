@@ -290,7 +290,7 @@ class TestAStepIsAskedWithItsOwnModel:
         model the calibration is written for (R7.14). The documents come from an
         issue tracker, as R7.14's do, because a gold sample is keyed by document.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         (workspace / "sources.yaml").write_text(
             f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"

@@ -64,7 +64,7 @@ def declared(workspace: Path, monkeypatch) -> Path:
 @pytest.fixture
 def tracker(declared: Path, monkeypatch) -> FakeTracker:
     """Tracking switched on after the sync, so the runs under test are the runs."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     recorder = FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

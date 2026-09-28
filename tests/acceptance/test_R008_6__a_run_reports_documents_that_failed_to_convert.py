@@ -79,7 +79,7 @@ class TestARunSaysWhatItCouldNotRead:
         """
         from tests.fakes import FakeModelClient
 
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         _break_one_document(synced, monkeypatch, "INC-4822.md")
         monkeypatch.setattr(
@@ -106,7 +106,7 @@ class TestARunSaysWhatItCouldNotRead:
         """
         from tests.fakes import FakeModelClient
 
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         _break_one_document(synced, monkeypatch, "INC-4822.md")
         model = FakeModelClient(responses=[_answer("INC-4821.md"), _answer("audit-note.md")])
@@ -125,7 +125,7 @@ class TestARunSaysWhatItCouldNotRead:
         """
         from tests.fakes import FakeModelClient
 
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         _break_one_document(synced, monkeypatch, "INC-4822.md")
         monkeypatch.setattr(
@@ -157,7 +157,7 @@ class TestARunSaysWhatItCouldNotRead:
         """
         from tests.fakes import NoModelClient
 
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
         from dossier.infrastructure.converters.markdown_text import MarkdownTextConverter
 
         def always_fails(self, payload: bytes, options):

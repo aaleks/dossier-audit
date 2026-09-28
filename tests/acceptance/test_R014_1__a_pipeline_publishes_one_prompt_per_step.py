@@ -44,7 +44,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 @pytest.fixture
 def registry(workspace: Path, monkeypatch) -> FakePromptRegistry:
     """Tracking on, and a prompt registry that counts what it was told."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     holder = FakePromptRegistry()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

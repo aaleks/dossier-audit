@@ -109,7 +109,7 @@ def _synced(workspace: Path, monkeypatch) -> Path:
 
 
 def _tracked_run(workspace: Path, monkeypatch, tracker: FakeTracker, model, *flags: str):
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
     monkeypatch.setenv("DOSSIER_MLFLOW_TRACKING_URI", URI)

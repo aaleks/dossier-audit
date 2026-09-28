@@ -33,7 +33,7 @@ def _put_back(
     workspace: Path, monkeypatch, *, payload: bytes | None = None
 ) -> tuple[FakeTracker, bytes]:
     """Sync, take the note away and sync, put it back and sync with tracking on."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     note = workspace / "inbox" / "incidents" / NOTE
     assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0

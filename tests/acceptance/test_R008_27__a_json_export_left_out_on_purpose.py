@@ -82,7 +82,7 @@ class TestAJsonExportLeftOutOnPurpose:
         """Row 2: the one where the run is clean, over what the source reads."""
         from tests.fakes import FakeModelClient
 
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         model = FakeModelClient(responses=[_answer(PAGE), _answer(REGISTER)])
         monkeypatch.setattr(cli, "build_model_client", lambda model_id: model, raising=False)
@@ -112,7 +112,7 @@ class TestAJsonExportLeftOutOnPurpose:
         """
         from tests.fakes import FakeModelClient
 
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         model = FakeModelClient(responses=[_answer(PAGE), _answer(REGISTER)])
         monkeypatch.setattr(cli, "build_model_client", lambda model_id: model, raising=False)

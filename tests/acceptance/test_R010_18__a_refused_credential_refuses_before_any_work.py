@@ -66,7 +66,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 @pytest.fixture
 def held(workspace: Path, monkeypatch) -> Path:
     """The four incidents synced with tracking off, so a run has real work to refuse."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
@@ -87,7 +87,7 @@ def _run_registries_are_fakes(monkeypatch) -> None:
     retried against the suite's blocked sockets for minutes. A red test should
     fail on its assertion, not on a timeout.
     """
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     monkeypatch.setattr(cli, "build_version_registry", lambda settings: FakeVersionRegistry())
     monkeypatch.setattr(

@@ -264,7 +264,7 @@ class TestARunAsksAboutSeveralDocumentsAtOnce:
         (R11.1). The PDF is R3.12's, rendered to one picture per page (R8.11).
         """
         pytest.importorskip("pypdfium2", reason="page images need the 'pdf' extra")
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         corpus = FIXTURES / "documents" / "postmortems" / "pdf"
         pdf = "INC-4830-postmortem-checkout-tls-expiry.pdf"

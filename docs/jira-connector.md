@@ -88,7 +88,7 @@ for a Jira open to anonymous reads.
 
 ## The credential path
 
-`dossier sync` builds the connector like this (`cli/main.py`):
+`dossier sync` builds the connector like this (`cli/sync.py`):
 
 ```python
 connector = build_connector(

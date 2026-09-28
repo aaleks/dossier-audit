@@ -22,7 +22,7 @@ RUBRIC = f"{PIPELINE}.judge.root_cause"
 @pytest.fixture
 def wired(two_runs, monkeypatch) -> tuple[FakePromptRegistry, FakeTracker]:
     """Tracking on after both runs, a registry that counts, a tracker that keeps links."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     registry, tracker = FakePromptRegistry(), FakeTracker()
     monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")

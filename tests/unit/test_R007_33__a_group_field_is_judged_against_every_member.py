@@ -91,7 +91,7 @@ def _workspace(workspace: Path, monkeypatch, model: Model, *, mode: str = "per_g
     Gold verifies what the step answers for: each contract for `per_group`, and
     amendment 3 alone for `per_file`.
     """
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     for key, text in CONTRACTS.items():
         path = workspace / "inbox" / "contracts" / key

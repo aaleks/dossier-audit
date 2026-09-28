@@ -60,7 +60,7 @@ with a standard tool.
 | `dossier.application` | Use cases: `sync`, `convert`, `run`, `plan`, `eval`. Orchestrates domain decisions over ports. | Takes the connector, the store and the model client as arguments. Never constructs one. |
 | `dossier.infrastructure` | Connectors, converters, the snapshot store, the ledger, model clients, MLflow tracking. | Wiring, not judgement. A heavy SDK (`mlflow`) is imported inside the function that uses it; `httpx` is imported at module scope by the packages left of the boundary, which is where it belongs. |
 | `dossier.config` | Loading and validating `sources.yaml` and `pipeline.yaml`; reading credentials. | The only package that reads `os.environ`. |
-| `dossier.cli` | The typer app: flags, output, exit codes. | The only package that calls `sys.exit`. |
+| `dossier.cli` | The typer app: flags, output, exit codes. One module per command (`sync`, `run`, `convert`, `calibrate`, `eval`, `dataset`, `review`, `prompts`); `main` registers them and is the entry point; `bootstrap` builds the model client, the tracker and the registries they are handed. | The only package that calls `sys.exit`. |
 
 Dependencies point one way:
 
@@ -73,7 +73,11 @@ cli ──▶ config ──▶ application ──▶ domain
 `infrastructure` implements protocols declared in `domain.ports`. It is never
 imported by `domain` and never by `application` — the composition happens in
 `cli`, which is the only place that knows which concrete implementation is in
-play. That is what lets every use case run against a fake.
+play. That is what lets every use case run against a fake: a test replaces a
+builder in `dossier.cli.bootstrap`, and every command reaches its builders
+through that module, so the replacement is what it calls. The one builder not
+there is `build_review_source`, which lives in `dossier.cli.review` with the one
+command allowed to call it (R15.5).
 
 ## Where a decision belongs
 

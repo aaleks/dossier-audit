@@ -95,7 +95,7 @@ def _workspace(
     reference: list[str] | None = ["procedures"],  # noqa: B006 -- read, never mutated
 ) -> Model:
     """Two incidents to audit, three procedures as reference, and the model served."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     for folder, files in (("tickets", INCIDENTS), ("procedures", PROCEDURES)):
         for name, text in files.items():

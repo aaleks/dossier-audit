@@ -52,7 +52,7 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 @pytest.fixture
 def audited(workspace: Path, monkeypatch) -> Path:
     """The four documents synced and run, with tracking off throughout."""
-    import dossier.cli.main as cli
+    import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(
         f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
@@ -121,7 +121,7 @@ class TestADatasetIsNeverReadBackIntoAScore:
         """
         import shutil
 
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         registry = FakeDatasetRegistry()
         monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
@@ -145,7 +145,7 @@ class TestADatasetIsNeverReadBackIntoAScore:
         what a server said, which is what R10.4 row 2 forbids for a run id and
         this forbids for a dataset id.
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         registry = FakeDatasetRegistry()
         monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
@@ -171,7 +171,7 @@ class TestADatasetIsNeverReadBackIntoAScore:
         The same eval with tracking off scores identically, so publishing and
         linking are observation and not input (R10.4 row 1).
         """
-        import dossier.cli.main as cli
+        import dossier.cli.bootstrap as cli
 
         registry = FakeDatasetRegistry()
         monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
