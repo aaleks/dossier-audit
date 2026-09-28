@@ -483,6 +483,14 @@ def score_document(
                     gold=gold[record.field],
                 )
             )
+    # A declared field gold verifies and the run gave no record for. Scored only
+    # by the records that exist, it had no verdict, and a run that left out
+    # every field it was unsure of was never wrong about one -- the thing R7.3
+    # exists to prevent. So it is an abstention, named apart because the run
+    # said nothing rather than that the document is silent (R7.50).
+    for field in kinds:
+        if field in gold and field not in scored:
+            results.append(_not_answered(field, gold[field]))
     return DocumentScore(
         document=document,
         results=tuple(results),
@@ -490,6 +498,13 @@ def score_document(
             sorted({record.field for record in records if record.field not in gold})
         ),
     )
+
+
+def _not_answered(field: str, gold: GoldField) -> FieldScore:
+    """The verdict on a field the run gave no record for, as an abstention's (R7.50)."""
+    if gold.value is None:
+        return FieldScore(field, Verdict.CORRECT, "not answered, and gold abstains")
+    return FieldScore(field, Verdict.INCORRECT, f"not answered; gold states {gold.value!r}")
 
 
 def _score_pages(
