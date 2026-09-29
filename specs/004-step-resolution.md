@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.26
 
 ## Purpose
@@ -698,7 +698,7 @@ a configuration file or the ledger is read.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.run`)
 - **Proved by:** `tests/unit/test_R004_26__two_modes_of_run_are_refused.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -52,6 +52,13 @@ from dossier.infrastructure.ledger import Ledger
 from dossier.infrastructure.models.registry import available_providers
 from dossier.infrastructure.store import SnapshotStore
 
+# The pairs `dossier run` refuses, and why each cannot be both (R4.26).
+_EXCLUSIVE = (
+    ("--doc", "--plan", "a plan compares a full run with the last one"),
+    ("--doc", "--replay", "a replay reproduces a whole run"),
+    ("--plan", "--replay", "a replay reproduces a past run and plans nothing"),
+)
+
 
 def run(
     pipeline: str = typer.Argument(
@@ -89,6 +96,15 @@ def run(
     `dossier run --replay runs/<run_id>/` -- fail on a missing argument that was
     then ignored.
     """
+    # Each of the three makes this a different command, and two cannot both be
+    # done. Doing one and ignoring the other printed a success for a command
+    # nobody typed, so the pair stops here, before anything is read (R4.26).
+    given = {"--plan": plan, "--replay": bool(replay_from), "--doc": bool(tried)}
+    for flag, other, why in _EXCLUSIVE:
+        if given[flag] and given[other]:
+            typer.echo(f"{flag} cannot be combined with {other}: {why}", err=True)
+            raise typer.Exit(code=2)
+
     if replay_from:
         _replay(Path.cwd(), Path(replay_from))
         return
