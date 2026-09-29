@@ -62,6 +62,7 @@ from dossier.domain.pipeline import (
     validate_references,
     validate_step_ids,
 )
+from dossier.domain.plan import asked_about
 from dossier.domain.ports import (
     ArtifactStore,
     ImagePart,
@@ -285,6 +286,7 @@ def execute(
     models: Mapping[str, ModelClient] | None = None,
     concurrency: int = 1,
     recording: RunRecording = NOT_RECORDED,
+    tried: Sequence[str] | None = None,
 ) -> RunReport:
     """Resolve the pipeline, freeze it, then run it.
 
@@ -302,6 +304,9 @@ def execute(
     `concurrency` is how many of a step's documents are asked about at once
     (R9.19). Steps still run one after another, and every result is put back in
     document order, so nothing this returns or writes depends on it.
+
+    `tried` is a try's: the documents `dossier run --doc` names. Each step is
+    asked only about those (R4.18); `None` is a full run.
 
     Recording starts only after resolution, so a run that resolution refused
     records nothing either. Tracking observes; nothing it holds is read back
@@ -458,7 +463,7 @@ def execute(
     # failed rather than left looking as if it were still running (R11.23).
     with failed_if_stopped(tracker):
         for step in plan.steps:
-            over = _units(declared[step.id].mode, keys)
+            over = asked_about(_units(declared[step.id].mode, keys), tried=tried)
             output = schemas.get(step.id)
             results: list[DocumentResult] = []
             every_part: list[DocumentResult] = []

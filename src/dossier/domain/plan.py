@@ -239,3 +239,15 @@ def changed_steps(plans: Sequence[StepPlan]) -> str:
     return ", ".join(
         f"{plan.step.id} ({plan.status.value})" for plan in plans if plan.rerunning
     )
+
+
+def asked_about(units: Sequence[str], *, tried: Sequence[str] | None) -> list[str]:
+    """What a step is asked about: every unit in a run, the named ones in a try (R4.18).
+
+    A try is `dossier run --doc`, and `tried` is the documents it names; `None`
+    is a full run, asked about everything as it always was. Only which units
+    are asked narrows: what each one is asked, and so its key, is a full run's.
+    """
+    if tried is None:
+        return list(units)
+    return [unit for unit in units if unit in tried]
