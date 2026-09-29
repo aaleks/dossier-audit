@@ -13,6 +13,34 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+Comparing runs with a failed document (R7.53, R7.54, R7.55, R11.27). A
+`/verify` on the day's second batch of rules found that R4.28 had changed
+more than it meant to. Letting a replay reproduce a failure let `eval --compare`
+through too, where it had stopped, exit 2. It scored the run that failed a
+document over three documents and the other over four, and flagged each field
+the failed document had been right on: `resolution_date 75.0% 66.7% -8.3 <-
+regression`, with nothing changed but the failure, and the failure named nowhere.
+R7.8's own title, "over the same documents", was checked against the manifests
+alone, and a failure got past it. The same review found `eval` naming a document
+as `not scored` when a step *after* the scored one had failed it, though it was
+scored, and naming a document twice when two steps failed it. Mutating R4.28's
+replay to look up the cache before trusting a recorded failure survived the
+whole suite, so that claim is still owed a row.
+
+`dossier.domain.scoring.unscored` now decides what a run left unscored: the
+documents the scored step has no answer for, each once, at its first failure up
+to the scored step (R7.53). `eval` names those, and `--compare` scores both runs
+without any document either left unscored, so every delta is over documents both
+answered (R7.54). Its headline says `3 of 4 documents`. Beneath the fields it
+names each one with its run, step and reason, marked `<- regression` when `b`
+lost a document `a` answered (R7.55), which is `a.aleks`'s call over naming it
+alone. Refusing the comparison was the other safe choice, and it would have
+made a configuration that always fails one document impossible to pass through
+the gate. The record says the same: `a/failed` and `b/failed`, the description's
+count, and the lines in `deltas.md` (R11.27). The live check read them back from
+MLflow. It also showed the description's `regressed nothing` beside a marked
+line, because `dossier.regressed` names fields only, as decided.
+
 A run with a failed document replays and scores (R4.27, R4.28, R7.52). One
 failed document made a whole run unscorable. `dossier eval` scores a replay
 (R7.10), and the replay stopped on the failed document's missing entry, exit 2,
