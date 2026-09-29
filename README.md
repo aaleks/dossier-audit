@@ -91,6 +91,7 @@ dossier sync <pipeline> --full       # ask every source for an unwindowed listin
 dossier convert <pipeline>           # each document to the kinds its source declares
 dossier run <pipeline> --plan        # what would run, and why
 dossier run <pipeline>               # execute; writes runs/<id>/ as it goes
+dossier run <pipeline> --doc KEY     # a try: ask about that document only; writes tries/<id>/
 dossier run --replay runs/<id>/      # reproduce a past run exactly, with no model call
 dossier calibrate <pipeline> --gold … # measure each judge against its human-scored sample
 dossier eval <pipeline> --gold …     # score against verified answers
@@ -100,6 +101,18 @@ dossier prompts publish <pipeline>   # each step's prompt and each rubric as an 
 dossier review pull <pipeline>       # reviewers' verdicts from MLflow, into review/<pipeline>/
 dossier review apply <pipeline> --gold … --verified-by …  # their expected values, into gold
 ```
+
+A prompt is iterated on one document at a time. `dossier run <pipeline> --doc
+KEY` is a **try**: every step is asked only about the named documents (a
+`per_group` step about each one's whole group), and prints what a run prints.
+Its answers are real, and cached under the keys a full run uses, so the next full
+run is served them (R4.18, R4.21). A try is not a run, though. It writes under
+`tries/<id>/` and no manifest under `runs/`, so `dossier eval`, `--plan` and the
+"source has moved" warning still read the last full run (R4.20, R4.22). A step
+that reads every document is skipped and says so (R4.23). In MLflow a try is
+tagged `dossier.try`, and is not linked to a pipeline version as a run that
+produced it (R4.24). A key no source holds stops the try before anything is
+asked (R4.19).
 
 ## What it reads
 

@@ -557,6 +557,81 @@ Each of the four runs is nine calls in the log, and a second eval adds none.
 
 ---
 
+## Task 8 — one document, not six
+
+With the paragraph added to `prompts/01_extract.md`, and page 4's `severity`
+answer deleted from `pages.json` (the stub re-reads it, so it needs no restart):
+
+```console
+$ dossier run observability-audit --doc PLAY-3005
+observability-audit: PLAY-3005 is held by none of its sources (observability, screenshots)
+
+$ dossier run observability-audit --doc PLAY-3005-weekly-incident-review.pdf
+try 20260929T114131Z-48ee · tries/20260929T114131Z-48ee/
+  extract: 1 document(s) · 0 from cache · 0 failed · 1 described · tokens not reported
+
+$ find tries -name 'page-*.json' ! -name '*.meta.json'
+tries/20260929T114131Z-48ee/extract/PLAY-3005-weekly-incident-review.pdf/page-001.json
+tries/20260929T114131Z-48ee/extract/PLAY-3005-weekly-incident-review.pdf/page-002.json
+tries/20260929T114131Z-48ee/extract/PLAY-3005-weekly-incident-review.pdf/page-003.json
+tries/20260929T114131Z-48ee/extract/PLAY-3005-weekly-incident-review.pdf/page-004.json
+
+$ dossier eval observability-audit --gold gold/observability
+6 documents · 5 fields · overall 96.7%
+  resolution_date    100.0%
+  severity            83.3%   <- weakest
+    PLAY-3005-weekly-incident-review.pdf page-004.png: severity: 'ERROR' is not one of minor, major, critical
+  affected_systems   100.0%
+  revenue_at_risk    100.0%
+  root_cause         100.0%   (6 judged)
+
+$ dossier run observability-audit --plan
+observability-audit  6 document(s) · model openai:gpt-5.4-mini
+compared against 20260929T114104Z-769a
+! extract: prompt changed
+1 of 1 step(s) would run · nothing written
+```
+
+The mistyped key asked nothing, and the try asked four times, one a page, for
+nothing about the other five documents (R4.18, R4.19).
+
+**Why eval still shows `ERROR`.** A try writes no manifest under `runs/`
+(R4.20). Eval scores the newest manifest there, `--plan` compares against it,
+and a run warns when the source moved since it. All three still find task 7's
+run. Had the try counted as a run, eval would have taken one document of six
+for the pipeline's result. While this was built, an eval pointed at a try's
+manifest stopped on the first document the try never asked about: `has no
+cached artifact … this run cannot be reproduced`. That is why a try's answers
+go to `tries/`, a place nothing that reads `runs/` looks in.
+
+```console
+$ dossier run observability-audit
+run 20260929T114140Z-4cb8 · .../runs/20260929T114140Z-4cb8/manifest.json
+  extract: 6 document(s) · 4 from cache · 0 failed · 10 described · tokens not reported
+
+$ dossier eval observability-audit --gold gold/observability
+6 documents · 5 fields · overall 100.0%
+  resolution_date    100.0%
+  severity           100.0%
+  affected_systems   100.0%
+  revenue_at_risk    100.0%
+  root_cause         100.0%   (6 judged)
+```
+
+**Where the four pages came from.** The try. It asked each page what the full
+run would ask, under the same keys: prompt, page, model and schema (R4.21).
+Nothing about it being a try reaches a key, so the full run is served its four
+answers and pays for the other five pages. Five calls, not nine.
+
+**Why an aggregate step is skipped.** A step that reads every document, asked
+about one, answers a question about a subset. Its answer would be cached under
+a key no full run uses, and it reads like the real report. So a try skips it and
+says so on the step's line (R4.23). With MLflow on, a try is recorded like a
+run, tagged `dossier.try` with its documents, and a pipeline version lists no
+try among the runs that produced it (R4.24).
+
+---
+
 ## What this exercise was really about
 
 A chart used to be unreadable by construction. Not badly read — *unreadable*: the
