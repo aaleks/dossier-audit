@@ -1509,7 +1509,7 @@ on 2026-09-29, over naming it beneath alone and over scoring it as wrong.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.eval`), application (`dossier.application.eval`, `dossier.application.run`)
 - **Proved by:** `tests/acceptance/test_R007_52__eval_scores_a_run_in_which_a_document_failed.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
