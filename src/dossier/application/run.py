@@ -463,7 +463,8 @@ def execute(
     # failed rather than left looking as if it were still running (R11.23).
     with failed_if_stopped(tracker):
         for step in plan.steps:
-            over = asked_about(_units(declared[step.id].mode, keys), tried=tried)
+            mode = declared[step.id].mode
+            over = asked_about(mode, _units(mode, keys), tried=tried)
             output = schemas.get(step.id)
             results: list[DocumentResult] = []
             every_part: list[DocumentResult] = []

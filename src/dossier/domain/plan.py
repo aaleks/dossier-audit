@@ -28,6 +28,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
+from dossier.domain.groups import group_of
 from dossier.domain.pipeline import REFERENCE, SOURCE_KEYWORDS, split_kind
 from dossier.domain.resolution import PinnedDocument, ResolvedPlan, ResolvedStep
 
@@ -241,13 +242,18 @@ def changed_steps(plans: Sequence[StepPlan]) -> str:
     )
 
 
-def asked_about(units: Sequence[str], *, tried: Sequence[str] | None) -> list[str]:
+def asked_about(mode: str, units: Sequence[str], *, tried: Sequence[str] | None) -> list[str]:
     """What a step is asked about: every unit in a run, the named ones in a try (R4.18).
 
     A try is `dossier run --doc`, and `tried` is the documents it names; `None`
     is a full run, asked about everything as it always was. Only which units
     are asked narrows: what each one is asked, and so its key, is a full run's.
+
+    A `per_group` step's unit is a group (R3.15), so a named document brings
+    its whole group. Asked about the one member, the group would be a different
+    question from the one a full run asks (R4.15), cached under another key.
     """
     if tried is None:
         return list(units)
-    return [unit for unit in units if unit in tried]
+    named = {group_of(key) for key in tried} if mode == "per_group" else set(tried)
+    return [unit for unit in units if unit in named]
