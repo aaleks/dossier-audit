@@ -72,7 +72,7 @@ from dossier.domain.ports import (
     Tracker,
     VersionRegistry,
 )
-from dossier.domain.prompts import prompt_name, render
+from dossier.domain.prompts import empty_inputs, prompt_name, render
 from dossier.domain.resolution import (
     PinnedConverter,
     ResolvedPlan,
@@ -909,6 +909,24 @@ def _run_one(
     )
     key = cache_key(key_inputs)
 
+    # A call about nothing is not made, and not served either: an answer cached
+    # about nothing before this rule is still an answer about nothing. What the
+    # call is about is unwrapped first -- a present, empty document renders as
+    # an empty `<document>` wrapper, which is not the empty string (R6.29).
+    empty = empty_inputs(
+        _contents(
+            targets=_targets(declared, step),
+            document=document,
+            documents=documents,
+            aggregate=_reads_a_set(declared.mode),
+            text_of=lambda kind: by_kind.get(kind or DEFAULT_INPUT_KIND, {}),
+            produced=produced,
+        ),
+        parts=0 if part is None else 1,
+    )
+    if empty:
+        return _about_nothing(document, empty), key
+
     # A stage was shown pictures of this document exactly when it was handed
     # one of its parts (R3.12). Local and certain, rather than inferred later
     # from the document being absent from the text map -- which is also true of
@@ -1369,6 +1387,46 @@ def _input_values(
     return values
 
 
+def _about_nothing(document: str, empty: Sequence[str]) -> DocumentResult:
+    """A call not made, every input it is about empty: failed, naming them (R6.29).
+
+    One place for the words, because `execute` and `replay` both say them, and
+    a replay reproduces the run's failure rather than a failure of its own.
+    """
+    return DocumentResult(
+        document=document, error=f"every input it reads is empty: {', '.join(empty)}"
+    )
+
+
+def _contents(
+    *,
+    targets: Sequence[str],
+    document: str,
+    documents: Sequence[str],
+    aggregate: bool,
+    text_of: Callable[[str | None], Mapping[str, str]],
+    produced: Mapping[str, Mapping[str, str]],
+) -> dict[str, list[str]]:
+    """What each input a call is about holds, unwrapped, by resolved id (R6.29).
+
+    The members `_one_value` would join, looked up where it looks them up, but
+    each one's content bare: a present, empty document is `""` here, where
+    `_one_value` wraps it in a tag that is not. `reference` is left out: it is
+    context, shown to every call, and never what a call is about (R3.17).
+    `text_of` says what the documents hold in a kind, which `execute` and
+    `replay` each know differently.
+    """
+    keys = filed_under(documents) if aggregate else [document]
+    held: dict[str, list[str]] = {}
+    for target in targets:
+        name, kind = split_kind(target)
+        if name == REFERENCE:
+            continue
+        source = text_of(kind) if name in SOURCE_KEYWORDS else produced.get(target, {})
+        held[target] = [source[key] for key in keys if key in source]
+    return held
+
+
 def _one_value(
     source: Mapping[str, str],
     *,
@@ -1790,6 +1848,9 @@ def replay(
                     enums=(enums or {}).get(step.id),
                 )
                 served.append(_on_part(result, part))
+                if result.failed:
+                    # Nothing to write: the run wrote nothing for it (R6.29).
+                    continue
                 reproduced.append(
                     (
                         step.id,
@@ -1910,6 +1971,25 @@ def _replay_one(
             + _group_input(step.mode, document),
         )
     )
+
+    # What `_run_one` refused, refused here, with the error the run recorded:
+    # the run wrote no entry for it, and a replay that looked for one would
+    # stop on a document the run never asked about (R6.29, R4.7). Replay holds
+    # text as `document_text`, which is only ever the markdown kind, as
+    # `_replayed_input` reads it.
+    empty = empty_inputs(
+        _contents(
+            targets=step.inputs,
+            document=document,
+            documents=documents,
+            aggregate=_reads_a_set(step.mode),
+            text_of=lambda kind: document_text if kind in (None, DEFAULT_INPUT_KIND) else {},
+            produced=produced,
+        ),
+        parts=0 if part is None else 1,
+    )
+    if empty:
+        return _about_nothing(document, empty), key
 
     stored = cache.get(key, require_record=True)
     if stored is None:

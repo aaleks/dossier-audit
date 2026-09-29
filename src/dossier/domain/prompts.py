@@ -88,6 +88,25 @@ def check_placeholders(*, step: str, declared: Sequence[str], prompt: str) -> No
         )
 
 
+def empty_inputs(contents: Mapping[str, Sequence[str]], *, parts: int = 0) -> tuple[str, ...]:
+    """The inputs a call is about, when every one is empty; `()` when any holds something.
+
+    `contents` is what each input holds, unwrapped: a document's text, or each
+    member's in a set. Empty is the empty string, so a scan whose markdown is
+    only its page anchors is not empty, and asking about it is how its emptiness
+    becomes a finding (spec 008). A part is content: a `per_part` call carries
+    its picture, whatever its placeholder holds (R8.11).
+
+    Four rules closed one shape each of a model asked about an input that came
+    out empty (R6.13, R6.21, R3.16, R3.19), each found after answers about
+    nothing had been cached. This is asked of every call, so the next shape is
+    stopped where it arrives (R6.29).
+    """
+    if parts or any(text for texts in contents.values() for text in texts):
+        return ()
+    return tuple(contents)
+
+
 def render(prompt: str, values: dict[str, str]) -> str:
     """Fill every placeholder with the text of the input it names.
 
