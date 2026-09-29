@@ -149,12 +149,52 @@ would make it ask again: editing the prompt, editing the field declaration,
 editing the note, changing the model identifier in `pipeline.yaml`, changing the
 URL in `.env`. Try one, and keep the other four for exercise 09.
 
+## Task 7 — a note with nothing in it
+
+Put back whatever task 6 changed, so the four notes are served from cache again.
+Then drop an empty file into the inbox, the kind an export that wrote nothing
+leaves behind, and run the pipeline through again:
+
+```bash
+: > inbox/incidents/handover-note.md
+dossier sync incident-audit
+dossier convert incident-audit
+dossier run incident-audit
+```
+
+**Checkpoint.** Exit 1, and the stub's call log did not grow:
+
+```
+  extract: 5 document(s) · 4 from cache · 1 failed
+    extract failed on handover-note.md
+```
+
+- The note synced and converted without a complaint. Why is `run` the first
+  command to refuse it? (R6.29)
+- Asked anyway, the model would have abstained on every field, and been right.
+  What would have been wrong with that?
+- Run it again. The note fails again, still with no call, while the other four
+  are served from cache. Why is there nothing to serve it?
+
+Now replay the run that failed:
+
+```bash
+dossier run --replay runs/<run id>/
+```
+
+**Checkpoint.** `4 artifact(s) reproduced`, and no complaint about a missing
+entry. The run wrote nothing for the note, so the replay does not look for
+anything: it reproduces the failure (R4.7). Delete the note before the next
+exercise.
+
 ---
 
 ## Done when
 
 - a plan, a run, a cached second run and a replay, in that order;
 - you can name the four things a stage key covers and one thing it does not;
-- you can point at the file that decides what the model is asked to return.
+- you can point at the file that decides what the model is asked to return;
+- you can say why a document with nothing in it fails the run, when a model
+  asked about it would have answered.
 
 **Next:** [03 · Wiki exports, and a converter you write](../03-html-exports-and-a-converter-you-write/).
