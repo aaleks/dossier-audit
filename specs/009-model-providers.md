@@ -1,7 +1,7 @@
 # 009 — Model providers
 
 **Status:** Implemented
-**Rules:** R9.1 – R9.21
+**Rules:** R9.1 – R9.22
 
 ## Purpose
 
@@ -587,3 +587,36 @@ verdict goes stale.
 | 1 | a `root_cause` verdict not in the cache, the judge asked | the schema it is handed is `{"type": "object", "properties": {"supported": …, "evidence": …}, "required": ["supported"], "additionalProperties": false}` |
 | 2 | a step whose `output:` declares `incident_date`, `severity` and `root_cause` | the schema it is handed sets `additionalProperties` to false on the answer, on `FieldRecord` and on `Evidence`: every object in it |
 | 3 | *counter-example* — a step with no `output`, `report` in `aggregate` mode | it is handed no schema at all, and its prose is not constrained (R0.14 row 5) |
+
+### R9.22 — a request a provider refuses fails naming the reason the provider gave, and never the key
+
+R9.20's line names the URL and the status, and the status alone says that a
+request was refused but not why. On 2026-09-29 every judge call to Anthropic
+answered `400 Bad Request`. The cause, a schema left open (R9.21), was one
+sentence in the answer's body, and finding it meant reading the code. The
+provider has usually written that sentence already, so the line now ends with
+it. A person can then act on the line, which is what R9.20 is for.
+
+The reason is read from where each provider writes it: `error.message` for
+OpenAI, Anthropic and vLLM, `error` as a string for Ollama, and `message` or
+`detail` otherwise (`detail` is OpenWebUI's). It is put on one line. It comes
+last, after the attempts, because it is the provider's sentence and may run
+long. A body that is not JSON, such as a proxy's HTML error page, is not a
+reason and is left out, as it always was. The key is sent only in a header
+(R9.8). If a provider quotes it back, it is replaced with `***`.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.refusals.refusal_reason`), infrastructure (`dossier.infrastructure.models._http.request`)
+- **Proved by:** `tests/unit/test_R009_22__a_refusal_names_the_providers_reason.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `anthropic:claude-haiku-4-5-20251001` answering `400` with `{"type": "error", "error": {"type": "invalid_request_error", "message": "output_config.format.schema: For 'object' type, 'additionalProperties' must be explicitly set to false"}}` | `POST https://api.anthropic.com/v1/messages answered 400 Bad Request: output_config.format.schema: For 'object' type, 'additionalProperties' must be explicitly set to false` (verified live) |
+| 2 | OpenWebUI answering `401` with `{"detail": "Your session has expired or the token is invalid. Please sign in again."}` | `POST http://localhost:8080/api/chat/completions answered 401 Unauthorized: Your session has expired or the token is invalid. Please sign in again.` (verified live) |
+| 3 | Ollama answering `404` with `{"error": "model 'qwen3:1.7b' not found"}` | `… answered 404 Not Found: model 'qwen3:1.7b' not found` |
+| 4 | `503` three times, each `{"error": {"message": "Overloaded"}}` | `… answered 503 Service Unavailable (after 3 attempts): Overloaded` |
+| 5 | a reason spanning lines, `"schema invalid:\n  additionalProperties"` | `: schema invalid: additionalProperties`, on one line (R9.20) |
+| 6 | `DOSSIER_OPENAI_API_KEY=sk-4f1a-do-not-print` and a `401` whose message quotes it | the reason with `***` where the key was; the key is in no part of the line (R9.8 row 1) |
+| 7 | *counter-example* — a `502` whose body is a proxy's HTML page | `… answered 502 Bad Gateway`, and nothing after it |
+| 8 | *counter-example* — a `401` whose JSON names no reason, `{"code": 401}` | `… answered 401 Unauthorized`, and nothing after it |
