@@ -1,7 +1,7 @@
 # 003 — Configuration format
 
-**Status:** Implemented
-**Rules:** R3.1 – R3.18
+**Status:** Partially implemented
+**Rules:** R3.1 – R3.19
 
 ## Purpose
 
@@ -669,6 +669,38 @@ shown. Narrowing it, per group or per step, is not this rule.
 | 3 | `report` in `aggregate` mode, `input: [verify, reference]` | the same three documents, once, in its one call |
 | 4 | a step reading `reference` in a pipeline that declares no `reference:` | a load-time error naming the step, before any work |
 | 5 | *counter-example* — `extract` with `input: documents` | no reference document anywhere in its prompt |
+
+### R3.19 — a step that reads an `aggregate` step's output is refused at load time, naming both
+
+An `aggregate` step answers once for every document, and its one artifact is
+filed under the reserved key `*` (Modes, above). Every reader looks an earlier
+step's answers up under a document's key or a group's, and none of them is `*`.
+So a step reading an aggregate step was handed nothing, whatever its mode: a
+`per_file` reader was never asked, and a `per_group` or `aggregate` reader was
+asked about an empty input and cached under the hash of nothing. No rule said an
+aggregate step's output could be read, and none refused a pipeline that did.
+Found by `/verify` on 2026-09-29, with a scratch pipeline whose report text
+never reached the step after it.
+
+It is refused when the pipeline loads, as a `per_file` reader of a `per_group`
+step is (R3.16), and through `previous` as well, which names a step by position
+(R4.2). Refusing costs nothing today: no pipeline in the repository reads an
+aggregate step, and every one that has one ends with it. Handing the aggregate's
+answer to its readers was the other choice. It is a capability nobody has asked
+for, and this rule can be superseded by it when someone does (decided by
+`a.aleks` on 2026-09-29).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.pipeline.validate_modes`)
+- **Proved by:** `tests/unit/test_R003_19__no_step_reads_an_aggregate_step.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `report` in `aggregate` mode, `input: extract`, then `summary` in `per_file` mode, `input: report` | a load-time error naming `summary`, `report` and both modes, before any work |
+| 2 | `summary` in `aggregate` mode, `input: report` | the same refusal: a second aggregate step is handed nothing too |
+| 3 | `summary` in `per_group` mode, `input: previous`, directly after `report` | the same refusal: `previous` is `report` (R4.2) |
+| 4 | *counter-example* — `report` in `aggregate` mode, `input: extract`, the last step | accepted, as every pipeline in the repository has it |
 
 ## Open questions
 
