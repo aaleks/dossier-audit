@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Implemented
-**Rules:** R6.1 – R6.30
+**Status:** Partially implemented
+**Rules:** R6.1 – R6.33
 
 ## Purpose
 
@@ -928,3 +928,81 @@ person reads is wrong. The model is a `FakeModelClient` that counts calls.
 | 2 | the same, tracking on | the trace `extract · handover-note.md` closed `ERROR`, its error `every input it reads is empty: documents`, and no model span in it |
 | 3 | `dossier run --replay runs/<id>/` after row 1 | the run reproduced, with no model call and no missing entry (R4.7): `extract: 1 artifact(s) from cache` and `1 artifact(s) reproduced`, since the failed note produced none |
 | 4 | *counter-example* — `handover-note.md` holding one line of text | 2 model calls, `0 failed`, exit 0 |
+
+### R6.31 — `dossier run` reports a failed document on one line naming why it failed
+
+A failed document was reported as `    extract failed on INC-4822`, and never why.
+The reason was on the result and reached the document's trace (R15.1 row 4), so
+with MLflow off it was printed nowhere. Someone reading the terminal could not
+tell a model that answered prose from an empty file (R6.29). So the line ends
+with the reason, `    {step} failed on {document}: {reason}`, on stderr as
+before. It is one line, as R9.20 keeps a stopped command to one: a reason that
+spans lines is put on one. The reason never holds a key (R9.8), because none of
+the texts it is built from ever holds one.
+
+This is the slice's acceptance rule, proved through the CLI. R6.32 says what a
+validation failure's reason is, and R6.33 what a page-by-page document's is.
+Either could be MET while the line a person reads still said nothing. R6.30 row 1
+quotes the old line, so it changes, with its test, in the pull request that
+changes the line.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.run`), domain (`dossier.domain.tracking.failure_line`)
+- **Proved by:** `tests/acceptance/test_R006_31__a_failed_document_is_reported_with_its_reason.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4822` answered `not JSON at all` on both attempts | `    extract failed on INC-4822: no valid output after 2 attempts: Invalid JSON: expected ident at line 1 column 2`; exit 1 |
+| 2 | `handover-note.md`, zero bytes, beside `INC-4821.md` | `    extract failed on handover-note.md: every input it reads is empty: documents` |
+| 3 | `INC-4830`, read page by page, its page 2 answered `not JSON at all` twice | `    extract failed on INC-4830-postmortem-checkout-tls-expiry.pdf: page-002.png: no valid output after 2 attempts: Invalid JSON: expected ident at line 1 column 2` |
+| 4 | *counter-example* — `INC-4821` answered with a field whose span is not in the document | no `failed on` line: an ungrounded field is a finding, printed as R6.16 prints it, and the document did not fail; exit 0 |
+
+### R6.32 — a validation failure's reason says what was wrong with the answer, and nothing else
+
+Pydantic's message for an answer it refused runs over three lines. It opens
+with `1 validation error for StageOutput`, quotes the reply and ends with a link
+to its documentation. The run added the document's name in front, which the
+line already names. The reason keeps what was wrong: each error pydantic found,
+as `location: message`, or the message alone where the whole answer is at fault.
+They are joined by `; `, all of them, after `no valid output after 2 attempts: `.
+A second record with the same field is refused by the run and not by pydantic
+(R6.24), and is put the same way. The failure the document is reported with is
+the last attempt's.
+
+What the model actually answered is not lost. Each attempt's model span keeps
+pydantic's full text (R11.2), and the retry prompt still carries it to the
+model (R6.2), which is what it is for. Decided by `a.aleks` on 2026-09-29: the
+concise reason, not pydantic's text on one line, and not the model's reply
+beside it. Every error goes on the line, not the first and a count.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.schemas.failure_reason`), application (`dossier.application.extract`)
+- **Proved by:** `tests/unit/test_R006_32__a_validation_failure_says_what_was_wrong.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4822` answered `not JSON at all`, twice | `no valid output after 2 attempts: Invalid JSON: expected ident at line 1 column 2` |
+| 2 | a record with the key `valu` in place of `value`, in three records | `no valid output after 2 attempts: fields.0.valu: Extra inputs are not permitted; fields.1.valu: Extra inputs are not permitted; fields.2.valu: Extra inputs are not permitted` |
+| 3 | `severity` answered twice (R6.24) | ``no valid output after 2 attempts: severity: answered more than once. Only a field declared `list` is answered once per item; answer every other field once`` |
+| 4 | *counter-example* — the first attempt's model span, and the retry prompt | pydantic's full text, `1 validation error for StageOutput` and all, as before (R6.2, R11.2) |
+
+### R6.33 — a page-by-page document's reason names each page that failed
+
+A `per_part` document fails when a page does (R3.12), and its reason joined its
+pages' reasons without saying which page gave them. Four pages and one failure
+read as the document's. Each page's reason now starts with its name, as a miss
+does when `dossier eval` names the page that got a field wrong (R7.48), in page
+order.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R006_33__a_failed_page_is_named.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4830`, page 2 answered `not JSON at all` twice | `page-002.png: no valid output after 2 attempts: Invalid JSON: expected ident at line 1 column 2` |
+| 2 | pages 2 and 3 both failing so | `page-002.png: …; page-003.png: …`, in page order |
+| 3 | *counter-example* — `INC-4822`, a `per_file` document, failing so | the reason alone, naming no page: there is none |
