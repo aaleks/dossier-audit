@@ -606,7 +606,7 @@ reading a try is reading a run.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`), cli (`dossier.cli.run`)
 - **Proved by:** `tests/unit/test_R004_22__a_try_writes_under_tries.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -663,7 +663,7 @@ documents are `INC-4830`, three pages read page by page, and `INC-5720`, one pag
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.run`, `dossier.cli.eval`), application (`dossier.application.run`)
 - **Proved by:** `tests/acceptance/test_R004_25__a_prompt_is_tried_on_one_document.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

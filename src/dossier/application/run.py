@@ -85,9 +85,9 @@ from dossier.domain.schemas import StageOutput
 from dossier.domain.store import (
     RESERVED_KEY,
     RUNS_ROOT,
-    TRIES_ROOT,
     output_path,
     record_path,
+    try_path,
 )
 from dossier.domain.tracking import (
     record_content,
@@ -384,7 +384,7 @@ def execute(
         ).write(workspace / RUNS_ROOT)
         directory = manifest.parent
     else:
-        directory = workspace / TRIES_ROOT / run_id
+        directory = workspace / try_path(run_id)
 
     keys = [document.key for document in plan.documents]
     declared = {step.id: step for step in pipeline.steps}
