@@ -1068,6 +1068,23 @@ def trace_response(
     return json.loads(text) if structured else text
 
 
+def trace_pages(
+    pages: Sequence[tuple[str, str]], *, structured: bool, capture: str
+) -> dict[str, object]:
+    """What a `per_part` document's trace answered: each page's, under its name (R15.6).
+
+    `runs/` holds a `per_part` document as one file per page, so its answer is
+    shown the same way, each page as R15.1 shows a document. The joined text a
+    later step reads wraps every page in a `<part>` tag and is not JSON; parsed
+    as one, it stopped every `per_part` run recorded to MLflow after its first
+    document.
+    """
+    return {
+        name: trace_response(text, structured=structured, error=None, capture=capture)
+        for name, text in pages
+    }
+
+
 # The tag the review queue filters on, and the tag saying why (R15.2).
 REVIEW = "dossier.review"
 FINDINGS = "dossier.findings"

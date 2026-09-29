@@ -1,6 +1,6 @@
 # 015 — Review in MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R15.1 – R15.6
 
 ## Purpose
@@ -273,7 +273,7 @@ reads it and a reviewer does not.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.trace_pages`), application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R015_6__a_page_by_page_trace_shows_each_page.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -88,6 +88,7 @@ from dossier.domain.tracking import (
     run_name,
     step_line,
     token_metrics,
+    trace_pages,
     trace_request,
     trace_response,
     version_params,
@@ -497,6 +498,9 @@ def execute(
                 # person who opens it (R0.11 row 3). A failed part leaves
                 # nothing, as a failed document does (R0.13 row 3).
                 parts_done: list[DocumentResult] = []
+                # Each answered part's name and the file `runs/` holds for it,
+                # which is what a `per_part` document's trace shows (R15.6).
+                pages: list[tuple[str, str]] = []
                 if tracker is not None:
                     tracker.start_trace(
                         name=f"{step.id} · {key}",
@@ -554,6 +558,8 @@ def execute(
                             record=cache.record(stage_key),
                             part=None if part is None else part[0],
                         )
+                        if part is not None:
+                            pages.append((part[0], _as_text(result)))
                     parts_done.append(_on_part(result, part))
 
                 if not parts_done:
@@ -575,12 +581,18 @@ def execute(
                     tracker.end_trace(
                         status="ERROR" if result.failed else "OK",
                         error=result.error,
-                        # And the answer beside it, as `runs/` holds it (R15.1).
-                        outputs=trace_response(
-                            None if result.failed else _as_text(result),
-                            structured=output is not None,
-                            error=result.error if result.failed else None,
-                            capture=capture,
+                        # And the answer beside it, as `runs/` holds it (R15.1):
+                        # for a `per_part` document, one file per page, never the
+                        # joined text a later step reads, which is not JSON (R15.6).
+                        outputs=(
+                            trace_pages(pages, structured=output is not None, capture=capture)
+                            if declared[step.id].mode == "per_part" and not result.failed
+                            else trace_response(
+                                None if result.failed else _as_text(result),
+                                structured=output is not None,
+                                error=result.error if result.failed else None,
+                                capture=capture,
+                            )
                         ),
                         # What the run doubts about it, for the review queue
                         # (R15.2). Checks pair with records one to one.
