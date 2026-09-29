@@ -285,6 +285,56 @@ Of the five candidates in the exercise:
 The last row is the one that makes this playground possible at all, and the
 fourth has a wrinkle that exercise 09 will show you in `--plan`.
 
+## Task 7 — a note with nothing in it
+
+With task 6 put back:
+
+```console
+$ : > inbox/incidents/handover-note.md
+$ dossier sync incident-audit
+ledger updated · 1 new snapshots · 0 tombstoned
+$ dossier convert incident-audit
+incidents-manual  5 held · 1 converted · 4 cached
+cache updated · 1 converted · 4 cached
+$ dossier run incident-audit
+warning: the source has moved since run 20260929T143151Z-8137: handover-note.md new
+run 20260929T143153Z-fa75 · .../runs/20260929T143153Z-fa75/manifest.json
+  extract: 5 document(s) · 4 from cache · 1 failed
+    extract failed on handover-note.md
+```
+
+The call log did not grow: four answers from cache, and no call for the note.
+
+**Why `run` is the first to refuse it.** An empty file is a real file, so `sync`
+holds it and `convert` makes a markdown artifact of it, an empty one. Nothing is
+wrong until a model would be asked about it. Before R6.29 it was asked, as
+`<document key="handover-note.md"></document>`. A real model abstains on every
+field, correctly, and the answer was cached. That was a paid call about nothing, reported
+as a success, with nothing to tell a reviewer that the export had gone wrong.
+Now the call is not made, and the document fails at `extract`. With MLflow on,
+its trace is `ERROR`, holding `every input it reads is empty: documents`, and it
+sits in the review queue.
+
+**Why it fails again, with no call.** Nothing was ever cached for it. The check
+comes before the cache is asked, so it fails at every run until someone fills
+the note or removes it. That is the point of a failure: it stays until someone
+deals with it.
+
+The same check stops what four earlier rules stopped one at a time: a step
+handed the empty output of a step before it, a group step read per file, an
+aggregate step read at all (R6.13, R3.16, R3.19). Each of those was found after
+answers about nothing had been cached.
+
+```console
+$ dossier run --replay runs/20260929T143153Z-fa75/
+replayed 20260929T143153Z-fa75 · incident-audit
+  extract: 4 artifact(s) from cache
+4 artifact(s) reproduced · no model calls · written to runs/20260929T143153Z-fa75/replays/20260929T144034Z-12b0/
+```
+
+The replay makes the same decision the run made, and reproduces the failure
+rather than looking for an entry the run never wrote (R4.7).
+
 ---
 
 ## What to take to your own project

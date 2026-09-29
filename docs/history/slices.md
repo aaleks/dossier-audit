@@ -13,6 +13,42 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A call whose every input is empty is never made (R6.28 – R6.30). The same
+defect had been closed one shape at a time: a model asked about an input that
+came out empty, and the answer cached under the key of nothing. R6.13, R6.21,
+R3.16 and R3.19 each closed one shape, each after the fact. The guard is at the
+call, where the next shape will arrive. Discovering it turned up two more live
+shapes:
+
+- an `aggregate` or `per_group` step whose every member failed earlier was
+  asked about `<extract></extract>`;
+- an empty file was asked about as an empty `<document>`.
+
+The first is now a skip, since its cause is listed once already (R6.28). The
+second, and anything else whose every input is empty, fails the document,
+naming the inputs (R6.29). `a.aleks` chose to fail rather than skip, and to
+count a document's own empty text. A present, empty document renders as a
+wrapper, not the empty string, so the check reads each input unwrapped. It runs
+before the cache, so an answer cached about nothing is never served again, and
+replay makes the same decision, reproducing the failure.
+
+`_fixtures.md` said `pdf-markdown` makes zero bytes of a scan with no text
+layer. Converting `PLAY-2002` gave `<!-- page 1 -->`, as spec 008 says, so a
+scan is still asked about, and its emptiness is still the finding. Running
+exercise 02 with an empty note, for its new task 7, found the replay's step line
+counting the failed note as an artifact: `5 artifact(s) from cache` beside
+`4 artifact(s) reproduced`. That is fixed, and R6.30 row 3 now states both
+lines (#584). Live, against a local MLflow and the stub model, the note's trace
+was `ERROR`, holding `every input it reads is empty: documents`, with no model
+span and `dossier.review: needed`. The incident beside it was asked once.
+
+Two slips of process were caught on the way. An Edit refused in the same batch
+as a commit shipped #581 without its spec status. A `grep` for `FAILED` exits 0
+when it finds one, and let a failing check through. CI's architecture check
+caught the first. Both are now in the working notes.
+
+---
+
 `/verify` read the day's sixteen rules against their tests, and found a defect
 older than all of them. A step reading an `aggregate` step's output was handed
 nothing, whatever its mode. The aggregate's one answer is filed under `*`, and
