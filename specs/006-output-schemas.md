@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Implemented
-**Rules:** R6.1 – R6.24
+**Status:** Partially implemented
+**Rules:** R6.1 – R6.26
 
 ## Purpose
 
@@ -257,10 +257,11 @@ A count is an `amount` with no `currency`. There is no `number` kind: it would
 compare exactly as `amount` does, and a second name for one scorer is a second
 thing to read (R7.39 row 3).
 
-A kind is not shown to the model. The generated JSON Schema limits `field` to the
-declared names and nothing more, so declaring a `boolean`, a `duration` or a
-`list` changes no key that a declaration without one has (R6.12). The prompt says
-what each field holds.
+A kind is not shown to the model, with one exception. The generated JSON Schema
+limits `field` to the declared names, and an `enum` field's value to its declared
+values or `null` (R6.25). Nothing else is limited, so declaring a `boolean`, a
+`duration` or a `list` changes no key that a declaration without one has (R6.12).
+The prompt says what each field holds.
 
 ### A list is answered one record per item
 
@@ -291,6 +292,33 @@ Two things are generated from that one file and never written by hand: the JSON
 Schema shown to the model, and the field list a scorer works from. That is what
 "there is no second definition" now means — the guarantee R6.7 was protecting,
 kept, with the authoring language changed.
+
+### An enum's values are shown to the model
+
+The model was never shown `severity`'s vocabulary. The prompt was meant to state
+it, and exercise 10's did not. On 2026-09-29 `gpt-5.4-mini` answered `severity`
+with `latency`, with `ERROR`, and with a sentence about heap usage, each read off
+one panel page of a weekly review. `INC-4830` shows why the model has to be told:
+every page prints `SEV-1`, and gold's `critical` is a reviewer's reading of it.
+A model that quotes the document is right about the document and wrong about the
+field. How the values reach the model was weighed three ways:
+
+| Option | For | Against |
+|---|---|---|
+| **Constrain each enum field's value in the schema** (adopted) | one definition, the declaration (R6.10); a provider that constrains its output to the schema cannot answer outside the vocabulary, and one that does not is still shown it | a step declaring an enum is asked again once, since its schema changed (R6.12); the schema gains a variant per enum, which each provider has to accept |
+| List the values in a description, constraining nothing | the smallest change, and nothing a provider could refuse | a hint a model may weigh lightly, and nothing holds it to it; the key moves all the same |
+| Leave it to the prompt, as before | nothing to build | a second definition beside the declaration, free to drift from it; exercise 10's prompt never wrote it, and nothing checks it |
+
+A provider that reads the schema as guidance can still answer outside it, and
+what that answer becomes was weighed three ways too:
+
+| Option | For | Against |
+|---|---|---|
+| **The field is `invalid`, and the rest of the answer stands** (adopted) | a finding about one field, checked where the other field checks are; re-derived on every read, so an existing run gets it; no score moves and no call is repeated | the model is given no second chance to correct it |
+| A validation failure: one retry carrying the values, then the document fails | the model is told the values, and usually corrects | one call more, and one field on one page loses every field of the document |
+| One retry carrying the values, then the field is `invalid` | a correction without losing the document | a retry for a field-level finding, which nothing else has |
+
+Both were decided by `a.aleks` on 2026-09-29.
 
 ### Why YAML and not a Python model
 
@@ -710,3 +738,55 @@ field once are two answers, each naming it once.
 | 3 | *counter-example* — `loss_amount` answered twice in one answer, `48200.00` and `48'200` | the answer fails validation naming `loss_amount`: one retry carrying that error (R6.2), and a second failure fails the document with nothing written or cached (R6.1, R6.9) |
 | 4 | *counter-example* — a `per_part` step whose two pages each answer `loss_amount` once | valid; each page's answer names it once (R3.12) |
 | 5 | *counter-example* — `affected_systems` as one record holding `["payments-api", "ledger-batch"]` | fails validation, as it did before this rule: a record holds one value, and the shape the model is shown is unchanged |
+
+### R6.25 — the schema a step is shown lets a declared `enum` field hold only one of its values, or null
+
+The declaration is the one place a field is defined (R6.10), so an enum's values
+reach the model from there, in the schema, as the field names already do ("An
+enum's values are shown to the model", above). In the schema, a record for an
+enum field is a variant of its own. `field` is that one name, and `value` is one
+of its values, in declared order, or `null`, so abstaining is still an answer
+(R6.5). Every other field shares one variant, as before.
+
+The schema is part of the key (R6.12). A step that declares an enum is therefore
+asked again once, and a declaration with none generates the schema it did
+before, byte for byte. The shape is checked live against Anthropic, OpenAI
+through OpenWebUI, and Ollama before this rule is MET. Anthropic constrains its
+output to the schema and refuses a schema it cannot (R9.21).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.fields.json_schema`)
+- **Proved by:** `tests/unit/test_R006_25__an_enum_fields_values_are_in_its_schema.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `severity: {kind: enum, values: [minor, major, critical]}` beside `resolution_date` and `root_cause` | a record naming `severity` may hold `minor`, `major`, `critical` or `null`, and nothing else; a record naming `resolution_date` or `root_cause` holds any value, as before |
+| 2 | `status: {kind: enum, values: [open, closed]}` declared as well | each enum is held to its own values: a `severity` record cannot hold `closed`, nor a `status` record `critical` |
+| 3 | *counter-example* — a declaration of `loss_amount`, `resolution_date` and `root_cause` alone | the generated schema is byte-identical to the one generated before this rule, so no key of its step moves (R6.12) |
+
+### R6.26 — an `enum` field answered with a value outside its declared values is `invalid`, naming them, and the rest of the answer stands
+
+A provider that reads the schema as guidance can still answer outside it. That
+answer is a finding about one field, like a value with no source (R6.6). So it is
+checked where those are, on every read (R5.5), and not as a validation failure.
+R6.24 refuses a second record because nobody could say which answer the model
+meant. `SEV-1` is one answer, plainly meant, and not an allowed one. The
+document's other fields are kept and no call is repeated. The finding names the
+values, so the reader knows what was expected (R6.16). The value is compared
+case folded, as the scorer compares it (spec 007).
+
+No score moves. An enum is scored by membership and equality (spec 007), so a
+value outside the vocabulary was already incorrect. The finding now says why.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.grounding.check_field`), application (`dossier.application.extract`)
+- **Proved by:** `tests/unit/test_R006_26__a_value_outside_an_enum_is_invalid.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4830`'s page 1 answering `severity` with `SEV-1`, the header every page prints | `invalid`: `severity: 'SEV-1' is not one of minor, major, critical`; the page's other fields are checked as before, and the document is not failed |
+| 2 | `severity` answered `Critical` | valid; compared case folded, as the scorer compares it |
+| 3 | a run cached before this rule, with `SEV-1` in it, evaluated again | the same finding, with no model asked, since verdicts are re-derived on every read (R5.5); `severity` is scored incorrect, as it already was |
+| 4 | *counter-example* — `severity` `null`, with the reason `not on this page` | `abstained`, not `invalid` (R6.5) |
