@@ -506,7 +506,54 @@ unsure of was never wrong about it. Had page 2 still abstained, the line would
 read `abstained on every page; gold states '2026-09-08'`: the same miss, told
 apart from silence.
 
-Each of the three runs is nine calls in the log, and a second eval adds none.
+With page 4 answering `severity` as `gpt-5.4-mini` did live, `pages.json` is:
+
+```json
+{"rules": [{
+  "image": "b4599c6cc3e3",
+  "reply": {"document": "PLAY-3005-weekly-incident-review.pdf", "fields": [
+    {"field": "revenue_at_risk", "value": 118750.0, "currency": "CHF",
+     "source": {"document": "PLAY-3005-weekly-incident-review.pdf",
+                "span": "Revenue at risk over the window:  CHF 118'750"}},
+    {"field": "severity", "value": "ERROR",
+     "source": {"document": "PLAY-3005-weekly-incident-review.pdf",
+                "span": "query: level:ERROR"}}]}
+}]}
+```
+
+```console
+$ rm -rf .dossier/cache/stage/ && dossier run observability-audit
+run 20260929T083935Z-0801 · .../runs/20260929T083935Z-0801/manifest.json
+  extract: 6 document(s) · 0 from cache · 0 failed · 10 described · 1 finding(s) · tokens not reported
+    PLAY-3005-weekly-incident-review.pdf  severity: 'ERROR' is not one of minor, major, critical
+
+$ dossier eval observability-audit --gold gold/observability
+6 documents · 5 fields · overall 96.7%
+  resolution_date    100.0%
+  severity            83.3%   <- weakest
+    PLAY-3005-weekly-incident-review.pdf page-004.png: severity: 'ERROR' is not one of minor, major, critical
+  affected_systems   100.0%
+  revenue_at_risk    100.0%
+  root_cause         100.0%   (6 judged)
+```
+
+**Why it is not the eleventh `described`.** The span is drawn on the panel, so
+before R6.26 this answer was `described`, like the others read off a picture.
+The vocabulary is checked before the evidence, because a quotation found on the
+page does not make `ERROR` an allowed answer. So the field is `invalid`, a
+finding about that one field. The document is not failed, and the run's other
+answers stand.
+
+**What the line says now.** Before R6.26 it read
+`page-004.png: 'ERROR' does not match 'critical'`, and the score was the same:
+an enum is scored by membership and equality. That line reads like a wrong
+reading, as if the model chose between `major` and `critical` and got it wrong.
+The new one says the model answered with a word the field does not have, which
+is a different fix: the schema or the prompt, not the reading. A model held to
+the schema (R6.25) cannot give this answer. The finding is there for the ones
+that are not.
+
+Each of the four runs is nine calls in the log, and a second eval adds none.
 
 ---
 

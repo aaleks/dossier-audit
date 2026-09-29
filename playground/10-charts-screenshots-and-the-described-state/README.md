@@ -277,7 +277,32 @@ A field the verified answers state and no page gave is a miss, like any other
 the run got wrong (R7.50). What did the field read before, when a run's silence
 was left out of the count?
 
-Each of the three runs is nine calls in the log, and eval adds none: `root_cause`
+One more, taken from a real run. On 2026-09-29 `gpt-5.4-mini` read page 4's log
+query, `query: level:ERROR`, and answered `severity` with `ERROR`. The schema now
+shows the model `severity`'s values (R6.25), and a model held to the schema
+cannot give that answer. The stub is held to nothing, which makes it the model
+this step needs. Replace `pages.json`'s rule with one for page 4's picture,
+`b4599c6cc3e3`. Copy it from `replies.json` and add that answer beside the figure
+it already gives:
+
+```json
+{"field": "severity", "value": "ERROR",
+ "source": {"document": "PLAY-3005-weekly-incident-review.pdf", "span": "query: level:ERROR"}}
+```
+
+**Checkpoint.** `dossier run` names it, and fails nothing:
+
+```
+  extract: 6 document(s) · 0 from cache · 0 failed · 10 described · 1 finding(s) · tokens not reported
+    PLAY-3005-weekly-incident-review.pdf  severity: 'ERROR' is not one of minor, major, critical
+```
+
+- The span is drawn on the panel, so why does the run still say `10 described`
+  and not 11? (R6.26)
+- Before R6.26 the same answer scored the same 83.3%. What did the line under
+  `severity` say then, and what does a reviewer learn from the difference?
+
+Each of the four runs is nine calls in the log, and eval adds none: `root_cause`
 did not change, so its verdicts are still in the judge cache. Had a page given a
 second root cause, the judge would have been asked about each distinct answer,
 and one it did not support would fail the document (R7.49).
