@@ -43,7 +43,7 @@ from dossier.domain.pipeline import PipelineConfig, SourceConfig
 from dossier.domain.plan import check_tried
 from dossier.domain.ports import ImagePart
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
-from dossier.domain.store import replay_path
+from dossier.domain.store import replay_path, try_path
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.domain.tracking import NAMESPACE, label_for, step_line
 from dossier.infrastructure.cache import ArtifactCache
@@ -556,7 +556,11 @@ def _execute(
     for source, document, reason in unreadable:
         typer.echo(f"  {source}: {document} could not be converted: {reason}", err=True)
 
-    typer.echo(f"run {report.run_id} · {report.manifest_path}")
+    if tried is None:
+        typer.echo(f"run {report.run_id} · {report.manifest_path}")
+    else:
+        # Named as a try, where its files are: nothing under `runs/` (R4.20, R4.22).
+        typer.echo(f"try {report.run_id} · {try_path(report.run_id)}/")
     if tracker is not None:
         # The one thing tracking changes: what a person reads, never what is
         # written to disk (R10.4 row 3). The MLflow run is named after this run.

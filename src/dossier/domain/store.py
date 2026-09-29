@@ -130,3 +130,13 @@ def replay_path(run_id: str, replay_id: str) -> str:
     A replay id has the form of a run id, minted the same way.
     """
     return f"{RUNS_ROOT}/{run_id}/replays/{replay_id}"
+
+
+def try_path(try_id: str) -> str:
+    """Where a try -- `dossier run --doc` -- writes what it was answered (R4.22).
+
+    `tries/<try_id>`, holding what `runs/<run_id>` would, named as R0.11 and
+    R0.13 name it, and no manifest (R4.20). A try id has the form of a run id,
+    minted the same way.
+    """
+    return f"{TRIES_ROOT}/{try_id}"
