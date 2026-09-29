@@ -1538,7 +1538,7 @@ leaves out the same documents (R7.54).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.scoring.unscored`), cli (`dossier.cli.eval`)
 - **Proved by:** `tests/unit/test_R007_53__a_document_is_named_unscored_once_where_it_failed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
