@@ -213,9 +213,10 @@ is the one that matters:
 
 `PLAY-3005` is read in four calls, and nothing stops two of them answering the
 same field. Page 2's panel carries the week's worst moment, `Peak p99 for the
-week:  4.2 s at 09:04 on 2026-09-02`. A model asked for `incident_date` with only
-that page in front of it has a date right there. It is not the date the review
-was resolved.
+week:  4.2 s at 09:04 on 2026-09-02`. A model asked for `resolution_date` with only
+that page in front of it has a date right there, and `gpt-5.4-mini` took it when
+this exercise was run live on 2026-09-29. It is the week's peak, not the day
+anything was resolved.
 
 Make the stub read the page that way. Write `pages.json` in the workspace with
 one rule, for page 2's picture:
@@ -224,7 +225,7 @@ one rule, for page 2's picture:
 {"rules": [{
   "image": "5ae908cb70c5",
   "reply": {"document": "PLAY-3005-weekly-incident-review.pdf", "fields": [
-    {"field": "incident_date", "value": "2026-09-02",
+    {"field": "resolution_date", "value": "2026-09-02",
      "source": {"document": "PLAY-3005-weekly-incident-review.pdf",
                 "span": "Peak p99 for the week:  4.2 s at 09:04 on 2026-09-02"}}]}
 }]}
@@ -239,7 +240,7 @@ then run and eval.
 **Checkpoint.** Whatever state task 5 left the judge in, the date's lines read:
 
 ```
-  incident_date       83.3%   <- weakest
+  resolution_date     83.3%   <- weakest
     PLAY-3005-weekly-incident-review.pdf page-002.png: '2026-09-02' does not match '2026-09-08'
 ```
 
@@ -251,24 +252,24 @@ then run and eval.
   catch a date from the wrong incident, and what did?
 
 Now make page 2 honest. Replace its field with
-`{"field": "incident_date", "value": null, "reason": "the panel shows the week, not the day it was resolved"}`.
+`{"field": "resolution_date", "value": null, "reason": "the panel shows the week, not the day it was resolved"}`.
 The stub reads its files again on every request, so it needs no restart. Delete
 the stage cache, then run and eval.
 
-**Checkpoint.** `incident_date 100.0%`. Page 1 answered, and a page that says it
+**Checkpoint.** `resolution_date 100.0%`. Page 1 answered, and a page that says it
 cannot tell is not an answer for its document (R7.47). Before the same change,
 that abstention was a miss against the verified date. That is why task 2's
 prompt tells a page to leave a field out rather than say so.
 
 Last, take the date away from every page. Replace page 2's rule in `pages.json`
 with one for page 1's picture, `a2d2bbd691ef`: copy it from `replies.json` and
-drop its `incident_date`. With the override gone, page 2 falls back to its empty
+drop its `resolution_date`. With the override gone, page 2 falls back to its empty
 answer, so no page of `PLAY-3005` gives the date.
 
 **Checkpoint.**
 
 ```
-  incident_date       83.3%   <- weakest
+  resolution_date     83.3%   <- weakest
     PLAY-3005-weekly-incident-review.pdf not answered; gold states '2026-09-08'
 ```
 

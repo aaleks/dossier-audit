@@ -163,7 +163,7 @@ place that has to know which page it is looking at.
 five fields:
 
 ```
-incident_date    = '2026-09-02'                          page 1     Resolved: 2026-09-02
+resolution_date  = '2026-09-02'                          page 1     Resolved: 2026-09-02
 severity         = 'critical'                            page 1     Severity: critical
 affected_systems = 'checkout-service, payments-gateway'  page 1     Affected systems: …
 root_cause       = 'The canary released at 08:04 …'      page 1     Root cause: the canary …
@@ -182,7 +182,7 @@ claim through as a checked one.
 `PLAY-3006` produces five described fields out of five:
 
 ```
-incident_date    = '2026-09-11'                      page None   Resolved: 2026-09-11
+resolution_date  = '2026-09-11'                      page None   Resolved: 2026-09-11
 severity         = 'major'                           page None   Severity: major
 affected_systems = 'checkout-service, edge-gateway'  page None   Affected systems: …
 root_cause       = 'The error budget for checkout…'  page None   Root cause: the error budget …
@@ -284,7 +284,7 @@ twelve of twenty cases in each sample are supported, so a judge answering
 ```console
 $ dossier eval observability-audit --gold gold/observability      # before calibrating
 6 documents · 4 fields · overall 100.0%
-  incident_date      100.0%
+  resolution_date    100.0%
   severity           100.0%
   affected_systems   100.0%
   revenue_at_risk    100.0%
@@ -440,12 +440,12 @@ With page 2 reading the week's peak as the incident's date:
 ```console
 $ rm -rf .dossier/cache/stage/
 $ dossier run observability-audit
-run 20260929T052619Z-3d4f · .../runs/20260929T052619Z-3d4f/manifest.json
+run 20260929T072021Z-2537 · .../runs/20260929T072021Z-2537/manifest.json
   extract: 6 document(s) · 0 from cache · 0 failed · 11 described · tokens not reported
 
 $ dossier eval observability-audit --gold gold/observability
 6 documents · 5 fields · overall 96.7%
-  incident_date       83.3%   <- weakest
+  resolution_date     83.3%   <- weakest
     PLAY-3005-weekly-incident-review.pdf page-002.png: '2026-09-02' does not match '2026-09-08'
   severity           100.0%
   affected_systems   100.0%
@@ -455,7 +455,7 @@ $ dossier eval observability-audit --gold gold/observability
 
 **Why the document is wrong, not half right.** A field is correct for a
 document only when every page that gave it a value is correct (R7.48). The
-review has one incident date. A document that gave two has not given it, and
+review was resolved on one day. A document that gave two has not given it, and
 crediting page 1 would score a run that answers every date on every page as
 always right. The miss names `page-002.png`, which is where to look.
 
@@ -479,7 +479,7 @@ $ rm -rf .dossier/cache/stage/ && dossier run observability-audit
   extract: 6 document(s) · 0 from cache · 0 failed · 10 described · tokens not reported
 $ dossier eval observability-audit --gold gold/observability
 6 documents · 5 fields · overall 100.0%
-  incident_date      100.0%
+  resolution_date    100.0%
   ...
 ```
 
@@ -495,13 +495,13 @@ $ rm -rf .dossier/cache/stage/ && dossier run observability-audit
   extract: 6 document(s) · 0 from cache · 0 failed · 10 described · tokens not reported
 $ dossier eval observability-audit --gold gold/observability
 6 documents · 5 fields · overall 96.7%
-  incident_date       83.3%   <- weakest
+  resolution_date     83.3%   <- weakest
     PLAY-3005-weekly-incident-review.pdf not answered; gold states '2026-09-08'
   ...
 ```
 
 Before R7.50 a field no record answered was not scored at all, so this run read
-`incident_date 100.0%` over five documents. A run that left out what it was
+`resolution_date 100.0%` over five documents. A run that left out what it was
 unsure of was never wrong about it. Had page 2 still abstained, the line would
 read `abstained on every page; gold states '2026-09-08'`: the same miss, told
 apart from silence.

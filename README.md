@@ -130,7 +130,7 @@ another page answers, and the field is correct only when every page that gave a
 value is. A miss names its page (R7.46 – R7.49):
 
 ```
-  incident_date       83.3%   <- weakest
+  resolution_date     83.3%   <- weakest
     PLAY-3005-weekly-incident-review.pdf page-002.png: '2026-09-02' does not match '2026-09-08'
 ```
 
