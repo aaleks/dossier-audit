@@ -7,8 +7,9 @@ pages instead of a transcript.
 
 **You will learn:** what `page_images` is and why it is one artifact, what a
 `per_part` step does to keys and calls and retries, why a field can be neither
-grounded nor ungrounded, and why a judged field then needs two thresholds
-measured against two samples.
+grounded nor ungrounded, why a judged field then needs two thresholds
+measured against two samples, and why a document read page by page still gives
+one answer per field.
 
 **Uses the stub model as both the extractor and the judge.**
 
@@ -208,6 +209,80 @@ is the one that matters:
   reproduce. Find the rule that says so and the sentence explaining why a
   partial replay is worse than none (R0.12).
 
+## Task 7 — four pages, one answer
+
+`PLAY-3005` is read in four calls, and nothing stops two of them answering the
+same field. Page 2's panel carries the week's worst moment, `Peak p99 for the
+week:  4.2 s at 09:04 on 2026-09-02`. A model asked for `incident_date` with only
+that page in front of it has a date right there. It is not the date the review
+was resolved.
+
+Make the stub read the page that way. Write `pages.json` in the workspace with
+one rule, for page 2's picture:
+
+```json
+{"rules": [{
+  "image": "5ae908cb70c5",
+  "reply": {"document": "PLAY-3005-weekly-incident-review.pdf", "fields": [
+    {"field": "incident_date", "value": "2026-09-02",
+     "source": {"document": "PLAY-3005-weekly-incident-review.pdf",
+                "span": "Peak p99 for the week:  4.2 s at 09:04 on 2026-09-02"}}]}
+}]}
+```
+
+Restart the stub with `--replies pages.json` between the judge's file and
+`replies.json`. The first rule that matches wins, so an override goes before the
+file it overrides. The stage cache still holds page 2's empty answer under the
+same key: same prompt, same page, same model. Delete `.dossier/cache/stage/`,
+then run and eval.
+
+**Checkpoint.** Whatever state task 5 left the judge in, the date's lines read:
+
+```
+  incident_date       83.3%   <- weakest
+    PLAY-3005-weekly-incident-review.pdf page-002.png: '2026-09-02' does not match '2026-09-08'
+```
+
+- 83.3% is five documents of six. Page 1 still gave the right date. Why is the
+  document wrong rather than half right? (R7.48)
+- Before 2026-09-28 the same run printed 85.7% for this field. Work out what it
+  was counting. (R7.46)
+- The run said `11 described`, one more than before. Why did no grounding check
+  catch a date from the wrong incident, and what did?
+
+Now make page 2 honest. Replace its field with
+`{"field": "incident_date", "value": null, "reason": "the panel shows the week, not the day it was resolved"}`.
+The stub reads its files again on every request, so it needs no restart. Delete
+the stage cache, then run and eval.
+
+**Checkpoint.** `incident_date 100.0%`. Page 1 answered, and a page that says it
+cannot tell is not an answer for its document (R7.47). Before the same change,
+that abstention was a miss against the verified date. That is why task 2's
+prompt tells a page to leave a field out rather than say so.
+
+Last, take the date away from every page. Replace page 2's rule in `pages.json`
+with one for page 1's picture, `a2d2bbd691ef`: copy it from `replies.json` and
+drop its `incident_date`. With the override gone, page 2 falls back to its empty
+answer, so no page of `PLAY-3005` gives the date.
+
+**Checkpoint.**
+
+```
+  incident_date       83.3%   <- weakest
+    PLAY-3005-weekly-incident-review.pdf not answered; gold states '2026-09-08'
+```
+
+A field the verified answers state and no page gave is a miss, like any other
+the run got wrong (R7.50). What did the field read before, when a run's silence
+was left out of the count?
+
+Each of the three runs is nine calls in the log, and eval adds none: `root_cause`
+did not change, so its verdicts are still in the judge cache. Had a page given a
+second root cause, the judge would have been asked about each distinct answer,
+and one it did not support would fail the document (R7.49).
+
+Take `pages.json` off the stub's command line before the next exercise.
+
 ---
 
 ## Done when
@@ -217,7 +292,9 @@ is the one that matters:
 - you can say what a `per_part` step does to calls, keys, retries and replays,
   and point at the part hash in a provenance record;
 - you can explain to someone else why `described` is neither a pass nor a
-  failure, and why it needs its own threshold and its own sample.
+  failure, and why it needs its own threshold and its own sample;
+- you can say how a field four pages answered is scored, and read the page a
+  miss came from off the eval.
 
 **Next:** [12 · A dataset, and the change gate](../12-a-dataset-and-the-change-gate/),
 which stays offline like this one. [11 · A real Jira on your

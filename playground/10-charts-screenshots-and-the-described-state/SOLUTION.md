@@ -421,6 +421,93 @@ difference would be visible only to somebody who counted the files.
 
 `dossier convert` puts the container back, and the replay succeeds again.
 
+## Task 7 — four pages, one answer
+
+The stub runs with the judge's own replies, as at the top of this file, so
+`root_cause` is reported. `pages.json` goes between the two files, because the
+first rule that matches wins:
+
+```bash
+.venv/bin/python playground/toolkit/stub_model.py \
+  --replies $E/resources/replies-judge.json \
+  --replies playground/work/10/pages.json \
+  --replies $E/resources/replies.json \
+  --port 8099 --log /tmp/dossier-calls.jsonl
+```
+
+With page 2 reading the week's peak as the incident's date:
+
+```console
+$ rm -rf .dossier/cache/stage/
+$ dossier run observability-audit
+run 20260929T052619Z-3d4f · .../runs/20260929T052619Z-3d4f/manifest.json
+  extract: 6 document(s) · 0 from cache · 0 failed · 11 described · tokens not reported
+
+$ dossier eval observability-audit --gold gold/observability
+6 documents · 5 fields · overall 96.7%
+  incident_date       83.3%   <- weakest
+    PLAY-3005-weekly-incident-review.pdf page-002.png: '2026-09-02' does not match '2026-09-08'
+  severity           100.0%
+  affected_systems   100.0%
+  revenue_at_risk    100.0%
+  root_cause         100.0%   (6 judged)
+```
+
+**Why the document is wrong, not half right.** A field is correct for a
+document only when every page that gave it a value is correct (R7.48). The
+review has one incident date. A document that gave two has not given it, and
+crediting page 1 would score a run that answers every date on every page as
+always right. The miss names `page-002.png`, which is where to look.
+
+**What 85.7% was counting.** Records, not documents: six dates, one per
+document, plus page 2's second date for `PLAY-3005`. That is six right of
+seven. Counted that way, a four-page document that repeats a field on every page
+outweighs a one-page screenshot four to one. Now a field is one verdict per
+document, however many pages gave it (R7.46).
+
+**Why no grounding check caught it.** The date is drawn on page 2's panel and
+written in no sentence, so its span is `described` (the eleventh), and a string
+search is the wrong instrument for a picture. `described` says the evidence was
+not checkable by search. It says nothing about whether the value is right. The
+verified answer caught it: `2026-09-02` is `PLAY-3001`'s incident, the week's
+worst hour, and not the day this review was resolved.
+
+With page 2 abstaining instead:
+
+```console
+$ rm -rf .dossier/cache/stage/ && dossier run observability-audit
+  extract: 6 document(s) · 0 from cache · 0 failed · 10 described · tokens not reported
+$ dossier eval observability-audit --gold gold/observability
+6 documents · 5 fields · overall 100.0%
+  incident_date      100.0%
+  ...
+```
+
+Page 1 answered, and an abstention is not an answer for its document while
+another page gives one (R7.47). Scored per record, as before 2026-09-28, that
+abstention was a miss against `2026-09-08`, and the field read 85.7% again.
+
+With page 1's rule overridden to drop the date, and page 2 back to its empty
+answer:
+
+```console
+$ rm -rf .dossier/cache/stage/ && dossier run observability-audit
+  extract: 6 document(s) · 0 from cache · 0 failed · 10 described · tokens not reported
+$ dossier eval observability-audit --gold gold/observability
+6 documents · 5 fields · overall 96.7%
+  incident_date       83.3%   <- weakest
+    PLAY-3005-weekly-incident-review.pdf not answered; gold states '2026-09-08'
+  ...
+```
+
+Before R7.50 a field no record answered was not scored at all, so this run read
+`incident_date 100.0%` over five documents. A run that left out what it was
+unsure of was never wrong about it. Had page 2 still abstained, the line would
+read `abstained on every page; gold states '2026-09-08'`: the same miss, told
+apart from silence.
+
+Each of the three runs is nine calls in the log, and a second eval adds none.
+
 ---
 
 ## What this exercise was really about
