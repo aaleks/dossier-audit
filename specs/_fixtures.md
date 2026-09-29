@@ -27,6 +27,7 @@ Do not invent a new incident key for a new example. Add to this file instead.
 | `OPS-115` | `procedures-confluence` | page | Unchanged throughout. `remote_version` `v12`. The item R2.15 asserts is *not* read. |
 | `OPS-116` | `procedures-confluence` | page | Unchanged throughout. `remote_version` `v3`. |
 | `audit-note.pdf` | `incidents-manual` | file | Folder source. No `remote_version`. |
+| `handover-note.md` | `incidents-manual` | file | Zero bytes: what an export that wrote nothing leaves behind. It converts, to an empty `markdown` artifact, so a step reading `documents` holds it and it holds nothing (R6.29). Beside it in examples, the folder source holds `INC-4821.md`, whose key carries its extension as `audit-note.pdf`'s does. |
 | `INC-5720-checkout-latency-postmortem.png` | `incidents-screenshots` | file | A postmortem delivered as one PNG: prose, a timeline, a root cause and a latency chart in a single image, with no text layer at all. Referred to as `INC-5720` in prose. Its key carries the extension because a folder source names a document by its filename, as `audit-note.pdf` does. The standalone-image case: every field of it is visual, and its `loss_amount` is drawn on the chart and stated in no sentence. |
 
 ## The PDF postmortem corpus
