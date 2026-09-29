@@ -924,7 +924,7 @@ person reads is wrong. The model is a `FakeModelClient` that counts calls.
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `incidents-manual` holding `INC-4821.md` and `handover-note.md`, zero bytes; `dossier run incident-audit` | 1 model call; `extract: 2 document(s) · 0 from cache · 1 failed`; `    extract failed on handover-note.md` on stderr; exit 1 |
+| 1 | `incidents-manual` holding `INC-4821.md` and `handover-note.md`, zero bytes; `dossier run incident-audit` | 1 model call; `extract: 2 document(s) · 0 from cache · 1 failed`; `    extract failed on handover-note.md: every input it reads is empty: documents` on stderr (R6.31); exit 1 |
 | 2 | the same, tracking on | the trace `extract · handover-note.md` closed `ERROR`, its error `every input it reads is empty: documents`, and no model span in it |
 | 3 | `dossier run --replay runs/<id>/` after row 1 | the run reproduced, with no model call and no missing entry (R4.7): `extract: 1 artifact(s) from cache` and `1 artifact(s) reproduced`, since the failed note produced none |
 | 4 | *counter-example* — `handover-note.md` holding one line of text | 2 model calls, `0 failed`, exit 0 |
