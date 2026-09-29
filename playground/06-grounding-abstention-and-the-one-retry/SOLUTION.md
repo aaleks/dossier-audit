@@ -180,13 +180,18 @@ Two details worth carrying away:
 
 ```console
 $ dossier run incident-audit
-run 20260917T210642Z-595a · …
-  extract: 4 document(s) · 0 from cache · 1 failed
-    extract failed on PLAY-1004.md
+run 20260929T153610Z-843e · …
+  extract: 4 document(s) · 0 from cache · 1 failed · tokens not reported
+    extract failed on PLAY-1004.md: no valid output after 2 attempts: findings: Extra inputs are not permitted; fields: Field required
 exit 1
 ```
 
-Six calls: one each for three documents, two for `PLAY-1004`. The other three
+Five calls: one each for three documents, two for `PLAY-1004`. The line says why
+it failed, in pydantic's terms without pydantic's noise (R6.31, R6.32): the
+answer has a `findings` key the schema does not allow, and no `fields` key, which
+it requires. Before R6.31 the line stopped at the document's name. The why was
+in the MLflow trace alone, so with tracking off it was printed nowhere. The
+retry prompt still showed the model pydantic's full text. The other three
 documents are audited, the failure is named, and the command exits non-zero —
 either kind of failure means this audit covered less than the corpus, and a zero
 exit would let anything reading `$?` quote it as clean (R6.9).

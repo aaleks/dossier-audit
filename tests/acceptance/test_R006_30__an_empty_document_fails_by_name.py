@@ -74,7 +74,8 @@ class TestAnEmptyDocumentFailsByName:
         assert "  extract: 2 document(s) · 0 from cache · 1 failed" in result.output, (
             result.output
         )
-        assert f"    extract failed on {EMPTY}" in result.stderr.splitlines(), result.stderr
+        line = f"    extract failed on {EMPTY}: every input it reads is empty: documents"
+        assert line in result.stderr.splitlines(), result.stderr
 
     def test_the_trace_says_which_input_was_empty(self, workspace: Path, monkeypatch):
         """Row 2 — the one where MLflow shows why, with no model span."""

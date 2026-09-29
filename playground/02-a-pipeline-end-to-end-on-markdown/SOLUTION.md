@@ -300,20 +300,21 @@ $ dossier run incident-audit
 warning: the source has moved since run 20260929T143151Z-8137: handover-note.md new
 run 20260929T143153Z-fa75 · .../runs/20260929T143153Z-fa75/manifest.json
   extract: 5 document(s) · 4 from cache · 1 failed
-    extract failed on handover-note.md
+    extract failed on handover-note.md: every input it reads is empty: documents
 ```
 
 The call log did not grow: four answers from cache, and no call for the note.
+The line says why, and which input was empty (R6.31).
 
 **Why `run` is the first to refuse it.** An empty file is a real file, so `sync`
 holds it and `convert` makes a markdown artifact of it, an empty one. Nothing is
 wrong until a model would be asked about it. Before R6.29 it was asked, as
 `<document key="handover-note.md"></document>`. A real model abstains on every
-field, correctly, and the answer was cached. That was a paid call about nothing, reported
-as a success, with nothing to tell a reviewer that the export had gone wrong.
-Now the call is not made, and the document fails at `extract`. With MLflow on,
-its trace is `ERROR`, holding `every input it reads is empty: documents`, and it
-sits in the review queue.
+field, correctly, and the answer was cached. That was a paid call about nothing,
+reported as a success, with nothing to tell a reviewer that the export had gone
+wrong. Now the call is not made, and the document fails at `extract`. With
+MLflow on, its trace is `ERROR`, holding the same reason, and it sits in the
+review queue.
 
 **Why it fails again, with no call.** Nothing was ever cached for it. The check
 comes before the cache is asked, so it fails at every run until someone fills

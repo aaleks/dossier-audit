@@ -13,6 +13,30 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A failed document is reported with its reason (R6.31 – R6.33). `dossier run`
+printed `    extract failed on INC-4822`, and never why. The reason reached the
+MLflow trace, so with tracking off it was printed nowhere. The line now ends
+with the reason, on one line. A validation failure's reason is what was wrong,
+each of pydantic's errors as `location: message`, every one of them. It has no
+pydantic header, no documentation link, and not the document's name the line
+already gives. Exercise 06's never-valid reply now reads
+`PLAY-1004.md: no valid output after 2 attempts: findings: Extra inputs are not
+permitted; fields: Field required`. The retry prompt and each attempt's span
+keep pydantic's full text, so the model is shown what it always was.
+Discovering this found that a page-by-page document's reason never said which
+page failed. Each page's reason now starts with its name, as `dossier eval`
+names the page of a miss (R7.48). `a.aleks` chose the concise reason over
+pydantic's text or the model's reply, and every error over the first and a
+count.
+
+Three older tests had checked the document's name inside the error, as a
+stand-in for other things: R11.1's "the trace names the error", and R0.3 and
+R6.9's "this document failed". They now check those directly. Re-running
+exercise 06 for its transcript also corrected the transcript's count of five
+calls, which it had given as six.
+
+---
+
 A call whose every input is empty is never made (R6.28 – R6.30). The same
 defect had been closed one shape at a time: a model asked about an input that
 came out empty, and the answer cached under the key of nothing. R6.13, R6.21,
