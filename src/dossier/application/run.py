@@ -1305,7 +1305,10 @@ def _on_part(result: DocumentResult, part: tuple[str, ImagePart] | None) -> Docu
     """
     if part is None:
         return result
-    return replace(result, parts=(part[0],) * len(result.records))
+    # A failed page's reason starts with the page, or the document's reason --
+    # its pages' reasons joined -- would not say which of them failed (R6.33).
+    error = None if result.error is None else f"{part[0]}: {result.error}"
+    return replace(result, parts=(part[0],) * len(result.records), error=error)
 
 
 def _joined_parts(results: Sequence[DocumentResult], *, document: str) -> DocumentResult:
