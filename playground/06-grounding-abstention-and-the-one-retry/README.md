@@ -132,6 +132,30 @@ line naming the fourth with its reason (R7.52).
 - Delete one of the other three documents' cache entries and score again. Why
   does that stop the command, when a failed document did not?
 
+Now restart the stub with the base replies alone and run once more. `PLAY-1004`
+is asked again and answered, and the other three come from the cache. Compare
+the new run with the one that failed:
+
+```bash
+dossier eval incident-audit --gold gold/incidents --compare <new run> <failed run>
+```
+
+**Checkpoint.** Compared over the three both runs answered, and the fourth
+named beneath the fields (R7.54, R7.55):
+
+```
+compare 20260929T203841Z-6a9a -> 20260929T183421Z-3cbc · 3 of 4 documents · overall 100.0% -> 100.0% (+0.0)
+  loss_amount        100.0% 100.0%   +0.0
+  resolution_date    100.0% 100.0%   +0.0
+  severity           100.0% 100.0%   +0.0
+  affected_systems   100.0% 100.0%   +0.0
+  not compared: PLAY-1004.md failed at extract in 20260929T183421Z-3cbc: no valid output after 2 attempts: findings: Extra inputs are not permitted; fields: Field required   <- regression
+```
+
+- Scored over four documents in one run and three in the other, which field
+  percentages would have moved, and what would a reader have blamed for it?
+- Swap the two run ids. The line is still there. Why is it no longer marked?
+
 ---
 
 ## Done when
@@ -140,5 +164,6 @@ line naming the fourth with its reason (R7.52).
 - you can say why an ungrounded field is not rescued by a correct value;
 - you can say how a partially failed run is scored, and why a failed document and
   a lost cache entry are treated differently.
+- a comparison that left a document out and said which, and why.
 
 **Next:** [07 · Calibrating a judge](../07-calibrating-a-judge/).

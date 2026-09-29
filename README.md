@@ -95,7 +95,7 @@ dossier run <pipeline> --doc KEY     # a try: ask about that document only; writ
 dossier run --replay runs/<id>/      # reproduce a past run exactly, with no model call
 dossier calibrate <pipeline> --gold … # measure each judge against its human-scored sample
 dossier eval <pipeline> --gold …     # score against verified answers
-dossier eval <pipeline> --compare a b
+dossier eval <pipeline> --compare a b  # two runs, field by field, over the documents both answered
 dossier dataset publish <pipeline> --gold …  # the gold set as an MLflow evaluation dataset
 dossier prompts publish <pipeline>   # each step's prompt and each rubric as an MLflow prompt version
 dossier review pull <pipeline>       # reviewers' verdicts from MLflow, into review/<pipeline>/
