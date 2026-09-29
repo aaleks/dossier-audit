@@ -535,7 +535,7 @@ different question (R4.15).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.plan`), application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R004_18__a_try_asks_only_about_the_named_documents.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
