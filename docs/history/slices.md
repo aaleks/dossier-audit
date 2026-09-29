@@ -13,6 +13,39 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`dossier run --doc KEY` tries a prompt on one document (R4.18 – R4.25). The
+live checks behind R6.25 ran exercise 10 four times, 9 calls each, when only
+`PLAY-3005`'s 4 pages mattered, and aiming at one document took an in-memory
+patch script. A run over some documents is a **try**. The design question was
+that `dossier eval` must never score one as the pipeline's result.
+
+- **What a try asks:** every step, only about the named documents; a
+  `per_group` step about each one's whole group, so its question and key are a
+  full run's (R4.18). A key no source holds stops the try before anything is
+  asked (R4.19).
+- **Where it goes:** `tries/<id>/`, named as a run's files are, and no manifest
+  under `runs/` (R4.20, R4.22). `eval`, `--plan` and the moved-since warning all
+  find the pipeline's result through the newest manifest there, so none can
+  mistake a try for a run. Its answers are cached under a full run's keys, and
+  the next full run is served them (R4.21). An `aggregate` step is skipped, and
+  its line says why (R4.23).
+- **MLflow:** recorded as a run is, tagged `dossier.try` with the documents, and
+  it registers and links no pipeline version: a version lists only the full runs
+  that produced it (R4.24).
+
+The acceptance rule R4.25 runs the loop a person does: a full run, two tries
+with the prompt edited between them, and eval still on the full run. While it
+was red, it failed exactly where the spec said a try must not go: after R4.19
+added `--doc`, eval took the try's manifest for the latest run and stopped on a
+document the try never asked about. Live against a local MLflow with the stub
+model, a try on `PLAY-3005` made 0 calls with its pages cached, and 4 calls
+(4 LLM spans) after a prompt edit. Both were FINISHED and tagged, with no
+version linked, while the full runs before them each link theirs. `runs/` was
+untouched, and eval still scored the full run's 6 documents with no call.
+Exercise 10 gained task 8.
+
+---
+
 An `enum` field is shown its values, and an answer outside them is named
 (R6.25 – R6.27). The model had never been told `severity`'s vocabulary: the
 generated schema limited field names only, and the prompt was meant to say the

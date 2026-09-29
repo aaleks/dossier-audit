@@ -307,7 +307,78 @@ did not change, so its verdicts are still in the judge cache. Had a page given a
 second root cause, the judge would have been asked about each distinct answer,
 and one it did not support would fail the document (R7.49).
 
-Take `pages.json` off the stub's command line before the next exercise.
+## Task 8 — one document, not six
+
+Each run in task 7 asked about six documents to learn what one of them said.
+That is nine calls a try, and on a real model nine calls paid for, when only
+`PLAY-3005`'s four pages mattered. `dossier run --doc` asks about the named
+document only.
+
+Leave task 7's last `pages.json` in place, the one where page 4 answers
+`severity` with `ERROR`. The fix belongs in the prompt: the model was never told
+what a severity is. Open `prompts/01_extract.md` and add this paragraph above
+the line that starts `The page reaches you`:
+
+```
+`severity` is how bad the incident was for the business: minor, major or
+critical. A log level such as `ERROR` on a panel is not a severity.
+```
+
+The stub reads no prompt, so make it the model that follows this one: delete
+the `severity` answer from page 4's rule in `pages.json`, and keep the figure.
+Then try the document, spelled as its source holds it:
+
+```bash
+dossier run observability-audit --doc PLAY-3005
+```
+
+**Checkpoint.** Exit 2, nothing asked:
+
+```
+observability-audit: PLAY-3005 is held by none of its sources (observability, screenshots)
+```
+
+A folder source names a document by its file name (R4.19). Try it again with
+`--doc PLAY-3005-weekly-incident-review.pdf`.
+
+**Checkpoint.** Four calls in the log, one a page:
+
+```
+try <id> · tries/<id>/
+  extract: 1 document(s) · 0 from cache · 0 failed · 1 described · tokens not reported
+```
+
+No finding. The answers are under `tries/<id>/extract/`, one file a page, named
+as a run's are (R4.22). `runs/` has nothing new.
+
+Now eval, and `dossier run observability-audit --plan`.
+
+**Checkpoint.** Eval still reads `severity 83.3%` with page 4's `ERROR` under
+it. `--plan` says `compared against` the run task 7 made, and `extract: prompt
+changed`.
+
+- The try answered without `ERROR`. Why does eval still show it? What would it
+  score if a try counted as a run? (R4.20)
+- Why does `--plan` compare against the same run eval scored?
+
+Satisfied, run the pipeline in full.
+
+**Checkpoint.**
+
+```
+  extract: 6 document(s) · 4 from cache · 0 failed · 10 described · tokens not reported
+```
+
+Five calls, not nine, and eval reads `100.0%` on every field.
+
+- Where did the four pages from cache come from? The prompt changed since the
+  last full run. (R4.21)
+- A pipeline ending in an `aggregate` report step would print `report: skipped
+  under --doc: it reads every document` in the try. Why is skipping it better
+  than asking it about one document? (R4.23)
+
+Take `pages.json` off the stub's command line before the next exercise, and put
+the prompt back if you want the next exercise to start where it expects.
 
 ---
 
@@ -320,7 +391,9 @@ Take `pages.json` off the stub's command line before the next exercise.
 - you can explain to someone else why `described` is neither a pass nor a
   failure, and why it needs its own threshold and its own sample;
 - you can say how a field four pages answered is scored, and read the page a
-  miss came from off the eval.
+  miss came from off the eval;
+- you can try a prompt on one document, and say why the try changed neither
+  what eval scores nor what the next full run pays for.
 
 **Next:** [12 · A dataset, and the change gate](../12-a-dataset-and-the-change-gate/),
 which stays offline like this one. [11 · A real Jira on your
