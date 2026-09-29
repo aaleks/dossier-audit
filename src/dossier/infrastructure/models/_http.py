@@ -14,6 +14,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from dossier.domain.refusals import refusal_reason
 from dossier.domain.retries import MAX_RETRIES, retry_after, retryable, wait_before
 from dossier.domain.usage import counted
 
@@ -38,8 +39,10 @@ Sleep = Callable[[float], None]
 class ModelRequestFailed(RuntimeError):
     """A model endpoint could not be reached, or did not answer as expected.
 
-    The message names the URL and the status. It never carries the key: that is
-    sent only in a request header, and nothing here echoes a header (R9.8 row 1).
+    The message names the URL, the status, and the reason the provider gave for
+    a refusal (R9.22). It never carries the key: that is sent only in a request
+    header, nothing here echoes a header, and a reason quoting it has it removed
+    (R9.8 row 1).
     """
 
 
@@ -74,7 +77,7 @@ def request(
         try:
             response = http.request(method, url, **kwargs)
         except NO_ANSWER as error:
-            status, headers = None, {}
+            status, headers, reason = None, {}, None
             failure = f"{method} {url} failed: {error}"
         except httpx.HTTPError as error:
             raise ModelRequestFailed(f"{method} {url} failed: {error}") from None
@@ -83,14 +86,23 @@ def request(
                 return response
             status, headers = response.status_code, response.headers
             failure = f"{method} {url} answered {status} {response.reason_phrase}"
+            reason = refusal_reason(response.content, secrets=_keys(http))
         if attempt > MAX_RETRIES or not retryable(status):
             # How many were made, once there was more than one: "answered 503"
             # alone would read as a server that refused the only request sent.
             tried = f" (after {attempt} attempts)" if attempt > 1 else ""
-            raise ModelRequestFailed(failure + tried)
+            # And why, last: it is the provider's sentence, and may run long.
+            said = f": {reason}" if reason else ""
+            raise ModelRequestFailed(failure + tried + said)
         asked = retry_after(headers, now=datetime.now(UTC))
         sleep(wait_before(attempt, retry_after=asked, jitter=1 - 0.25 * random.random()))
         attempt += 1
+
+
+def _keys(http: httpx.Client) -> list[str]:
+    """The key this client sends, however its provider takes it, so no reason repeats it."""
+    sent = (http.headers.get("authorization", ""), http.headers.get("x-api-key", ""))
+    return [value.removeprefix("Bearer ").strip() for value in sent if value]
 
 
 def text_at(response: httpx.Response, *path: str | int) -> str:

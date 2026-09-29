@@ -1,6 +1,6 @@
 # 009 — Model providers
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R9.1 – R9.22
 
 ## Purpose
@@ -608,7 +608,7 @@ reason and is left out, as it always was. The key is sent only in a header
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.refusals.refusal_reason`), infrastructure (`dossier.infrastructure.models._http.request`)
 - **Proved by:** `tests/unit/test_R009_22__a_refusal_names_the_providers_reason.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
