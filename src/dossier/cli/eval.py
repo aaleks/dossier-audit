@@ -29,6 +29,7 @@ from dossier.application.recording import failed_if_stopped
 from dossier.application.run import (
     MissingFromReplay,
     judge_evidence,
+    recorded_failures,
     reference_context,
     replay,
     replayed_inputs,
@@ -62,6 +63,7 @@ from dossier.domain.scoring import (
     per_field,
     weakest,
 )
+from dossier.domain.store import RUNS_ROOT
 from dossier.domain.tracking import (
     NAMESPACE,
     comparison_description,
@@ -69,6 +71,7 @@ from dossier.domain.tracking import (
     experiment_name,
     label_for,
     namespaced,
+    not_scored_line,
 )
 from dossier.domain.tracking import settings as tracking_settings
 from dossier.infrastructure.cache import ArtifactCache
@@ -234,7 +237,7 @@ def eval_(
         raise typer.Exit(code=2)
     manifest = Manifest.read(workspace / "runs" / run_dir / MANIFEST_NAME)
 
-    scored, text, pages = _reproduced(
+    scored, text, pages, failed = _reproduced(
         workspace, manifest, step.id, enums=load_enum_values(path.parent / step.output)
     )
     scores = score_run(report=scored, gold=load_gold(workspace / gold), kinds=kinds)
@@ -346,10 +349,13 @@ def eval_(
             # own line follows, so it can never be all that is printed (R7.2).
             # Counted in what was scored: for a `per_group` step, a group, which
             # is what its gold answer verifies (R7.32).
+            # And what the run failed, counted here and not scored (R7.50 row 6):
+            # 100% over three documents is not 100% of four (R7.52).
             typer.echo(
                 f"{bootstrap.count(len(scores), scored.unit)} · "
                 f"{bootstrap.count(len(reported), 'field')} · "
                 f"overall {summed.percentage:.1f}%"
+                + (f" · {len(failed)} failed" if failed else "")
             )
         lowest = weakest(reported)
         scored = {total.field: total for total in totals}
@@ -391,6 +397,14 @@ def eval_(
                     if result.field == field and not result.correct:
                         typer.echo(f"    {score.document:<14} {result.detail or 'incorrect'}")
 
+        # Each document the run failed, named with its step and why, beneath the
+        # fields it was not scored on (R7.52, R6.31).
+        for failed_at, result in failed:
+            typer.echo(
+                "  "
+                + not_scored_line(step=failed_at, document=result.document, reason=result.error)
+            )
+
         if tracker is not None:
             # The figures the lines above printed, recorded once rather than computed
             # a second way (R11.3).
@@ -417,6 +431,8 @@ def eval_(
                 # The accuracy this eval measured, recorded against the version it
                 # scored as well as against this run (R13.3).
                 version_id=scored_version,
+                # The count the headline printed (R7.52).
+                failed=len(failed),
             )
             typer.echo(f"recorded to MLflow: {experiment}")
 
@@ -487,7 +503,7 @@ def _compare_runs(
     totals: list[tuple] = []
     compared = next(s for s in config.steps if s.id == step)
     for run, manifest in zip(runs, manifests, strict=True):
-        scored, text, pages = _reproduced(
+        scored, text, pages, _ = _reproduced(
             workspace, manifest, step, enums=load_enum_values(declaration)
         )
         try:
@@ -693,6 +709,10 @@ def _reproduced(
             # the finding it would be in a run, however long ago it was cached
             # (R6.26).
             enums={step: enums},
+            # What the run failed, reproduced rather than looked for, so one
+            # failed document no longer makes the whole run unscorable (R4.28,
+            # R7.52).
+            failures=recorded_failures(workspace / RUNS_ROOT / manifest.run_id),
         )
     except MissingFromReplay as error:
         typer.echo(str(error), err=True)
@@ -705,7 +725,15 @@ def _reproduced(
         for entries in by_kind.values()
         for document, entries in entries.items()
     }
-    return next(result for result in report.steps if result.step == step), text, pages
+    # Every step's, not only the scored one's: a document an earlier step failed
+    # is skipped by the step scored here, and is still a document not scored.
+    failed = [(done.step, result) for done in report.steps for result in done.failed]
+    return (
+        next(result for result in report.steps if result.step == step),
+        text,
+        pages,
+        failed,
+    )
 
 
 def _published_dataset(workspace: Path, *, gold: str) -> PublishedDataset | None:
