@@ -417,6 +417,7 @@ def record_comparison(
     rubric_hashes: Mapping[str, str] | None = None,
     withheld: Mapping[str, str] | None = None,
     prompt_prefix: str = "",
+    failed: tuple[int, int] = (0, 0),
 ) -> None:
     """Record a comparison as one MLflow run of per-field deltas (R11.8, R11.9).
 
@@ -524,6 +525,11 @@ def record_comparison(
         metrics["b/overall"] = later.percentage
     if earlier is not None and later is not None:
         metrics["delta/overall"] = later.percentage - earlier.percentage
+    # What each run left unscored, as an eval of that run records it: `failed`,
+    # and only when there is one (R11.27, R7.52 row 3).
+    for side, count in zip(("a", "b"), failed, strict=True):
+        if count:
+            metrics[f"{side}/failed"] = count
     tracker.log_metrics(metrics)
     if detail:
         tracker.log_artifact(DELTAS_NAME, detail)
@@ -1221,7 +1227,9 @@ def scores_artifact(scores: Sequence[DocumentScore], *, withheld: Mapping[str, s
     return (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
-def deltas_artifact(rows: Sequence[FieldDelta], *, runs: tuple[str, str]) -> bytes:
+def deltas_artifact(
+    rows: Sequence[FieldDelta], *, runs: tuple[str, str], left_out: Sequence[str] = ()
+) -> bytes:
     """`deltas.md`: the comparison table the terminal printed (R11.14 row 3).
 
     Markdown rather than JSON, because this one is read rather than parsed: it is
@@ -1239,4 +1247,9 @@ def deltas_artifact(rows: Sequence[FieldDelta], *, runs: tuple[str, str]) -> byt
         moved = f"{row.delta:+.1f}" if row.delta is not None else "--"
         marker = "regression" if row.regressed else ""
         lines.append(f"| {row.field} | {was} | {now} | {moved} | {marker} |")
+    if left_out:
+        # Beneath the table, as the terminal prints them beneath the fields: a
+        # table over three documents that did not say so reads as one over four
+        # (R11.27, R7.55).
+        lines.extend(["", *left_out])
     return ("\n".join(lines) + "\n").encode("utf-8")

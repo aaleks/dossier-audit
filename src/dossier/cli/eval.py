@@ -551,6 +551,10 @@ def _compare_runs(
             f"({later.percentage - earlier.percentage:+.1f})"
         )
     deltas = compare_totals(before, after)
+    # Printed beneath the fields and recorded beneath the table, the same lines
+    # (R7.55, R11.27).
+    unscored_by_run = (reproduced[0][3], reproduced[1][3])
+    named = not_compared_lines(unscored_by_run, runs=runs)
     if tracker is not None:
         # Recorded after the refusals above, so a comparison that was refused
         # records nothing: there is no delta, so there is no figure (R11.8 row 4).
@@ -587,8 +591,10 @@ def _compare_runs(
                 documents=len(manifests[0].plan.documents),
                 rows=deltas,
                 overalls=(earlier, later),
+                left_out=len(left_out),
             ),
-            detail=deltas_artifact(deltas, runs=runs),
+            detail=deltas_artifact(deltas, runs=runs, left_out=named),
+            failed=(len(unscored_by_run[0]), len(unscored_by_run[1])),
             # Best-effort and unverified, as the eval's is (R14.11).
             prompt_registry=bootstrap.prompt_registry_for(workspace),
             rubric_hashes={
@@ -621,7 +627,7 @@ def _compare_runs(
 
     # What the comparison left out, beneath the fields it was left out of, and
     # never silently: a document either run failed is scored in neither (R7.55).
-    for line in not_compared_lines((reproduced[0][3], reproduced[1][3]), runs=runs):
+    for line in named:
         typer.echo("  " + line)
 
     if tracker is not None and experiment is not None:
