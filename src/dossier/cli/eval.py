@@ -39,6 +39,7 @@ from dossier.config.environment import environment
 from dossier.config.load import (
     JUDGE_FILE,
     ConfigError,
+    load_enum_values,
     load_fields,
     load_judge_rubrics,
     load_judge_thresholds,
@@ -233,7 +234,9 @@ def eval_(
         raise typer.Exit(code=2)
     manifest = Manifest.read(workspace / "runs" / run_dir / MANIFEST_NAME)
 
-    scored, text, pages = _reproduced(workspace, manifest, step.id)
+    scored, text, pages = _reproduced(
+        workspace, manifest, step.id, enums=load_enum_values(path.parent / step.output)
+    )
     scores = score_run(report=scored, gold=load_gold(workspace / gold), kinds=kinds)
 
     judges, withheld = _judge_gate(
@@ -484,7 +487,9 @@ def _compare_runs(
     totals: list[tuple] = []
     compared = next(s for s in config.steps if s.id == step)
     for run, manifest in zip(runs, manifests, strict=True):
-        scored, text, pages = _reproduced(workspace, manifest, step)
+        scored, text, pages = _reproduced(
+            workspace, manifest, step, enums=load_enum_values(declaration)
+        )
         try:
             scores = judge_scores(
                 score_run(report=scored, gold=gold_documents, kinds=kinds),
@@ -661,7 +666,9 @@ def _judged_evidence(step, plan, text: Mapping[str, str]) -> dict[str, object]:
     }
 
 
-def _reproduced(workspace: Path, manifest: Manifest, step: str):
+def _reproduced(
+    workspace: Path, manifest: Manifest, step: str, *, enums: Mapping[str, Sequence[str]]
+):
     """One step's results as a past run produced them, served from its cache (R4.7).
 
     A run that cannot be reproduced stops the command by name. Recomputing it
@@ -682,6 +689,10 @@ def _reproduced(workspace: Path, manifest: Manifest, step: str):
             # (R4.14).
             document_parts=by_kind,
             cache=ArtifactCache(workspace, namespace="stage"),
+            # What the declaration allows each enum, so an answer outside it is
+            # the finding it would be in a run, however long ago it was cached
+            # (R6.26).
+            enums={step: enums},
         )
     except MissingFromReplay as error:
         typer.echo(str(error), err=True)

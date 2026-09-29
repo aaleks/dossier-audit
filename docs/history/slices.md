@@ -13,6 +13,40 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+An `enum` field is shown its values, and an answer outside them is named
+(R6.25 – R6.27). The model had never been told `severity`'s vocabulary: the
+generated schema limited field names only, and the prompt was meant to say the
+rest. Live on 2026-09-29, `gpt-5.4-mini` answered `severity` with `latency`,
+`ERROR` and a heap-usage sentence off exercise 10's panel pages. `INC-4830`
+shows why it has to be told: every page prints `SEV-1`, and gold's `critical`
+is a reviewer's reading of it.
+
+- **The schema:** an enum field's record is now a variant of its own, holding
+  one of its values or `null` (R6.25). A declaration with no enum generates the
+  same bytes as before, so no key moves.
+- **The finding:** a value outside the vocabulary is an `invalid` field finding,
+  not a document failure, and it is re-derived on every read (R6.26). So
+  `dossier eval` names it on runs cached before the rule. Its replay is handed
+  the declaration's values, as the scorer is handed its kinds.
+- **The acceptance rule:** R6.27 proves the two wired together through the CLI.
+  It was added after `/discover` had written only the unit rules, because either
+  could be MET while the slice was broken, as R3.16 once was.
+
+R6.25's own live check changed the rule before its code. `gpt-5.4-mini`, which
+reads a schema as guidance, answers only the fields the *first* variant names.
+With the variants alone it left `severity` out of every page. With `severity`
+first, it dropped the others. With a description only listing the fields, it
+answered `severity` on three documents of six. The description that worked,
+"Answer every one of these fields: …", got every field on every page and every
+`severity` inside the vocabulary. Haiku 4.5, held to the schema, answered
+either way. Ollama accepted the schema: `qwen3.5:4b` held `SEV-1` to
+`critical`, but `qwen3:1.7b` repeated one record until it ran out of tokens,
+where the old schema took seven seconds. Held to the vocabulary, a model
+sometimes picks a value where it used to abstain: Haiku answered `major` on a
+panel page. The value is valid and wrong, and it is scored so.
+
+---
+
 A `per_part` step's fields are scored once per document (R7.46 – R7.51), and a
 field the run never answered is scored at all (R7.50). The list slice had noted
 the first and left it. A step reading one page at a time answers a field once

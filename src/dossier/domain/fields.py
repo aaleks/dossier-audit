@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from dossier.domain.hashing import content_hash
 from dossier.domain.schemas import FieldRecord, StageOutput
@@ -45,6 +45,9 @@ class OutputSchema:
     # one answer (R6.24). Derived from the same declaration as the schema, so the
     # declaration hash already moves when it does.
     lists: frozenset[str] = frozenset()
+    # The values each field declared `enum` allows, which a field check holds
+    # its answer to (R6.26). From the same declaration, so the hash moves too.
+    enums: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
     @property
     def generated_schema_hash(self) -> str:

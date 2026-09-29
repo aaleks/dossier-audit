@@ -98,6 +98,7 @@ def run_stage(
     capture: str = "full",
     hashes: Mapping[str, object] | None = None,
     lists: Collection[str] = (),
+    enums: Mapping[str, Sequence[str]] | None = None,
 ) -> DocumentResult:
     """Run one stage for one document, validating and grounding the answer.
 
@@ -107,7 +108,8 @@ def run_stage(
     exactly what it is, a response to a *validation* failure.
 
     `lists` names the fields declared `list`, the only ones an answer may give
-    more than one record (R6.24).
+    more than one record (R6.24). `enums` is the values each field declared
+    `enum` allows, which the field check holds its answer to (R6.26).
     """
     if schema is None:
         text = _asked(
@@ -200,6 +202,7 @@ def run_stage(
                 record,
                 input_documents=input_documents,
                 shown_as_pictures=shown_as_pictures,
+                enums=enums,
             )
             for record in records
         )

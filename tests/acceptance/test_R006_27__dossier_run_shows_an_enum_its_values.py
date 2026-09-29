@@ -27,8 +27,6 @@ from tests.pipelines import write_pipeline
 pytest.importorskip("pypdfium2", reason="INC-4830 is a PDF: needs dossier[pdf]")
 pytest.importorskip("PIL.Image", reason="the picture converters need Pillow")
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 SOURCE = "postmortems"
 GOLD = "gold/incidents"
