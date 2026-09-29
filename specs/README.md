@@ -23,7 +23,7 @@ spec assumes.
 | `012-evaluation-datasets.md` | Publishing a gold set as an MLflow evaluation dataset, and the eval run that links to it | R12.1 – R12.6 | Implemented |
 | `013-pipeline-versions.md` | Publishing a pipeline version as an MLflow logged model, and the accuracy recorded against it | R13.1 – R13.5 | Implemented |
 | `014-prompt-publishing.md` | Publishing a pipeline's prompts and rubrics as MLflow prompt versions, and the half of that registry dossier declines to use | R14.1 – R14.12 | Implemented |
-| `015-review-in-mlflow.md` | Reviewing a run's answers in MLflow, reading reviewers' verdicts back, and turning expected values into gold candidates a maintainer applies | R15.1 – R15.5 | Implemented |
+| `015-review-in-mlflow.md` | Reviewing a run's answers in MLflow, reading reviewers' verdicts back, and turning expected values into gold candidates a maintainer applies | R15.1 – R15.6 | Partially implemented |
 
 Supporting files:
 
