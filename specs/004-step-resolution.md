@@ -625,7 +625,7 @@ asked about what an earlier step did not produce (R6.13).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.plan`), cli (`dossier.cli.run`)
 - **Proved by:** `tests/unit/test_R004_23__a_step_reading_every_document_is_skipped_in_a_try.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -272,3 +272,16 @@ def check_tried(tried: Sequence[str], *, held: Collection[str], sources: Sequenc
         raise ValueError(
             f"{', '.join(unheld)} {verb} held by none of its sources ({', '.join(sources)})"
         )
+
+
+def skipped_in_try(mode: str, *, tried: Sequence[str] | None) -> str | None:
+    """Why a step is not asked in a try, or `None` when it is (R4.23).
+
+    An `aggregate` step reads every document. Asked about the named ones, it
+    would answer a question about a subset, cached under a key no full run
+    uses, and easily read as the real report. So a try skips it, and says so
+    rather than printing a step that ran over nothing.
+    """
+    if tried is not None and mode == "aggregate":
+        return "under --doc: it reads every document"
+    return None

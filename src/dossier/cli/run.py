@@ -600,6 +600,7 @@ def _execute(
                 findings=len(findings),
                 tokens=step.tokens,
                 unit=step.unit,
+                skipped=step.skipped,
             )
         )
         for document, check in findings:
