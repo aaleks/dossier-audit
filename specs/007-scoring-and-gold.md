@@ -1569,7 +1569,7 @@ answered wrongly. This is the slice's acceptance rule, proved through the CLI.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.eval`), domain (`dossier.domain.scoring.unscored`)
 - **Proved by:** `tests/acceptance/test_R007_54__compare_scores_both_runs_over_the_same_documents.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
