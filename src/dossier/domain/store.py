@@ -76,6 +76,11 @@ def held_address(path: str) -> str:
 # the copies of its artifacts a person opens are kept (R0.8, R0.11).
 RUNS_ROOT = "runs"
 
+# Where a try -- `dossier run --doc` -- writes what it was answered (R4.22). Not
+# under `runs/`, because every reader of `runs/` takes the newest manifest there
+# for the pipeline's result, and a try is not one (R4.20).
+TRIES_ROOT = "tries"
+
 
 def output_path(step: str, document: str, *, structured: bool, part: str | None = None) -> str:
     """The run-relative path of a step's artifact for a document (R0.11, R0.13).

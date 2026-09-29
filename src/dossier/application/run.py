@@ -82,7 +82,13 @@ from dossier.domain.resolution import (
     validate_input_arity,
 )
 from dossier.domain.schemas import StageOutput
-from dossier.domain.store import RESERVED_KEY, output_path, record_path
+from dossier.domain.store import (
+    RESERVED_KEY,
+    RUNS_ROOT,
+    TRIES_ROOT,
+    output_path,
+    record_path,
+)
 from dossier.domain.tracking import (
     record_content,
     review_tags,
@@ -200,7 +206,8 @@ class RunReport:
     """What a run did, and where it recorded that it did it."""
 
     run_id: str
-    manifest_path: Path
+    # `None` for a try, which writes no manifest (R4.20).
+    manifest_path: Path | None
     steps: tuple[StepReport, ...] = field(default_factory=tuple)
 
     @property
@@ -363,12 +370,21 @@ def execute(
 
     # Only now does anything touch the disk. Every check that could refuse this
     # run has already refused it.
-    manifest = Manifest(
-        run_id=run_id,
-        started_at=started_at,
-        dossier_version=dossier_version,
-        plan=plan,
-    ).write(workspace / "runs")
+    #
+    # A try writes no manifest, and nothing under `runs/`: `eval`, `--plan` and
+    # the warning that the source moved each take the newest manifest there for
+    # the pipeline's result, and one document of six is not it (R4.20).
+    manifest: Path | None = None
+    if tried is None:
+        manifest = Manifest(
+            run_id=run_id,
+            started_at=started_at,
+            dossier_version=dossier_version,
+            plan=plan,
+        ).write(workspace / RUNS_ROOT)
+        directory = manifest.parent
+    else:
+        directory = workspace / TRIES_ROOT / run_id
 
     keys = [document.key for document in plan.documents]
     declared = {step.id: step for step in pipeline.steps}
@@ -564,7 +580,7 @@ def execute(
                     )
                     if not result.failed:
                         _publish(
-                            run_dir=manifest.parent,
+                            run_dir=directory,
                             step=step.id,
                             document=key,
                             structured=output is not None,
@@ -670,7 +686,8 @@ def execute(
                 ),
             }
         )
-        tracker.log_artifact(manifest.name, manifest.read_bytes())
+        if manifest is not None:
+            tracker.log_artifact(manifest.name, manifest.read_bytes())
         # What the terminal is about to print, in the record's Description
         # (R11.17). Composed from the same function the CLI prints with, so
         # the two cannot say different things about one run.

@@ -572,7 +572,7 @@ mistake it for a run.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R004_20__a_try_is_never_the_latest_run.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
