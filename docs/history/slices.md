@@ -46,9 +46,34 @@ verifies on exactly one page, so none of its figures move. Its task 7 overrides
 `PLAY-3005`'s pages one at a time to show each case: a second date read off a
 panel, an abstention, and silence on every page.
 
-Not yet run against a real model: the slice changes scoring, which reads
-stored answers, and the suite's `per_part` acceptance test is the four-call
-run over the committed PDF that R7.51 describes.
+**The live check (2026-09-29)** ran exercise 10 on `openai:gpt-5.4-mini` and
+on `anthropic:claude-haiku-4-5-20251001`, with the user's MLflow on. Both
+models fell into the trap task 7 stages. Pages 2 to 4 of `PLAY-3005` answered
+`incident_date` from their panels (`2026-09-02`, `2026-09-01`), and
+`affected_systems` and `root_cause` from what each panel showed. Every such
+miss named its page. The page-by-page judge asked one verdict per distinct
+answer: nine on `gpt-5.4-mini`, eight on Haiku, whose page 2 abstained. The old
+code asked six, judged `PLAY-3005` on page 4 alone, and would have scored its
+`root_cause` 100%. `gpt-5.4-mini` never read `Resolved:` as the incident date
+on four of six documents. R7.50 counts each as `not answered`, and it drops
+`incident_date` to 33.3%, where before the field would have read 66.7% over
+three documents. Haiku abstained honestly and read page 1's date. Its
+`severity` is 100% only because R7.47 ignores the pages that said "not on this
+page".
+
+It also found two bugs the suite could not: the stub runs record nothing to
+MLflow, and no stub refuses a schema.
+
+- With MLflow on, every `per_part` run stopped after its first document,
+  `Expecting value: line 1 column 1 (char 0)`. The trace's response parsed the
+  joined `<part>` text as JSON. Each page's answer is now shown under its
+  name, read back from the server as such (R15.6, #550).
+- Anthropic answered every page, then refused every judge call with
+  `400 Bad Request`. The judge's hand-written schema was open, and the generated
+  stage schema always had been closed (R9.21, #549).
+
+R9.20's one line said `400 Bad Request` and nothing more. Anthropic's reply
+body says why, and would have named the cause in one sentence.
 
 ---
 
