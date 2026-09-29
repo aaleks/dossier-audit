@@ -663,7 +663,7 @@ documents are `INC-4830`, three pages read page by page, and `INC-5720`, one pag
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.run`, `dossier.cli.eval`), application (`dossier.application.run`)
 - **Proved by:** `tests/acceptance/test_R004_25__a_prompt_is_tried_on_one_document.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
