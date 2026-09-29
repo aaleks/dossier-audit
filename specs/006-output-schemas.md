@@ -809,7 +809,7 @@ answers the three pages in order and counts its calls.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli`), application (`dossier.application.run`, `dossier.application.eval`), domain (`dossier.domain.fields`, `dossier.domain.grounding`)
 - **Proved by:** `tests/acceptance/test_R006_27__dossier_run_shows_an_enum_its_values.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
