@@ -634,8 +634,11 @@ reading a try is reading a run.
 An `aggregate` step's input is every document. Asked about the named ones, it
 would answer a question about a subset, cached under a key no full run uses,
 and easily read as the real report. So it is not asked, and the step line says
-why. A step reading only a skipped step is not asked either, as a step is not
-asked about what an earlier step did not produce (R6.13).
+why. No step reads a skipped step, because no step may read an aggregate
+step at all (R3.19). The reason this sentence first gave, that a step is not
+asked about what an earlier step did not produce (R6.13), did not hold for a
+`per_group` reader, which was asked about an empty input: `/verify` found it on
+2026-09-29.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.plan`), cli (`dossier.cli.run`)
