@@ -949,7 +949,7 @@ changes the line.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.run`), domain (`dossier.domain.tracking.failure_line`)
 - **Proved by:** `tests/acceptance/test_R006_31__a_failed_document_is_reported_with_its_reason.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
