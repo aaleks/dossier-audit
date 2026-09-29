@@ -554,7 +554,7 @@ could find would look like the try that was meant.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.plan`), cli (`dossier.cli.run`)
 - **Proved by:** `tests/unit/test_R004_19__a_document_no_source_holds_stops_a_try.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

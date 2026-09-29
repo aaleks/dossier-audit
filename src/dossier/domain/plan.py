@@ -24,7 +24,7 @@ Pure. Two resolved plans in, one line per step out.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from enum import Enum
 
@@ -257,3 +257,18 @@ def asked_about(mode: str, units: Sequence[str], *, tried: Sequence[str] | None)
         return list(units)
     named = {group_of(key) for key in tried} if mode == "per_group" else set(tried)
     return [unit for unit in units if unit in named]
+
+
+def check_tried(tried: Sequence[str], *, held: Collection[str], sources: Sequence[str]) -> None:
+    """Refuse a try naming a document none of the pipeline's `sources` holds (R4.19).
+
+    Every key is checked before anything is asked. A key mistyped would
+    otherwise be a try about nothing, printed as a success; and a try asking
+    about the keys it could find would look like the try that was meant.
+    """
+    unheld = [key for key in dict.fromkeys(tried) if key not in held]
+    if unheld:
+        verb = "is" if len(unheld) == 1 else "are"
+        raise ValueError(
+            f"{', '.join(unheld)} {verb} held by none of its sources ({', '.join(sources)})"
+        )
