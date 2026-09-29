@@ -528,6 +528,17 @@ def execute(
                     holds=lambda kind: _held(kind, by_kind=by_kind, by_part=by_part),
                 ):
                     return None
+                # Nor a set none of whose members has an earlier step's answer:
+                # it would be asked about `<extract></extract>`. Every member
+                # already failed, once, where it failed, so this is a skip
+                # (R6.28), as R6.13's is.
+                if _reads_a_set(declared[step.id].mode) and _no_member_answered(
+                    declared=declared[step.id],
+                    resolved=step,
+                    members=_members(declared[step.id].mode, key, keys),
+                    produced=produced,
+                ):
+                    return None
 
                 # One trace per (step, document): the unit of a cache key, so one
                 # trace is one key computed or served (spec 011). Opened before
@@ -1177,6 +1188,27 @@ def _missing_input(
     """
     return any(
         document not in produced.get(target, {})
+        for target in _targets(declared, resolved)
+        if split_kind(target)[0] not in SOURCE_KEYWORDS
+    )
+
+
+def _no_member_answered(
+    *,
+    declared: StepConfig,
+    resolved: ResolvedStep,
+    members: Sequence[str],
+    produced: Mapping[str, Mapping[str, str]],
+) -> bool:
+    """Whether a set step would be handed nothing of an earlier step it reads (R6.28).
+
+    Asked with `_one_value`'s own lookup, so a group's answers are found where
+    R3.16 files them, under the group, and a set is empty exactly when the call
+    would have been shown an empty input.
+    """
+    return any(
+        _one_value(produced.get(target, {}), document="", documents=members, aggregate=True)
+        == ""
         for target in _targets(declared, resolved)
         if split_kind(target)[0] not in SOURCE_KEYWORDS
     )
