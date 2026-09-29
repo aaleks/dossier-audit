@@ -83,6 +83,7 @@ from dossier.domain.resolution import (
 )
 from dossier.domain.schemas import StageOutput
 from dossier.domain.store import (
+    FAILURES_NAME,
     RESERVED_KEY,
     RUNS_ROOT,
     output_path,
@@ -112,6 +113,10 @@ from dossier.domain.versions import version_record
 # be wrong, and leaving it unnamed would give a report no way to say which step a
 # failure came from. Reserved: a source may not hold a document called `*`.
 AGGREGATE_KEY = RESERVED_KEY
+
+# One unit a run failed, as `failures.json` holds it: its step, document, page
+# or `None`, and reason (R4.27).
+type Failure = dict[str, str | None]
 
 
 @dataclass(frozen=True)
@@ -403,6 +408,9 @@ def execute(
     # Held here rather than read back out of the cache, so a cache that vanishes
     # mid-run cannot strand a later stage (R5.9 example 3).
     produced: dict[str, dict[str, str]] = {}
+    # Each unit that failed, in the order the run met them: what a replay needs
+    # to tell a failure from a lost cache entry (R4.27).
+    failures: list[Failure] = []
 
     if tracker is not None:
         tracker.start_run(
@@ -509,7 +517,7 @@ def execute(
             # always before this loop moves on, and binding says so.
             def one(
                 key: str, *, step: ResolvedStep = step, output: OutputSchema | None = output
-            ) -> tuple[DocumentResult, list[DocumentResult]] | None:
+            ) -> tuple[DocumentResult, list[DocumentResult], list[Failure]] | None:
                 # A document an earlier step produced nothing for is skipped,
                 # not run with an empty input: that would ask a model about a
                 # document nobody read and cache the answer under a key whose
@@ -553,6 +561,10 @@ def execute(
                 # person who opens it (R0.11 row 3). A failed part leaves
                 # nothing, as a failed document does (R0.13 row 3).
                 parts_done: list[DocumentResult] = []
+                # Each unit of it that failed, a page or the document, as R4.27
+                # records it: the unit's own reason, before `_on_part` puts the
+                # page in front of it.
+                failed_units: list[Failure] = []
                 # Each answered part's name and the file `runs/` holds for it,
                 # which is what a `per_part` document's trace shows (R15.6).
                 pages: list[tuple[str, str]] = []
@@ -621,6 +633,15 @@ def execute(
                         )
                         if part is not None:
                             pages.append((part[0], _as_text(result)))
+                    else:
+                        failed_units.append(
+                            {
+                                "step": step.id,
+                                "document": key,
+                                "part": None if part is None else part[0],
+                                "reason": result.error,
+                            }
+                        )
                     parts_done.append(_on_part(result, part))
 
                 if not parts_done:
@@ -675,7 +696,11 @@ def execute(
                             otherwise=unbuilt_tags,
                         ),
                     )
-                return result, parts_done if declared[step.id].mode == "per_part" else []
+                return (
+                    result,
+                    parts_done if declared[step.id].mode == "per_part" else [],
+                    failed_units,
+                )
 
             # At most `concurrency` documents at once, collected in document
             # order whatever order they finish in: the step lines, `runs/` and
@@ -683,9 +708,10 @@ def execute(
             for done in _in_order(over, one, concurrency=concurrency):
                 if done is None:
                     continue
-                result, parts = done
+                result, parts, failed_here = done
                 every_part.extend(parts)
                 results.append(result)
+                failures.extend(failed_here)
             steps.append(
                 StepReport(
                     step=step.id,
@@ -697,6 +723,15 @@ def execute(
             produced[step.id] = {
                 result.document: _as_text(result) for result in results if not result.failed
             }
+
+    # Only now, when every step has run: a run stopped before this writes none,
+    # and a replay of it stops where it always did (R4.27 row 5). `[]` when
+    # nothing failed, so a finished run is told apart from a stopped one. A try
+    # writes none: it has no manifest and is never replayed (R4.20).
+    if manifest is not None:
+        (directory / FAILURES_NAME).write_text(
+            json.dumps(failures, indent=2) + "\n", encoding="utf-8", newline="\n"
+        )
 
     report = RunReport(run_id=run_id, manifest_path=manifest, steps=tuple(steps))
     if tracker is not None:

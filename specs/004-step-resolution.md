@@ -735,7 +735,7 @@ manifest and is never replayed (R4.20), so it writes no record.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`), domain (`dossier.domain.store`)
 - **Proved by:** `tests/unit/test_R004_27__a_run_records_what_it_failed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -81,6 +81,11 @@ RUNS_ROOT = "runs"
 # for the pipeline's result, and a try is not one (R4.20).
 TRIES_ROOT = "tries"
 
+# Beside a run's manifest: the units the run failed, written when it ends (R4.27).
+# Not in the manifest, which is what resolution produced and byte-identical for
+# one pipeline (R4.8), while what failed depends on what a model answered.
+FAILURES_NAME = "failures.json"
+
 
 def output_path(step: str, document: str, *, structured: bool, part: str | None = None) -> str:
     """The run-relative path of a step's artifact for a document (R0.11, R0.13).

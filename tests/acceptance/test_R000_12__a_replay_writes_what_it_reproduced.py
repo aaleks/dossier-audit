@@ -125,6 +125,8 @@ class TestAReplayWritesWhatItReproduced:
         import shutil
 
         shutil.rmtree(completed / "extract")
+        # A run from before R0.11 predates R4.27's record of failures as well.
+        (completed / "failures.json").unlink()
         assert [path.name for path in completed.iterdir()] == ["manifest.json"]
 
         result = _replay(workspace, monkeypatch, completed)
