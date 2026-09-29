@@ -100,6 +100,9 @@ class TestAnEmptyDocumentFailsByName:
 
         result = _cli(workspace, monkeypatch, "run", "--replay", f"runs/{run_id}")
 
+        # Found running exercise 02: the step line counted the failed note as an
+        # artifact from cache, `2 artifact(s)`, beside `1 artifact(s) reproduced`.
+        assert "  extract: 1 artifact(s) from cache" in result.output, result.output
         assert "1 artifact(s) reproduced" in result.output, result.output
         assert "cannot be reproduced" not in result.output, result.output
 
