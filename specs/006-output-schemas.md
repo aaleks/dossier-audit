@@ -1,6 +1,6 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R6.1 – R6.33
 
 ## Purpose
@@ -949,7 +949,7 @@ changes the line.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.run`), domain (`dossier.domain.tracking.failure_line`)
 - **Proved by:** `tests/acceptance/test_R006_31__a_failed_document_is_reported_with_its_reason.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

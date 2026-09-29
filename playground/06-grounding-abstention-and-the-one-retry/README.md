@@ -101,8 +101,9 @@ and run again. Read the rule file's comment before you do, and predict the resul
 Variant: `replies-never-valid.json`. `PLAY-1004` returns something schema-shaped
 but wrong, twice.
 
-**Checkpoint.** The run names the document, audits the other three, and exits
-non-zero (R6.9). Check what landed in the cache for that document: nothing. A
+**Checkpoint.** The run names the document and why it failed, audits the other
+three, and exits non-zero (R6.9, R6.31). Read the reason, then open
+`resources/replies-never-valid.json` and find the two things it names. Check what landed in the cache for that document: nothing. A
 failed document is a recorded failure, not a computed artifact, and caching it
 would make one bad afternoon permanent (R6.1).
 

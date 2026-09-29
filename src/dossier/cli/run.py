@@ -45,7 +45,7 @@ from dossier.domain.ports import ImagePart
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
 from dossier.domain.store import replay_path, try_path
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
-from dossier.domain.tracking import NAMESPACE, label_for, step_line
+from dossier.domain.tracking import NAMESPACE, failure_line, label_for, step_line
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.connectors.registry import declared_keys
 from dossier.infrastructure.ledger import Ledger
@@ -625,8 +625,13 @@ def _execute(
             # be this message deciding it knows better than the check did.
             typer.echo(f"    {document}  {check.detail}")
 
-    for step, document in report.failed:
-        typer.echo(f"    {step} failed on {document}", err=True)
+    for step in report.steps:
+        for result in step.failed:
+            typer.echo(
+                "    "
+                + failure_line(step=step.step, document=result.document, reason=result.error),
+                err=True,
+            )
 
     # Either kind of failure means this audit covered less than the corpus. A
     # zero exit here would let anything reading `$?` quote it as clean.

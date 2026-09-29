@@ -166,7 +166,7 @@ dossier run incident-audit
 
 ```
   extract: 5 document(s) · 4 from cache · 1 failed
-    extract failed on handover-note.md
+    extract failed on handover-note.md: every input it reads is empty: documents
 ```
 
 - The note synced and converted without a complaint. Why is `run` the first
