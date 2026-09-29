@@ -73,7 +73,9 @@ class TestEverySchemaAModelIsAskedForIsClosed:
                 "incident_date": FieldKind.DATE,
                 "severity": FieldKind.ENUM,
                 "root_cause": FieldKind.FREE_TEXT,
-            }
+            },
+            # The enum's own record is closed too (R6.25).
+            values={"severity": ("minor", "major", "critical")},
         )
 
         objects = _objects(schema)
@@ -115,7 +117,7 @@ class TestEverySchemaAModelIsAskedForIsClosed:
                 pipeline_hash="6e0d4b27" * 8,
                 schemas={
                     "extract": OutputSchema(
-                        schema=json_schema({"root_cause": FieldKind.FREE_TEXT}),
+                        schema=json_schema({"root_cause": FieldKind.FREE_TEXT}, values={}),
                         declaration_hash="d24c86e1" * 8,
                     ),
                     "report": None,

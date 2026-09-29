@@ -785,7 +785,7 @@ The live check, with the wording above:
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.fields.json_schema`)
 - **Proved by:** `tests/unit/test_R006_25__an_enum_fields_values_are_in_its_schema.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

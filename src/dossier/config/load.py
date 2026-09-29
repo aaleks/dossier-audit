@@ -411,7 +411,10 @@ def load_output_schema(path: Path) -> OutputSchema:
     """
     kinds = load_fields(path)
     return OutputSchema(
-        schema=json_schema(kinds), declaration_hash=text_hash(path), lists=list_fields(kinds)
+        # An enum's values go to the model with its name (R6.25).
+        schema=json_schema(kinds, values=load_enum_values(path)),
+        declaration_hash=text_hash(path),
+        lists=list_fields(kinds),
     )
 
 
