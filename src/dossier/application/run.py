@@ -83,6 +83,7 @@ from dossier.domain.resolution import (
 from dossier.domain.schemas import StageOutput
 from dossier.domain.store import RESERVED_KEY, output_path, record_path
 from dossier.domain.tracking import (
+    record_content,
     review_tags,
     run_description,
     run_name,
@@ -91,6 +92,7 @@ from dossier.domain.tracking import (
     trace_pages,
     trace_request,
     trace_response,
+    unbuilt_tags,
     version_params,
 )
 from dossier.domain.tracking import tags as tracking_tags
@@ -506,20 +508,25 @@ def execute(
                         name=f"{step.id} · {key}",
                         tags={"dossier.step": step.id, "dossier.document": key},
                         # What a reviewer reads first: the document and what the
-                        # step was handed about it (R15.1).
-                        inputs=trace_request(
-                            key,
-                            _input_values(
-                                declared=declared[step.id],
-                                resolved=step,
-                                document=key,
-                                documents=_members(declared[step.id].mode, key, keys),
-                                aggregate=_reads_a_set(declared[step.id].mode),
-                                by_kind=by_kind,
-                                reference=by_reference,
-                                produced=produced,
+                        # step was handed about it (R15.1). Built where a failure
+                        # is caught, so it costs the record and never the run
+                        # (R10.25).
+                        inputs=record_content(
+                            lambda: trace_request(
+                                key,
+                                _input_values(
+                                    declared=declared[step.id],
+                                    resolved=step,
+                                    document=key,
+                                    documents=_members(declared[step.id].mode, key, keys),
+                                    aggregate=_reads_a_set(declared[step.id].mode),
+                                    by_kind=by_kind,
+                                    reference=by_reference,
+                                    produced=produced,
+                                ),
+                                capture=capture,
                             ),
-                            capture=capture,
+                            otherwise=lambda why: {"document": key, "error": why},
                         ),
                     )
                 # A per_part step runs once per part of its input, keyed and
@@ -585,26 +592,34 @@ def execute(
                         # And the answer beside it, as `runs/` holds it (R15.1):
                         # for a `per_part` document, one file per page, never the
                         # joined text a later step reads, which is not JSON (R15.6).
-                        outputs=(
-                            trace_pages(pages, structured=output is not None, capture=capture)
-                            if declared[step.id].mode == "per_part" and not result.failed
-                            else trace_response(
-                                None if result.failed else _as_text(result),
-                                structured=output is not None,
-                                error=result.error if result.failed else None,
-                                capture=capture,
-                            )
+                        outputs=record_content(
+                            lambda: (
+                                trace_pages(
+                                    pages, structured=output is not None, capture=capture
+                                )
+                                if declared[step.id].mode == "per_part" and not result.failed
+                                else trace_response(
+                                    None if result.failed else _as_text(result),
+                                    structured=output is not None,
+                                    error=result.error if result.failed else None,
+                                    capture=capture,
+                                )
+                            ),
+                            otherwise=lambda why: {"error": why},
                         ),
                         # What the run doubts about it, for the review queue
                         # (R15.2). Checks pair with records one to one.
-                        tags=review_tags(
-                            failed=result.failed,
-                            verdicts=[
-                                (record.field, check.verdict)
-                                for record, check in zip(
-                                    result.records, result.checks, strict=True
-                                )
-                            ],
+                        tags=record_content(
+                            lambda: review_tags(
+                                failed=result.failed,
+                                verdicts=[
+                                    (record.field, check.verdict)
+                                    for record, check in zip(
+                                        result.records, result.checks, strict=True
+                                    )
+                                ],
+                            ),
+                            otherwise=unbuilt_tags,
                         ),
                     )
                 return result, parts_done if declared[step.id].mode == "per_part" else []

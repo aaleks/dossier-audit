@@ -1,7 +1,7 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
 **Status:** Implemented
-**Rules:** R10.1 – R10.24
+**Rules:** R10.1 – R10.25
 
 ## Purpose
 
@@ -805,3 +805,42 @@ the close.
 | 5 | the server stops answering after the second of four traces, and does not answer the lookup | `4 trace(s)`: none is seen held, so none counts as recorded, and the close is still sent. R10.6 row 1's `2` is the count for a tracker whose own calls reach the server; MLflow's do not |
 | 6 | *counter-example* — the server holds all four | no trace line; nothing counted |
 | 7 | *counter-example* — `dossier sync incident-audit`, which opens no trace | no flush and no lookup: not one request more than before |
+
+### R10.25 — a document's trace, and each model call's span, never stops `dossier run`: content that cannot be built is recorded as the error
+
+R10.6 promises that a record lost never changes a command's outcome, and the
+best-effort tracker keeps that promise for every call it is handed. But the
+content of a document's trace is built before the tracker is handed anything,
+inside the run's loop over documents. That content is:
+
+- the request and the response (R15.1, R15.6);
+- the review tags (R15.2);
+- each model call's span (R11.2).
+
+An exception there was the run's own. On 2026-09-29 one stopped every
+`per_part` run recorded to MLflow after its first document (R15.6).
+
+So each is built where a failure is caught. A request, response or span that
+cannot be built is sent anyway, holding `could not be built: <type>: <message>`
+under `error`. The trace keeps its status, the answer keeps its artifact, and
+the run goes on exactly as it would have untracked. Tags that cannot be built
+put the trace in the review queue, since a doubt nobody could write down is
+still a doubt. None of this counts as a record lost (R10.6): the trace reached
+MLflow, and it says what went wrong where a reviewer reads it.
+
+This rule is for the loop, where one bad document once cost every document after
+it. What a command records once, at its start or end, is built from its
+configuration, and a failure there comes before any work or after all of it.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.record_content`, `unbuilt_tags`), application (`dossier.application.run`, `dossier.application.extract`)
+- **Proved by:** `tests/unit/test_R010_25__a_trace_that_cannot_be_built_never_stops_a_run.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `extract · INC-4821`, its response failing to build with `RuntimeError: boom` | the run completes as it would untracked: the artifact written and cached, both documents answered; the trace closed `OK`, its response `{"error": "could not be built: RuntimeError: boom"}` |
+| 2 | its request failing to build | the trace opened with `{"document": "INC-4821", "error": "could not be built: RuntimeError: boom"}`, and the run goes on |
+| 3 | its review tags failing to build | tagged `dossier.review` `needed` and `dossier.findings` `could not be built: RuntimeError: boom` |
+| 4 | a model call's span failing to build | the span still sent, one per call as R11.2 counts them, its attributes `{"error": "could not be built: RuntimeError: boom"}` |
+| 5 | *counter-example* — the same failure with tracking off | nothing is built, so nothing can fail: the run is the run it always was (R10.4) |
