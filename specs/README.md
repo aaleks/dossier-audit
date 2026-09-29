@@ -14,7 +14,7 @@ spec assumes.
 | `003-pipeline-format.md` | `sources.yaml` and `pipeline.yaml` schemas, and the modes a step is asked in | R3.1 – R3.18 | Implemented |
 | `004-step-resolution.md` | Reference expansion, the run manifest, plan diffing | R4.1 – R4.17 | Implemented |
 | `005-caching-and-keys.md` | Cache key composition, cascade, provenance records, and what a run spent in tokens | R5.1 – R5.15 | Implemented |
-| `006-output-schemas.md` | Structured output, grounding, abstention, validation | R6.1 – R6.26 | Partially implemented |
+| `006-output-schemas.md` | Structured output, grounding, abstention, validation | R6.1 – R6.27 | Partially implemented |
 | `007-scoring-and-gold.md` | Gold sets, scorers, judge calibration, the change gate | R7.1 – R7.51 | Implemented |
 | `008-conversion.md` | The converter interface, its registration, versioning and selection | R8.1 – R8.33 | Implemented |
 | `009-model-providers.md` | Model providers, their pinned forms, where each is reached, when a request is sent again, what an answer cost, how many are asked at once, and how a failure is said | R9.1 – R9.22 | Implemented |

@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
 **Status:** Partially implemented
-**Rules:** R6.1 – R6.26
+**Rules:** R6.1 – R6.27
 
 ## Purpose
 
@@ -790,3 +790,30 @@ value outside the vocabulary was already incorrect. The finding now says why.
 | 2 | `severity` answered `Critical` | valid; compared case folded, as the scorer compares it |
 | 3 | a run cached before this rule, with `SEV-1` in it, evaluated again | the same finding, with no model asked, since verdicts are re-derived on every read (R5.5); `severity` is scored incorrect, as it already was |
 | 4 | *counter-example* — `severity` `null`, with the reason `not on this page` | `abstained`, not `invalid` (R6.5) |
+
+### R6.27 — `dossier run` shows a model an enum field's values, and names an answer outside them
+
+This is the slice's acceptance rule, as R7.51 was for scoring `per_part` steps
+(spec 007). It states what a person running `dossier` observes once R6.25 and
+R6.26 hold together. Either could be MET alone while the slice is broken. R3.16
+was proved where the pipeline was loaded, while every step reading its output
+was handed nothing. So this rule is proved through the CLI: from a declaration to
+the schema a model is handed and the line `run` prints, then the same finding
+read back by `eval`.
+
+The rows use `INC-4830` page by page (`_fixtures.md`), with
+`severity: {kind: enum, values: [minor, major, critical]}` and
+`resolution_date: {kind: date}` declared. The model is a `FakeModelClient` that
+answers the three pages in order and counts its calls.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli`), application (`dossier.application.run`, `dossier.application.eval`), domain (`dossier.domain.fields`, `dossier.domain.grounding`)
+- **Proved by:** `tests/acceptance/test_R006_27__dossier_run_shows_an_enum_its_values.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier run`, every page answering `severity` `critical` | three model calls, each handed a schema whose only record able to name `severity` holds `minor`, `major`, `critical` or `null` |
+| 2 | page 1 answering `severity` `SEV-1`, the header every page prints, and `resolution_date` `2026-07-28` | exit 0; `1 finding(s)` on the step line, and the line `    INC-4830-postmortem-checkout-tls-expiry.pdf  severity: 'SEV-1' is not one of minor, major, critical`; the document is not failed |
+| 3 | `dossier eval` after that run | `severity` `0.0%` with `page-001.png: severity: 'SEV-1' is not one of minor, major, critical` under it, and `resolution_date` `100.0%`; no model asked (R7.10) |
+| 4 | *counter-example* — page 1 answering `Critical` | no finding, and `severity` `100.0%`: compared case folded, as the scorer compares it |
