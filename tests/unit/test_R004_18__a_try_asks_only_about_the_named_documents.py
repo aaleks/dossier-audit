@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -22,18 +23,32 @@ from dossier.domain.pipeline import PipelineConfig, StepConfig
 
 TEXT = {**ISSUES, **FIFTH_ISSUE}
 DOCUMENTS = tuple(sorted(TEXT))
+# `_fixtures.md`'s contracts: ACME-2024 is a master and two amendments, and
+# GLOBEX-2023 a group of one.
+CONTRACTS = {
+    "ACME-2024/amendment-1.pdf": "Amendment 1 changes the invoicing address.",
+    "ACME-2024/amendment-3.pdf": "Amendment 3 extends the term to 2027-03-31.",
+    "ACME-2024/master.pdf": "Liability is capped at EUR 2,000,000.",
+    "GLOBEX-2023/master.pdf": "The term ends 2026-12-31.",
+}
 
 
-def _snapshot(key: str) -> str:
-    return hashlib.sha256(TEXT[key].encode()).hexdigest()
+def _snapshot(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
 
 
-def _run(workspace: Path, *, tried: tuple[str, ...] | None) -> FakeModelClient:
-    """`extract` per_file over the five incidents; the model, having been asked."""
+def _run(
+    workspace: Path,
+    *,
+    tried: tuple[str, ...] | None,
+    mode: str = "per_file",
+    text: dict[str, str] = TEXT,
+) -> FakeModelClient:
+    """`extract` over `text`, in `mode`; the model, having been asked."""
     from dossier.infrastructure.cache import ArtifactCache
 
     model = FakeModelClient(
-        responses=[json.dumps({"document": key, "fields": []}) for key in DOCUMENTS]
+        responses=[json.dumps({"document": key, "fields": []}) for key in sorted(text)]
     )
     execute(
         RunInputs(
@@ -46,7 +61,7 @@ def _run(workspace: Path, *, tried: tuple[str, ...] | None) -> FakeModelClient:
                         id="extract",
                         prompt="prompts/extract.md",
                         input="documents",
-                        mode="per_file",
+                        mode=mode,
                         output="schemas/incident.yaml",
                     )
                 ],
@@ -58,8 +73,8 @@ def _run(workspace: Path, *, tried: tuple[str, ...] | None) -> FakeModelClient:
                 )
             },
             prompts={"extract": prompt_for(["documents"])},
-            documents={key: _snapshot(key) for key in DOCUMENTS},
-            document_text=TEXT,
+            documents={key: _snapshot(body) for key, body in text.items()},
+            document_text=text,
         ),
         workspace=workspace,
         model=model,
@@ -79,6 +94,12 @@ def _about(model: FakeModelClient) -> list[list[str]]:
     ]
 
 
+def _shown(model: FakeModelClient) -> list[list[str]]:
+    """The documents each call was handed, each wrapped under its own key (R3.13)."""
+    wrapped = re.compile(r'<document key="([^"]+)">')
+    return [wrapped.findall(str(call["prompt"])) for call in model.calls]
+
+
 class TestATryAsksOnlyAboutTheNamedDocuments:
     """R4.18 — `dossier run --doc KEY` asks every step only about the named documents."""
 
@@ -88,3 +109,18 @@ class TestATryAsksOnlyAboutTheNamedDocuments:
 
         assert model.call_count == 1
         assert _about(model) == [["INC-4821"]]
+
+    def test_a_named_member_is_asked_about_with_its_whole_group(self, tmp_path: Path):
+        """Row 4 — the one where an amendment brings its master and its sibling.
+
+        A `per_group` step's unit is the group (R3.15). Asked about amendment 3
+        alone, it would be a different question from the one a full run asks
+        (R4.15), and its answer a different key's.
+        """
+        model = _run(
+            tmp_path, tried=("ACME-2024/amendment-3.pdf",), mode="per_group", text=CONTRACTS
+        )
+
+        assert _shown(model) == [
+            ["ACME-2024/amendment-1.pdf", "ACME-2024/amendment-3.pdf", "ACME-2024/master.pdf"]
+        ]
