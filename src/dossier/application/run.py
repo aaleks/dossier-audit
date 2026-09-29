@@ -40,7 +40,7 @@ from pydantic import ValidationError
 
 from dossier.application.convert import MARKDOWN, convert_inputs
 from dossier.application.extract import DocumentResult, run_stage
-from dossier.application.manifest import Manifest
+from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.prompts import link_published
 from dossier.application.recording import failed_if_stopped
 from dossier.domain.conversion import PART_SUFFIX, PART_TYPE, part_name, unpack_parts
@@ -377,14 +377,15 @@ def execute(
     # A try writes no manifest, and nothing under `runs/`: `eval`, `--plan` and
     # the warning that the source moved each take the newest manifest there for
     # the pipeline's result, and one document of six is not it (R4.20).
+    resolved = Manifest(
+        run_id=run_id,
+        started_at=started_at,
+        dossier_version=dossier_version,
+        plan=plan,
+    )
     manifest: Path | None = None
     if tried is None:
-        manifest = Manifest(
-            run_id=run_id,
-            started_at=started_at,
-            dossier_version=dossier_version,
-            plan=plan,
-        ).write(workspace / RUNS_ROOT)
+        manifest = resolved.write(workspace / RUNS_ROOT)
         directory = manifest.parent
     else:
         directory = workspace / try_path(run_id)
@@ -700,8 +701,15 @@ def execute(
                 ),
             }
         )
-        if manifest is not None:
-            tracker.log_artifact(manifest.name, manifest.read_bytes())
+        # A try's record holds the plan it resolved as a run's does, though no
+        # manifest is written to disk for it: which prompts and snapshots it
+        # asked with is what comparing two tries in MLflow needs (R4.24, R4.20).
+        tracker.log_artifact(
+            MANIFEST_NAME,
+            manifest.read_bytes()
+            if manifest is not None
+            else resolved.model_dump_json(indent=2).encode("utf-8"),
+        )
         # What the terminal is about to print, in the record's Description
         # (R11.17). Composed from the same function the CLI prints with, so
         # the two cannot say different things about one run.

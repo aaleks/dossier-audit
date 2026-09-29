@@ -667,7 +667,8 @@ results, so it is not linked to the version as a record that produced them
 |---|-------|------|
 | 1 | tracking on, `--doc INC-4821 --doc INC-4822` | one MLflow run in `dossier-audit/incident-audit/run`, tagged `dossier.try` `INC-4821, INC-4822`; a trace per document and a span per model call, as a run's |
 | 2 | the same | no link to the pipeline version as the record that produced it |
-| 3 | *counter-example* — a full run, tracking on | no `dossier.try` tag, and linked to its version as it always was (R13.2) |
+| 3 | the same | the MLflow run holds `manifest.json`, the plan the try resolved, as a run's record holds its own; no manifest is written to disk (R4.20) |
+| 4 | *counter-example* — a full run, tracking on | no `dossier.try` tag, and linked to its version as it always was (R13.2) |
 
 ### R4.25 — a prompt is tried on one document, again and again, and the pipeline's result stays the last full run's
 

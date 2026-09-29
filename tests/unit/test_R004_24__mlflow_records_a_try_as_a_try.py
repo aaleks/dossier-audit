@@ -108,8 +108,26 @@ class TestMlflowRecordsATryAsATry:
         (run,) = tracker.runs
         assert run.produced == []
 
+    def test_a_try_records_the_plan_it_resolved(self, tmp_path: Path):
+        """Row 3 — the one where two tries can be compared in MLflow, and not on disk.
+
+        The record holds what a run's manifest would: the try's id, and the
+        prompt and snapshot hashes it asked with. Nothing is written under
+        `runs/` or `tries/` for it (R4.20).
+        """
+        from dossier.application.manifest import MANIFEST_NAME, Manifest
+
+        tracker, _ = _execute(tmp_path, tried=("INC-4821", "INC-4822"))
+
+        (run,) = tracker.runs
+        recorded = Manifest.model_validate_json(run.artifacts[MANIFEST_NAME])
+        assert recorded.run_id == "20260929T100000Z-1a2b"
+        assert [step.id for step in recorded.plan.steps] == ["extract"]
+        assert sorted(document.key for document in recorded.plan.documents) == sorted(ISSUES)
+        assert list(tmp_path.rglob(MANIFEST_NAME)) == []
+
     def test_a_full_run_is_untagged_and_produced_its_version(self, tmp_path: Path):
-        """Row 3, counter-example — the one with no `--doc`: the record R13.2 always made."""
+        """Row 4, counter-example — the one with no `--doc`: the record R13.2 always made."""
         tracker, versions = _execute(tmp_path, tried=None)
 
         (run,) = tracker.runs
