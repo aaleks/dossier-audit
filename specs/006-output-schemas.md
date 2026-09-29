@@ -1,7 +1,7 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Implemented
-**Rules:** R6.1 – R6.27
+**Status:** Partially implemented
+**Rules:** R6.1 – R6.30
 
 ## Purpose
 
@@ -846,3 +846,85 @@ answers the three pages in order and counts its calls.
 | 2 | page 1 answering `severity` `SEV-1`, the header every page prints, and `resolution_date` `2026-07-28` | exit 0; `1 finding(s)` on the step line, and the line `    INC-4830-postmortem-checkout-tls-expiry.pdf  severity: 'SEV-1' is not one of minor, major, critical`; the document is not failed |
 | 3 | `dossier eval` after that run | `severity` `0.0%` with `page-001.png: severity: 'SEV-1' is not one of minor, major, critical` under it, and `resolution_date` `100.0%`; no model asked (R7.10) |
 | 4 | *counter-example* — page 1 answering `Critical` | no finding, and `severity` `100.0%`: compared case folded, as the scorer compares it |
+
+### R6.28 — a step reading a set is not asked when no member of the set has what it reads
+
+R6.13 row 4 says an `aggregate` step runs over the documents that did produce
+output, and a `per_group` step reads its group's the same way (R3.15). When none
+did, it was asked anyway, about `<extract></extract>`: a call about nothing,
+cached under the key of nothing. Found on 2026-09-29 while this guard was being
+discovered. The cause is already reported, once, at the step every member
+failed, so this is a skip and not a failure, as R6.13's is. A failure list is a
+list of causes.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R006_28__a_set_with_no_member_is_not_asked.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821` and `INC-4822` both fail `extract` after its retry; `report`, `aggregate`, reads `extract` | `report` is not asked: no model call, no artifact, no cache entry; the run names each document once, under `extract` |
+| 2 | `ACME-2024/master.pdf` and `ACME-2024/amendment-3.pdf` fail `extract`, and `GLOBEX-2023/master.pdf` does not; `combine`, `per_group`, reads `extract` | one call, for `GLOBEX-2023`; `ACME-2024` is not asked, and is not a second failure |
+| 3 | *counter-example* — `INC-4822` fails `extract`, and `INC-4821` does not | `report` is asked once, over `INC-4821` (R6.13 row 4) |
+
+### R6.29 — a call whose every input is empty is neither made nor served from cache, and its document fails at that step, naming them
+
+Four rules have closed one shape each of the same defect: a model asked about an
+input that came out empty. R6.13 closed it for a document an earlier step failed
+on, R6.21 for a document with nothing of a kind, R3.16 for a group step read per
+file, and R3.19 for an aggregate step read at all. Each was found after it had
+cached answers about nothing. Two were found live, one by `/verify`, and one only
+after a picture had been served another picture's answer. This rule is at the
+call, where the next shape will reach, whatever it is.
+
+A call's inputs are what it is about: the documents it reads, in each kind, and
+each earlier step's answer. A page counts, so a `per_part` call is never empty.
+Its placeholder is empty by design, and it carries the picture (R8.11). The
+`reference` documents do not count: they are context, shown to every call, and
+never what a call is about (R3.17). An input is empty when it is the empty
+string: a scan whose markdown is only its page anchors is not empty. Asking
+about it is how the emptiness becomes a finding (spec 008).
+
+Stopped, the document fails at that step, and its error names each empty input.
+That is a failure, not a skip (decided by `a.aleks` on 2026-09-29). The shapes
+whose cause is already reported are skipped before this rule is reached (R6.13,
+R6.21, R6.28). So what reaches it is either a document with nothing in it or a
+defect in `dossier`, and a person should look at both. A document holding no
+artifact of a kind is R6.21's, and is skipped. One whose artifact is empty is
+this rule's (decided by `a.aleks` on 2026-09-29). The check comes before the
+cache is asked, so an answer cached about nothing, before this rule, is never
+served again. A judge is outside this rule: it is handed the answer it judges.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.prompts.empty_inputs`), application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R006_29__a_call_about_nothing_is_never_made.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents-manual` holding `INC-4821.md` and `handover-note.md`, zero bytes; `extract` reads `documents` | one model call, for `INC-4821.md`; `handover-note.md` has no call, no artifact and no cache entry, and fails at `extract` with `every input it reads is empty: documents` |
+| 2 | `notes`, a step with no `output`, answering `INC-4821` with the empty string; `verify`, `per_file`, reads `notes` | `verify` is not asked about `INC-4821`, which fails at `verify` with `every input it reads is empty: notes` |
+| 3 | an answer for `handover-note.md` cached before this rule, under its key | not served: the document fails as in row 1, and 0 model calls |
+| 4 | a replay of row 1's run | reproduces it with no model call, without asking for an entry the run never wrote (R4.7) |
+| 5 | *counter-example* — `describe`, `per_part`, reading `documents@page_images` over `PLAY-2002` | asked once for its page: a page is an input, and the empty placeholder is how pictures reach a prompt (R8.11) |
+| 6 | *counter-example* — `PLAY-2002`'s `markdown`, its page anchors and no text, read by `extract` | asked: anchors are not the empty string, and a scan with no text layer is a finding to be made, not an input lost (spec 008) |
+
+### R6.30 — `dossier run` over an empty document fails it by name, asks about the others, and replays
+
+This is the acceptance rule for R6.28 and R6.29, observed through the CLI as a
+person runs it: a folder source holding a real incident and an empty file. As
+R6.27 says of its own slice, the two rules can each be MET while the run a
+person reads is wrong. The model is a `FakeModelClient` that counts calls.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.run`), application (`dossier.application.run`)
+- **Proved by:** `tests/acceptance/test_R006_30__an_empty_document_fails_by_name.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents-manual` holding `INC-4821.md` and `handover-note.md`, zero bytes; `dossier run incident-audit` | 1 model call; `extract: 2 document(s) · 0 from cache · 1 failed`; `    extract failed on handover-note.md` on stderr; exit 1 |
+| 2 | the same, tracking on | the trace `extract · handover-note.md` closed `ERROR`, its error `every input it reads is empty: documents`, and no model span in it |
+| 3 | `dossier run --replay runs/<id>/` after row 1 | the run reproduced, with no model call and no missing entry (R4.7) |
+| 4 | *counter-example* — `handover-note.md` holding one line of text | 2 model calls, `0 failed`, exit 0 |
