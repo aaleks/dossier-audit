@@ -179,5 +179,5 @@ class TestEveryArtifactHasAProvenanceRecord:
 
         (failed,) = report.steps[0].results
         assert failed.failed
-        assert "INC-4821" in failed.error
+        assert failed.document == "INC-4821"
         assert stage_files(tmp_path) == []

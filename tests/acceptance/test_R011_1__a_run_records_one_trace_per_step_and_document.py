@@ -182,7 +182,11 @@ class TestARunRecordsOneTracePerStepAndDocument:
             trace.tags["dossier.document"]: trace for trace in tracker.runs[0].traces
         }
         assert by_document["INC-4821"].status == "ERROR"
-        assert "INC-4821" in (by_document["INC-4821"].error or "")
+        # Names the error: why the answer was refused (R6.32). The document is
+        # the trace's own name and tag, not a word inside its error.
+        assert (by_document["INC-4821"].error or "").startswith(
+            "no valid output after 2 attempts: "
+        )
         assert {
             key: trace.status for key, trace in by_document.items() if key != "INC-4821"
         } == {key: "OK" for key in ISSUES if key != "INC-4821"}
