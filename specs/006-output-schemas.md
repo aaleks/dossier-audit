@@ -1,6 +1,6 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R6.1 – R6.27
 
 ## Purpose
@@ -811,7 +811,7 @@ value outside the vocabulary was already incorrect. The finding now says why.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.grounding.check_field`), application (`dossier.application.extract`)
 - **Proved by:** `tests/unit/test_R006_26__a_value_outside_an_enum_is_invalid.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -838,7 +838,7 @@ answers the three pages in order and counts its calls.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli`), application (`dossier.application.run`, `dossier.application.eval`), domain (`dossier.domain.fields`, `dossier.domain.grounding`)
 - **Proved by:** `tests/acceptance/test_R006_27__dossier_run_shows_an_enum_its_values.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

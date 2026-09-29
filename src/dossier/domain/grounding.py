@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 
@@ -328,6 +328,7 @@ def check_field(
     *,
     input_documents: Mapping[str, str],
     shown_as_pictures: Collection[str] = (),
+    enums: Mapping[str, Sequence[str]] | None = None,
 ) -> FieldCheck:
     """Check one extracted field against the documents its stage actually read.
 
@@ -341,6 +342,10 @@ def check_field(
     from `input_documents`: those two are not the same thing at all, and
     guessing would turn every citation of a document the stage never saw into
     a description of one it did (R6.3).
+
+    `enums` is the values each field declared `enum` allows, from the step's
+    declaration (R6.26). A value outside them is checked before its evidence:
+    a quotation found in the document does not make it an allowed answer.
     """
     if record.value is None:
         if not record.reason:
@@ -352,6 +357,16 @@ def check_field(
                 "why it abstained (R6.5).",
             )
         return FieldCheck(FieldVerdict.ABSTAINED, record.reason)
+
+    allowed = (enums or {}).get(record.field)
+    if allowed is not None and _folded(record.value) not in {_folded(v) for v in allowed}:
+        # One answer, plainly meant, and not one the declaration allows. A
+        # finding about this field alone, as a missing source is, so the rest of
+        # the answer stands and nothing is asked again (R6.26).
+        return FieldCheck(
+            FieldVerdict.INVALID,
+            f"{record.field}: {record.value!r} is not one of {', '.join(allowed)}",
+        )
 
     if record.source is None:
         return FieldCheck(
@@ -391,3 +406,13 @@ def check_field(
         )
 
     return FieldCheck(FieldVerdict.VALID)
+
+
+def _folded(value: object) -> str:
+    """An enum value as the scorer compares it, `scoring._folded`'s fold (spec 007).
+
+    Written out rather than imported, because `scoring` imports this module. The
+    two must not differ: a value this check passed would be scored against gold
+    by a different comparison than the one that let it through.
+    """
+    return str(value).strip().casefold()

@@ -540,6 +540,7 @@ def execute(
                         part=part,
                         schema=None if output is None else output.schema,
                         lists=() if output is None else output.lists,
+                        enums={} if output is None else output.enums,
                         prompt=prompts[step.id],
                         model=clients[step.id],
                         cache=cache,
@@ -783,6 +784,7 @@ def _run_one(
     tracker: Tracker | None = None,
     capture: str = "full",
     lists: Collection[str] = (),
+    enums: Mapping[str, Sequence[str]] | None = None,
 ) -> tuple[DocumentResult, str]:
     """One (step, document), served from cache or asked of the model.
 
@@ -862,6 +864,7 @@ def _run_one(
             document_text=read,
             shown_as_pictures=shown_as_pictures,
             structured=schema is not None,
+            enums=enums,
         )
         # A damaged entry is a miss, not authority. The cache is an optimisation
         # and never a source of truth (R5.9), so the work is simply redone and
@@ -883,6 +886,7 @@ def _run_one(
         tracker=tracker,
         capture=capture,
         lists=lists,
+        enums=enums,
         # What a span may say under `hashes` (R10.8 row 2): the template, the
         # inputs and the key -- the same three the cache key is made of, so a
         # span with no text still says exactly which question was asked.
@@ -961,6 +965,7 @@ def _from_cache(
     document_text: Mapping[str, str],
     shown_as_pictures: Collection[str] = (),
     structured: bool = True,
+    enums: Mapping[str, Sequence[str]] | None = None,
 ) -> DocumentResult | None:
     """Rebuild what a cached artifact stands for, with no model call.
 
@@ -988,7 +993,14 @@ def _from_cache(
         with_derived_page(record, input_documents=document_text) for record in output.fields
     )
     checks = tuple(
-        check_field(record, input_documents=document_text, shown_as_pictures=shown_as_pictures)
+        check_field(
+            record,
+            input_documents=document_text,
+            shown_as_pictures=shown_as_pictures,
+            # An answer written before R6.26 is held to it on this read, as
+            # every check is re-derived rather than stored (R5.5).
+            enums=enums,
+        )
         for record in records
     )
     return DocumentResult(
@@ -1603,6 +1615,7 @@ def replay(
     cache: ArtifactStore,
     document_parts: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]] | None = None,
     destination: Path | None = None,
+    enums: Mapping[str, Mapping[str, Sequence[str]]] | None = None,
 ) -> RunReport:
     """Reproduce a past run from its frozen manifest (R4.7).
 
@@ -1616,6 +1629,12 @@ def replay(
     model swapped, the file deleted -- the manifest is the only input (R4.7
     examples 2 and 3), and the snapshots it pinned are the only content, however
     the ledger has moved since (R4.9).
+
+    `enums`, by step, is the one thing a caller may hand in from a declaration:
+    the values each enum field allows, which the field checks read (R6.26). It
+    decides a verdict, never a key or an answer, so nothing reproduced depends
+    on it -- and `dossier eval`, which scores this, already reads the
+    declaration for each field's kind.
 
     With a `destination`, what was reproduced is written there, named as a run
     names its outputs (R0.11) -- and only once every key has resolved. A
@@ -1675,6 +1694,7 @@ def replay(
                     produced=produced,
                     cache=cache,
                     part=part,
+                    enums=(enums or {}).get(step.id),
                 )
                 served.append(_on_part(result, part))
                 reproduced.append(
@@ -1736,6 +1756,7 @@ def _replay_one(
     produced: Mapping[str, Mapping[str, str]],
     cache: ArtifactStore,
     part: tuple[str, ImagePart] | None = None,
+    enums: Mapping[str, Sequence[str]] | None = None,
 ) -> tuple[DocumentResult, str]:
     """One (step, document, part), served from the entry the original run wrote.
 
@@ -1826,6 +1847,7 @@ def _replay_one(
         # produced rather than a harsher reading of it (R6.15).
         shown_as_pictures=() if part is None else (document,),
         structured=step.schema_hash is not None,
+        enums=enums,
     )
     if served is None:
         # A replay has no model and nowhere to put one. Serving damaged bytes
