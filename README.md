@@ -112,7 +112,8 @@ run is served them (R4.18, R4.21). A try is not a run, though. It writes under
 that reads every document is skipped and says so (R4.23). In MLflow a try is
 tagged `dossier.try`, and is not linked to a pipeline version as a run that
 produced it (R4.24). A key no source holds stops the try before anything is
-asked (R4.19).
+asked (R4.19). Two of `--plan`, `--replay` and `--doc` are two commands, and are
+refused together rather than one being ignored (R4.26).
 
 ## What it reads
 
