@@ -62,20 +62,61 @@ class OutputSchema:
         )
 
 
-def json_schema(kinds: Mapping[str, FieldKind]) -> dict:
+def json_schema(kinds: Mapping[str, FieldKind], *, values: Mapping[str, Sequence[str]]) -> dict:
     """The JSON Schema shown to the model, generated from a declaration.
 
     The record's shape comes from `StageOutput`, the model the answer is
     validated against, and the names a record may carry come from the
     declaration. Neither is written a second time, so a field declared once is
     a field the model is asked for (R6.10 example 1).
+
+    An enum field's record is its own variant, holding one of its `values` in
+    declared order or `null`, and every other field shares the record it always
+    had (R6.25). `values` is required rather than defaulted: a caller that
+    forgot it would get a schema showing no vocabulary at all, silently.
     """
     schema = StageOutput.model_json_schema()
-    schema["$defs"]["FieldRecord"]["properties"]["field"] = {
-        "title": "Field",
-        "enum": list(kinds),
-    }
+    record = schema["$defs"]["FieldRecord"]
+    enums = [name for name in kinds if kinds[name] is FieldKind.ENUM]
+    others = [name for name in kinds if name not in enums]
+    if not enums:
+        # Byte for byte what a declaration with no enum was shown before, so no
+        # key of its step moves (R6.25 row 3, R6.12).
+        record["properties"]["field"] = {"title": "Field", "enum": others}
+        return schema
+
+    variants: list[dict] = []
+    if others:
+        record["properties"]["field"] = {"title": "Field", "enum": others}
+        variants.append({"$ref": "#/$defs/FieldRecord"})
+    else:
+        # An empty `enum` admits nothing and is refused as a schema; with no
+        # field left for the shared record, it is not offered at all.
+        del schema["$defs"]["FieldRecord"]
+    variants.extend(_enum_record(record, name, values[name]) for name in enums)
+    schema["properties"]["fields"]["items"] = {"anyOf": variants}
+    # Every field named in one place. A model reading the schema as guidance
+    # answers the fields the first variant names and no others: `gpt-5.4-mini`
+    # left `severity` out of every page until this said it was there (R6.25).
+    schema["properties"]["fields"]["description"] = (
+        f"Answer every one of these fields: {', '.join(kinds)}."
+    )
     return schema
+
+
+def _enum_record(record: Mapping, name: str, allowed: Sequence[str]) -> dict:
+    """The record for one enum field: its name alone, and one of its values or null."""
+    properties = dict(record["properties"])
+    properties["field"] = {"title": "Field", "enum": [name]}
+    properties["value"] = {
+        # Written as pydantic writes an optional value, which every provider
+        # already accepts in the shared record; `null` keeps abstaining an
+        # answer (R6.5).
+        "anyOf": [{"type": "string", "enum": list(allowed)}, {"type": "null"}],
+        "default": None,
+        "title": "Value",
+    }
+    return {**record, "properties": properties}
 
 
 def answered_twice(

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from dossier.domain.fields import declare_fields, json_schema
+from dossier.domain.fields import declare_fields, enum_values, json_schema
 from dossier.domain.schemas import StageOutput
 from dossier.domain.scoring import FieldKind
 
@@ -27,22 +27,32 @@ INCIDENT = {
 }
 
 
-def _record_properties(schema: object) -> dict | None:
-    """The properties of a field record, wherever a schema nests it."""
+def _records(schema: object) -> list[dict]:
+    """The properties of every field record, wherever a schema nests it.
+
+    More than one since R6.25: an enum field's record is a variant of its own.
+    """
+    found: list[dict] = []
     if isinstance(schema, dict):
         properties = schema.get("properties")
         if isinstance(properties, dict) and "field" in properties:
-            return properties
+            found.append(properties)
         for value in schema.values():
-            found = _record_properties(value)
-            if found is not None:
-                return found
-    return None
+            found.extend(_records(value))
+    elif isinstance(schema, list):
+        for value in schema:
+            found.extend(_records(value))
+    return found
 
 
-def _field_names(schema: object) -> list[str] | None:
-    """The names a generated schema allows in a field record's `field`."""
-    return _record_properties(schema)["field"].get("enum")
+def _record_properties(schema: object) -> dict | None:
+    """The properties of the first field record, wherever a schema nests it."""
+    return next(iter(_records(schema)), None)
+
+
+def _field_names(schema: object) -> set[str]:
+    """The names a generated schema allows in any field record's `field`."""
+    return {name for record in _records(schema) for name in record["field"]["enum"]}
 
 
 class TestFieldsAreDeclaredOnce:
@@ -62,11 +72,11 @@ class TestFieldsAreDeclaredOnce:
             }
         }
 
-        before = json_schema(declare_fields(without))
-        after = json_schema(declare_fields(INCIDENT))
+        before = json_schema(declare_fields(without), values=enum_values(without))
+        after = json_schema(declare_fields(INCIDENT), values=enum_values(INCIDENT))
 
         assert "affected_systems" not in _field_names(before)
-        assert _field_names(after) == list(INCIDENT["fields"])
+        assert _field_names(after) == set(INCIDENT["fields"])
 
     def test_the_scorer_field_list_is_exactly_the_declaration(self):
         """Example 2: the one where neither side has an entry the other lacks.
@@ -88,18 +98,22 @@ class TestFieldsAreDeclaredOnce:
         """Example 3: the one where there is no committed JSON Schema to drift.
 
         Every property the answer is validated against appears, unchanged, in
-        the schema the model is shown -- except `field`, narrowed to the declared
-        names. A hand-written copy is a second definition, and the first property
-        added to the record model would be one the model was never asked for.
+        every record the model is shown -- except `field`, narrowed to the
+        declared names, and an enum's `value`, narrowed to its values (R6.25). A
+        hand-written copy is a second definition, and the first property added to
+        the record model would be one the model was never asked for.
         """
-        generated = _record_properties(json_schema(declare_fields(INCIDENT)))
+        schema = json_schema(declare_fields(INCIDENT), values=enum_values(INCIDENT))
         validated = _record_properties(StageOutput.model_json_schema())
 
-        assert set(generated) == set(validated)
-        for name, spec in validated.items():
-            if name != "field":
-                assert generated[name] == spec, name
-        assert generated["field"]["enum"] == list(INCIDENT["fields"])
+        for generated in _records(schema):
+            enum = generated["field"]["enum"] == ["severity"]
+            narrowed = {"field", "value"} if enum else {"field"}
+            assert set(generated) == set(validated)
+            for name, spec in validated.items():
+                if name not in narrowed:
+                    assert generated[name] == spec, name
+        assert _field_names(schema) == set(INCIDENT["fields"])
 
     def test_an_enum_with_no_values_is_refused_naming_the_field(self):
         """Example 4: the one where `severity` is an enum with no vocabulary.
