@@ -18,8 +18,10 @@ from tests.pipelines import prompt_for
 from tests.scoring_example import FIFTH_ISSUE, ISSUES
 
 from dossier.application.run import RunInputs, execute
+from dossier.domain.conversion import PART_TYPE
 from dossier.domain.fields import OutputSchema
 from dossier.domain.pipeline import PipelineConfig, StepConfig
+from dossier.domain.ports import ImagePart
 
 TEXT = {**ISSUES, **FIFTH_ISSUE}
 DOCUMENTS = tuple(sorted(TEXT))
@@ -30,6 +32,17 @@ CONTRACTS = {
     "ACME-2024/amendment-3.pdf": "Amendment 3 extends the term to 2027-03-31.",
     "ACME-2024/master.pdf": "Liability is capped at EUR 2,000,000.",
     "GLOBEX-2023/master.pdf": "The term ends 2026-12-31.",
+}
+# `_fixtures.md`'s "`INC-4830` page by page", beside `INC-5720`'s one page.
+POSTMORTEM = "INC-4830-postmortem-checkout-tls-expiry.pdf"
+CHART = "INC-5720-checkout-latency-postmortem.png"
+PICTURES = {POSTMORTEM: "SEV-1 | Checkout TLS expiry", CHART: ""}
+PAGES = {
+    POSTMORTEM: [
+        (f"page-00{n}.png", ImagePart(media_type=PART_TYPE, data=f"INC-4830 page {n}".encode()))
+        for n in (1, 2, 3)
+    ],
+    CHART: [("page-001.png", ImagePart(media_type=PART_TYPE, data=b"INC-5720 page 1"))],
 }
 
 
@@ -44,11 +57,20 @@ def _run(
     mode: str = "per_file",
     text: dict[str, str] = TEXT,
 ) -> FakeModelClient:
-    """`extract` over `text`, in `mode`; the model, having been asked."""
+    """`extract` over `text`, in `mode`; the model, having been asked.
+
+    A `per_part` step reads each document's pages, and is answered once a page.
+    """
     from dossier.infrastructure.cache import ArtifactCache
 
+    paged = mode == "per_part"
+    source = "documents@page_images" if paged else "documents"
     model = FakeModelClient(
-        responses=[json.dumps({"document": key, "fields": []}) for key in sorted(text)]
+        responses=[
+            json.dumps({"document": key, "fields": []})
+            for key in sorted(text)
+            for _ in (PAGES[key] if paged else [None])
+        ]
     )
     execute(
         RunInputs(
@@ -60,7 +82,7 @@ def _run(
                     StepConfig(
                         id="extract",
                         prompt="prompts/extract.md",
-                        input="documents",
+                        input=source,
                         mode=mode,
                         output="schemas/incident.yaml",
                     )
@@ -72,9 +94,11 @@ def _run(
                     schema={"type": "object"}, declaration_hash="d24c86e1" * 8
                 )
             },
-            prompts={"extract": prompt_for(["documents"])},
+            prompts={"extract": prompt_for([source])},
             documents={key: _snapshot(body) for key, body in text.items()},
             document_text=text,
+            document_content={"markdown": text},
+            document_parts={"page_images": PAGES} if paged else None,
         ),
         workspace=workspace,
         model=model,
@@ -110,6 +134,20 @@ class TestATryAsksOnlyAboutTheNamedDocuments:
         assert model.call_count == 1
         assert _about(model) == [["INC-4821"]]
 
+    def test_a_document_read_page_by_page_is_asked_about_every_page(self, tmp_path: Path):
+        """Row 2 — the one where the postmortem's three pages are asked, and the chart's not."""
+        model = _run(tmp_path, tried=(POSTMORTEM,), mode="per_part", text=PICTURES)
+
+        assert [call["parts"] for call in model.calls] == [
+            (part,) for _, part in PAGES[POSTMORTEM]
+        ]
+
+    def test_two_named_documents_are_asked_about_once_each(self, tmp_path: Path):
+        """Row 3 — the one where `--doc` is given twice."""
+        model = _run(tmp_path, tried=("INC-4821", "INC-4822"))
+
+        assert _about(model) == [["INC-4821"], ["INC-4822"]]
+
     def test_a_named_member_is_asked_about_with_its_whole_group(self, tmp_path: Path):
         """Row 4 — the one where an amendment brings its master and its sibling.
 
@@ -124,3 +162,9 @@ class TestATryAsksOnlyAboutTheNamedDocuments:
         assert _shown(model) == [
             ["ACME-2024/amendment-1.pdf", "ACME-2024/amendment-3.pdf", "ACME-2024/master.pdf"]
         ]
+
+    def test_a_run_naming_no_document_asks_about_every_one(self, tmp_path: Path):
+        """Row 5, counter-example — the one with no `--doc`: a run as it always was."""
+        model = _run(tmp_path, tried=None)
+
+        assert _about(model) == [[key] for key in DOCUMENTS]
