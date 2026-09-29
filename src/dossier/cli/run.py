@@ -20,6 +20,7 @@ from dossier.application.run import (
     RunRecording,
     execute,
     key_hashes,
+    recorded_failures,
     replay,
     replayed_inputs,
     replayed_parts,
@@ -310,6 +311,9 @@ def _replay(workspace: Path, directory: Path) -> None:
             document_parts=replayed_parts(manifest, store=store, cache=cache),
             cache=ArtifactCache(workspace, namespace="stage"),
             destination=workspace / destination,
+            # What the run recorded as failed, reproduced rather than looked for
+            # (R4.28). Absent for a run from before R4.27.
+            failures=recorded_failures(directory),
         )
     except MissingFromReplay as error:
         # A replay may fail; it may never substitute other content (R4.7 row 4).
@@ -321,6 +325,15 @@ def _replay(workspace: Path, directory: Path) -> None:
         typer.echo(f"  {step.step}: {step.artifacts} artifact(s) from cache")
     reproduced = f"{report.cache_hits} artifact(s) reproduced"
     typer.echo(f"{reproduced} · no model calls · written to {destination}/")
+    # Each failure the run reported, reported again as it was (R6.31). The exit
+    # stays 0: the replay reproduced what it was asked to (R4.28).
+    for step in report.steps:
+        for result in step.failed:
+            typer.echo(
+                "    "
+                + failure_line(step=step.step, document=result.document, reason=result.error),
+                err=True,
+            )
 
 
 def _execute(

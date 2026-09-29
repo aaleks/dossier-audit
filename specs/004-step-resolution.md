@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.28
 
 ## Purpose
@@ -760,7 +760,7 @@ exits 0: it reproduced what it was asked to.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run.replay`), cli (`dossier.cli.run`)
 - **Proved by:** `tests/unit/test_R004_28__a_replay_reproduces_a_recorded_failure.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
