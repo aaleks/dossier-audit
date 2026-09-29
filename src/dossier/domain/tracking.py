@@ -23,7 +23,14 @@ from dossier.domain.grounding import FieldVerdict
 from dossier.domain.hashing import content_hash
 from dossier.domain.judges import Calibration
 from dossier.domain.resolution import ResolvedPlan
-from dossier.domain.scoring import FieldDelta, FieldTotal, overall, regressed_fields, weakest
+from dossier.domain.scoring import (
+    Failure,
+    FieldDelta,
+    FieldTotal,
+    overall,
+    regressed_fields,
+    weakest,
+)
 from dossier.domain.usage import Tokens
 
 ENABLED = "DOSSIER_MLFLOW_ENABLED"
@@ -752,6 +759,43 @@ def not_scored_line(*, step: str, document: str, reason: str | None) -> str:
     """
     said = "" if not reason else ": " + " ".join(reason.split())
     return f"not scored: {document} failed at {step}{said}"
+
+
+def not_compared_line(
+    *, step: str, document: str, run: str, reason: str | None, regressed: bool
+) -> str:
+    """The line `--compare` names a document it left out with (R7.55).
+
+    `not_scored_line`'s words, with the run that failed it: a comparison reads
+    two runs, and either can have failed the document.
+    """
+    said = "" if not reason else ": " + " ".join(reason.split())
+    marked = "   <- regression" if regressed else ""
+    return f"not compared: {document} failed at {step} in {run}{said}{marked}"
+
+
+def not_compared_lines(
+    failed: tuple[Sequence[Failure], Sequence[Failure]], *, runs: tuple[str, str]
+) -> list[str]:
+    """Each document a comparison left out, run `a`'s first (R7.55, R7.54).
+
+    `failed` is what each run left unscored (R7.53). A document `b` failed and
+    `a` answered is marked as a regression: the change lost it, and R7.8 flags
+    every regression. Not the other way round, where the change recovered it,
+    and not when both failed it, where the change lost nothing.
+    """
+    lost_before = {document for _, document, _ in failed[0]}
+    return [
+        not_compared_line(
+            step=step,
+            document=document,
+            run=run,
+            reason=reason,
+            regressed=bool(later) and document not in lost_before,
+        )
+        for later, (run, failures) in enumerate(zip(runs, failed, strict=True))
+        for step, document, reason in failures
+    ]
 
 
 def step_line(

@@ -136,7 +136,12 @@ class TestCompareScoresBothRunsOverTheSameDocuments:
         ), result.output
         for field in ("resolution_date", "affected_systems"):
             assert _row(result.output, field).split()[-1] == "+0.0", result.output
-        assert "<- regression" not in result.output, result.output
+        # No *field* flagged. The document `b` lost is marked on its own line,
+        # beneath them (R7.55).
+        fields = [
+            line for line in result.output.splitlines() if line.startswith("  ") and "%" in line
+        ]
+        assert fields and not any("<- regression" in line for line in fields), result.output
 
     def test_each_run_leaves_out_the_document_it_failed(self, workspace: Path, monkeypatch):
         """Row 2 — the one where each run failed a different document."""
