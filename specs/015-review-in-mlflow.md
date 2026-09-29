@@ -1,7 +1,7 @@
 # 015 — Review in MLflow
 
 **Status:** Implemented
-**Rules:** R15.1 – R15.5
+**Rules:** R15.1 – R15.6
 
 ## Purpose
 
@@ -253,3 +253,32 @@ artifact or score.
 | 2 | the `Tracker` port | still declares no method returning anything read from the server (R0.10 row 5) |
 | 3 | a run of `incident-audit` after reviewers left verdicts on the last one | the same keys, manifest and artifacts as with none; nothing was read |
 | 4 | *counter-example* — `dossier eval` after a pull, with `candidates.jsonl` unapplied | scores against the gold set as it is; a candidate is not gold until applied |
+
+### R15.6 — a `per_part` document's trace shows each page's answer under the page's name
+
+R15.1 says a trace's response is the answer as `runs/` holds it. For a
+`per_part` step, `runs/` holds one file per page:
+`runs/<id>/extract/<document>/page-001.json` and so on (R3.12). The run instead
+parsed the document's joined text as JSON. That text wraps each page in a
+`<part>` tag for a later step to read, so it is not JSON. With MLflow on, every
+`per_part` run stopped after its first document with
+`Expecting value: line 1 column 1 (char 0)`. This was found live on 2026-09-29
+and had been there since R15.1. R10.6 did not catch it, because the response is
+built before the best-effort tracker receives it, so the failure was the run's.
+
+The response is now an object with one key per page, each page's answer shown
+as R15.1 shows a document's. The joined text is unchanged, because a later step
+reads it and a reviewer does not.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.trace_pages`), application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R015_6__a_page_by_page_trace_shows_each_page.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `extract · INC-4830-postmortem-checkout-tls-expiry.pdf`, `per_part` over its three pages, capture `full` | response `{"page-001.png": …, "page-002.png": …, "page-003.png": …}`, each the field record that page's file under `runs/` holds, as JSON; the run completes |
+| 2 | `INC-5720-checkout-latency-postmortem.png`, one page | `{"page-001.png": …}`: still keyed by its page, because `runs/` holds `page-001.json` and no file for the document as a whole |
+| 3 | `INC-4830`'s page 2 failing validation twice (R6.2) | `{"error": …}`, as R15.1 row 4: the document failed, and its trace says so |
+| 4 | capture `hashes` | `{"page-001.png": {"artifact": "<sha256>"}, …}`, each the hash of that page's file; no text of any answer (R10.8) |
+| 5 | *counter-example* — `extract · INC-4821`, a `per_file` step | the field record itself, keyed by no page (R15.1 row 1) |
