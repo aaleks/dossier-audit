@@ -1,7 +1,7 @@
 # 009 — Model providers
 
-**Status:** Implemented
-**Rules:** R9.1 – R9.20
+**Status:** Partially implemented
+**Rules:** R9.1 – R9.21
 
 ## Purpose
 
@@ -559,3 +559,31 @@ find.
 | 5 | `dossier run incident-audit`, nothing listening | the line of row 1, and exit 2 -- already true, and now stated |
 | 6 | *counter-example* — `dossier eval`, every verdict served from the cache, nothing listening | completes, exit 0: no judge is asked (R7.18), so no model can fail it |
 | 7 | *counter-example* — an exception that is not a model's, raised while the judge is asked | its traceback, as before: only a failure a person can act on from the line is turned into one |
+
+### R9.21 — every JSON schema a model is asked to answer in is closed: each object in it sets `additionalProperties` to false
+
+`dossier` hands a model a schema in two places: a step's output, generated from
+its field declaration (R6.10), and a judge's verdict (R7.12). Anthropic answers
+only to a closed schema, and refuses an open one with `400 Bad Request` before
+the model reads a word (R9.15). The generated schema has always been closed,
+because `StageOutput` forbids extra keys and pydantic writes that into the
+schema. The judge's was written by hand and was not. Found live on 2026-09-29:
+`claude-haiku-4-5-20251001` answered every page of exercise 10 and refused every
+judge call, and the calibration stopped on its first case. With the judge's
+schema closed, and nothing else changed, all forty cases were answered.
+
+Nothing about the answer changes. A verdict is read for `supported` and
+`evidence` and for nothing else, so a key the model could have added was never
+read. The schema is in no key (R7.18), so no calibration and no cached
+verdict goes stale.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.JUDGE_SCHEMA`), domain (`dossier.domain.fields.json_schema`)
+- **Proved by:** `tests/unit/test_R009_21__every_schema_a_model_is_asked_for_is_closed.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a `root_cause` verdict not in the cache, the judge asked | the schema it is handed is `{"type": "object", "properties": {"supported": …, "evidence": …}, "required": ["supported"], "additionalProperties": false}` |
+| 2 | a step whose `output:` declares `incident_date`, `severity` and `root_cause` | the schema it is handed sets `additionalProperties` to false on the answer, on `FieldRecord` and on `Evidence`: every object in it |
+| 3 | *counter-example* — a step with no `output`, `report` in `aggregate` mode | it is handed no schema at all, and its prose is not constrained (R0.14 row 5) |
