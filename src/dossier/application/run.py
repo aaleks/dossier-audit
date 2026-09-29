@@ -135,8 +135,13 @@ class StepReport:
 
     @property
     def artifacts(self) -> int:
-        """How many artifacts this step produced or served."""
-        return len(self.parts) or len(self.results)
+        """How many artifacts this step produced or served.
+
+        A failed result produced none. A replay reproduces the run's failures
+        (R6.29), and counting one here printed `2 artifact(s) from cache` beside
+        `1 artifact(s) reproduced` (R6.30 row 3).
+        """
+        return sum(not result.failed for result in self.parts or self.results)
 
     @property
     def failed(self) -> tuple[DocumentResult, ...]:
