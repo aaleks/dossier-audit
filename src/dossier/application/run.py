@@ -62,7 +62,7 @@ from dossier.domain.pipeline import (
     validate_references,
     validate_step_ids,
 )
-from dossier.domain.plan import asked_about
+from dossier.domain.plan import asked_about, skipped_in_try
 from dossier.domain.ports import (
     ArtifactStore,
     ImagePart,
@@ -126,6 +126,8 @@ class StepReport:
     # produced three of them and a replay that said "1 reproduced" would be
     # describing something that did not happen (R4.14).
     parts: tuple[DocumentResult, ...] = ()
+    # Why the step was not asked at all, or `None` when it was (R4.23).
+    skipped: str | None = None
     # What `results` holds one of: a document, or for a `per_group` step a
     # group, which is what its line counts (R3.15 row 1).
     unit: str = "document"
@@ -480,6 +482,11 @@ def execute(
     with failed_if_stopped(tracker):
         for step in plan.steps:
             mode = declared[step.id].mode
+            skip = skipped_in_try(mode, tried=tried)
+            if skip is not None:
+                steps.append(StepReport(step=step.id, skipped=skip))
+                produced[step.id] = {}
+                continue
             over = asked_about(mode, _units(mode, keys), tried=tried)
             output = schemas.get(step.id)
             results: list[DocumentResult] = []
@@ -707,6 +714,7 @@ def execute(
                         findings=len(done.findings),
                         tokens=done.tokens,
                         unit=done.unit,
+                        skipped=done.skipped,
                     )
                     for done in report.steps
                 ],

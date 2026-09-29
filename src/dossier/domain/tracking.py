@@ -725,6 +725,7 @@ def step_line(
     findings: int = 0,
     tokens: Tokens | None = None,
     unit: str = "document",
+    skipped: str | None = None,
 ) -> str:
     """The line `dossier run` prints for one step (R6.9, R6.15, R6.16, R5.12).
 
@@ -747,7 +748,12 @@ def step_line(
     `unit` is what the step asked about once each. A `per_group` step's is the
     group: four files that are two contracts are two calls, and `4 document(s)`
     would count what was read rather than what was asked (R3.15 row 1).
+
+    `skipped` is why a step was not asked at all, and is then the whole line:
+    `0 document(s)` would read as a step with nothing to do (R4.23).
     """
+    if skipped is not None:
+        return f"{step}: skipped {skipped}"
     shown = f" · {described} described" if described else ""
     found = f" · {findings} finding(s)" if findings else ""
     return (
