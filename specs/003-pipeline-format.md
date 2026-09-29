@@ -1,6 +1,6 @@
 # 003 — Configuration format
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R3.1 – R3.19
 
 ## Purpose
@@ -693,7 +693,7 @@ for, and this rule can be superseded by it when someone does (decided by
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.pipeline.validate_modes`)
 - **Proved by:** `tests/unit/test_R003_19__no_step_reads_an_aggregate_step.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

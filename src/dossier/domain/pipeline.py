@@ -248,7 +248,8 @@ def split_kind(reference: str) -> tuple[str, str | None]:
 
 def validate_modes(pipeline: PipelineConfig) -> None:
     """R3.12 -- a `per_part` step reads an input that has parts; R3.16 -- only a
-    `per_group` or `aggregate` step reads a `per_group` step.
+    `per_group` or `aggregate` step reads a `per_group` step; R3.19 -- no step
+    reads an `aggregate` step.
 
     Decidable from the configuration alone: a kind is written on the input
     (R3.11), and the text kind has no parts to fan out over. Refusing it here
@@ -291,6 +292,21 @@ def validate_modes(pipeline: PipelineConfig) -> None:
                         f"step {step.id!r} is mode: {step.mode} and reads {read!r}, "
                         "which is mode: per_group and answers once per group. Only a "
                         "per_group or aggregate step can read it (R3.16)."
+                    )
+
+    # R3.19 -- an `aggregate` step's one answer is filed under the reserved key
+    # `*`, and every reader looks an earlier step's answers up under a document's
+    # key or a group's. So a reader of any mode was handed nothing: a `per_file`
+    # one never asked, and the others asked about an empty input and cached under
+    # the hash of nothing. Found by /verify on 2026-09-29.
+    for position, step in enumerate(pipeline.steps):
+        for declared in step.inputs:
+            for read in _step_ids_read(declared, preceding=order[:position]):
+                if modes.get(read) == "aggregate":
+                    raise ValueError(
+                        f"step {step.id!r} is mode: {step.mode} and reads {read!r}, "
+                        "which is mode: aggregate and answers once for every "
+                        "document. No step can read it (R3.19)."
                     )
 
 
