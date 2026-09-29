@@ -295,8 +295,13 @@ def finish_eval(
     description: str = "",
     detail: bytes = b"",
     version_id: str | None = None,
+    failed: int = 0,
 ) -> None:
     """Close the eval's run with the figures the report printed (R11.3 rows 1, 4).
+
+    `failed` is how many documents the run failed and the report counted in its
+    headline, not scored (R7.52). Recorded only when there are any: a `0` on
+    every clean run's record would be noise beside the accuracies.
 
     The description is handed in rather than built here, for the reason the
     withheld list is: the command decides what it reported, and MLflow records
@@ -324,6 +329,8 @@ def finish_eval(
     summed = overall(reportable)
     if summed is not None:
         metrics["accuracy/overall"] = summed.percentage
+    if failed:
+        metrics["failed"] = failed
     tracker.log_metrics(metrics)
     if version_id is not None:
         # The same dict, to a second place (R13.3). A metric on a run

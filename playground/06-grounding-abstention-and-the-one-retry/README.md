@@ -116,12 +116,21 @@ Now try to score that run:
 dossier eval incident-audit --gold gold/incidents
 ```
 
-**Checkpoint.** It refuses, and what it says is worth thinking about. Scoring
-reproduces a run from its manifest and cache (R7.10), and the manifest plans a
-document that has no artifact. Decide what you think *should* happen when a run
-that covered three of four documents is scored — and note that "score the three
-and say so" and "refuse the lot" are both defensible, which is exactly the kind of
-question that gets settled in a spec rather than in a patch.
+Before you run it, decide what you think *should* happen when a run that covered
+three of four documents is scored. "Score the three and say so" and "refuse the
+lot" are both defensible, which is exactly the kind of question that gets settled
+in a spec rather than in a patch.
+
+**Checkpoint.** It scores the three, and says so twice: in the headline, and in a
+line naming the fourth with its reason (R7.52).
+
+- Scoring reproduces a run from its manifest and cache (R7.10), and `PLAY-1004`
+  has no artifact. How does the reproduction know that is a failure and not an
+  entry someone deleted? Look in `runs/<run id>/` for the answer (R4.27).
+- The headline reads `overall 100.0%`. Why does it also say `1 failed`, and
+  what would a reader conclude without it?
+- Delete one of the other three documents' cache entries and score again. Why
+  does that stop the command, when a failed document did not?
 
 ---
 
@@ -129,6 +138,7 @@ question that gets settled in a spec rather than in a patch.
 
 - four runs, four different failures, and you can name the rule behind each;
 - you can say why an ungrounded field is not rescued by a correct value;
-- you have an opinion, with reasons, about scoring a partially failed run.
+- you can say how a partially failed run is scored, and why a failed document and
+  a lost cache entry are treated differently.
 
 **Next:** [07 · Calibrating a judge](../07-calibrating-a-judge/).

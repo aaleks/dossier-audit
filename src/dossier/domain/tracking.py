@@ -743,6 +743,17 @@ def failure_line(*, step: str, document: str, reason: str | None) -> str:
     return f"{step} failed on {document}{said}"
 
 
+def not_scored_line(*, step: str, document: str, reason: str | None) -> str:
+    """The line `dossier eval` names a document the run failed with (R7.52).
+
+    The document first, where `run`'s line puts the step: `eval` reports
+    documents, and this one it counted and did not score (R7.50 row 6). The
+    reason on one line, as `run` gives it (R6.31).
+    """
+    said = "" if not reason else ": " + " ".join(reason.split())
+    return f"not scored: {document} failed at {step}{said}"
+
+
 def step_line(
     *,
     step: str,

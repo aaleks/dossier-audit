@@ -213,30 +213,57 @@ Scoring that run:
 
 ```console
 $ dossier eval incident-audit --gold gold/incidents
-step 'extract' has no cached artifact for 'PLAY-1004.md' at a4eff980d6dd…; this run cannot
-be reproduced from this workspace, and nothing has been substituted for it.
-exit 2
+3 documents · 4 fields · overall 100.0% · 1 failed
+  loss_amount        100.0%
+  resolution_date    100.0%
+  severity           100.0%
+  affected_systems   100.0%
+  not scored: PLAY-1004.md failed at extract: no valid output after 2 attempts: findings: Extra inputs are not permitted; fields: Field required
+exit 0
 ```
 
-**A run with one failed document cannot be scored at all.** The chain is
-consistent: `eval` reproduces a run from its manifest and cache exactly as
-`--replay` does (R7.10), the manifest plans four documents, one has no artifact,
-and a replay may fail but may never substitute other content (R4.7).
+**Scored what reproduced, and said what did not.** Until 2026-09-29 this command
+refused the lot: `step 'extract' has no cached artifact for 'PLAY-1004.md' …;
+this run cannot be reproduced`, exit 2. That was consistent, but no one had
+decided it. `eval` reproduces a run from its manifest and cache exactly as
+`--replay` does (R7.10), and a replay may fail but may never substitute other
+content (R4.7). A failed document has no artifact, and nothing said it had
+failed rather than been lost. This exercise left the question open, and noted
+that it would be settled by a rule in spec 007, or not at all.
 
-Whether that is the *right* outcome is a genuine design question, and it is
-deliberately left open here:
+It was settled that way. The run now records what it failed, beside its manifest
+(R4.27):
 
-- **Refuse the lot** — today's behaviour. A score is a claim about a run, and a
-  run that cannot be reproduced cannot be scored honestly.
-- **Score what reproduced, and say what did not** — arguably more useful: three
-  documents' worth of evidence is still evidence, provided the report never lets
-  you forget the fourth. That is R7.15's shape for withheld fields, applied to
-  documents.
+```console
+$ cat runs/<run id>/failures.json
+[
+  {
+    "step": "extract",
+    "document": "PLAY-1004.md",
+    "part": null,
+    "reason": "no valid output after 2 attempts: findings: Extra inputs are not permitted; fields: Field required"
+  }
+]
+```
 
-Notice which door this repository would go through: neither is implemented on a
-hunch. It is a rule in spec 007 with examples, a counter-example, and a test named
-after it — or it stays as it is. That is the whole working agreement in one
-decision.
+A replay reproduces a recorded failure instead of looking for its entry (R4.28).
+Then `eval` scores the other three, counts the fourth in its headline and names
+it (R7.52). It is still not scored: a document the model never answered is not
+one it answered wrongly (R7.50 row 6).
+
+**Why `1 failed` is in the headline.** `overall 100.0%` alone reads as a perfect
+run. Three documents are perfect; the run was not. The count sits in the one line
+people quote, beside the figure it qualifies.
+
+**Why a deleted entry still stops it.** A failure is recorded; a lost entry is
+not. Treating every missing entry as a failure would be the substitution R4.7
+forbids: a cache someone cleared would read as a model that failed. So the
+record is what tells the two apart. A run from before R4.27, which has no record,
+still stops as it did.
+
+**Why the record is not in the manifest.** The manifest is what resolution
+produced, and byte-identical for one pipeline (R4.8). What failed depends on
+what a model answered on the day.
 
 ---
 

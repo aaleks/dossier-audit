@@ -17,7 +17,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pytest
 from tests.acceptance.conftest import _cli
 from tests.fakes import NoModelClient, register_connector
 from tests.pipelines import write_pipeline
@@ -31,8 +30,6 @@ from tests.scoring_example import (
     RoutedModel,
     abstains,
 )
-
-pytestmark = pytest.mark.outer_loop
 
 GOLD = "gold/incidents"
 URI = "http://localhost:5000"

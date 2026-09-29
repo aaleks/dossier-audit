@@ -13,6 +13,36 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A run with a failed document replays and scores (R4.27, R4.28, R7.52). One
+failed document made a whole run unscorable. `dossier eval` scores a replay
+(R7.10), and the replay stopped on the failed document's missing entry, exit 2,
+because nothing said it had failed rather than been lost. R7.50 row 6, "a failed
+document is reported as failed, not scored", was proved on the scorer alone and
+never reached through the CLI. It was the R3.16 pattern again. Exercise 06 had
+left the question open on purpose, "refuse the lot" or "score the three and say
+so", to be settled by a rule in spec 007 or not at all.
+
+A run now records each unit it failed in `runs/<id>/failures.json` when it ends
+(R4.27). That is `[]` when nothing failed, and none when the run stopped. It is
+not in the manifest, which R4.8 keeps a function of resolution. It is not beside
+the artifact either, where R0.11 row 4 says nothing stands in for a failed one.
+A replay reproduces a recorded failure instead of looking for its entry. It
+skips what the run skipped after it, and still stops on an entry that is missing
+without a record (R4.28), so a cleared cache never reads as a failed model.
+`eval` scores the rest, counts the failures in its headline, names each one, and
+records a `failed` metric (R7.52). `a.aleks` chose the headline count over naming
+the failures beneath alone, and over scoring them as wrong. Exercise 06 shows
+why it matters: its three surviving documents score `overall 100.0% · 1 failed`,
+and without the count that would read as a perfect run.
+
+Two checks of the checks along the way. A mutant `/tdd` reported as surviving
+had never been applied: the scripted edit lost its backslashes. Applied with the
+Edit tool, the test caught it. And the replay now mirrors R6.13 and R6.28. Until
+failures could be reproduced, a replay never reached a step after one, so it had
+never needed to.
+
+---
+
 A failed document is reported with its reason (R6.31 – R6.33). `dossier run`
 printed `    extract failed on INC-4822`, and never why. The reason reached the
 MLflow trace, so with tracking off it was printed nowhere. The line now ends
