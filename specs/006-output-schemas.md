@@ -920,7 +920,7 @@ person reads is wrong. The model is a `FakeModelClient` that counts calls.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.run`), application (`dossier.application.run`)
 - **Proved by:** `tests/acceptance/test_R006_30__an_empty_document_fails_by_name.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
