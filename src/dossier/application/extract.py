@@ -20,7 +20,7 @@ from pydantic import ValidationError
 from dossier.domain.fields import answered_twice
 from dossier.domain.grounding import FieldCheck, check_field, with_derived_page
 from dossier.domain.ports import ImagePart, ModelClient, Tracker
-from dossier.domain.schemas import FieldRecord, StageOutput
+from dossier.domain.schemas import FieldRecord, StageOutput, failure_reason
 from dossier.domain.tracking import TOKEN_USAGE, record_content, span_payload, token_usage
 from dossier.domain.usage import Tokens, tokens_of, total
 
@@ -136,6 +136,9 @@ def run_stage(
 
     attempts = 0
     correction: str | None = None
+    # The refusal itself, beside its text: the model is shown pydantic's words,
+    # and a person the reason made from them (R6.32).
+    refused: Exception | None = None
     spent: list[Tokens] = []
 
     while attempts < MAX_ATTEMPTS:
@@ -167,6 +170,7 @@ def run_stage(
                 )
         except (ValidationError, ValueError) as error:
             correction = str(error)
+            refused = error
             _llm_span(
                 tracker,
                 model,
@@ -219,7 +223,7 @@ def run_stage(
     return DocumentResult(
         document=document,
         attempts=attempts,
-        error=f"{document}: no valid output after {attempts} attempts -- {correction}",
+        error=failure_reason(refused or ValueError(correction), attempts=attempts),
         tokens=total(spent),
     )
 

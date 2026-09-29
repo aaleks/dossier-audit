@@ -79,7 +79,7 @@ class TestDocumentFailureIsIsolated:
         failures = [result for result in results if result.failed]
 
         assert len(failures) == 1
-        assert "INC-4822" in failures[0].error
+        assert failures[0].document == "INC-4822"
 
     def test_a_failed_document_carries_nothing_cacheable(self):
         """Example 3's precondition: the one where nothing is left behind.

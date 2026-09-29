@@ -979,7 +979,7 @@ beside it. Every error goes on the line, not the first and a count.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.schemas.failure_reason`), application (`dossier.application.extract`)
 - **Proved by:** `tests/unit/test_R006_32__a_validation_failure_says_what_was_wrong.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
