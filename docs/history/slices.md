@@ -59,7 +59,9 @@ on four of six documents. R7.50 counts each as `not answered`, and it drops
 `incident_date` to 33.3%, where before the field would have read 66.7% over
 three documents. Haiku abstained honestly and read page 1's date. Its
 `severity` is 100% only because R7.47 ignores the pages that said "not on this
-page".
+page". The field was then renamed `resolution_date`, after the line the
+documents print. Run live again, `gpt-5.4-mini` answered it on every document,
+83.3%, and its one miss was page 2's peak date.
 
 It also found two bugs the suite could not: the stub runs record nothing to
 MLflow, and no stub refuses a schema.

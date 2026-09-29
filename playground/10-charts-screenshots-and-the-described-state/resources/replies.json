@@ -24,7 +24,7 @@
         "document": "PLAY-3001-checkout-latency-apm.pdf",
         "fields": [
           {
-            "field": "incident_date",
+            "field": "resolution_date",
             "value": "2026-09-02",
             "source": {
               "document": "PLAY-3001-checkout-latency-apm.pdf",
@@ -74,7 +74,7 @@
         "document": "PLAY-3002-jvm-heap-grafana.pdf",
         "fields": [
           {
-            "field": "incident_date",
+            "field": "resolution_date",
             "value": "2026-09-03",
             "source": {
               "document": "PLAY-3002-jvm-heap-grafana.pdf",
@@ -124,7 +124,7 @@
         "document": "PLAY-3003-kibana-error-spike.pdf",
         "fields": [
           {
-            "field": "incident_date",
+            "field": "resolution_date",
             "value": "2026-09-04",
             "source": {
               "document": "PLAY-3003-kibana-error-spike.pdf",
@@ -174,7 +174,7 @@
         "document": "PLAY-3004-batch-overlap-throughput.pdf",
         "fields": [
           {
-            "field": "incident_date",
+            "field": "resolution_date",
             "value": "2026-09-05",
             "source": {
               "document": "PLAY-3004-batch-overlap-throughput.pdf",
@@ -224,7 +224,7 @@
         "document": "PLAY-3005-weekly-incident-review.pdf",
         "fields": [
           {
-            "field": "incident_date",
+            "field": "resolution_date",
             "value": "2026-09-08",
             "source": {
               "document": "PLAY-3005-weekly-incident-review.pdf",
@@ -299,7 +299,7 @@
         "document": "PLAY-3006-error-budget-screenshot.png",
         "fields": [
           {
-            "field": "incident_date",
+            "field": "resolution_date",
             "value": "2026-09-11",
             "source": {
               "document": "PLAY-3006-error-budget-screenshot.png",
