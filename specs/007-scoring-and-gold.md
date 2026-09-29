@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.51
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.52
 
 ## Purpose
 
@@ -1487,3 +1487,32 @@ documents, and the page that got one wrong named under it (R7.25).
 | 2 | the same | under `resolution_date`, `INC-4830` named with `page-002.png: '2026-07-30' does not match '2026-07-28'` (R7.25) |
 | 3 | the same | `accuracy/severity` 100.0 and `accuracy/resolution_date` 50.0 recorded to MLflow (R11.3), the figures the terminal printed |
 | 4 | *counter-example* — `INC-4830`'s gold file holding no `resolution_date` | `resolution_date 100.0%`, scored on `INC-5720` alone; page 2's date is not named, because nobody verified the answer it disagrees with (R7.3 row 4) |
+
+### R7.52 — `dossier eval` scores a run in which a document failed, counts the failures in its headline, and names each one
+
+R7.50 row 6 says a document the step failed on is not scored, and is reported
+as failed. It was proved on the scorer alone, and through the CLI it was never
+reached. `dossier eval` scores a replay (R7.10), and a replay stopped on the
+failed document's missing entry. One failure made the whole run unscorable,
+exit 2. R4.27 and R4.28 let the replay reproduce the failure. This rule is what
+`eval` then says about it, and it is the slice's acceptance rule, proved
+through the CLI.
+
+The failed document is still not scored (R7.50 row 6): a document never
+answered is not one answered wrongly. But it is not silent either. The
+headline counts it, `· 1 failed`, so `overall 100.0%` over three documents
+cannot be read as 100% of four. Beneath the fields, each is named with its step
+and its reason (R6.31). The eval's record carries a `failed` metric beside its
+accuracies (R11.3), the same count the terminal printed. Decided by `a.aleks`
+on 2026-09-29, over naming it beneath alone and over scoring it as wrong.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.eval`), application (`dossier.application.eval`, `dossier.application.run`)
+- **Proved by:** `tests/acceptance/test_R007_52__eval_scores_a_run_in_which_a_document_failed.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a run over `INC-4821`, `INC-4822`, `INC-4901` and `INC-5455`, `INC-4822` failing `extract` after its retry; `dossier eval incident-audit --gold gold/incidents` | exit 0; the headline `3 documents · … · 1 failed`; beneath the fields, `  not scored: INC-4822 failed at extract: no valid output after 2 attempts: …`; no model asked (R7.10) |
+| 2 | the same, tracking on | the eval's MLflow run holds the metric `failed` 1 beside its accuracies |
+| 3 | *counter-example* — a run in which nothing failed | the headline and the report as before: no `· failed`, no `not scored` line, and no `failed` metric |
