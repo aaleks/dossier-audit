@@ -13,6 +13,29 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`/verify` read the day's sixteen rules against their tests, and found a defect
+older than all of them. A step reading an `aggregate` step's output was handed
+nothing, whatever its mode. The aggregate's one answer is filed under `*`, and
+every reader looks an earlier step's answers up under a document's key or a
+group's. So a `per_file` reader was never asked, and a `per_group` or
+`aggregate` reader was asked about an empty input and cached under the hash of
+nothing. It is R3.16's defect in another place. No rule said an aggregate could
+be read, and nothing refused a pipeline that did. R3.19 refuses one at load
+time. No committed pipeline or test reads an aggregate step, so refusing cost
+nothing. R4.23's prose had claimed a step reading a skipped step is not asked,
+for a reason that did not hold, and now cites R3.19 instead.
+
+The same pass tightened four tests and one spec row (#577). R4.20's `--plan`
+row was proved only through the function every reader calls, and is now proved
+through the CLI as well. That test first passed a mutant half the time: a run
+and a try started in the same second differ only in their random suffix, so
+the suffixes are now pinned. A try's MLflow run gained the manifest a run's
+has, the plan it resolved, without writing one to disk (R4.24 row 3, verified
+live). Beside it, R4.26 refuses two of `--plan`, `--replay` and `--doc`
+together. Before, each pair ran one command and silently dropped the other.
+
+---
+
 `dossier run --doc KEY` tries a prompt on one document (R4.18 – R4.25). The
 live checks behind R6.25 ran exercise 10 four times, 9 calls each, when only
 `PLAY-3005`'s 4 pages mattered, and aiming at one document took an in-memory
