@@ -1,6 +1,6 @@
 # 009 — Model providers
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R9.1 – R9.21
 
 ## Purpose
@@ -580,7 +580,7 @@ verdict goes stale.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.JUDGE_SCHEMA`), domain (`dossier.domain.fields.json_schema`)
 - **Proved by:** `tests/unit/test_R009_21__every_schema_a_model_is_asked_for_is_closed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

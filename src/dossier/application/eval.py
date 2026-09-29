@@ -348,10 +348,13 @@ def finish_eval(
 # any rule asserts (R7.12 row 2); `evidence` exists for the person reading a
 # calibration report, who needs to see *why* a judge disagreed with them before
 # signing off a threshold. Nothing scores it, and no test asserts its wording.
+# Closed, as a step's generated schema is: Anthropic refuses an open schema with
+# a 400 before the model reads a word, and every Haiku judge call did (R9.21).
 JUDGE_SCHEMA = {
     "type": "object",
     "properties": {"supported": {"type": "boolean"}, "evidence": {"type": "string"}},
     "required": ["supported"],
+    "additionalProperties": False,
 }
 
 
