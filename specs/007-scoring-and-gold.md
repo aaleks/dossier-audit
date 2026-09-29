@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.55
 
 ## Purpose
@@ -1590,7 +1590,7 @@ which names fields (R11.9). Decided by `a.aleks` on 2026-09-29.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.eval`), domain (`dossier.domain.tracking.not_compared_line`)
 - **Proved by:** `tests/acceptance/test_R007_55__compare_names_each_document_it_left_out.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

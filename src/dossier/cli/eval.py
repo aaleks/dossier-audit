@@ -72,6 +72,7 @@ from dossier.domain.tracking import (
     experiment_name,
     label_for,
     namespaced,
+    not_compared_lines,
     not_scored_line,
 )
 from dossier.domain.tracking import settings as tracking_settings
@@ -617,6 +618,11 @@ def _compare_runs(
         moved = f"{row.delta:+.1f}" if row.delta is not None else "--"
         marker = "   <- regression" if row.regressed else ""
         typer.echo(f"  {row.field:<18} {was:>6} {now:>6} {moved:>6}{marker}")
+
+    # What the comparison left out, beneath the fields it was left out of, and
+    # never silently: a document either run failed is scored in neither (R7.55).
+    for line in not_compared_lines((reproduced[0][3], reproduced[1][3]), runs=runs):
+        typer.echo("  " + line)
 
     if tracker is not None and experiment is not None:
         typer.echo(f"recorded to MLflow: {experiment}")
