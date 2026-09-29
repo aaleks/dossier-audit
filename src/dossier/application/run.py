@@ -525,8 +525,7 @@ def execute(
                 # record, and served again next run (R6.13, R5.5). It already
                 # failed once, at the step that could not produce its output.
                 if not _reads_a_set(declared[step.id].mode) and _missing_input(
-                    declared=declared[step.id],
-                    resolved=step,
+                    targets=_targets(declared[step.id], step),
                     document=key,
                     produced=produced,
                 ):
@@ -546,8 +545,7 @@ def execute(
                 # already failed, once, where it failed, so this is a skip
                 # (R6.28), as R6.13's is.
                 if _reads_a_set(declared[step.id].mode) and _no_member_answered(
-                    declared=declared[step.id],
-                    resolved=step,
+                    targets=_targets(declared[step.id], step),
                     members=_members(declared[step.id].mode, key, keys),
                     produced=produced,
                 ):
@@ -1229,8 +1227,7 @@ def _citable(
 
 def _missing_input(
     *,
-    declared: StepConfig,
-    resolved: ResolvedStep,
+    targets: Sequence[str],
     document: str,
     produced: Mapping[str, Mapping[str, str]],
 ) -> bool:
@@ -1242,19 +1239,19 @@ def _missing_input(
 
     Never asked of an aggregate step: it reads a set, and a member absent from
     the set is not a missing input -- skipping it would throw away the documents
-    that did work (R6.13 row 4).
+    that did work (R6.13 row 4). `execute` and `replay` both ask it, each over
+    the step's resolved inputs, so a replay skips what the run skipped (R4.28).
     """
     return any(
         document not in produced.get(target, {})
-        for target in _targets(declared, resolved)
+        for target in targets
         if split_kind(target)[0] not in SOURCE_KEYWORDS
     )
 
 
 def _no_member_answered(
     *,
-    declared: StepConfig,
-    resolved: ResolvedStep,
+    targets: Sequence[str],
     members: Sequence[str],
     produced: Mapping[str, Mapping[str, str]],
 ) -> bool:
@@ -1262,12 +1259,12 @@ def _no_member_answered(
 
     Asked with `_one_value`'s own lookup, so a group's answers are found where
     R3.16 files them, under the group, and a set is empty exactly when the call
-    would have been shown an empty input.
+    would have been shown an empty input. `replay` asks it too (R4.28).
     """
     return any(
         _one_value(produced.get(target, {}), document="", documents=members, aggregate=True)
         == ""
-        for target in _targets(declared, resolved)
+        for target in targets
         if split_kind(target)[0] not in SOURCE_KEYWORDS
     )
 
@@ -1678,6 +1675,19 @@ def _resolve(
     return plan
 
 
+def recorded_failures(run_dir: Path) -> list[Failure] | None:
+    """What a run recorded as failed (R4.27), or `None` for a run that recorded nothing.
+
+    `None` and `[]` are different answers: a run from before R4.27, or one that
+    stopped, recorded nothing, and a replay of it stops on a missing entry as it
+    always did; a run that finished and failed nothing recorded `[]` (R4.28).
+    """
+    path = run_dir / FAILURES_NAME
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 class MissingFromReplay(FileNotFoundError):
     """A replay needs something the workspace no longer holds.
 
@@ -1810,6 +1820,7 @@ def replay(
     document_parts: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]] | None = None,
     destination: Path | None = None,
     enums: Mapping[str, Mapping[str, Sequence[str]]] | None = None,
+    failures: Sequence[Failure] | None = None,
 ) -> RunReport:
     """Reproduce a past run from its frozen manifest (R4.7).
 
@@ -1850,6 +1861,13 @@ def replay(
     reproduced: list[tuple[str, str, bool, bytes, dict | None, str | None]] = []
 
     by_part = {} if document_parts is None else document_parts
+    # What the run recorded as failed, by unit (R4.27). `None` is a run that
+    # recorded nothing -- one from before R4.27, or one that stopped -- and its
+    # missing entries stop the replay as they always did.
+    failed = {
+        (entry["step"], entry["document"], entry["part"]): entry["reason"]
+        for entry in failures or []
+    }
 
     for step in plan.steps:
         # The units `execute` ran over, recomposed from the manifest's keys alone:
@@ -1873,9 +1891,32 @@ def replay(
                 ),
             ):
                 continue
+            # And what it skipped because an earlier step failed the document,
+            # alone or across a whole set: skipped again here, not failed a
+            # second time on an input the replay does not have (R6.13, R6.28,
+            # R4.28).
+            if not _reads_a_set(step.mode) and _missing_input(
+                targets=step.inputs, document=document, produced=produced
+            ):
+                continue
+            if _reads_a_set(step.mode) and _no_member_answered(
+                targets=step.inputs,
+                members=_members(step.mode, document, keys),
+                produced=produced,
+            ):
+                continue
             parts = _replayed_parts_for(step=step, document=document, by_part=by_part)
             served: list[DocumentResult] = []
             for part in parts:
+                # A unit the run recorded as failed has no entry, and never had
+                # one: its failure is reproduced, with the run's reason, rather
+                # than looked for and reported lost (R4.28, R4.27).
+                named = None if part is None else part[0]
+                reason = failed.get((step.id, document, named))
+                if reason is not None:
+                    reproduced_failure = DocumentResult(document=document, error=reason)
+                    served.append(_on_part(reproduced_failure, part))
+                    continue
                 result, key = _replay_one(
                     step=step,
                     document=document,
