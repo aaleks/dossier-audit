@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.26
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.27
 
 ## Purpose
 
@@ -19,11 +19,11 @@ that could disagree with the terminal would leave nobody sure which to believe.
 | Command | MLflow run | Traces | Metrics |
 |---|---|---|---|
 | `dossier run` | one, named after the dossier run id | one per (step, document) | documents, cache hits, model calls, failed |
-| `dossier eval` | one, linked to the gold set's dataset (R11.7) | the judge's calls, if any | `accuracy/<field>`, `accuracy/overall` |
+| `dossier eval` | one, linked to the gold set's dataset (R11.7) | the judge's calls, if any | `accuracy/<field>`, `accuracy/overall`, and `failed` when a document failed (R7.52) |
 | `dossier sync` | one | none | `<source>/known`, `/changed`, `/new`, `/returned`, `/fetched`, `/failed` (R11.25); `changes.json` attached (R11.6, R11.24) |
 | `dossier convert` | one | none | `<source>/held`, `/converted`, `/cached`, `/failed`, `/left_out` (R11.26) |
 | `dossier calibrate` | one, per gold set | one per sample case | `judge/<field>/agreement`, `judge/<field>/cases` |
-| `dossier eval --compare a b` | one | none | `a/<field>`, `b/<field>`, `delta/<field>`, and the same three for the overall (R11.8) |
+| `dossier eval --compare a b` | one | none | `a/<field>`, `b/<field>`, `delta/<field>`, and the same three for the overall (R11.8); `a/failed`, `b/failed` when a run failed a document (R11.27) |
 | `dossier run --plan`, `--replay` | none | none | none |
 | `dossier dataset publish` | none | none | none; it publishes a dataset rather than recording a run (spec 012) |
 
@@ -709,3 +709,25 @@ row 3), though the terminal prints it only when there is one.
 | 1 | the folder of R8.27 row 1, `convert: {application/json: []}` | `3 held · 2 converted · 0 cached · 1 left out`, and `<source>/held` 3, `/converted` 2, `/cached` 0, `/left_out` 1, `/failed` 0 |
 | 2 | the same folder converted again | `/converted` 0, `/cached` 2 and `/left_out` 1: a document left out is left out on every run, and never counted as cached |
 | 3 | *counter-example* — the same folder declaring no `convert:` | `PLAY-4006-indexer-alerts.json` fails (R8.25): `/failed` 1, `/left_out` 0 |
+
+### R11.27 — a comparison's record names the documents it left out, as the terminal did
+
+R7.54 leaves a document one run failed out of both runs' scores, and R7.55
+names it. A comparison's record holds its deltas (R11.8), its description
+(R11.12) and the table it printed (R11.14). Without this rule all three would
+describe a comparison over `4 documents` that scored three. Each run's count is
+recorded as `a/failed` and `b/failed`, beside that run's `a/<field>` and
+`b/<field>`. Each is what an eval of that run records as `failed` (R7.52), and
+like it, is recorded only when there is one.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.record_comparison`), domain (`dossier.domain.tracking.comparison_description`)
+- **Proved by:** `tests/unit/test_R011_27__a_comparison_records_what_it_left_out.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | R7.54 row 1's comparison, tracking on | the metric `b/failed` 1, and no `a/failed` |
+| 2 | the same | the description reads `gold incidents 3b7e1d90 · 3 of 4 documents`, as the headline counts them |
+| 3 | the same | `deltas.md` holds the `not compared` line the terminal printed, marked as it was |
+| 4 | *counter-example* — a comparison in which neither run failed a document | no `failed` metric, and `4 documents`: the record R11.8 has always written |

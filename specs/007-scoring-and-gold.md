@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.52
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.55
 
 ## Purpose
 
@@ -1516,3 +1516,85 @@ on 2026-09-29, over naming it beneath alone and over scoring it as wrong.
 | 1 | a run over `INC-4821`, `INC-4822`, `INC-4901` and `INC-5455`, `INC-4822` failing `extract` after its retry; `dossier eval incident-audit --gold gold/incidents` | exit 0; the headline `3 documents · … · 1 failed`; beneath the fields, `  not scored: INC-4822 failed at extract: no valid output after 2 attempts: …`; no model asked (R7.10) |
 | 2 | the same, tracking on | the eval's MLflow run holds the metric `failed` 1 beside its accuracies |
 | 3 | *counter-example* — a run in which nothing failed | the headline and the report as before: no `· failed`, no `not scored` line, and no `failed` metric |
+
+### R7.53 — `dossier eval` names a document as not scored only when the scored step has no answer for it, once, at the first step that failed it
+
+R7.52 names a failed document beneath the fields. It took the failures of every
+step the replay reproduced, so a document failed by a step *after* the scored
+one was named as not scored though it was: `4 documents · … · 1 failed`, then
+`not scored: INC-4821 failed at verify`. A document two steps failed was named
+twice, and counted twice. Found by `/verify` on 2026-09-29.
+
+What leaves a document unscored is the scored step having no answer for it
+(R7.50 row 6): it failed the document, or skipped it because a step it reads
+had failed it (R6.13, R6.28). So that is what names it, and nothing else does.
+It is named once, with the first failure in pipeline order up to and including
+the scored step, because that failure left the steps after it without the
+document. A step after the scored one is not consulted: whatever it did, the
+document was scored. A document skipped with no failure behind it, one holding
+nothing of a kind the step reads (R6.21), is not named as failed. `--compare`
+leaves out the same documents (R7.54).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.scoring.unscored`), cli (`dossier.cli.eval`)
+- **Proved by:** `tests/unit/test_R007_53__a_document_is_named_unscored_once_where_it_failed.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4822` failing `extract`, the scored step, after its retry | named once, at `extract`, with its reason (R7.52 row 1) |
+| 2 | `handover-note.md`, zero bytes, failed by both `notes` and `extract`, each reading `documents` (R6.29) | named once, at `notes`, the first to fail it; the headline says `· 1 failed`, not `· 2 failed` |
+| 3 | `notes` failing `handover-note.md`, and `extract`, reading `notes`, skipping it (R6.13) | named at `notes`: the failure that left `extract` without it |
+| 4 | *counter-example* — `verify`, after `extract` and reading `notes`, failing `INC-4821` as R6.29 row 2 does; `dossier eval incident-audit --gold gold/incidents` | not named: `extract` answered it, and it is scored. The headline reads `4 documents`, with no `· failed` |
+| 5 | *counter-example* — `notes`, then `verify` reading it and failing `INC-4821`, then `extract` reading `documents` alone and answering it | not named: it is scored, though a step before `extract` failed it |
+
+### R7.54 — `--compare` scores both runs over the same documents: a document either run left unscored is scored in neither
+
+R7.8 compares two runs whose manifests pinned the same documents, and a failure
+made them score different ones. Since R4.28 a replay reproduces a failed
+document, so a comparison no longer stops on one, as it did before, exit 2. It
+scored the run that failed `INC-4822` over three documents and the other over
+four. `resolution_date` and `affected_systems` each moved `75.0%` to `66.7%` and
+were flagged as regressions, when nothing had changed but the failure, and the
+failure was named nowhere. Found by `/verify` on 2026-09-29.
+
+A document either run left unscored (R7.53) is scored in neither, so every
+delta is over documents both runs answered, and the headline says how many of
+the pinned documents that is. Decided by `a.aleks` on 2026-09-29. Refusing the
+comparison was the other safe choice, and a configuration that always fails a
+document could then never pass the change gate. Scoring the failure as wrong is
+what R7.52 declines, for the same reason: a document never answered is not one
+answered wrongly. This is the slice's acceptance rule, proved through the CLI.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.eval`), domain (`dossier.domain.scoring.unscored`)
+- **Proved by:** `tests/acceptance/test_R007_54__compare_scores_both_runs_over_the_same_documents.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | run `20260806T142203Z-4f1a` answering the four documents of the scoring example; run `20260907T090000Z-bbbb` answering them as it did, except that `INC-4822` fails `extract` after its retry | `compare 20260806T142203Z-4f1a -> 20260907T090000Z-bbbb · 3 of 4 documents · …`; `resolution_date` and `affected_systems` each `+0.0`, and no field flagged. Scored over four and over three, both read `-8.3   <- regression` |
+| 2 | `20260806T142203Z-4f1a` failing `INC-4822`, and `20260907T090000Z-bbbb` failing `INC-4901` | compared over `INC-4821` and `INC-5455`: `2 of 4 documents` |
+| 3 | *counter-example* — neither run failed a document | `4 documents`, as R7.8 row 1 |
+| 4 | *counter-example* — `20260907T090000Z-bbbb`'s `verify`, after `extract`, failing `INC-4821` (R7.53 row 4) | compared over all four: `extract` answered it |
+
+### R7.55 — `--compare` names each document it left out, with the run that failed it, the step and the reason
+
+A document left out of a comparison (R7.54) is not silent, as a failed one is
+not silent in an eval (R7.52). It is named beneath the fields with the run that
+failed it, the step and the reason (R6.31). The line ends `   <- regression`
+when `b` failed a document `a` answered: the change lost it, and R7.8 flags
+every regression. It is marked on the line and not added to `dossier.regressed`,
+which names fields (R11.9). Decided by `a.aleks` on 2026-09-29.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.eval`), domain (`dossier.domain.tracking.not_compared_line`)
+- **Proved by:** `tests/acceptance/test_R007_55__compare_names_each_document_it_left_out.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `20260907T090000Z-bbbb` failing `INC-4822` at `extract`, which `20260806T142203Z-4f1a` answered | beneath the fields, `  not compared: INC-4822 failed at extract in 20260907T090000Z-bbbb: no valid output after 2 attempts: …   <- regression` |
+| 2 | both runs failing `INC-4822` | two lines, `20260806T142203Z-4f1a`'s first, each with its own run and reason, and neither marked: the change lost nothing |
+| 3 | *counter-example* — `20260806T142203Z-4f1a` failing `INC-4822`, which `20260907T090000Z-bbbb` answered | named, and not marked: the change recovered it |
+| 4 | *counter-example* — neither run failed a document | no `not compared` line |
