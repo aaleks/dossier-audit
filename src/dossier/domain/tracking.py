@@ -714,6 +714,7 @@ def comparison_description(
     documents: int,
     rows: Sequence[FieldDelta],
     overalls: tuple[FieldTotal | None, FieldTotal | None],
+    left_out: int = 0,
 ) -> str:
     """What a comparison says about itself (R11.12 row 3).
 
@@ -726,7 +727,11 @@ def comparison_description(
     lines = [
         f"compare {runs[0]} -> {runs[1]} · {pipeline}",
         f"model {models[0]} -> {models[1]}",
-        f"gold {gold} {gold_hash[:_DISPLAY_HASH]} · {documents} documents",
+        # How many of them were compared, as the headline counts them: a
+        # document either run left unscored is scored in neither (R11.27, R7.54).
+        f"gold {gold} {gold_hash[:_DISPLAY_HASH]} · "
+        + (f"{documents - left_out} of " if left_out else "")
+        + f"{documents} documents",
     ]
     earlier, later = overalls
     if earlier is not None and later is not None:

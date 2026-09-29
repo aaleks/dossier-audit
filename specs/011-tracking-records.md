@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.27
 
 ## Purpose
@@ -723,7 +723,7 @@ like it, is recorded only when there is one.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.record_comparison`), domain (`dossier.domain.tracking.comparison_description`)
 - **Proved by:** `tests/unit/test_R011_27__a_comparison_records_what_it_left_out.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
