@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
 from secrets import token_hex
+from typing import Annotated
 
 import typer
 
@@ -39,6 +40,7 @@ from dossier.domain.conversion import (
 from dossier.domain.conversion import used as used_converters
 from dossier.domain.hashing import text_hash
 from dossier.domain.pipeline import PipelineConfig, SourceConfig
+from dossier.domain.plan import check_tried
 from dossier.domain.ports import ImagePart
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
 from dossier.domain.store import replay_path
@@ -69,6 +71,15 @@ def run(
         "Default: DOSSIER_CONCURRENCY, else 1.",
         metavar="N",
     ),
+    # Annotated, because a list default is mutable and B008 refuses it there.
+    tried: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--doc",
+            help="Ask only about this document; repeat for more. A try, not a run (R4.18).",
+            metavar="KEY",
+        ),
+    ] = None,
 ) -> None:
     """Execute a pipeline, report what executing it would do, or replay one (spec 004).
 
@@ -87,7 +98,13 @@ def run(
         raise typer.Exit(code=2)
 
     if not plan:
-        _execute(Path.cwd(), pipeline, label=label, concurrency=concurrency)
+        _execute(
+            Path.cwd(),
+            pipeline,
+            label=label,
+            concurrency=concurrency,
+            tried=tuple(tried) if tried else None,
+        )
         return
 
     workspace = Path.cwd()
@@ -291,9 +308,14 @@ def _replay(workspace: Path, directory: Path) -> None:
 
 
 def _execute(
-    workspace: Path, pipeline: str, *, label: str = "", concurrency: str | None = None
+    workspace: Path,
+    pipeline: str,
+    *,
+    label: str = "",
+    concurrency: str | None = None,
+    tried: Sequence[str] | None = None,
 ) -> None:
-    """`dossier run <pipeline>` (spec 004, spec 005)."""
+    """`dossier run <pipeline>` (spec 004, spec 005), or a try with `--doc` (R4.18)."""
     # Before any work: a value that is not a count is refused by where it came
     # from, not discovered as a run that asked one document at a time (R9.19).
     # A string, not an int, so `four` is refused in the same words as `0`.
@@ -443,6 +465,14 @@ def _execute(
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
 
+    # Every named document, before anything is asked about any (R4.19).
+    if tried is not None:
+        try:
+            check_tried(tried, held=documents, sources=config.sources)
+        except ValueError as error:
+            typer.echo(f"{pipeline}: {error}", err=True)
+            raise typer.Exit(code=2) from error
+
     # A new run resolves against what is held now, and says so when that is
     # not what the last run read: the one moment a person needs to know two
     # runs are not over the same evidence, before R7.8 refuses to compare them
@@ -496,6 +526,7 @@ def _execute(
             },
             cache=ArtifactCache(workspace, namespace="stage"),
             concurrency=asked_at_once,
+            tried=tried,
             run_id=this_run,
             started_at=started_at,
             dossier_version=version("dossier"),
