@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.25
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.26
 
 ## Purpose
 
@@ -116,6 +116,21 @@ Three choices were weighed, each decided by `a.aleks` on 2026-09-29.
 | **Recorded as a run is, tagged a try, and not linked to the version it would have produced** (adopted) | every model call stays traced (spec 011), a try is one filter away, and a version's page lists only full runs (R13.2) | one tag more, and one exception to R13.2's link |
 | Not recorded | MLflow holds full runs only | model calls that cost money and left no trace |
 | Recorded as a run, with nothing to tell it apart | nothing to build | a try reads as a run, and links to the version as if it produced its results |
+
+**What `--doc` does beside `--plan` or `--replay`** (decided by `a.aleks` on
+2026-09-29, after the slice landed). Until R4.26, `dossier run --plan --doc KEY`
+planned the full run, and `--replay DIR --doc KEY` replayed the whole run.
+Each printed as a success, and each was a different command from the one
+typed.
+
+| Option | For | Against |
+|---|---|---|
+| **Refused, naming the flag it cannot be combined with** (adopted) | the command typed is the command run, or none is | a try cannot be planned first |
+| `--plan --doc` plans the try | cheap to read what a try would ask | a plan reports a status per step, not per document (R4.12), so it means a second shape of plan |
+| Ignored | nothing to build | the defect this replaces |
+
+`--plan --replay` had the same defect, a replay in place of the plan asked
+for, and is refused by the same rule.
 
 ## Must hold
 
@@ -671,3 +686,23 @@ documents are `INC-4830`, three pages read page by page, and `INC-5720`, one pag
 | 2 | the prompt edited again, and tried again | 3 more calls, under a second `tries/` directory |
 | 3 | `dossier eval` after both tries | the full run's figures, `2 documents`; no model asked (R7.10) |
 | 4 | *counter-example* — `run --doc INC-4899` | exit 2 naming `INC-4899`, and 0 calls |
+
+### R4.26 — `dossier run` given two of `--plan`, `--replay` and `--doc` stops before anything is read, naming both
+
+Each of the three makes `dossier run` a different command: a plan of a full run
+(R4.6), the reproduction of a past one (R4.7), or a try (R4.18). Two of them
+together cannot both be done, and doing one while ignoring the other printed a
+success for a command nobody typed. So the pair is refused, before a manifest,
+a configuration file or the ledger is read.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.run`)
+- **Proved by:** `tests/unit/test_R004_26__two_modes_of_run_are_refused.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier run incident-audit --plan --doc INC-4821` | exit 2, `--doc cannot be combined with --plan: a plan compares a full run with the last one`; no plan printed |
+| 2 | `dossier run --replay runs/20260806T142203Z-4f1a/ --doc INC-4821` | exit 2, `--doc cannot be combined with --replay: a replay reproduces a whole run`; no `replays/` directory under the run |
+| 3 | `dossier run incident-audit --plan --replay runs/20260806T142203Z-4f1a/` | exit 2, `--plan cannot be combined with --replay: a replay reproduces a past run and plans nothing`; no `replays/` directory under the run |
+| 4 | *counter-example* — `dossier run incident-audit --doc INC-4821` | a try, as R4.18 asks it |
