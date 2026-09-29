@@ -23,7 +23,6 @@ import json
 import re
 from pathlib import Path
 
-import pytest
 from tests.acceptance.conftest import _cli
 from tests.acceptance.test_R007_52__eval_scores_a_run_in_which_a_document_failed import (
     ANSWERED,
@@ -40,8 +39,6 @@ from tests.scoring_example import (
     IssueTracker,
     RoutedModel,
 )
-
-pytestmark = pytest.mark.outer_loop
 
 # `notes` and `verify` after `extract`, as R6.29 row 2 has them: `verify` reads
 # `notes`, and a `notes` answered with the empty string fails it (R7.53 row 4).

@@ -500,13 +500,21 @@ def _compare_runs(
     )
     totals: list[tuple] = []
     compared = next(s for s in config.steps if s.id == step)
-    for run, manifest in zip(runs, manifests, strict=True):
-        scored, text, pages, _ = _reproduced(
-            workspace, manifest, step, enums=load_enum_values(declaration)
-        )
+    reproduced = [
+        _reproduced(workspace, manifest, step, enums=load_enum_values(declaration))
+        for manifest in manifests
+    ]
+    # A document either run left unscored is scored in neither (R7.54). Scored
+    # over four in one run and three in the other, the failure read as each
+    # field's regression, and the delta credited the configuration with it.
+    left_out = {document for *_, failed in reproduced for _, document, _ in failed}
+    kept = {key: answers for key, answers in gold_documents.items() if key not in left_out}
+    for run, manifest, (scored, text, pages, _) in zip(
+        runs, manifests, reproduced, strict=True
+    ):
         try:
             scores = judge_scores(
-                score_run(report=scored, gold=gold_documents, kinds=kinds),
+                score_run(report=scored, gold=kept, kinds=kinds),
                 report=scored,
                 judging=_judging(
                     workspace,
@@ -537,7 +545,7 @@ def _compare_runs(
         # regression hides behind a better overall figure unless they do (R7.8).
         typer.echo(
             f"compare {runs[0]} -> {runs[1]} · "
-            f"{bootstrap.count(len(manifests[0].plan.documents), 'document')} · "
+            f"{_compared_count(len(manifests[0].plan.documents), left=len(left_out))} · "
             f"overall {earlier.percentage:.1f}% -> {later.percentage:.1f}% "
             f"({later.percentage - earlier.percentage:+.1f})"
         )
@@ -612,6 +620,13 @@ def _compare_runs(
 
     if tracker is not None and experiment is not None:
         typer.echo(f"recorded to MLflow: {experiment}")
+
+
+def _compared_count(pinned: int, *, left: int) -> str:
+    """How many of the pinned documents a comparison scored (R7.54): `3 of 4 documents`."""
+    if not left:
+        return bootstrap.count(pinned, "document")
+    return f"{pinned - left} of {bootstrap.count(pinned, 'document')}"
 
 
 def _judging(
