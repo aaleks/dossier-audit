@@ -18,7 +18,7 @@ spec assumes.
 | `007-scoring-and-gold.md` | Gold sets, scorers, judge calibration, the change gate | R7.1 – R7.51 | Implemented |
 | `008-conversion.md` | The converter interface, its registration, versioning and selection | R8.1 – R8.33 | Implemented |
 | `009-model-providers.md` | Model providers, their pinned forms, where each is reached, when a request is sent again, what an answer cost, how many are asked at once, and how a failure is said | R9.1 – R9.22 | Implemented |
-| `010-mlflow-tracking.md` | MLflow tracking: the switch, experiment routing, naming, authentication, and what tracking may not do | R10.1 – R10.25 | Partially implemented |
+| `010-mlflow-tracking.md` | MLflow tracking: the switch, experiment routing, naming, authentication, and what tracking may not do | R10.1 – R10.25 | Implemented |
 | `011-tracking-records.md` | What each command records to MLflow: runs, traces, spans and metrics | R11.1 – R11.26 | Implemented |
 | `012-evaluation-datasets.md` | Publishing a gold set as an MLflow evaluation dataset, and the eval run that links to it | R12.1 – R12.6 | Implemented |
 | `013-pipeline-versions.md` | Publishing a pipeline version as an MLflow logged model, and the accuracy recorded against it | R13.1 – R13.5 | Implemented |

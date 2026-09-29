@@ -13,7 +13,7 @@ from __future__ import annotations
 import base64
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -1088,6 +1088,30 @@ def trace_pages(
 # The tag the review queue filters on, and the tag saying why (R15.2).
 REVIEW = "dossier.review"
 FINDINGS = "dossier.findings"
+
+
+def record_content[T](build: Callable[[], T], *, otherwise: Callable[[str], T]) -> T:
+    """What `build` makes of a record's content, or what `otherwise` makes of why not (R10.25).
+
+    A document's trace is built inside the run's loop, before the best-effort
+    tracker is handed anything (R10.6), so an exception building it was the
+    run's: one stopped every `per_part` run recorded to MLflow after its first
+    document (R15.6). Here the failure becomes the record's content instead,
+    and the run goes on as it would have untracked.
+    """
+    try:
+        return build()
+    except Exception as error:
+        return otherwise(f"could not be built: {type(error).__name__}: {error}")
+
+
+def unbuilt_tags(why: str) -> dict[str, str]:
+    """A trace's tags where its own could not be built: in the queue, saying why (R10.25).
+
+    A doubt nobody could write down is still a doubt, so the trace is put where
+    a reviewer looks rather than left out of it (R15.2).
+    """
+    return {REVIEW: "needed", FINDINGS: why}
 
 
 def review_tags(

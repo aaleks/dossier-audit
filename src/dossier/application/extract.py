@@ -21,7 +21,7 @@ from dossier.domain.fields import answered_twice
 from dossier.domain.grounding import FieldCheck, check_field, with_derived_page
 from dossier.domain.ports import ImagePart, ModelClient, Tracker
 from dossier.domain.schemas import FieldRecord, StageOutput
-from dossier.domain.tracking import TOKEN_USAGE, span_payload, token_usage
+from dossier.domain.tracking import TOKEN_USAGE, record_content, span_payload, token_usage
 from dossier.domain.usage import Tokens, tokens_of, total
 
 # One retry, and exactly one. A model that cannot produce the shape twice will
@@ -283,26 +283,36 @@ def _llm_span(
     """
     if tracker is None:
         return
-    identity: dict[str, object] = {
-        "dossier.model": model.model_id,
-        "dossier.attempt": attempt,
-    }
-    if error is not None:
-        identity["error"] = error
-    # What this one call cost, where MLflow reads it (R11.20). With the identity
-    # rather than the text, because a count discloses nothing a hashed span
-    # must not hold (R10.8).
-    usage = token_usage(tokens_of(reply))
-    if usage is not None:
-        identity[TOKEN_USAGE] = usage
-    attributes = span_payload(
-        capture=capture,
-        identity=identity,
-        prompt=prompt,
-        reply=reply,
-        hashes=hashes or {"prompt": "", "inputs": (), "key": ""},
+
+    def attributes() -> dict[str, object]:
+        identity: dict[str, object] = {
+            "dossier.model": model.model_id,
+            "dossier.attempt": attempt,
+        }
+        if error is not None:
+            identity["error"] = error
+        # What this one call cost, where MLflow reads it (R11.20). With the
+        # identity rather than the text, because a count discloses nothing a
+        # hashed span must not hold (R10.8).
+        usage = token_usage(tokens_of(reply))
+        if usage is not None:
+            identity[TOKEN_USAGE] = usage
+        return span_payload(
+            capture=capture,
+            identity=identity,
+            prompt=prompt,
+            reply=reply,
+            hashes=hashes or {"prompt": "", "inputs": (), "key": ""},
+        )
+
+    # Sent even when its attributes cannot be built, so every call still has its
+    # span (R11.2), and the failure costs the span's content, never the run
+    # (R10.25).
+    tracker.span(
+        kind="llm",
+        name=model.model_id,
+        attributes=record_content(attributes, otherwise=lambda why: {"error": why}),
     )
-    tracker.span(kind="llm", name=model.model_id, attributes=attributes)
 
 
 def _with_correction(prompt: str, correction: str | None) -> str:

@@ -1,6 +1,6 @@
 # 010 — MLflow tracking: the switch, where records go, and what tracking may not do
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R10.1 – R10.25
 
 ## Purpose
@@ -835,7 +835,7 @@ configuration, and a failure there comes before any work or after all of it.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.record_content`, `unbuilt_tags`), application (`dossier.application.run`, `dossier.application.extract`)
 - **Proved by:** `tests/unit/test_R010_25__a_trace_that_cannot_be_built_never_stops_a_run.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
