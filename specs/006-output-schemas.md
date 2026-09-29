@@ -1,6 +1,6 @@
 # 006 — Structured output, grounding and abstention
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R6.1 – R6.30
 
 ## Purpose
@@ -899,7 +899,7 @@ served again. A judge is outside this rule: it is handed the answer it judges.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.prompts.empty_inputs`), application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R006_29__a_call_about_nothing_is_never_made.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -920,7 +920,7 @@ person reads is wrong. The model is a `FakeModelClient` that counts calls.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.run`), application (`dossier.application.run`)
 - **Proved by:** `tests/acceptance/test_R006_30__an_empty_document_fails_by_name.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

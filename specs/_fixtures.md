@@ -74,7 +74,7 @@ case a PDF converter most needs to be honest about.
 | Key | File | State |
 |---|---|---|
 | `PLAY-2001` | `PLAY-2001-terminal-scan.pdf` | scanned-looking, but a real text layer: what a converter *can* read |
-| `PLAY-2002` | `PLAY-2002-photocopy-no-text-layer.pdf` | no text layer at all. `pdf-markdown` converts it to zero bytes, correctly -- the conversion succeeded and the emptiness is the finding |
+| `PLAY-2002` | `PLAY-2002-photocopy-no-text-layer.pdf` | no text layer at all. `pdf-markdown` converts it to its page anchor, `<!-- page 1 -->`, and nothing else, correctly -- the conversion succeeded and the emptiness is the finding (spec 008). Not the empty string, so a step reading it is still asked (R6.29) |
 
 `PLAY-2002` is the PDF half of what `INC-5720` is for images: a document whose
 content is entirely visual. Both are what OCR and a vision step exist to answer.
