@@ -99,6 +99,7 @@ from dossier.domain.tracking import (
     trace_pages,
     trace_request,
     trace_response,
+    try_tags,
     unbuilt_tags,
     version_params,
 )
@@ -414,7 +415,8 @@ def execute(
             ),
             tags=tracking_tags(
                 kind="run", pipeline=pipeline.name, label=label, environ=environ or {}
-            ),
+            )
+            | try_tags(tried),
         )
         tracker.log_params(
             {
@@ -442,8 +444,13 @@ def execute(
         # linked as one of this run's outputs (R13.1, R13.2). The registry
         # is best-effort and answers `None` when the server cannot hold a
         # logged model, which costs the record and never the run (R13.5).
+        #
+        # A try built nothing: one document of six is not the version's result,
+        # and a version's page lists only the full runs that produced it
+        # (R4.24). So a try registers no version and links none, and the prompts
+        # below are linked to its run alone.
         built: str | None = None
-        if versions is not None:
+        if versions is not None and tried is None:
             registered = versions.register(
                 record=version_record(plan), experiment=version_experiment
             )

@@ -521,6 +521,23 @@ def run_name(*, kind: str, values: Mapping[str, str], environ: Mapping[str, str]
     return _PLACEHOLDER.sub(lambda match: rendered[match.group(1)], template)
 
 
+# What a try's record carries beside the tags every record does (R4.24): the
+# documents `dossier run --doc` named, so tries are one filter away from runs.
+TRY = "dossier.try"
+
+
+def try_tags(tried: Sequence[str] | None) -> dict[str, str]:
+    """The tag that marks a record a try, or none for a full run (R4.24).
+
+    Sorted, and each document once: one set of documents is one tag value,
+    whatever order it was typed in. Absent from a full run rather than present
+    and empty, as `dossier.label` is when nobody gave one (R10.11).
+    """
+    if tried is None:
+        return {}
+    return {TRY: ", ".join(sorted(set(tried)))}
+
+
 def tags(
     *,
     kind: str,
