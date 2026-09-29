@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.26
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.28
 
 ## Purpose
 
@@ -710,3 +710,62 @@ a configuration file or the ledger is read.
 | 2 | `dossier run --replay runs/20260806T142203Z-4f1a/ --doc INC-4821` | exit 2, `--doc cannot be combined with --replay: a replay reproduces a whole run`; no `replays/` directory under the run |
 | 3 | `dossier run incident-audit --plan --replay runs/20260806T142203Z-4f1a/` | exit 2, `--plan cannot be combined with --replay: a replay reproduces a past run and plans nothing`; no `replays/` directory under the run |
 | 4 | *counter-example* — `dossier run incident-audit --doc INC-4821` | a try, as R4.18 asks it |
+
+### R4.27 — a run records each unit it failed, with the step and the reason, in `runs/<run_id>/failures.json`
+
+A failed document leaves no artifact (R0.11 row 4), and nothing recorded that
+it failed. So a replay met the missing entry and could not tell a failure from
+a lost cache entry. It stopped, as R4.7 row 4 says it must, and `dossier eval`,
+which scores a replay (R7.10), stopped with it. One failed document made a run
+unscorable, and R7.50 row 6's "reported as failed" was unreachable through the
+CLI. Found on 2026-09-29, in exercise 06's transcript.
+
+The record is one file beside the manifest, written when the run ends. It is
+one entry per failed unit: a document, or a page of a `per_part` one, holding
+the step, the document, the page or `null`, and the reason (R6.31). It is not
+in the manifest. The manifest is what resolution produced, byte-identical for
+one pipeline (R4.8), and what failed depends on what a model answered. It is
+not an artifact either: nothing stands in for a failed one (R0.11 row 4), and
+a failure is reported, not recorded as an output (R0.3 row 3). A run that failed
+nothing writes `[]`, so a finished run is told apart from one that stopped
+midway, which writes none. A skip is not a failure (R6.13, R6.21, R6.28): it is
+not recorded, and a replay derives it again, as the run did. A try writes no
+manifest and is never replayed (R4.20), so it writes no record.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`), domain (`dossier.domain.store`)
+- **Proved by:** `tests/unit/test_R004_27__a_run_records_what_it_failed.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4822` failing `extract` after its retry | `failures.json` holds `[{"step": "extract", "document": "INC-4822", "part": null, "reason": "no valid output after 2 attempts: Invalid JSON: expected ident at line 1 column 2"}]` |
+| 2 | `INC-4830`, read page by page, its page 2 failing | one entry, `"part": "page-002.png"`, its reason the page's own, without the page in front (R6.33 puts it there when the document's reason is joined) |
+| 3 | `verify` reading `extract`, skipping `INC-4822` (R6.13) | no entry for `verify`: a skip is not a failure |
+| 4 | *counter-example* — a run that failed nothing | `failures.json` holds `[]` |
+| 5 | *counter-example* — a run stopped by an interrupt before it ended | no `failures.json` (R11.23 records it as stopped) |
+
+### R4.28 — a replay reproduces each failure the run recorded, and asks for no entry for it
+
+What a run recorded as failed, a replay fails the same way, with the recorded
+reason, and looks for no cache entry. It never had one, and looking would stop
+the replay on a failure the run reported rather than lost. The steps after it
+skip it as the run did (R6.13, R6.28), so it is not failed a second time.
+Everything else is as R4.7 has it. A missing entry the run did not record as
+failed still stops the replay, naming it, because that is a lost cache entry,
+and reproducing it as a failure would be the substitution R4.7 row 4 forbids.
+The replay prints each reproduced failure as the run printed it (R6.31), and
+exits 0: it reproduced what it was asked to.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run.replay`), cli (`dossier.cli.run`)
+- **Proved by:** `tests/unit/test_R004_28__a_replay_reproduces_a_recorded_failure.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a run of `INC-4821`, `INC-4822`, `INC-4901` and `INC-5455`, `INC-4822` recorded as failed at `extract`; `dossier run --replay runs/<run_id>/` | `3 artifact(s) reproduced`, `    extract failed on INC-4822: no valid output after 2 attempts: …` as the run printed it, no model call; exit 0 |
+| 2 | the same run with `verify` reading `extract` | `INC-4822` skipped at `verify` in the replay, as in the run, and not a second failure (R6.13) |
+| 3 | `INC-4830`'s page 2 recorded as failed | pages 1 and 3 reproduced from the cache; the document fails with `page-002.png: …`, as the run's did (R6.33) |
+| 4 | *counter-example* — `INC-4901`'s cache entry deleted since the run, and nothing recorded for it | the replay stops, naming `INC-4901`, as R4.7 row 4 says |
+| 5 | *counter-example* — a run from before R4.27, with no `failures.json`, in which `INC-4822` failed | the replay stops on `INC-4822`, as it did before: nothing says it failed |
