@@ -65,7 +65,9 @@ def _step(step: str, source: str, *, mode: str = "per_file") -> StepConfig:
     )
 
 
-def _execute(workspace: Path, replies, *, steps=None, text=TEXT, parts=None) -> None:
+def _execute(
+    workspace: Path, replies, *, steps=None, text=TEXT, parts=None, run_id=RUN_ID
+) -> None:
     from dossier.infrastructure.cache import ArtifactCache
 
     steps = steps or [_step("extract", "documents")]
@@ -85,7 +87,7 @@ def _execute(workspace: Path, replies, *, steps=None, text=TEXT, parts=None) -> 
         workspace=workspace,
         model=FakeModelClient(responses=replies),
         cache=ArtifactCache(workspace, namespace="stage"),
-        run_id=RUN_ID,
+        run_id=run_id,
         started_at=datetime(2026, 9, 29, 18, 0, tzinfo=UTC),
         dossier_version="0.1.0",
     )
@@ -192,3 +194,30 @@ class TestAReplayReproducesARecordedFailure:
 
         with pytest.raises(MissingFromReplay, match="INC-4822"):
             _replay(tmp_path, recorded=False)
+
+    def test_a_later_runs_answer_does_not_rewrite_the_failure(self, tmp_path: Path):
+        """Row 6 — the one answered by a second run since, under the same key.
+
+        The only row in which there is an entry to find. A replay that looked the
+        cache up before its record passed every other row, and would serve the
+        second run's answer here as the first run's (R4.7).
+        """
+        from dossier.infrastructure.cache import ArtifactCache
+
+        _execute(tmp_path, [_answer("INC-4821"), NOT_JSON, NOT_JSON])
+        # The same pipeline again: INC-4821 served from the cache, INC-4822 asked
+        # afresh and answered this time.
+        later = "20260929T190000Z-0f0f"
+        _execute(tmp_path, [_answer("INC-4822")], run_id=later)
+        served = replay(
+            manifest=Manifest.read(tmp_path / "runs" / later / MANIFEST_NAME),
+            document_text=TEXT,
+            cache=ArtifactCache(tmp_path, namespace="stage"),
+            failures=recorded_failures(tmp_path / "runs" / later),
+        )
+        assert not _results(served, "extract")["INC-4822"].failed, "nothing to find"
+
+        replayed = _replay(tmp_path)
+
+        assert _results(replayed, "extract")["INC-4822"].error == REASON
+        assert replayed.failed == [("extract", "INC-4822")]

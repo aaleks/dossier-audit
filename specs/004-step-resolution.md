@@ -757,6 +757,13 @@ and reproducing it as a failure would be the substitution R4.7 row 4 forbids.
 The replay prints each reproduced failure as the run printed it (R6.31), and
 exits 0: it reproduced what it was asked to.
 
+Not looking matters when there is something to find. A later run of the same
+pipeline that answered the document caches its answer under the key the failed
+run would have used, and a replay that looked first would serve that answer:
+the run it names would be rewritten by a run it does not. Row 6 is that case.
+It was added after `/verify` on 2026-09-29 found that a replay which looked up
+the cache before its record passed every other row.
+
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run.replay`), cli (`dossier.cli.run`)
 - **Proved by:** `tests/unit/test_R004_28__a_replay_reproduces_a_recorded_failure.py`
@@ -769,3 +776,4 @@ exits 0: it reproduced what it was asked to.
 | 3 | `INC-4830`'s page 2 recorded as failed | pages 1 and 3 reproduced from the cache; the document fails with `page-002.png: …`, as the run's did (R6.33) |
 | 4 | *counter-example* — `INC-4901`'s cache entry deleted since the run, and nothing recorded for it | the replay stops, naming `INC-4901`, as R4.7 row 4 says |
 | 5 | *counter-example* — a run from before R4.27, with no `failures.json`, in which `INC-4822` failed | the replay stops on `INC-4822`, as it did before: nothing says it failed |
+| 6 | a second run of the same pipeline since, in which `INC-4822` was answered and cached under the key the first run would have used; a replay of the first | `INC-4822` fails with the first run's recorded reason, and the second run's answer is not served (R4.7) |
