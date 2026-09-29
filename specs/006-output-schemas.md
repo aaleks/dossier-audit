@@ -754,6 +754,34 @@ before, byte for byte. The shape is checked live against Anthropic, OpenAI
 through OpenWebUI, and Ollama before this rule is MET. Anthropic constrains its
 output to the schema and refuses a schema it cannot (R9.21).
 
+With variants, the answer's `fields` is also described, asking for every
+declared field in declared order. A model that reads the schema as guidance,
+rather than being held to it, answers only the fields the first variant names.
+The live check on 2026-09-29 found this:
+
+- **Variants alone:** `gpt-5.4-mini` through OpenWebUI left `severity` out of
+  every page.
+- **`severity`'s variant placed first:** it answered `severity` and dropped the
+  other fields.
+- **A description that only listed the fields:** `severity` on three documents
+  of six.
+- **"Answer every one of these fields":** every field on every page, and every
+  `severity` inside the vocabulary.
+
+An abstention is an answer (R6.5), so the sentence holds for every kind,
+including a `list`, which is answered one record per item. The description is
+generated from the declaration like everything else in the schema (R6.10). A
+declaration with no enum has no variants and no description.
+
+The live check, with the wording above:
+
+| Provider | Result |
+|---|---|
+| Anthropic, `claude-haiku-4-5-20251001` | accepted the schema; answered every field on every page, and `severity` always inside the vocabulary |
+| OpenWebUI, `gpt-5.4-mini` | the same |
+| Ollama, `qwen3.5:4b` | answered in 22 seconds; `severity` held to `critical` on a page that says `SEV-1` |
+| Ollama, `qwen3:1.7b` | did not finish its answer under the variants: it repeated one record until it ran out of tokens, where the old schema took 7 seconds. A model that small copes with one record shape and not with several. |
+
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.fields.json_schema`)
 - **Proved by:** `tests/unit/test_R006_25__an_enum_fields_values_are_in_its_schema.py`
@@ -763,7 +791,8 @@ output to the schema and refuses a schema it cannot (R9.21).
 |---|-------|------|
 | 1 | `severity: {kind: enum, values: [minor, major, critical]}` beside `resolution_date` and `root_cause` | a record naming `severity` may hold `minor`, `major`, `critical` or `null`, and nothing else; a record naming `resolution_date` or `root_cause` holds any value, as before |
 | 2 | `status: {kind: enum, values: [open, closed]}` declared as well | each enum is held to its own values: a `severity` record cannot hold `closed`, nor a `status` record `critical` |
-| 3 | *counter-example* — a declaration of `loss_amount`, `resolution_date` and `root_cause` alone | the generated schema is byte-identical to the one generated before this rule, so no key of its step moves (R6.12) |
+| 3 | the declaration of row 1 | the answer's `fields` is described as `Answer every one of these fields: severity, resolution_date, root_cause.`, every declared field in declared order |
+| 4 | *counter-example* — a declaration of `loss_amount`, `resolution_date` and `root_cause` alone | the generated schema is byte-identical to the one generated before this rule, with no description, so no key of its step moves (R6.12) |
 
 ### R6.26 — an `enum` field answered with a value outside its declared values is `invalid`, naming them, and the rest of the answer stands
 
