@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.17
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.25
 
 ## Purpose
 
@@ -73,6 +73,49 @@ That is a real change to the graph and appears in the diff:
 and ignores the current `pipeline.yaml` entirely.
 What it reproduces is written to a new directory under that run, or nowhere
 (R0.12).
+
+## Trying a prompt on one document
+
+`dossier run <pipeline> --doc KEY` asks the pipeline about the named documents
+only. It is how a prompt or a schema is iterated on: edit, try the document that
+shows the problem, read what came back, and edit again. On 2026-09-29 the live
+checks behind R6.25 ran exercise 10 four times, 9 calls each, when only
+`PLAY-3005`'s 4 pages mattered. Aiming at one document took an in-memory patch
+script, because the CLI could not.
+
+A run over some documents is called a **try**. Its answers are real. They are
+cached under the keys a full run uses, so the next full run is served them
+(R4.21). A try is not a run, though. `dossier eval` scores the latest run,
+`--plan` compares against it, and a new run warns when the source moved since
+it. If a try counted as a run, a document of six would be scored as the
+pipeline's result. So a try writes no manifest where those look (R4.20), and
+its answers go somewhere of their own (R4.22).
+
+Three choices were weighed, each decided by `a.aleks` on 2026-09-29.
+
+**Where a try's answers go:**
+
+| Option | For | Against |
+|---|---|---|
+| **`tries/<try_id>/`, named as `runs/` names them, and no manifest** (adopted) | nothing that reads `runs/` can mistake a try for a run, by construction | a try cannot be replayed or scored against gold; its answers are read by eye |
+| A manifest in `runs/`, marked partial | a try replays, and an explicit `eval --run` could score its documents | every reader of `runs/` must honour the mark, and the one that does not is the defect this exists to prevent |
+| The terminal only, no files | nothing to confuse | a page-by-page answer is hard to read and harder to compare between tries |
+
+**What a step that reads every document does:**
+
+| Option | For | Against |
+|---|---|---|
+| **Skipped, and the run says so** (adopted) | no call over a subset whose answer means nothing | an aggregate prompt cannot be tried on a small set |
+| Asked over the named documents | an aggregate prompt tried cheaply | an answer about a subset, cached under a key no full run uses, easily read as the real report |
+| `--doc` refused for such a pipeline | the simplest honest rule | most pipelines end in a report, so `--doc` would be unusable on them |
+
+**What MLflow records of a try:**
+
+| Option | For | Against |
+|---|---|---|
+| **Recorded as a run is, tagged a try, and not linked to the version it would have produced** (adopted) | every model call stays traced (spec 011), a try is one filter away, and a version's page lists only full runs (R13.2) | one tag more, and one exception to R13.2's link |
+| Not recorded | MLflow holds full runs only | model calls that cost money and left no trace |
+| Recorded as a run, with nothing to tell it apart | nothing to build | a try reads as a run, and links to the version as if it produced its results |
 
 ## Must hold
 
@@ -480,3 +523,151 @@ when one is tombstoned, every one of those keys moves (R5.15 row 3).
 | 2 | the same, `extract` reading `documents` only | `extract: cached` |
 | 3 | `OPS-116` tombstoned | `! verify: documents changed`, naming `OPS-116 gone`; `extract: cached` |
 | 4 | *counter-example* — `INC-4821` moved | both steps re-run, each naming `INC-4821 changed` and no reference document |
+
+### R4.18 — `dossier run --doc KEY` asks every step only about the named documents
+
+A try is asked what a full run would ask about the named documents, and nothing
+about any other ("Trying a prompt on one document", above). `--doc` may be given
+more than once. A `per_group` step's unit is a group (R3.15), so it is asked about
+each named document's whole group. A group missing some of its members would be a
+different question (R4.15).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.plan`), application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R004_18__a_try_asks_only_about_the_named_documents.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `extract` `per_file` over `INC-4821`, `INC-4822`, `INC-4901`, `INC-5102` and `INC-5455`; `--doc INC-4821` | 1 model call, about `INC-4821` |
+| 2 | `extract` `per_part` over `INC-4830` and `INC-5720`; `--doc INC-4830-postmortem-checkout-tls-expiry.pdf` | 3 model calls, one per page of `INC-4830`, and none for `INC-5720` |
+| 3 | `--doc INC-4821 --doc INC-4822` | 2 model calls, one about each |
+| 4 | a `per_group` step over `ACME-2024/`; `--doc ACME-2024/amendment-3.pdf` | 1 model call about group `ACME-2024`, holding every document of the group |
+| 5 | *counter-example* — no `--doc` | every document, exactly as a run has always been asked |
+
+### R4.19 — a `--doc` naming a document no source of the pipeline holds stops before any call, naming it
+
+A key mistyped would otherwise be a try about nothing, printed as a success.
+Every key is checked before anything is asked. A try that asked about the keys it
+could find would look like the try that was meant.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.plan`), cli (`dossier.cli.run`)
+- **Proved by:** `tests/unit/test_R004_19__a_document_no_source_holds_stops_a_try.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `--doc INC-4899` | exit 2, naming `INC-4899` as held by none of `incident-audit`'s sources; 0 model calls |
+| 2 | `--doc INC-4821 --doc INC-4899` | the same, and `INC-4821` is not asked either |
+| 3 | *counter-example* — `--doc INC-4821` | the try runs |
+
+### R4.20 — a try writes no manifest under `runs/`, so the latest run is still the latest full run
+
+`dossier eval` scores the latest run, `--plan` compares against it, and a run
+warns when the source has moved since it (R4.9 row 4). Every one of them finds
+that run by its manifest under `runs/`. A try writes none, so none of them can
+mistake it for a run.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R004_20__a_try_is_never_the_latest_run.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a full run `20260806T142203Z-4f1a`, then `--doc INC-4821` | `runs/` holds `20260806T142203Z-4f1a` alone; `dossier eval incident-audit --gold gold/incidents` scores it |
+| 2 | the same, then `dossier run incident-audit --plan` | compared against `20260806T142203Z-4f1a` |
+| 3 | *counter-example* — a full run after the try | that run is the latest, as every run is |
+
+### R4.21 — a try's answers are cached under the keys a full run would use, so the next full run is served them
+
+What a try asks about is asked as a full run would ask it (spec 005). Nothing
+about it being a try reaches a key, so its answers are never wasted.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R004_21__a_trys_answers_serve_the_next_full_run.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `--doc INC-4821`, then a full run over the five incidents | 4 model calls; `INC-4821` is served from cache |
+| 2 | a full run, then `--doc INC-4821` | 0 model calls; the try is served its answer |
+| 3 | *counter-example* — the prompt edited between the try and the full run | `INC-4821` asked again: the prompt is in the key (spec 005), whoever asked first |
+
+### R4.22 — a try writes its answers under `tries/<try_id>/`, named as a run's are, and prints what a run prints
+
+A try id has the form of a run id. Under it, each artifact is named as R0.11
+names a run's, and as R0.13 names a `per_part` step's pages. The terminal shows
+the step lines and every field finding as `dossier run` shows them (R6.16), so
+reading a try is reading a run.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`), cli (`dossier.cli.run`)
+- **Proved by:** `tests/unit/test_R004_22__a_try_writes_under_tries.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `--doc INC-4821` | `tries/20260929T100000Z-1a2b/extract/INC-4821.json` with its provenance record beside it; stdout opens `try 20260929T100000Z-1a2b · tries/20260929T100000Z-1a2b/`, then the step lines and findings |
+| 2 | `--doc INC-4830-postmortem-checkout-tls-expiry.pdf`, `per_part` | `tries/<id>/extract/INC-4830-postmortem-checkout-tls-expiry.pdf/page-001.json` to `page-003.json` (R0.13) |
+| 3 | *counter-example* — no `--doc` | `runs/<run_id>/` and its manifest, as every run (R0.11) |
+
+### R4.23 — under `--doc`, a step that reads every document is skipped, and the try says so
+
+An `aggregate` step's input is every document. Asked about the named ones, it
+would answer a question about a subset, cached under a key no full run uses,
+and easily read as the real report. So it is not asked, and the step line says
+why. A step reading only a skipped step is not asked either, as a step is not
+asked about what an earlier step did not produce (R6.13).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.plan`), cli (`dossier.cli.run`)
+- **Proved by:** `tests/unit/test_R004_23__a_step_reading_every_document_is_skipped_in_a_try.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `extract` `per_file` then `report` `aggregate`; `--doc INC-4821` | 1 model call, `extract` about `INC-4821`; `report: skipped under --doc: it reads every document` |
+| 2 | *counter-example* — the same pipeline, no `--doc` | `report` asked once over every document, as always |
+
+### R4.24 — MLflow records a try as it records a run, tagged a try, and links it to no version as having produced it
+
+Every model call a try makes is traced as a run's are (spec 011). The MLflow
+run is tagged `dossier.try` with the named documents, sorted and joined by `, `,
+so tries are one filter away. A try did not produce the pipeline version's
+results, so it is not linked to the version as a record that produced them
+(R13.2). A version's page lists only full runs.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/unit/test_R004_24__mlflow_records_a_try_as_a_try.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | tracking on, `--doc INC-4821 --doc INC-4822` | one MLflow run in `dossier-audit/incident-audit/run`, tagged `dossier.try` `INC-4821, INC-4822`; a trace per document and a span per model call, as a run's |
+| 2 | the same | no link to the pipeline version as the record that produced it |
+| 3 | *counter-example* — a full run, tracking on | no `dossier.try` tag, and linked to its version as it always was (R13.2) |
+
+### R4.25 — a prompt is tried on one document, again and again, and the pipeline's result stays the last full run's
+
+This is the slice's acceptance rule, observed through the CLI: the loop a person
+iterates in, from a full run, through two tries with the prompt edited between
+them, to the `eval` that still reports the full run. R4.18 to R4.24 can each be
+MET while that loop is broken, so this rule is proved as a person runs it. The
+documents are `INC-4830`, three pages read page by page, and `INC-5720`, one page
+(`_fixtures.md`). The model is a `FakeModelClient` that counts calls.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.run`, `dossier.cli.eval`), application (`dossier.application.run`)
+- **Proved by:** `tests/acceptance/test_R004_25__a_prompt_is_tried_on_one_document.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a full run (4 model calls), then `run --doc INC-4830-postmortem-checkout-tls-expiry.pdf` with the prompt edited | 3 more calls; the answers under `tries/<id>/`, and `runs/` holds the full run alone |
+| 2 | the prompt edited again, and tried again | 3 more calls, under a second `tries/` directory |
+| 3 | `dossier eval` after both tries | the full run's figures, `2 documents`; no model asked (R7.10) |
+| 4 | *counter-example* — `run --doc INC-4899` | exit 2 naming `INC-4899`, and 0 calls |
