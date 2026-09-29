@@ -736,6 +736,41 @@ def compare_totals(
     return tuple(FieldDelta(field, earlier.get(field), later.get(field)) for field in fields)
 
 
+type Failure = tuple[str, str, str | None]
+
+
+def unscored(
+    failures: Sequence[Failure],
+    *,
+    steps: Sequence[str],
+    scored: str,
+    answered: Collection[str],
+) -> list[Failure]:
+    """The documents left unscored, each once, as `(step, document, reason)` (R7.53).
+
+    `failures` are the run's, in pipeline order. What leaves a document unscored
+    is the scored step having no answer for it: it failed the document, or
+    skipped it because a step it reads had failed it (R6.13, R6.28). So a
+    document the scored step `answered` is never named, whatever another step
+    did to it, and a failure after the scored step is not consulted. Before
+    this, a step after the scored one named a scored document as not scored,
+    and a document two steps failed was named twice.
+
+    Named at its first failure, because that one left every step after it
+    without the document.
+    """
+    order = {step: at for at, step in enumerate(steps[: steps.index(scored) + 1])}
+    named: dict[str, Failure] = {}
+    # Sorted by step, stably, so the first failure is the pipeline's first
+    # whatever order the failures were collected in.
+    for step, document, reason in sorted(
+        (failure for failure in failures if failure[0] in order), key=lambda f: order[f[0]]
+    ):
+        if document not in answered and document not in named:
+            named[document] = (step, document, reason)
+    return list(named.values())
+
+
 def check_same_documents(
     before: Collection[str], after: Collection[str], *, runs: tuple[str, str]
 ) -> None:

@@ -61,6 +61,7 @@ from dossier.domain.scoring import (
     describe_items,
     overall,
     per_field,
+    unscored,
     weakest,
 )
 from dossier.domain.store import RUNS_ROOT
@@ -397,13 +398,10 @@ def eval_(
                     if result.field == field and not result.correct:
                         typer.echo(f"    {score.document:<14} {result.detail or 'incorrect'}")
 
-        # Each document the run failed, named with its step and why, beneath the
-        # fields it was not scored on (R7.52, R6.31).
-        for failed_at, result in failed:
-            typer.echo(
-                "  "
-                + not_scored_line(step=failed_at, document=result.document, reason=result.error)
-            )
+        # Each document the run left unscored, named with its step and why,
+        # beneath the fields it was not scored on (R7.52, R7.53, R6.31).
+        for failed_at, document, reason in failed:
+            typer.echo("  " + not_scored_line(step=failed_at, document=document, reason=reason))
 
         if tracker is not None:
             # The figures the lines above printed, recorded once rather than computed
@@ -725,15 +723,20 @@ def _reproduced(
         for entries in by_kind.values()
         for document, entries in entries.items()
     }
-    # Every step's, not only the scored one's: a document an earlier step failed
-    # is skipped by the step scored here, and is still a document not scored.
-    failed = [(done.step, result) for done in report.steps for result in done.failed]
-    return (
-        next(result for result in report.steps if result.step == step),
-        text,
-        pages,
-        failed,
+    scored = next(result for result in report.steps if result.step == step)
+    # Not every failure: a document the scored step answered was scored, whatever
+    # a step after it did, and one two steps failed is one document (R7.53).
+    failed = unscored(
+        [
+            (done.step, result.document, result.error)
+            for done in report.steps
+            for result in done.failed
+        ],
+        steps=[done.step for done in report.steps],
+        scored=step,
+        answered={result.document for result in scored.results if not result.failed},
     )
+    return scored, text, pages, failed
 
 
 def _published_dataset(workspace: Path, *, gold: str) -> PublishedDataset | None:
