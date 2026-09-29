@@ -98,12 +98,22 @@ def _trace(tracker: FakeTracker, document: str):
 
 
 def _completed(workspace: Path, report) -> None:
-    """Both documents answered and written, as a run with no tracking writes them."""
+    """Both documents answered, written and cached, as a run with no tracking leaves them.
+
+    Cached is read off the record beside each artifact: the key it names is one
+    the stage cache holds, so the next run is served it (R5.5).
+    """
+    from dossier.infrastructure.cache import ArtifactCache
+
     (step,) = report.steps
     assert [result.document for result in step.results] == list(DOCUMENTS)
     assert not any(result.failed for result in step.results)
+    cache = ArtifactCache(workspace, namespace="stage")
     for document in DOCUMENTS:
-        assert (workspace / "runs" / RUN_ID / "extract" / f"{document}.json").is_file()
+        written = workspace / "runs" / RUN_ID / "extract" / f"{document}.json"
+        assert written.is_file()
+        record = json.loads(written.with_name(f"{document}.meta.json").read_text("utf-8"))
+        assert cache.get(record["cache_key"], require_record=True) is not None, document
 
 
 class TestATraceThatCannotBeBuiltNeverStopsARun:

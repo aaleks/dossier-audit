@@ -202,10 +202,15 @@ class TestDossierRunShowsAnEnumItsValues:
         assert "100.0%" in _line_of(result.output, "resolution_date"), result.output
 
     def test_only_the_case_differing_is_no_finding(self, workspace: Path, monkeypatch):
-        """Row 4, counter-example — the one where `Critical` is `critical`, case folded."""
-        _run(workspace, monkeypatch, _pages("Critical"))
+        """Row 4, counter-example — the one where `Critical` is `critical`, case folded.
+
+        No finding is read off the run, which is where findings are printed:
+        eval prints none by that name, so asserting there held for any code.
+        """
+        run, _ = _run(workspace, monkeypatch, _pages("Critical"))
 
         result = _eval(workspace, monkeypatch)
 
-        assert "finding" not in result.output, result.output
+        assert run.exit_code == 0, run.output
+        assert "finding" not in run.output, run.output
         assert "100.0%" in _line_of(result.output, "severity"), result.output
