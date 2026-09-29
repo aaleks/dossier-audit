@@ -124,6 +124,19 @@ kinds could be named still reads the same. `page_images` is one picture per page
 delivered as a single container of parts (R8.11); a `per_part` step is run once
 per page, keyed and retried and cached per page (R3.12).
 
+Read page by page, a document still gives one answer per field. `dossier eval`
+scores a field once per document. A page that abstains is passed over while
+another page answers, and the field is correct only when every page that gave a
+value is. A miss names its page (R7.46 – R7.49):
+
+```
+  incident_date       83.3%   <- weakest
+    PLAY-3005-weekly-incident-review.pdf page-002.png: '2026-09-02' does not match '2026-09-08'
+```
+
+A field the verified answers state and no page gave is a miss too, `not
+answered`, in every mode (R7.50).
+
 A list asks every document for every kind in it. A map asks a kind of one media
 type only, and `[]` leaves a media type out (R8.26, R8.27):
 

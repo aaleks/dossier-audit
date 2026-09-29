@@ -42,7 +42,9 @@ record for was unscored, so a run that left out what it was unsure of was never
 wrong about it. It is now an abstention, named `not answered`. **`per_file`
 scores can fall** for a pipeline whose model leaves fields out. No test in the
 suite depended on it, and exercise 10's stub replies answer each field gold
-verifies on exactly one page, so none of its figures move.
+verifies on exactly one page, so none of its figures move. Its task 7 overrides
+`PLAY-3005`'s pages one at a time to show each case: a second date read off a
+panel, an abstention, and silence on every page.
 
 Not yet run against a real model: the slice changes scoring, which reads
 stored answers, and the suite's `per_part` acceptance test is the four-call
