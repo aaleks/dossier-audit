@@ -618,5 +618,5 @@ reason and is left out, as it always was. The key is sent only in a header
 | 4 | `503` three times, each `{"error": {"message": "Overloaded"}}` | `… answered 503 Service Unavailable (after 3 attempts): Overloaded` |
 | 5 | a reason spanning lines, `"schema invalid:\n  additionalProperties"` | `: schema invalid: additionalProperties`, on one line (R9.20) |
 | 6 | `DOSSIER_OPENAI_API_KEY=sk-4f1a-do-not-print` and a `401` whose message quotes it | the reason with `***` where the key was; the key is in no part of the line (R9.8 row 1) |
-| 7 | *counter-example* — a `502` whose body is a proxy's HTML page | `… answered 502 Bad Gateway`, and nothing after it |
+| 7 | *counter-example* — a `502` whose body is a proxy's HTML page | `… answered 502 Bad Gateway (after 3 attempts)`, and nothing after it: a `502` is retried (R9.17), and the page is no reason |
 | 8 | *counter-example* — a `401` whose JSON names no reason, `{"code": 401}` | `… answered 401 Unauthorized`, and nothing after it |

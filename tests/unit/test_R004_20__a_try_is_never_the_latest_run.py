@@ -6,19 +6,23 @@ warns when the source has moved since it (R4.9 row 4). Every one of them finds
 that run through `latest_manifest` over `runs/`, so that is what is read here:
 a try that left a manifest there would be the run each of them found.
 
-Run through `execute`, whose `tried` is what `--doc` names.
+Run through `execute`, whose `tried` is what `--doc` names. Then row 2 through
+the CLI as well: `latest_manifest` is what every reader calls, and a reader
+that stopped calling it would pass the rows above and still be fooled.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 
+from tests.acceptance.conftest import _cli
 from tests.fakes import FakeModelClient
-from tests.pipelines import prompt_for
-from tests.scoring_example import ISSUES
+from tests.pipelines import prompt_for, write_pipeline
+from tests.scoring_example import FIELDS, ISSUES, abstains
 
 from dossier.application.plan import latest_manifest
 from dossier.application.run import RunInputs, execute
@@ -101,3 +105,53 @@ class TestATryIsNeverTheLatestRun:
 
         assert _runs(tmp_path) == [FULL_RUN, LATER_RUN]
         assert latest_manifest(tmp_path / "runs", PIPELINE)[1] == LATER_RUN
+
+
+class Model:
+    """Answers every call with nothing extracted."""
+
+    model_id = "anthropic:claude-sonnet-4-5-20250929"
+
+    def complete(self, prompt: str, *, schema: dict | None = None, parts=()) -> str:
+        (document,) = re.findall(r'<document key="([^"]+)">', prompt)
+        return json.dumps({"document": document, "fields": [abstains(f) for f in FIELDS]})
+
+
+class TestPlanStillReadsTheFullRun:
+    """R4.20 row 2, through the CLI: `--plan` after a try."""
+
+    def test_a_plan_after_a_try_compares_against_the_full_run(
+        self, workspace: Path, monkeypatch
+    ):
+        """Row 2 — the one where the plan is asked after the try, and names the run.
+
+        The incidents are markdown in a folder source, so their keys carry the
+        extension (`INC-4821.md`), as R3.17's do.
+        """
+        import dossier.cli.bootstrap as cli
+
+        for name in ("INC-4821", "INC-4822"):
+            path = workspace / "inbox" / "tickets" / f"{name}.md"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(ISSUES[name], encoding="utf-8")
+        (workspace / "sources.yaml").write_text(
+            "sources:\n  - id: tickets\n    type: folder\n    path: inbox/tickets/\n",
+            encoding="utf-8",
+        )
+        write_pipeline(workspace, name=PIPELINE, sources=["tickets"])
+        monkeypatch.setattr(cli, "build_model_client", lambda model_id: Model())
+        # The run and the try start within one second, so their ids differ only
+        # in the random suffix, and the try's could sort first by chance. Pinned
+        # so it sorts last: the case where a manifest of its own would win.
+        suffixes = iter(["0000", "ffff"])
+        monkeypatch.setattr("dossier.cli.run.token_hex", lambda n: next(suffixes))
+        for args in (("sync", PIPELINE), ("run", PIPELINE)):
+            assert _cli(workspace, monkeypatch, *args).exit_code == 0
+        (full_run,) = _runs(workspace)
+        tried = _cli(workspace, monkeypatch, "run", PIPELINE, "--doc", "INC-4821.md")
+        assert tried.exit_code == 0, tried.output
+
+        plan = _cli(workspace, monkeypatch, "run", PIPELINE, "--plan")
+
+        assert plan.exit_code == 0, plan.output
+        assert f"compared against {full_run}" in plan.output, plan.output
