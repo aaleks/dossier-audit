@@ -588,7 +588,7 @@ about it being a try reaches a key, so its answers are never wasted.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/unit/test_R004_21__a_trys_answers_serve_the_next_full_run.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
