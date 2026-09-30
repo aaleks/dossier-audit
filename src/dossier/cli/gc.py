@@ -15,6 +15,7 @@ from dossier.domain.gc import (
     PREVIEWED,
     run_line,
     summary_line,
+    unreplayable_line,
 )
 from dossier.domain.sync import State
 from dossier.infrastructure.cache import ArtifactCache
@@ -65,6 +66,10 @@ def gc(
         held=_held_snapshots(workspace),
         keep_last=keep_last,
     )
+    # Before what is collected, and on stderr: a run that cannot be reproduced
+    # is a finding about the workspace, whatever gc does next (R16.7).
+    for run_id, reason in plan.unreplayable:
+        typer.echo(unreplayable_line(run_id, reason), err=True)
     if not (plan.runs or plan.tries or plan.replays or plan.entries):
         typer.echo(NOTHING)
         return

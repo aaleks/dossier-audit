@@ -1,6 +1,6 @@
 # 016 — Reclaiming space
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R16.1 – R16.7
 
 ## Purpose
@@ -176,7 +176,7 @@ its replay read before it stopped are kept: what it did resolve.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.gc`)
 - **Proved by:** `tests/unit/test_R016_7__an_unreplayable_kept_run_does_not_stop_gc.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
