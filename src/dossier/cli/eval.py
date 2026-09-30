@@ -125,6 +125,20 @@ def scored_step(pipeline: str, config):
     return declaring[0]
 
 
+def refuse_unmeetable_gold(pipeline: str, directory: Path, kinds) -> None:
+    """Exit 2 naming every gold answer in a shape no run can meet (R7.44).
+
+    Before anything reads the gold set to score: such an answer is the gold
+    set's fault, and scoring against it would blame the run. `status` asks it
+    too, and is refused in the same words (R17.6 row 7).
+    """
+    refused = gold_refusals(load_gold(directory), kinds)
+    if refused:
+        for line in refused:
+            typer.echo(f"{pipeline}: {line}", err=True)
+        raise typer.Exit(code=2)
+
+
 def judge_gate(
     directory: Path, declaration: Path, pipeline_dir: Path, model: str, *, states=(GROUNDED,)
 ) -> tuple[dict[str, Calibration], dict[str, str]]:
@@ -207,14 +221,8 @@ def eval_(
     step = scored_step(pipeline, config)
     kinds = load_fields(path.parent / step.output)
 
-    # Before anything reads the gold set to score: an answer in a shape no run
-    # can meet is the gold set's fault, and scoring against it would blame the
-    # run. Here, so a comparison is refused as an eval is (R7.44).
-    refused = gold_refusals(load_gold(workspace / gold), kinds)
-    if refused:
-        for line in refused:
-            typer.echo(f"{pipeline}: {line}", err=True)
-        raise typer.Exit(code=2)
+    # Here, so a comparison is refused as an eval is (R7.44).
+    refuse_unmeetable_gold(pipeline, workspace / gold, kinds)
 
     if compare[0] is not None:
         _compare_runs(
