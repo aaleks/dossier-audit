@@ -27,15 +27,27 @@ mutate. Report that before reporting mutants.
 
 ## Steps
 
-1. Confirm the unit suite is green and fast first — a long run against a red suite is
-   wasted: `uv run pytest tests/unit -q --durations=5`
-2. `uv run --with cosmic-ray cosmic-ray init mutation.toml mutation.sqlite`
-3. `uv run --with cosmic-ray cosmic-ray exec mutation.toml mutation.sqlite`
-4. `uv run --with cosmic-ray cr-report mutation.sqlite` — score and survivors
-5. `uv run --with cosmic-ray cr-html mutation.sqlite > mutation.html` for a readable
-   per-line view when the survivor list is long.
+The runner is `dev/mutation/mutate.py`, and `dev/mutation/README.md` says why it is
+built the way it is. `cosmic-ray exec` would take a week. The runner needs the
+`mutation` dependency group (`uv sync --locked --all-extras --no-extra docling --group
+mutation`), and is run with the project's own interpreter.
 
-The full run takes several minutes. Say so before starting it.
+1. `python dev/mutation/mutate.py init`. It runs the default suite once under
+   coverage, and stops if the suite is not green. Then it lists the mutants a test
+   could see. About 10 minutes.
+2. `python dev/mutation/mutate.py run`. Each mutant runs against the tests that
+   execute its lines, in parallel copies. All of `domain/` is about three hours on 14
+   workers, and resumes where it stopped. One module is minutes, `scoring.py` the longest:
+   `run --only scoring.py`.
+3. `python dev/mutation/mutate.py report`. The survivors, each with the line it
+   changed.
+4. Confirm a survivor before reporting it:
+   - a capped one: run it again with `--cap 0`;
+   - one in a class body (a pydantic `Field`, a dataclass default): check it by hand,
+     because line coverage does not see a test that only builds the model.
+
+The full run takes hours. Say so before starting it, and offer the one module that
+changed instead.
 
 ## For each surviving mutant
 

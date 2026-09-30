@@ -1,5 +1,8 @@
 # Servers to run dossier against
 
+(Also here: `dev/mutation/`, the mutation-testing runner for `domain/`. It has its
+own README.)
+
 A Jira and a Confluence, each Data Center in Docker, for running a source
 against a real server you can write to: before a slice that talks to one is
 called done (CLAUDE.md), or to try `dossier sync` somewhere a public server will

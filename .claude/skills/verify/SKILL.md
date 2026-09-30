@@ -117,10 +117,13 @@ The checks above prove a rule and a test are linked. They cannot tell you the te
 would notice if the code were wrong. Mutation testing can:
 
 ```bash
-uv run --with cosmic-ray cosmic-ray init mutation.toml mutation.sqlite
-uv run --with cosmic-ray cosmic-ray exec mutation.toml mutation.sqlite   # several minutes
-uv run --with cosmic-ray cr-report mutation.sqlite
+python dev/mutation/mutate.py init                    # the coverage map: ~10 minutes
+python dev/mutation/mutate.py run --only scoring.py   # one module: minutes
+python dev/mutation/mutate.py report
 ```
+
+`dev/mutation/README.md` has the setup, and the two ways the method reports a survivor
+that is not one. The whole of `domain/` is about three hours.
 
 Hand the output to the `mutation-analyst` agent, which turns each survivor into a named
 spec rule and a concrete killing assertion. Do not run it on every audit — reach for it
