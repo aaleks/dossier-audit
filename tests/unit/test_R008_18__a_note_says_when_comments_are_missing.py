@@ -68,3 +68,15 @@ class TestANoteSaysWhenCommentsAreMissing:
         written = note(with_thread({"comments": [], "total": 3}), markup=unchanged)
 
         assert written.endswith("## Comments\n\n3 of 3 comments are not in this snapshot.\n")
+
+    def test_one_missing_is_said_as_surely_as_two(self):
+        """Row 4: the one where Jira counts 6 and sent 5."""
+        written = note(with_thread({"comments": comments(5), "total": 6}), markup=unchanged)
+
+        assert written.endswith("Update 4.\n\n1 of 6 comments are not in this snapshot.\n")
+
+    def test_a_thread_of_one_that_sent_none_still_says_so(self):
+        """Row 5: the one where Jira counts 1 and sent none."""
+        written = note(with_thread({"comments": [], "total": 1}), markup=unchanged)
+
+        assert written.endswith("## Comments\n\n1 of 1 comments are not in this snapshot.\n")

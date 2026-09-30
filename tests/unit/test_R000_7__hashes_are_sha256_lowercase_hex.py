@@ -162,11 +162,13 @@ class TestARunIdIsFiledUnderATimeItActuallyWas:
 
         with pytest.raises(ValueError):
             run_id(datetime(2026, 8, 6, 14, 22, 3), "4f1a")
-        with pytest.raises(ValueError):
-            run_id(
-                datetime(2026, 8, 6, 14, 22, 3, tzinfo=timezone(timedelta(hours=2))),
-                "4f1a",
-            )
+        # Ahead of UTC and behind it: an offset is refused whichever way it points.
+        for hours in (2, -5):
+            with pytest.raises(ValueError):
+                run_id(
+                    datetime(2026, 8, 6, 14, 22, 3, tzinfo=timezone(timedelta(hours=hours))),
+                    "4f1a",
+                )
 
         assert run_id(datetime(2026, 8, 6, 14, 22, 3, tzinfo=UTC), "4f1a")
 

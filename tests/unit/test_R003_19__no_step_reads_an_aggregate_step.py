@@ -87,3 +87,19 @@ class TestNoStepReadsAnAggregateStep:
                 ("report", "aggregate", "extract"),
             )
         )
+
+    def test_previous_reads_one_step_back_and_no_further(self):
+        """Row 5, a counter-example: the one where `report` is two steps back.
+
+        `previous` is the step before, `notes`, which answers per incident. A
+        rule that looked further back would refuse a pipeline that reads the
+        report nowhere.
+        """
+        validate_modes(
+            _pipeline(
+                ("extract", "per_file", "documents"),
+                ("report", "aggregate", "extract"),
+                ("notes", "per_file", "documents"),
+                ("check", "per_file", "previous"),
+            )
+        )

@@ -68,6 +68,29 @@ class TestRunIdsSortInTheOrderRunsStarted:
         assert filed == "20260806T142203Z-ffff0"
         assert filed > "20260806T142203Z-ffff"
 
+    def test_after_the_last_of_the_seconds_runs(self):
+        """Row 7 — the one where the second already holds two runs.
+
+        `5a5a` sorts after the first and before the last: compared with the
+        first alone it would stand, and sort between them.
+        """
+        taken = ["20260806T142203Z-4f1a", "20260806T142203Z-7c3d"]
+
+        assert run_id(STARTED, "5a5a", taken=taken) == "20260806T142203Z-7c3e"
+
+    def test_a_draw_equal_to_a_filed_suffix_is_moved_after(self):
+        """Row 8 — the one drawing `4f1a` in the second of `4f1a`."""
+        assert run_id(STARTED, "4f1a", taken=["20260806T142203Z-4f1a"]) == (
+            "20260806T142203Z-4f1b"
+        )
+
+    def test_after_a_suffix_named_by_hand(self):
+        """Row 9 — the one after `mine`, which is not hex."""
+        filed = run_id(STARTED, "0bbb", taken=["20260806T142203Z-mine"])
+
+        assert filed == "20260806T142203Z-mine0"
+        assert filed > "20260806T142203Z-mine"
+
     def test_eval_scores_the_second_of_two_runs_in_one_second(
         self, workspace: Path, monkeypatch
     ):
