@@ -84,9 +84,9 @@ no general tool knows.
 ### R17.2 — a source names each document a sync still owes it, with when its fetch failed and why
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.status.source_lines`), read by application (`dossier.application.status`)
+- **Layer:** domain (`dossier.domain.status.source_lines`), read by infrastructure (`dossier.infrastructure.ledger.read_held`, read-only)
 - **Proved by:** `tests/unit/test_R017_2__status_names_what_a_sync_still_owes.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

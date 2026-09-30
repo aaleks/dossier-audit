@@ -16,15 +16,31 @@ from dossier.domain.sync import State
 
 
 @dataclass(frozen=True)
+class Owed:
+    """A document a sync still owes its source: its fetch failed (R2.23, R17.2)."""
+
+    key: str
+    failed_at: datetime
+    error: str
+
+
+@dataclass(frozen=True)
 class Held:
-    """What the ledger holds for one source (R17.1)."""
+    """What the ledger holds for one source (R17.1), and what it is owed (R17.2)."""
 
     active: int
     tombstoned: int
     last_synced: datetime | None
+    owed: tuple[Owed, ...] = ()
 
     @classmethod
-    def of(cls, states: Iterable[State], *, last_synced: datetime | None) -> Held:
+    def of(
+        cls,
+        states: Iterable[State],
+        *,
+        last_synced: datetime | None,
+        owed: tuple[Owed, ...] = (),
+    ) -> Held:
         """Counted from the states of a source's ledger rows.
 
         A tombstoned row is counted apart rather than dropped: it is a document
@@ -35,6 +51,7 @@ class Held:
             active=counted[State.ACTIVE],
             tombstoned=counted[State.TOMBSTONED],
             last_synced=last_synced,
+            owed=owed,
         )
 
 
@@ -47,22 +64,28 @@ def source_lines(declared: Sequence[str], held: Mapping[str, Held]) -> list[str]
     Its documents are still held, and the runs that pinned them still resolve
     them (R2.7), so leaving it out would hide them.
     """
-    lines = [
-        _held_line(source, held[source]) if source in held else f"{source} · never synced"
-        for source in declared
-    ]
-    lines += [
-        f"{_held_line(source, held[source])} · not in sources.yaml"
-        for source in sorted(set(held) - set(declared))
-    ]
+    lines: list[str] = []
+    for source in declared:
+        if source in held:
+            lines += _held_lines(source, held[source])
+        else:
+            lines.append(f"{source} · never synced")
+    for source in sorted(set(held) - set(declared)):
+        first, *owed = _held_lines(source, held[source])
+        lines += [f"{first} · not in sources.yaml", *owed]
     return lines
 
 
-def _held_line(source: str, holding: Held) -> str:
-    return (
+def _held_lines(source: str, holding: Held) -> list[str]:
+    """The source's line, then one beneath it for each document it is owed (R17.2)."""
+    return [
         f"{source} · {holding.active} held · {holding.tombstoned} tombstoned"
-        f" · last synced {_instant(holding.last_synced)}"
-    )
+        f" · last synced {_instant(holding.last_synced)}",
+        *(
+            f"  owed {owed.key}, since {_instant(owed.failed_at)}: {owed.error}"
+            for owed in sorted(holding.owed, key=lambda owed: owed.key)
+        ),
+    ]
 
 
 def _instant(when: datetime) -> str:

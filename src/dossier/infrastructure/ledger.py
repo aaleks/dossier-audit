@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterable
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
 from dossier.domain.ledger import LedgerRow, Revision
+from dossier.domain.status import Held, Owed
 from dossier.domain.sync import State
 
 LEDGER_PATH = ".dossier/ledger.db"
@@ -376,3 +378,38 @@ def _to_text(when: datetime) -> str:
 
 def _from_text(text: str) -> datetime:
     return datetime.fromisoformat(text)
+
+
+def read_held(workspace: Path) -> dict[str, Held]:
+    """What the ledger holds for each source, read without changing it (R17.2, R17.5).
+
+    `Ledger` creates the file and migrates an older one as it opens it, and
+    `dossier status` promises to change nothing. So this opens it read-only,
+    finds no ledger where none was written, and reads an older one as it is:
+    one written before R2.23 has no `owed` table, and is owed nothing.
+    """
+    path = Path(workspace) / LEDGER_PATH
+    if not path.is_file():
+        return {}
+    with closing(sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)) as ledger:
+        states: dict[str, list[State]] = {}
+        for source_id, state in ledger.execute("SELECT source_id, state FROM items"):
+            states.setdefault(source_id, []).append(State(state))
+        synced = dict(ledger.execute("SELECT source_id, last_sync_at FROM watermarks"))
+        tables = {name for (name,) in ledger.execute("SELECT name FROM sqlite_master")}
+        owed: dict[str, list[Owed]] = {}
+        if "owed" in tables:
+            for source_id, key, failed_at, error in ledger.execute(
+                "SELECT source_id, key, failed_at, error FROM owed"
+            ):
+                owed.setdefault(source_id, []).append(
+                    Owed(key=key, failed_at=_from_text(failed_at), error=error)
+                )
+    return {
+        source: Held.of(
+            states.get(source, []),
+            last_synced=_from_text(synced[source]) if source in synced else None,
+            owed=tuple(owed.get(source, ())),
+        )
+        for source in sorted(states.keys() | synced.keys())
+    }
