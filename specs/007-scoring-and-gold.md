@@ -301,8 +301,8 @@ documents, so it is scored on abstention (R7.3) and needs no judge. The values
 are `_fixtures.md`'s scoring example, which a person writes into the gold files.
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.eval`)
-- **Proved by:** `tests/acceptance/test_R007_2__scores_are_reported_per_field.py`
+- **Layer:** cli (`dossier.cli.eval`), domain (`dossier.domain.scoring.weakest`)
+- **Proved by:** `tests/acceptance/test_R007_2__scores_are_reported_per_field.py`, `tests/unit/test_R007_2__the_weakest_fields_are_every_one_at_the_lowest.py`
 - **Status:** MET
 
 | # | Given | Then |
@@ -311,6 +311,9 @@ are `_fixtures.md`'s scoring example, which a person writes into the gold files.
 | 2 | the same | `overall 80.0%` may appear, and never without the breakdown |
 | 3 | the same | the weakest field, `root_cause` at 50.0%, is marked as such |
 | 4 | *counter-example* — a gold set covering one field | that one field is listed; the rule is about never collapsing, not about a minimum count |
+| 5 | `resolution_date` and `affected_systems` both at 75.0%, 3 of 4, and every other field above | both are marked: picking one of two fields at the lowest would be arbitrary |
+| 6 | `root_cause` at 1 of 3 and `loss_amount` at 2 of 6, the lowest | both are marked. The counts are compared, not percentages rounded apart |
+| 7 | *counter-example* — every field at 75.0% | none is marked; a marker on every line says nothing about where the work is |
 
 ### R7.3 — a gold null is correct when the run abstains and incorrect when it supplies a value
 
@@ -1343,6 +1346,7 @@ figure and never a second way of arriving at one (spec 011).
 | 2 | gold `null` for `INC-4822`, and the run names `ledger-batch` | one item named and none matched: precision falls, recall is unchanged |
 | 3 | *counter-example* — `--compare` of two runs at the same percentage, the second's precision lower | not a regression; R7.8 gates on the percentage alone |
 | 4 | *counter-example* — a run that abstains on every document | `precision --`, not 0.0%: nothing was named, so nothing named was wrong |
+| 5 | a run naming `payments-api`, `ledger-batch` and `checkout` where gold holds `payments-api`, `checkout` and `settlement` | `items: precision 66.7% (2/3), recall 66.7% (2/3)`: each share rounded to one decimal, not cut |
 
 ### R7.44 — gold for a `list` field is a non-empty array of strings, and only a `list` field holds one
 
