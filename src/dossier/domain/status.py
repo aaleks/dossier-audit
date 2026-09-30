@@ -90,3 +90,41 @@ def _held_lines(source: str, holding: Held) -> list[str]:
 
 def _instant(when: datetime) -> str:
     return when.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+@dataclass(frozen=True)
+class RunSeen:
+    """One run under `runs/`, as `status` reads it (R17.3).
+
+    `failed` names the document of each failure `failures.json` holds, once per
+    failure: a document two steps failed is in it twice.
+    """
+
+    run_id: str
+    pipeline: str
+    documents: int
+    failed: tuple[str, ...] = ()
+
+
+def pipeline_lines(pipelines: Sequence[str], runs: Iterable[RunSeen]) -> list[str]:
+    """One line per pipeline, naming its latest run (R17.3).
+
+    The latest is the last by run id, which sorts by when the run started
+    (R0.8), as `dossier eval` and `dossier gc` find it (R16.2).
+    """
+    latest: dict[str, RunSeen] = {}
+    for seen in sorted(runs, key=lambda seen: seen.run_id):
+        latest[seen.pipeline] = seen
+    lines = []
+    for pipeline in pipelines:
+        seen = latest.get(pipeline)
+        if seen is None:
+            lines.append(f"{pipeline} · no run yet")
+            continue
+        # A document is counted once however many steps failed it: counted per
+        # failure, four documents could report five failed (R7.53 row 2).
+        lines.append(
+            f"{pipeline} · latest run {seen.run_id} · {seen.documents} documents"
+            f" · {len(set(seen.failed))} failed"
+        )
+    return lines
