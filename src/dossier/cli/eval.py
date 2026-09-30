@@ -592,6 +592,7 @@ def _compare_runs(
                 rows=deltas,
                 overalls=(earlier, later),
                 left_out=len(left_out),
+                failed=unscored_by_run,
             ),
             detail=deltas_artifact(deltas, runs=runs, left_out=named),
             failed=(len(unscored_by_run[0]), len(unscored_by_run[1])),
