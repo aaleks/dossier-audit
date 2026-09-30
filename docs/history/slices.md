@@ -13,6 +13,52 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+The first mutation run over `domain/` (2026-09-30, #623 to #630). `mutation.toml`
+had been set up and never run: its database held 2,048 mutants and no result.
+Run as `mutation.toml` says, every mutant would run all of `tests/unit`, 88 s
+each, which is days for today's 7,407. Instead each mutant ran against only the
+tests that execute its lines, found by a per-test coverage run. The work was
+spread over fourteen copies of the worktree, with at most 120 tests a mutant,
+unit tests first. Mutants that did not compile, or changed only an annotation,
+were dropped first. That left 4,055, which ran in about three hours; every
+survivor treated as real was then killed by hand against the fix.
+
+What survived was almost never a bug. It was a case no row held, in a few
+recurring shapes:
+- **`continue` that could be `break`.** A `<url>` after a foreign element, a
+  candidate after a blank line, a kind after `previous`, a rubric after one
+  already published.
+- **An index that could be `0` or `-1`.** A reply to a reply, the last of two
+  runs in one second.
+- **A bound tested on one side only.** `robots.txt` at 299 and 300, dates at the
+  12th and 13th, a `Retry-After` of 61 s.
+- **Arithmetic tested only where two operators agree.** Every Wilson bound and
+  kappa example had agreement above half, where `1 % rate` is `1 - rate`. Every
+  share divided evenly, where `/` and `//` print the same.
+
+Four finds were more than a missing row:
+- **R3.12 row 5 had no test.** A `per_part` step reading text is refused at
+  load, and deleting that whole check failed nothing.
+- **`weakest` had no unit test.** It decides the `<- weakest` marker, and its
+  comparison survived eleven arithmetic swaps.
+- **The sitemap limit was guarded only by a comment.** The 50 MiB inflate limit
+  against a gzip bomb was stated in no row.
+- **`DOSSIER_MLFLOW_ENABLED` compared with `>` still passed every test**, and
+  would have switched tracking on for `1` and `True`.
+
+Forty rows were added across specs 000, 001, 003, 004, 006-011, 014, 015
+and 016, each proved by a test first run against the mutant it names.
+
+Two lessons for the next run:
+- **Class bodies can report false survivors.** Selecting tests by the lines they
+  execute misses a test that only builds a pydantic model, because it executes
+  no line of the module that defines it. `Field(repr=False)` was reported
+  surviving, and is killed by R10.16's test.
+- **`uv run --with cosmic-ray` cannot work here.** Application Control refuses
+  the spawned script, and one sequential run of the configured test command is
+  days. cosmic-ray's own operators and `mutate_code` did the mutating; the
+  selection and the parallel run were a scratch script.
+
 An eval's record names the documents it did not score (R11.31). R7.52 has
 `eval` count a failed document in its headline and name it on a `not scored`
 line, and its record kept only the count: the description said `4 documents`
