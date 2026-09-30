@@ -199,3 +199,21 @@ def apply_plan(
         shutil.rmtree(directory)
     for entry in plan.entries:
         caches[entry.namespace].delete(entry.key)
+
+
+def pin_runs(workspace: Path, run_ids: Collection[str]) -> None:
+    """Pin each run by writing `runs/<run_id>/keep` (R16.6).
+
+    Every run is checked before any pin is written, so a mistyped id refuses
+    the whole command rather than pinning half of what was asked. Raises
+    `ValueError` naming the first run that is not there.
+    """
+    runs = workspace / RUNS_ROOT
+    for run_id in run_ids:
+        manifest = runs / run_id / MANIFEST_NAME
+        if not manifest.is_file():
+            raise ValueError(
+                f"no run {run_id} -- expected {RUNS_ROOT}/{run_id}/{MANIFEST_NAME}"
+            )
+    for run_id in run_ids:
+        (runs / run_id / KEEP_FILE).write_text("", encoding="utf-8")

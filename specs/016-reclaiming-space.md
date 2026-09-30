@@ -156,7 +156,7 @@ rest of the command.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.gc`)
 - **Proved by:** `tests/unit/test_R016_6__keep_pins_a_run.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
