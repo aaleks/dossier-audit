@@ -299,7 +299,9 @@ def lower_bound(*, agreed: int, cases: int) -> float:
     spread = _Z * _Z / cases
     centre = rate + spread / 2
     margin = _Z * sqrt(rate * (1 - rate) / cases + spread / (4 * cases))
-    # Floating point leaves 0 of n a hair above zero; a bound on nothing agreed is 0.
+    # 0 of n is exactly 0, and floating point lands a hair either side of it:
+    # below for 19 sample sizes up to 500, clamped, since no rate is below 0;
+    # above for 65, 0 of 20 among them, which prints as 0.0% all the same (R7.26).
     return max(0.0, (centre - margin) / (1 + spread))
 
 
