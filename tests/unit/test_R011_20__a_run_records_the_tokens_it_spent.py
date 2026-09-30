@@ -182,3 +182,12 @@ class TestARunRecordsTheTokensItSpent:
         assert "tokens_in" not in run.metrics
         assert "tokens_out" not in run.metrics
         assert all(USAGE not in span for span in _llm_spans(tracker))
+
+    def test_half_a_count_is_not_recorded_as_one(self):
+        """Row 6, a counter-example: the one where only the input was counted."""
+        from dossier.domain.tracking import token_metrics, token_usage
+        from dossier.domain.usage import Tokens
+
+        for half in (Tokens(input=1204, output=None), Tokens(input=None, output=212)):
+            assert token_usage(half) is None
+            assert token_metrics(half) == {}

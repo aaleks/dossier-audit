@@ -123,6 +123,26 @@ class TestARecordDescribesWhatItMeasured:
         assert "regressed affected_systems" in described
         assert MODEL in described
 
+    def test_a_comparison_names_each_runs_model_and_signs_a_fall(self):
+        """Example 6: the one where `b` was asked by another model and did worse."""
+        other = "ollama:qwen2.5:7b@sha256:7f3c29a1"
+        described = comparison_description(
+            runs=(RUN_ID, SECOND_RUN_ID),
+            pipeline="incident-audit",
+            models=(MODEL, other),
+            gold="incidents",
+            gold_hash=GOLD_HASH,
+            documents=4,
+            rows=DELTAS,
+            overalls=(
+                FieldTotal(field="overall", correct=18, scored=20),
+                FieldTotal(field="overall", correct=16, scored=20),
+            ),
+        )
+
+        assert f"model {MODEL} -> {other}" in described
+        assert "overall 90.0% -> 80.0% (-10.0)" in described
+
     def test_a_comparison_that_regressed_nothing_says_so(self):
         """Counter-example: the one where the change gate has nothing to flag.
 

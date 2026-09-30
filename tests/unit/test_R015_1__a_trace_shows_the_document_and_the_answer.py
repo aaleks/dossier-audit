@@ -63,6 +63,12 @@ class TestWhatATraceShows:
         shown = trace_response(None, structured=True, error="invalid JSON", capture="full")
 
         assert shown == {"error": "invalid JSON"}
+        # Where the model did answer, and the answer failed validation, the error
+        # is still the response: an answer that was refused is not the answer.
+        answered = trace_response(
+            "not json", structured=True, error="invalid JSON", capture="full"
+        )
+        assert answered == {"error": "invalid JSON"}
 
     def test_under_hashes_neither_holds_a_word(self):
         """Row 6, a counter-example: keys and hashes, and no text (R10.8)."""
