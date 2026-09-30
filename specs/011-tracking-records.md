@@ -780,7 +780,7 @@ slice's acceptance rule, proved through `dossier eval --compare`.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.record_comparison`), domain (`dossier.domain.tracking.lost_documents`)
 - **Proved by:** `tests/acceptance/test_R011_29__compare_tags_the_documents_it_lost.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
