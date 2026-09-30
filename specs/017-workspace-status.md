@@ -1,6 +1,6 @@
 # 017 — Workspace status
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R17.1 – R17.7
 
 ## Purpose
@@ -130,7 +130,7 @@ no general tool knows.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.status`), infrastructure (`dossier.infrastructure.ledger`, opened read-only)
 - **Proved by:** `tests/unit/test_R017_5__status_changes_no_file.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -142,7 +142,7 @@ no general tool knows.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.status`)
 - **Proved by:** `tests/unit/test_R017_6__status_exits_zero_whatever_it_finds.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
