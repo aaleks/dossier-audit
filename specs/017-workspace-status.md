@@ -47,9 +47,10 @@ always printed whole.
 
 `status` exits 0 whatever it finds. It informs, and the gates are `eval` and
 `calibrate`. It exits 2 only when it cannot answer the question: a pipeline that
-does not exist, `--gold` with no pipeline, `--gold` with a pipeline `eval` would
-refuse to score because not exactly one of its steps declares an output, or a
-file it has to read that does not load. It records nothing to MLflow, as
+does not exist, `--gold` with no pipeline, `--gold` where `eval` would refuse
+before scoring anything (not exactly one step declaring an output, or a gold
+answer in a shape no run can meet, R7.44), or a file it has to read that does
+not load. It records nothing to MLflow, as
 `--plan` and `gc`'s preview record nothing (R11.32). Decided by `a.aleks` on
 2026-09-30.
 
@@ -146,7 +147,7 @@ no general tool knows.
 ### R17.6 — `dossier status` exits 0 whatever it finds, and 2 only when it cannot answer
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.status`, refused in `eval`'s words by `dossier.cli.eval.scored_step`)
+- **Layer:** cli (`dossier.cli.status`, refused in `eval`'s words by `dossier.cli.eval.scored_step` and `dossier.cli.eval.refuse_unmeetable_gold`)
 - **Proved by:** `tests/unit/test_R017_6__status_exits_zero_whatever_it_finds.py`
 - **Status:** MET
 
@@ -158,6 +159,7 @@ no general tool knows.
 | 4 | *counter-example* — `dossier status incident-audti` | exit 2, naming `incident-audti` as `dossier eval` names a pipeline it cannot find |
 | 5 | *counter-example* — `dossier status incident-audit --gold gold/incidents`, with `extract` and `verify` both declaring an output | exit 2, with the refusal `dossier eval` gives, word for word: `incident-audit: 2 steps declare an output; eval scores exactly one`. Nothing on stdout: answering from the first would be the guess `eval` refuses to make |
 | 6 | *counter-example* — `dossier status postmortem-review --gold gold/incidents`, no step declaring an output | exit 2, `postmortem-review: 0 steps declare an output; eval scores exactly one`, as `eval` refuses it |
+| 7 | *counter-example* — `dossier status incident-audit --gold gold/incidents`, with `INC-4821`'s gold writing `severity` as `["major"]` (R7.44 row 5) | exit 2, with the refusal `dossier eval` gives, word for word: `incident-audit: INC-4821: severity is enum, and only a list field holds an array`. Nothing on stdout: `reportable` would be said of a field `eval` never reaches |
 
 ### R17.7 — what `dossier status` says `dossier eval` will withhold is what it withholds
 
