@@ -97,3 +97,38 @@ def collectable(
             key=lambda entry: (entry.namespace, entry.key),
         )
     )
+
+
+NOTHING = "nothing to collect"
+# What a preview ends with: it deleted nothing, and says how to (R16.5).
+PREVIEWED = "nothing deleted: run `dossier gc --apply` to delete it"
+
+_PLURALS = {"run": "runs", "try": "tries", "replay": "replays", "cache entry": "cache entries"}
+
+
+def _counted(n: int, noun: str) -> str:
+    return f"{n} {noun if n == 1 else _PLURALS[noun]}"
+
+
+def summary_line(
+    *, applied: bool, runs: int, tries: int, replays: int, entries: int, size: int
+) -> str:
+    """The line `gc` opens with, previewed or applied, the same counts both ways (R16.5).
+
+    `size` is the bytes of every file deleted, printed in MB of 10^6 bytes to
+    one decimal: what a person compares with the free space their disk reports.
+    """
+    counted = ", ".join(
+        (
+            _counted(runs, "run"),
+            _counted(tries, "try"),
+            _counted(replays, "replay"),
+            _counted(entries, "cache entry"),
+        )
+    )
+    return f"{'freed' if applied else 'would free'} {size / 1_000_000:.1f} MB: {counted}"
+
+
+def run_line(run: HeldRun, *, keep_last: int) -> str:
+    """The line naming a run `gc` deletes, and why (R16.5)."""
+    return f"  runs/{run.run_id}/  {run.pipeline}, beyond the latest {keep_last}"

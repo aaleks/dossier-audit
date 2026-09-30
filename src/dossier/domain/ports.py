@@ -465,6 +465,14 @@ class CollectableStore(ArtifactStore, Protocol):
         """Every key holding an artifact, sorted."""
         ...
 
+    def size(self, key: str) -> int:
+        """The bytes the entry at `key` takes: its artifact and its record."""
+        ...
+
+    def delete(self, key: str) -> None:
+        """Remove the entry at `key`, artifact and record."""
+        ...
+
 
 @runtime_checkable
 class SnapshotWriter(Protocol):

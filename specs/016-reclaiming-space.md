@@ -64,7 +64,7 @@ longer reproduces, and that is the one thing `gc` must never do.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.gc`), application (`dossier.application.gc`)
 - **Proved by:** `tests/acceptance/test_R016_1__a_kept_run_replays_after_gc.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -140,7 +140,7 @@ run reproduces again at any time (R0.12). What else a kept run holds stays.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.gc`), domain (`dossier.domain.gc`)
 - **Proved by:** `tests/unit/test_R016_5__gc_previews_unless_told_to_apply.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

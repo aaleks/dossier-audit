@@ -20,7 +20,6 @@ import json
 from itertools import count
 from pathlib import Path
 
-import pytest
 from tests.acceptance.conftest import _cli
 from tests.acceptance.test_R007_54__compare_scores_both_runs_over_the_same_documents import (
     Model,
@@ -30,8 +29,6 @@ from tests.acceptance.test_R007_54__compare_scores_both_runs_over_the_same_docum
 )
 from tests.fakes import NoModelClient
 from tests.scoring_example import PIPELINE
-
-pytestmark = pytest.mark.outer_loop
 
 GOLD = "gold/incidents"
 
