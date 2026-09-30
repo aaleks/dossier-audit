@@ -65,6 +65,11 @@ hides which is which (R7.2).
 
 Try `dossier eval` on a workspace with no run, and read the message.
 
+Then break two gold files the way a hand edit does. In `PLAY-1001.json`, write
+`loss_amount`'s value as `[18400.00]`. In `PLAY-1003.json`, delete the last
+`}`. Run `dossier eval` again. Nothing is scored, both files are named, and
+each says what to fix (R7.56). Put both back.
+
 ## Task 3 — make one answer wrong, and find out what "wrong" means
 
 You cannot change a run's answer by editing the stub: the answer is not in the
