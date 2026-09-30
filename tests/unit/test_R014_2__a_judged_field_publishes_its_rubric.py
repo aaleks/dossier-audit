@@ -114,3 +114,39 @@ class TestAJudgedFieldPublishesItsRubric:
             "incident-audit.verify",
         ]
         assert all("dossier.field" not in prompt.tags for prompt in published)
+
+    def test_a_field_after_one_already_published_is_still_published(self):
+        """Row 5: the one where `verify`'s declaration judges `remediation` too.
+
+        `root_cause` comes first in it and was published for `extract`, so it is
+        passed over. Passing it over is not the end of the declaration.
+        """
+        from dossier.domain.prompts import publish_set
+
+        texts = {
+            "prompts/01_extract.md": "Extract the fields.\n",
+            "prompts/02_verify.md": "Verify the extraction.\n",
+            "rubrics/root_cause.md": RUBRIC,
+            "rubrics/remediation.md": "Is the stated remediation the one the document names?\n",
+        }
+        verification = {
+            "root_cause": "rubrics/root_cause.md",
+            "remediation": "rubrics/remediation.md",
+        }
+
+        published = publish_set(
+            _pipeline(),
+            texts,
+            rubrics={
+                "extract": {"root_cause": "rubrics/root_cause.md"},
+                "verify": verification,
+            },
+        )
+
+        assert [prompt.name for prompt in published] == [
+            "incident-audit.extract",
+            "incident-audit.verify",
+            "incident-audit.judge.root_cause",
+            "incident-audit.judge.remediation",
+        ]
+        assert published[-1].tags["dossier.field"] == "remediation"
