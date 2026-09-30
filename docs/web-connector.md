@@ -47,7 +47,10 @@ do most static site generators and content management systems.
    (R1.29). Compressed sitemaps are read too.
 3. Keeps each URL under `url` that `robots.txt` allows, with no query string,
    and keys it relative to `url`: `…/ops/escalation` is `escalation`,
-   `…/ops/` is `index`, `…/ops/runbooks/` is `runbooks/index` (R1.30).
+   `…/ops/` is `index`, `…/ops/runbooks/` is `runbooks/index` (R1.30). A
+   sitemap that writes its pages over `http://` for an `https://` source, as
+   `www.gnu.org`'s does, still names them: each page is asked over the scheme
+   `url` gives (R1.29).
 4. Compares each page's `<lastmod>` with what the ledger holds, and fetches
    only the pages whose `<lastmod>` moved or that have none (R1.31, R2.1).
    A page with no `<lastmod>` is fetched each sync, and stored again only if its
@@ -57,7 +60,9 @@ do most static site generators and content management systems.
 6. A page gone from the sitemap is tombstoned (R2.7).
 
 A redirect is followed within `url` only, five times at most; a page that
-redirects to a login form fails and names both URLs (R1.34).
+redirects to a login form fails and names both URLs (R1.34). Within `url`
+includes its scheme, so write `https://` for a site that redirects there: with
+`url: http://…` every page's redirect to its `https` form is refused.
 
 ## A site with no sitemap
 

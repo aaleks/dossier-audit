@@ -13,6 +13,21 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A sitemap's `http://` pages for an `https://` source (2026-09-30, R1.29 rows
+11-14). The live check of 2026-09-28 found `www.gnu.org`'s sitemap naming its
+pages over `http://`, and a source whose `url` was `https://` listing none of
+them: `in_scope` compared the scheme along with the host. Nothing failed. A
+complete listing that names nothing is a listing, and it tombstones everything
+held. `listing` now asks a page over the scheme `url` gives when the sitemap
+wrote the other of `http` and `https`, before the scope check, so both forms of
+one page are one URL named twice. The host and the prefix still decide, and
+`ftp://` is still not a page. Redirects are unchanged, and the live check
+showed what that means. With `url: http://docs.astral.sh/uv/concepts/projects/`
+the 10 pages now list, where none did, and every fetch is refused by R1.34,
+naming the site's redirect to `https`. That is loud where it was silent, and
+the guide says to write `https://`. `www.gnu.org` timed out from here on the
+day, so the case that found it was proved against the fake site only.
+
 The first mutation run over `domain/` (2026-09-30, #623 to #630). `mutation.toml`
 had been set up and never run: its database held 2,048 mutants and no result.
 Run as `mutation.toml` says, every mutant would run all of `tests/unit`, 88 s
