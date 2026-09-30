@@ -71,6 +71,7 @@ from dossier.domain.tracking import (
     eval_description,
     experiment_name,
     label_for,
+    lost_documents,
     namespaced,
     not_compared_lines,
     not_scored_line,
@@ -596,6 +597,7 @@ def _compare_runs(
             ),
             detail=deltas_artifact(deltas, runs=runs, left_out=named),
             failed=(len(unscored_by_run[0]), len(unscored_by_run[1])),
+            lost=[document for _, document, _ in lost_documents(unscored_by_run)],
             # Best-effort and unverified, as the eval's is (R14.11).
             prompt_registry=bootstrap.prompt_registry_for(workspace),
             rubric_hashes={

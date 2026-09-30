@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from tests.acceptance.conftest import _cli
 from tests.acceptance.test_R007_52__eval_scores_a_run_in_which_a_document_failed import (
     GOLD,
@@ -30,8 +29,6 @@ from tests.acceptance.test_R007_54__compare_scores_both_runs_over_the_same_docum
 )
 from tests.fakes import FakeTracker, NoModelClient
 from tests.scoring_example import PIPELINE
-
-pytestmark = pytest.mark.outer_loop
 
 
 class Failing(Model):
