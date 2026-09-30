@@ -893,6 +893,8 @@ conclusion from its first half.
 | 1 | `comment.total` 7, and the payload holding 5 | after the fifth comment, `2 of 7 comments are not in this snapshot.` |
 | 2 | *counter-example* — `comment.total` 2, and the payload holding 2 | no such line |
 | 3 | *counter-example* — no `comment` field at all | no `## Comments` section, and no such line |
+| 4 | `comment.total` 6, and the payload holding 5 | after the fifth comment, `1 of 6 comments are not in this snapshot.`: one missing is said as surely as two |
+| 5 | `comment.total` 1, and the payload holding none | `## Comments`, holding only `1 of 1 comments are not in this snapshot.`. A thread that returned nothing is not a thread with nothing in it |
 
 ### R8.19 — `confluence-page-markdown` converts a page to a note of its title, space, version, time and author, and its body, and of nothing else in the payload
 

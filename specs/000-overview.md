@@ -496,3 +496,6 @@ the other looks.
 | 4 | two `dossier run incident-audit` in one second, the second drawing a smaller suffix than the first | the second's id sorts last, and `dossier eval` scores the second |
 | 5 | *counter-example* — `20260907T090000Z-bbbb` under `runs/`, and a run started at `2026-08-06T14:22:03Z` drawing `0bbb` | `20260806T142203Z-0bbb`: no run shares its second, so the draw stands |
 | 6 | *counter-example* — `dossier run incident-audit --doc INC-4821` in the second of `20260806T142203Z-4f1a`, drawing `0bbb` | `tries/20260806T142203Z-0bbb`: a try is ordered among tries, and none shares its second |
+| 7 | `20260806T142203Z-4f1a` and `20260806T142203Z-7c3d` under `runs/`, and a run in their second drawing `5a5a`, which sorts between them | `20260806T142203Z-7c3e`: after the last of the second's runs, not only after the first |
+| 8 | `20260806T142203Z-4f1a` under `runs/`, and a run in its second drawing `4f1a` | `20260806T142203Z-4f1b`. A draw equal to a filed suffix is after nothing, and keeping it would file two runs in one directory |
+| 9 | `20260806T142203Z-mine` under `runs/`, a directory named by hand, and a draw of `0bbb` | `20260806T142203Z-mine0`: a suffix that is not hex has no successor in its own form, so a digit is appended, as after `ffff` |

@@ -212,6 +212,7 @@ linear, and both are cheap to reject.
 | 3 | `report` with `input: enrich`, no such step | load-time error naming the unknown id |
 | 4 | *counter-example* — `verify` with `input: reference` | accepted; `documents` and `reference` are source keywords, not step ids |
 | 5 | *counter-example* — `verify` with `input: previous` | accepted; `previous` is sugar, not an id, and there is nothing here to resolve it against. Whether it has a predecessor is spec 004's question (R4.3) |
+| 6 | `verify` with `input: [previous, enrich]`, no step `enrich` | load-time error naming `enrich`: the sugar is passed over, and the inputs after it are still checked |
 
 ### R3.4 — a model value that is not fully version-pinned is rejected at load time
 
@@ -701,6 +702,7 @@ for, and this rule can be superseded by it when someone does (decided by
 | 2 | `summary` in `aggregate` mode, `input: report` | the same refusal: a second aggregate step is handed nothing too |
 | 3 | `summary` in `per_group` mode, `input: previous`, directly after `report` | the same refusal: `previous` is `report` (R4.2) |
 | 4 | *counter-example* — `report` in `aggregate` mode, `input: extract`, the last step | accepted, as every pipeline in the repository has it |
+| 5 | *counter-example* — `notes` in `per_file` mode, `input: documents`, directly after `report`, and then `check` in `per_file` mode, `input: previous` | accepted: `previous` is the one step before `check`, which is `notes`, and not `report` two before it (R4.2) |
 
 ## Open questions
 
