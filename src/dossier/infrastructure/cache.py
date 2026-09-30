@@ -87,6 +87,20 @@ class ArtifactCache:
             Path(temporary).unlink(missing_ok=True)
             raise
 
+    def all_keys(self) -> list[str]:
+        """Every key holding an artifact, sorted, for `dossier gc` (spec 016).
+
+        An artifact is a file under the fan-out that is neither a record nor a
+        write still in progress: a `.part` is a `put` that has not landed.
+        """
+        if not self._root.is_dir():
+            return []
+        return sorted(
+            path.name
+            for path in self._root.glob("*/*/*")
+            if path.is_file() and not path.name.endswith((".meta.json", ".part"))
+        )
+
     def _record_path(self, key: str) -> Path:
         """`<name>.meta.json`, the sibling record R0.3 requires."""
         return self._path(key).with_suffix(".meta.json")

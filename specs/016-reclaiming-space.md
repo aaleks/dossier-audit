@@ -106,7 +106,7 @@ it: the next run reads it, and re-converting a scanned PDF takes minutes
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.gc.collectable`), application (`dossier.application.gc`)
 - **Proved by:** `tests/unit/test_R016_3__an_entry_a_kept_run_reads_is_never_deleted.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

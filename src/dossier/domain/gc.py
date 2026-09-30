@@ -7,7 +7,7 @@ decided here, where it is provable without a workspace.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass
 
 # How many runs of each pipeline are kept when `--keep-last` does not say
@@ -53,4 +53,47 @@ def kept_runs(
     return (
         tuple(run for run in every if run in kept),
         tuple(run for run in every if run not in kept),
+    )
+
+
+# The caches `gc` collects from (R16.3). Not the judge's: no manifest names a
+# verdict, and a judge asked again can move a kept run's score (R7.18).
+STAGE = "stage"
+CONVERT = "convert"
+COLLECTED_CACHES = (STAGE, CONVERT)
+
+
+@dataclass(frozen=True)
+class CacheEntry:
+    """One cache entry: its cache, its key, and for a conversion, its snapshot."""
+
+    namespace: str
+    key: str
+    snapshot: str | None = None
+
+
+def collectable(
+    entries: Iterable[CacheEntry],
+    *,
+    needed: Mapping[str, Collection[str]],
+    held: Collection[str],
+) -> tuple[CacheEntry, ...]:
+    """The entries `gc` deletes, by cache and key (R16.3).
+
+    `needed` is what the replays of the kept runs read, by cache: what a kept
+    run is reproduced from, whichever run first wrote it. `held` is the
+    snapshots the ledger holds now, whose conversions the next run reads, and
+    re-converting a scanned PDF takes minutes. Anything else nothing will read
+    without computing it again.
+    """
+    return tuple(
+        sorted(
+            (
+                entry
+                for entry in entries
+                if entry.key not in needed.get(entry.namespace, ())
+                and not (entry.namespace == CONVERT and entry.snapshot in held)
+            ),
+            key=lambda entry: (entry.namespace, entry.key),
+        )
     )
