@@ -100,7 +100,7 @@ no general tool knows.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.status.pipeline_lines`), read by application (`dossier.application.status`)
 - **Proved by:** `tests/unit/test_R017_3__status_names_each_pipelines_latest_run.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
