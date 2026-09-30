@@ -454,6 +454,18 @@ class ArtifactStore(Protocol):
     def put(self, key: str, payload: bytes, *, record: dict | None = None) -> None: ...
 
 
+class CollectableStore(ArtifactStore, Protocol):
+    """An `ArtifactStore` that can say what it holds, for `dossier gc` (spec 016).
+
+    Separate from `ArtifactStore`, which every stage is handed: nothing that
+    computes an answer has any business listing what else is kept.
+    """
+
+    def all_keys(self) -> list[str]:
+        """Every key holding an artifact, sorted."""
+        ...
+
+
 @runtime_checkable
 class SnapshotWriter(Protocol):
     """Storing and reading back snapshots, for the one use case that stores them.
