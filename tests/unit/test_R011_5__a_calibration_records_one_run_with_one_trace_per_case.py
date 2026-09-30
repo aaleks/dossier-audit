@@ -92,6 +92,16 @@ class TestACalibrationRecordsOneRunWithOneTracePerCase:
         }
         assert metrics == {"judge/root_cause/agreement": 100.0, "judge/root_cause/cases": 20}
 
+    def test_the_agreement_is_recorded_to_the_decimal_the_terminal_prints(self):
+        """Example 1's figure where it has a second decimal: 20 of 21 is 95.2."""
+        measured = Calibration(
+            judge_model=MODEL, rubric_hash=RUBRIC_HASH, agreement=20 / 21, sample_size=21
+        )
+
+        _, metrics = _record(measured)
+
+        assert metrics["judge/root_cause/agreement"] == 95.2
+
     def test_a_case_trace_carries_the_document_and_both_verdicts(self):
         """Example 2: the one where the disagreeing case can be found.
 
