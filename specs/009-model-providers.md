@@ -469,6 +469,7 @@ Tokens are what an answer cost, not what it was asked, so they enter no key
 | 4 | *counter-example* — the answer has no `usage` at all | both `None`; a count nobody gave is not `0` |
 | 5 | *counter-example* — `usage.prompt_tokens` is `"many"`, `-3` or `true` | that count is `None`; what is not a count of tokens is not recorded as one |
 | 6 | *counter-example* — a client that returns plain `str` | read as reporting nothing: both `None`, and it is still a `ModelClient` |
+| 7 | `usage: {prompt_tokens: -1, completion_tokens: 0}` | `input_tokens` `None` and `output_tokens` `0`. The boundary: a count starts at `0`, and a `0` the provider gave is a count, where row 4's absent one is not |
 
 ### R9.19 — `dossier run` asks a model about at most `N` of a step's documents at once, and nothing it writes depends on `N`
 

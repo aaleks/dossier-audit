@@ -59,6 +59,21 @@ class TestAPagesCommentsFollowItsBody:
             "",
         ]
 
+    def test_a_reply_to_a_reply_names_the_reply_it_answers(self):
+        """Row 6: the one where `m.keller` answers `a.aleks`'s reply."""
+        answers = json.loads(COMMENTS)
+        reply = answers["results"][1]
+        answer = json.loads(json.dumps(reply))
+        answer["id"] = "81920503"
+        answer["history"]["createdBy"]["displayName"] = "m.keller"
+        answer["ancestors"] = [*reply["ancestors"], {"id": "81920502", "type": "comment"}]
+        answers["results"].append(answer)
+
+        heading = note(held_with([answers]), markup=marked).split("\n")[-4]
+
+        assert heading.startswith("**m.keller** · ")
+        assert heading.endswith(" · reply to a.aleks")
+
     def test_a_comments_body_is_written_as_a_pages_is(self):
         """Row 2: the one where the comment's bold survives as markdown."""
         answers = json.loads(COMMENTS)

@@ -179,20 +179,37 @@ class TestOnlyAnAttributedCorrectionEnters:
         assert before.fields["severity"] == {"value": "minor"}
 
     def test_a_naive_or_future_dated_correction_is_refused(self):
-        """The one where the timestamp cannot be trusted.
+        """Row 5: the one where the timestamp cannot be trusted.
 
         `verified_at` is the audit trail's date. A future date is a clock
         problem or a typo, and either way it sorts wrongly against every other
         correction forever.
         """
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"2099-01-01, which is after 2026-09-10"):
             apply_correction(
                 gold(),
                 Correction(
                     field="severity",
                     value="major",
-                    verified_by="b.keller",
+                    verified_by="a.aleks",
                     verified_at=date(2099, 1, 1),
                 ),
                 today=datetime(2026, 9, 10, tzinfo=UTC).date(),
             )
+
+    @pytest.mark.parametrize("verified_at", [date(2026, 9, 10), date(2026, 8, 14)])
+    def test_a_correction_dated_today_or_before_is_applied(self, verified_at):
+        """Row 6, a counter-example: the one where the date is today, or earlier.
+
+        `today` is built apart from `verified_at`, so the two are equal and not
+        the same object: the boundary is a comparison of dates.
+        """
+        corrected = apply_correction(
+            gold(),
+            Correction(
+                field="severity", value="major", verified_by="a.aleks", verified_at=verified_at
+            ),
+            today=datetime(2026, 9, 10, tzinfo=UTC).date(),
+        )
+
+        assert corrected.fields["severity"]["verified_at"] == verified_at.isoformat()

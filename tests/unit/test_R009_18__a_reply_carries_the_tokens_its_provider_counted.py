@@ -114,6 +114,15 @@ class TestAReplyCarriesTheTokensItsProviderCounted:
 
         assert tokens_of(_gemini(body).complete("Extract.")) == Tokens(input=None, output=212)
 
+    def test_a_count_starts_at_zero(self):
+        """Row 7: the one where the provider counted nothing, and one below nothing."""
+        body = {
+            "choices": [{"message": {"content": ANSWER}}],
+            "usage": {"prompt_tokens": -1, "completion_tokens": 0},
+        }
+
+        assert tokens_of(_gemini(body).complete("Extract.")) == Tokens(input=None, output=0)
+
     def test_a_plain_str_reported_nothing(self):
         """Row 6, a counter-example: the one where a client returns plain text.
 

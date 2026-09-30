@@ -76,3 +76,17 @@ class TestGcPreviewsUnlessToldToApply:
         assert _gc(workspace, monkeypatch, "--keep-last", "2", "--apply") == [
             "nothing to collect"
         ]
+
+    def test_a_megabyte_is_a_million_bytes_rounded_to_one_decimal(self):
+        """Row 4: the one where 1.5 MiB is deleted.
+
+        The workspace's files are a few kilobytes, so rows 1 and 2 print `0.0`,
+        whichever unit and rounding the line used. This row is where they differ.
+        """
+        from dossier.domain.gc import summary_line
+
+        line = summary_line(
+            applied=False, runs=1, tries=0, replays=0, entries=0, size=1_572_864
+        )
+
+        assert line == "would free 1.6 MB: 1 run, 0 tries, 0 replays, 0 cache entries"

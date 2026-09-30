@@ -395,6 +395,8 @@ edit to it is an unaudited change to the definition of correct.
 | 2 | the same field corrected again later | the previous value remains recoverable from version history; the file is committed to git |
 | 3 | a correction with no reviewer identity | rejected; there is no anonymous path into the gold set |
 | 4 | *counter-example* — a run's own output agreeing with gold | changes nothing; only a reviewer's decision enters the gold set, never a model's |
+| 5 | a correction by `a.aleks` dated `2099-01-01`, applied on `2026-09-10` | rejected, naming both dates; a future date is a clock problem or a typo, and either way it sorts wrongly against every other correction |
+| 6 | *counter-example* — the same correction dated `2026-09-10`, the day it is applied, or `2026-08-14`, before it | applied; today is not the future |
 
 ### R7.8 — `--compare` scores both configurations over the same documents and flags every regression
 
