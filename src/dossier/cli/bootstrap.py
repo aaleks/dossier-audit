@@ -102,7 +102,7 @@ def build_tracker(settings: TrackingSettings) -> Tracker:
 
 
 def tracking_for(
-    workspace: Path, pipeline: str, *, kind: str, gold: str | None = None
+    workspace: Path, pipeline: str | None, *, kind: str, gold: str | None = None
 ) -> tuple[BestEffortTracker | None, str | None]:
     """The tracker and experiment a `dossier <kind>` records to, or `(None, None)`.
 
@@ -140,7 +140,8 @@ def tracking_for(
             experiment,
         )
     except (ValueError, TrackingUnavailable) as error:
-        typer.echo(f"{pipeline}: {error}", err=True)
+        # Named by its pipeline, and by nothing for `gc`, which has none (R11.28).
+        typer.echo(f"{pipeline}: {error}" if pipeline else str(error), err=True)
         raise typer.Exit(code=2) from error
 
 

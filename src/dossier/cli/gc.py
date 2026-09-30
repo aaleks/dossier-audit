@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from dossier.application.gc import apply_plan, gc_plan, pin_runs, plan_size
+from dossier.application.gc import apply_plan, gc_plan, pin_runs, plan_size, record_gc
+from dossier.cli import bootstrap
+from dossier.config.environment import environment
 from dossier.domain.gc import (
     COLLECTED_CACHES,
     KEEP_LAST,
@@ -51,6 +55,11 @@ def gc(
     that deletes cannot do so by accident (R16.5).
     """
     workspace = Path.cwd()
+    started = f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
+    # Before any work, as every command's: a template `gc` cannot fill, or a
+    # server nobody can reach, is refused now rather than after files are gone
+    # (R10.5, R11.28). `gc` belongs to no pipeline.
+    tracker, experiment = bootstrap.tracking_for(workspace, None, kind="gc")
     # Before anything is planned: a pin deletes nothing, so it is written with
     # or without --apply, and the plan then sees the run as kept (R16.6).
     try:
@@ -77,7 +86,7 @@ def gc(
     size = plan_size(workspace, plan, caches=caches)
     if apply:
         apply_plan(workspace, plan, caches=caches)
-    typer.echo(
+    printed = [
         summary_line(
             applied=apply,
             runs=len(plan.runs),
@@ -85,12 +94,28 @@ def gc(
             replays=len(plan.replays),
             entries=len(plan.entries),
             size=size,
-        )
-    )
-    for run in plan.runs:
-        typer.echo(run_line(run, keep_last=keep_last))
+        ),
+        *(run_line(run, keep_last=keep_last) for run in plan.runs),
+    ]
+    for line in printed:
+        typer.echo(line)
     if not apply:
+        # A preview deleted nothing, so there is nothing to record, as `--plan`
+        # records nothing (R11.28 row 4).
         typer.echo(PREVIEWED)
+        return
+    if tracker is not None:
+        record_gc(
+            tracker,
+            experiment=experiment or "",
+            plan=plan,
+            size=size,
+            keep_last=keep_last,
+            lines=printed,
+            started=started,
+            environ=environment(workspace),
+            dossier_version=version("dossier"),
+        )
 
 
 def _held_snapshots(workspace: Path) -> set[str]:

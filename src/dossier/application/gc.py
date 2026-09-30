@@ -7,8 +7,9 @@ to a replay: this module constructs none of them.
 
 from __future__ import annotations
 
+import json
 import shutil
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,8 +32,10 @@ from dossier.domain.gc import (
     collectable,
     kept_runs,
 )
-from dossier.domain.ports import ArtifactStore, CollectableStore, SnapshotReader
+from dossier.domain.ports import ArtifactStore, CollectableStore, SnapshotReader, Tracker
 from dossier.domain.store import REPLAYS, RUNS_ROOT, TRIES_ROOT
+from dossier.domain.tracking import gc_description, label_for, run_name
+from dossier.domain.tracking import tags as tracking_tags
 
 
 @dataclass(frozen=True)
@@ -233,3 +236,59 @@ def pin_runs(workspace: Path, run_ids: Collection[str]) -> None:
             )
     for run_id in run_ids:
         (runs / run_id / KEEP_FILE).write_text("", encoding="utf-8")
+
+
+# Beside a `gc --apply`'s record: each run it deleted, and its pipeline (R11.28).
+COLLECTED_NAME = "collected.json"
+
+
+def record_gc(
+    tracker: Tracker,
+    *,
+    experiment: str,
+    plan: GcPlan,
+    size: int,
+    keep_last: int,
+    lines: Sequence[str],
+    started: str,
+    environ: Mapping[str, str],
+    dossier_version: str,
+) -> None:
+    """Record a `gc --apply` as one MLflow run of what it deleted (R11.28).
+
+    Opened once the deleting is done, as a comparison opens once both sides
+    are scored: what it records are the counts the line printed, and they do
+    not exist before. `collected.json` names each run deleted, so a run whose
+    record is still in MLflow can be traced to the `gc` that removed its files.
+    No traces: `gc` asks no model.
+    """
+    label = label_for(None, environ)
+    tracker.start_run(
+        experiment=experiment,
+        name=run_name(
+            kind="gc", values={"started": started, "label": label}, environ=environ
+        ),
+        # `dossier.pipeline` present and empty, as `dossier.label` is when
+        # nobody gave one: `gc` reclaims space across every pipeline.
+        tags=tracking_tags(kind="gc", pipeline="", label=label, environ=environ),
+    )
+    params = {"keep_last": str(keep_last)}
+    if dossier_version:
+        # Which dossier did the deleting (R11.19).
+        params["dossier_version"] = dossier_version
+    tracker.log_params(params)
+    tracker.log_metrics(
+        {
+            "runs": len(plan.runs),
+            "tries": len(plan.tries),
+            "replays": len(plan.replays),
+            "entries": len(plan.entries),
+            # The figure the line printed, not a second computation of it.
+            "megabytes": round(size / 1_000_000, 1),
+        }
+    )
+    collected = [{"run": run.run_id, "pipeline": run.pipeline} for run in plan.runs]
+    written = json.dumps(collected, indent=2) + "\n"
+    tracker.log_artifact(COLLECTED_NAME, written.encode("utf-8"))
+    tracker.describe(gc_description(lines=lines))
+    tracker.end_run(status="FINISHED")

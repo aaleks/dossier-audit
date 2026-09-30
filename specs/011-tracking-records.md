@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.28
 
 ## Purpose
@@ -750,7 +750,7 @@ Decided by `a.aleks` on 2026-09-30.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.gc`), domain (`dossier.domain.tracking.experiment_name`)
 - **Proved by:** `tests/unit/test_R011_28__gc_records_what_it_deleted.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
