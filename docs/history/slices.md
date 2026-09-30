@@ -26,6 +26,19 @@ and column, not by the parser's message: that message is worded differently on
 another Python version, and CI runs 3.12 where this machine runs 3.14. A
 container on 3.12 confirmed the position is the same on both.
 
+Mutation testing of `domain/gold.py` gave 46 mutants and 3 survivors:
+- One was real. `continue` made `break` in the loop that drops pydantic's
+  repeated union errors would also have dropped every key after them. Row 8 is
+  a field refused on its value and on its currency, and it kills the mutant.
+- `strict=True` on `CalibrationCase.supported` sits in a class body. Line
+  coverage cannot map it to a test, and the whole suite kills it (R7.16
+  example 3).
+- `== ("value",)` made `>=` is equivalent. A `GoldField` is refused only on
+  `value`, `currency` or `reason`, and none of them sorts after `value`.
+
+The first attempt at the run was stopped by Claude Code when the machine ran
+low on memory, as its 14 workers started. It was rerun on 4.
+
 ---
 
 R17.6 row 7 (2026-09-30). The last way found for `status` and `eval` to

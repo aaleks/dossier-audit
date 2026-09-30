@@ -1638,3 +1638,4 @@ same words (R17.6 row 7).
 | 5 | rows 1 and 3 in one gold set, then `dossier eval incident-audit --gold gold/incidents` | exit 2, `incident-audit: INC-4821.json: …` then `incident-audit: INC-4901.json: …`, in file order, and nothing scored |
 | 6 | *counter-example* — `INC-4821.json` as `tests/fixtures/gold/incidents/` holds it | read, and nothing refused |
 | 7 | `INC-4821.json` writing `loss_amount`'s `currency` as `5` | `INC-4821.json: loss_amount.currency: Input should be a valid string`: where no plainer words are written for what was refused, pydantic's own, after the file and the key |
+| 8 | `INC-4821.json` writing `loss_amount` as `{"value": [48200.0], "currency": 5}` | two lines, row 1's then row 7's: pydantic refuses the value once per shape it tried, and the repeats are dropped without dropping the key after them |
