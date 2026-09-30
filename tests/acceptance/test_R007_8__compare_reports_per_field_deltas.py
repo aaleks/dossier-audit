@@ -206,7 +206,28 @@ class TestCompareReportsPerFieldDeltas:
         result = _compare(workspace, monkeypatch, a, b)
 
         assert result.exit_code != 0
-        assert "INC-5102" in result.output
+        assert (
+            f"runs {a} and {b} cover different documents -- only in {b}: INC-5102. "
+            "A comparison over different documents is not a comparison."
+        ) in " ".join(result.output.split())
+
+    def test_documents_each_run_alone_covered_are_named_under_it(self):
+        """Example 3 both ways: `INC-4901` only in `a`, `INC-5102` only in `b`.
+
+        The decision, without a workspace: each run's extra documents are named
+        under that run, and neither's under the other.
+        """
+        from dossier.domain.scoring import check_same_documents
+
+        with pytest.raises(ValueError) as refused:
+            check_same_documents(
+                ["INC-4821", "INC-4901"], ["INC-4821", "INC-5102"], runs=("a", "b")
+            )
+
+        assert str(refused.value) == (
+            "runs a and b cover different documents -- only in a: INC-4901; "
+            "only in b: INC-5102. A comparison over different documents is not a comparison."
+        )
 
     def test_a_field_that_did_not_move_is_reported_with_a_delta_of_zero(
         self, workspace: Path, monkeypatch, two_runs: tuple[str, str]

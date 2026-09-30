@@ -64,6 +64,24 @@ class TestCompareRefusesRunsShownDifferentReference:
                 runs=RUNS,
             )
 
+    def test_everything_that_differs_is_named_under_its_run(self):
+        """Rows 1 and 2 at once: a changed procedure, and one shown to each run alone.
+
+        `OPS-114`'s new snapshot sorts before its old one, as row 1's sorts after.
+        """
+        with pytest.raises(ValueError) as refused:
+            check_same_reference(
+                _plan(reference={"OPS-114": NEW_SNAPSHOT, "OPS-115": SNAPSHOT}),
+                _plan(reference={"OPS-114": SNAPSHOT, "OPS-116": SNAPSHOT}),
+                runs=RUNS,
+            )
+
+        assert str(refused.value) == (
+            f"runs {RUNS[0]} and {RUNS[1]} were shown different reference documents -- "
+            f"OPS-114 changed; only in {RUNS[0]}: OPS-115; only in {RUNS[1]}: OPS-116. "
+            "A field can move because its context did."
+        )
+
     def test_the_same_procedures_at_the_same_snapshots_compare(self):
         """Row 3: counter-example -- the one where only the prompt was edited."""
         check_same_reference(

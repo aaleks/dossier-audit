@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from tests.fakes import FakeTracker, NoModelClient
 
 from dossier.application.eval import record_eval
@@ -121,6 +122,23 @@ class TestAListReportsItemPrecisionAndRecall:
         after = FieldTotal(FIELD, correct=2, scored=4, items=ItemCounts(2, 4, 5))
 
         assert not FieldDelta(FIELD, before=before, after=after).regressed
+
+    def test_a_share_that_does_not_divide_evenly_is_rounded(self):
+        """Row 5 — the one where 2 of 3 are named right and 2 of 3 are found."""
+        total = total_of(
+            [
+                (
+                    "INC-4821",
+                    ["payments-api", "ledger-batch", "checkout"],
+                    ["payments-api", "checkout", "settlement"],
+                )
+            ]
+        )
+
+        assert describe_items(total) == "items: precision 66.7% (2/3), recall 66.7% (2/3)"
+        metrics = recorded(total)
+        assert metrics["precision/affected_systems"] == pytest.approx(200 / 3)
+        assert metrics["recall/affected_systems"] == pytest.approx(200 / 3)
 
     def test_a_run_that_named_nothing_has_no_precision_rather_than_zero(self):
         """Row 4, counter-example — the one where nothing named means nothing wrong."""

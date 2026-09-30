@@ -53,8 +53,10 @@ class TestABooleanIsScoredByItsTruthValue:
         assert "abstain" not in (score.detail or "")
 
     def test_a_quoted_true_is_true(self):
-        """Row 3 — the one where the model quoted it."""
+        """Row 3 — the one where the model quoted it, `true` or `false`."""
         assert scored("True", True).verdict is Verdict.CORRECT
+        assert scored("false", False, source=DOES_NOT_RENEW).verdict is Verdict.CORRECT
+        assert scored("false", True, source=DOES_NOT_RENEW).verdict is Verdict.INCORRECT
 
     def test_false_against_true_is_a_mismatch(self):
         """Row 4 — the one that disagrees."""

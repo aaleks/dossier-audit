@@ -195,6 +195,42 @@ class TestAValueThatIsNotWellFormedIsNotAMismatch:
         assert result.verdict is Verdict.INCORRECT
         assert "well-formed" in (result.detail or "")
 
+    @pytest.mark.parametrize("written", ["12.07.2026", "07.12.2026"])
+    def test_a_date_ambiguous_at_the_twelfth_is_refused(self, written: str):
+        """The ambiguous date at its bound: 12 could be the month on either side."""
+        result = score_field(
+            record=record("resolution_date", written),
+            gold=GoldField(value="2026-07-12"),
+            check=GROUNDED,
+            kind=FieldKind.DATE,
+        )
+
+        assert result.verdict is Verdict.INCORRECT
+        assert "well-formed" in (result.detail or "")
+
+    def test_a_thirteenth_is_a_day(self):
+        """The unambiguous date at its bound: no month is 13, so `13.07.2026` is read."""
+        assert (
+            scored(
+                record("resolution_date", "13.07.2026"),
+                GoldField(value="2026-07-13"),
+                kind=FieldKind.DATE,
+            )
+            is Verdict.CORRECT
+        )
+
+    def test_a_day_the_month_does_not_have_is_unreadable(self):
+        """The one where `31.02.2026` reads as a form and is no day at all."""
+        result = score_field(
+            record=record("resolution_date", "31.02.2026"),
+            gold=GoldField(value="2026-02-28"),
+            check=GROUNDED,
+            kind=FieldKind.DATE,
+        )
+
+        assert result.verdict is Verdict.INCORRECT
+        assert "well-formed" in (result.detail or "")
+
     def test_an_unambiguous_day_first_date_is_still_read(self):
         """The counter-example to the row above: no month is 28.
 
@@ -271,6 +307,28 @@ class TestAmountSeparatorsAreReadTheWayTheyAreWritten:
             )
             is Verdict.CORRECT
         )
+
+    def test_a_comma_grouped_amount_keeps_its_fraction(self):
+        """The one where the cents are not `.00`, so dropping them would show."""
+        assert (
+            scored(
+                record("loss_amount", "48,200.50", "CHF"),
+                GoldField(value=48200.50, currency="CHF"),
+            )
+            is Verdict.CORRECT
+        )
+
+    def test_words_are_not_an_amount(self):
+        """The one where the model wrote the amount out: unreadable, not a mismatch."""
+        result = score_field(
+            record=record("loss_amount", "about fifty thousand", "CHF"),
+            gold=GoldField(value=48200.00, currency="CHF"),
+            check=GROUNDED,
+            kind=FieldKind.AMOUNT,
+        )
+
+        assert result.verdict is Verdict.INCORRECT
+        assert "well-formed" in (result.detail or "")
 
     def test_a_comma_not_grouping_threes_is_refused(self):
         """The one that was a hundredfold error.
