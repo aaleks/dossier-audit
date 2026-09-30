@@ -51,6 +51,11 @@ def _cli(workspace: Path, monkeypatch, *args: str):
 @pytest.fixture
 def audited(workspace: Path, monkeypatch) -> Path:
     """Synced and run, with a bar and a sample beside the gold set, and no calibration."""
+    return audited_workspace(workspace, monkeypatch)
+
+
+def audited_workspace(workspace: Path, monkeypatch) -> Path:
+    """`audited`, as a function, for the unit tests of spec 017 to build on."""
     import dossier.cli.bootstrap as cli
 
     (workspace / "sources.yaml").write_text(

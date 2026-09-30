@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.32
 
 ## Purpose
@@ -854,7 +854,7 @@ be lost, and `status` has none to lose. Decided by `a.aleks` on 2026-09-30.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.status`)
 - **Proved by:** `tests/unit/test_R011_32__status_records_nothing.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

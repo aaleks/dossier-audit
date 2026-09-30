@@ -40,6 +40,16 @@ def status(
 ) -> None:
     """Say what each source holds, each pipeline's latest run, and what eval would withhold."""
     workspace = Path.cwd()
+    if gold is not None and pipeline is None:
+        # A gold set can serve several pipelines (R3.7), and a judge is checked
+        # against one pipeline's rubrics and model: no pipeline, no one answer.
+        typer.echo(
+            f"--gold {gold} names a gold set, and one gold set can serve several "
+            "pipelines (R3.7): name the pipeline its judges are checked for, as "
+            f"`dossier status PIPELINE --gold {gold}`",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     try:
         sources = workspace / "sources.yaml"
         declared = (
@@ -50,7 +60,7 @@ def status(
         if pipeline is not None:
             bootstrap.pipeline_path(workspace, pipeline)
         pipelines = [pipeline] if pipeline is not None else _pipelines(workspace)
-        judged = judged_fields(workspace, pipeline, gold) if gold and pipeline else None
+        judged = judged_fields(workspace, pipeline, gold) if gold is not None else None
     except ConfigError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
