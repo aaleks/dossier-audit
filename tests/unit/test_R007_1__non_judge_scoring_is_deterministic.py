@@ -130,7 +130,7 @@ class TestNonJudgeScoring:
         )
 
     def test_a_different_currency_is_incorrect(self):
-        """The one where the number matches and the money does not.
+        """Example 5: the one where the number matches and the money does not.
 
         CHF 48'200 and EUR 48'200 are different losses. Comparing only the
         magnitude would report a currency error as a correct answer.
@@ -138,6 +138,21 @@ class TestNonJudgeScoring:
         assert (
             scored(
                 record("loss_amount", 48200.00, "EUR"),
+                GoldField(value=48200.00, currency="CHF"),
+            )
+            is Verdict.INCORRECT
+        )
+
+    def test_an_amount_naming_no_currency_does_not_match_one_in_chf(self):
+        """Example 6: the one where the model gave the number and no currency.
+
+        Compared as text, no currency is the empty string, and the empty string
+        sorts before every currency: a comparison that slipped from `==` to
+        `<=` would call it a match, as it would CHF against gold in EUR.
+        """
+        assert (
+            scored(
+                record("loss_amount", 48200.00),
                 GoldField(value=48200.00, currency="CHF"),
             )
             is Verdict.INCORRECT

@@ -61,3 +61,17 @@ class TestAPageThatAbstainsDoesNotAnswerForItsDocument:
 
         assert result.verdict is Verdict.INCORRECT
         assert result.detail == "abstained on every page; gold states '2026-07-28'"
+
+    def test_a_document_read_whole_is_not_said_to_abstain_on_every_page(self):
+        """Row 4, counter-example — the one `extract`, in `per_file` mode, abstained on."""
+        (result,) = score_document(
+            document=POSTMORTEM,
+            records=[abstained()],
+            checks=[GROUNDED],
+            parts=(),
+            gold={"resolution_date": GoldField(value="2026-07-28")},
+            kinds=KINDS,
+        ).results
+
+        assert result.verdict is Verdict.INCORRECT
+        assert result.detail == "abstained; gold states '2026-07-28'"

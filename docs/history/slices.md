@@ -13,6 +13,37 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+The mutation runner, and the survivors the first run capped (2026-09-30,
+#633). The first run over `domain/` was made with throwaway scripts, because
+the method `mutation.toml` and `/verify` described would have taken a week.
+Those scripts are now `dev/mutation/mutate.py`, and `/verify` and the
+`mutation-analyst` agent point at it. `init` took 529 s here and gave 4,009
+mutants. Its first real use was the loose end of that run: 38 survivors capped
+at 120 tests and never run in full. The 125 mutants on their lines, run in full
+(`--cap 0`), took 17 minutes: 89 were killed, and 36 survived. Twelve were one
+`type` alias, which is never evaluated, and which `init` now drops as an
+annotation. Three were real, and are rows now:
+- **R7.1 row 6.** An amount naming no currency matched gold in CHF once `==`
+  was `<=`. No currency compares as the empty string, which sorts first. Row 5,
+  EUR against CHF, had a test and no row.
+- **R7.47 row 4.** A `per_file` abstention would have said it "abstained on
+  every page".
+- **R7.53 row 6.** No row put the scored step in the middle, where a count one
+  short or one long shows.
+
+The other 21 were equivalent:
+- guards nothing reaches (a `zip(strict=True)`, an `or 0`, `oidc` refused by a
+  function nothing calls for it);
+- defaults and positions nobody reads;
+- `@classmethod` under a pydantic `field_validator`, which adds it itself;
+- string orderings with no mode between them.
+
+Three real in 38 is why the cap stays, and why a capped survivor is run in full
+before anyone decides about it. Without the cap, a survivor runs every test on
+its lines, up to 903 of them here, and pays for all of them on every mutant of
+the line. With it, the survivors that need a second look are named, and a capped
+result is never a verdict on its own.
+
 A sitemap's `http://` pages for an `https://` source (2026-09-30, R1.29 rows
 11-14). The live check of 2026-09-28 found `www.gnu.org`'s sitemap naming its
 pages over `http://`, and a source whose `url` was `https://` listing none of

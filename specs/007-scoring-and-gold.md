@@ -293,6 +293,8 @@ The same output and gold set always produce the same score.
 | 2 | `loss_amount` `48'200.00 CHF` against gold `48200.00` CHF | correct; normalisation precedes comparison |
 | 3 | `resolution_date` `28.07.2026` against gold `2026-07-28` | correct; date normalisation is part of the scorer |
 | 4 | *counter-example* — `root_cause`, a free-text field | not covered; it is scored by a judge and is not deterministic (R7.11) |
+| 5 | `loss_amount` `48200.00` EUR against gold `48200.00` CHF | incorrect: the same magnitude in another currency is another loss |
+| 6 | `loss_amount` `48200.00` with no currency, against gold `48200.00` CHF | incorrect: an amount that names no currency does not match one that names CHF |
 
 ### R7.2 — results are reported per field, and never as an overall figure alone
 
@@ -1416,6 +1418,7 @@ is (R7.3).
 | 1 | `resolution_date` `2026-07-28` on `INC-4830`'s page 1, pages 2 and 3 abstaining with the reason `not on this page`, against gold `2026-07-28` | correct. Before this rule, 1 of 3 |
 | 2 | every page abstaining, against a gold `null` | correct: the document abstains, and so does gold (R7.3 row 1) |
 | 3 | *counter-example* — every page abstaining, against gold `2026-07-28` | incorrect, `abstained on every page; gold states '2026-07-28'`: when every page abstains, the abstention is the document's answer (R7.3 row 3) |
+| 4 | *counter-example* — `extract` in `per_file` mode abstaining on `resolution_date`, against gold `2026-07-28` | incorrect, `abstained; gold states '2026-07-28'`: a document read whole has no pages, and is not said to have abstained on every one |
 
 ### R7.48 — a field is correct only when every page that gave it a value is correct, and the detail names each page that was not
 
@@ -1559,6 +1562,7 @@ leaves out the same documents (R7.54).
 | 3 | `notes` failing `handover-note.md`, and `extract`, reading `notes`, skipping it (R6.13) | named at `notes`: the failure that left `extract` without it |
 | 4 | *counter-example* — `verify`, after `extract` and reading `notes`, failing `INC-4821` as R6.29 row 2 does; `dossier eval incident-audit --gold gold/incidents` | not named: `extract` answered it, and it is scored. The headline reads `4 documents`, with no `· failed` |
 | 5 | *counter-example* — `notes`, then `verify` reading it and failing `INC-4821`, then `extract` reading `documents` alone and answering it | not named: it is scored, though a step before `extract` failed it |
+| 6 | `notes`, `extract`, `verify`, with `extract` scored: `extract` failing `INC-4822`, and `verify` failing `handover-note.md`, which `extract` passed over for holding nothing it reads (R6.21) | `INC-4822` named, at `extract`, the scored step in the middle; `handover-note.md` not: a step after the scored one is not consulted, even for a document the scored step did not answer |
 
 ### R7.54 — `--compare` scores both runs over the same documents: a document either run left unscored is scored in neither
 
