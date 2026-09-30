@@ -802,7 +802,7 @@ documents. Decided by `a.aleks` on 2026-09-30.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.comparison_description`)
 - **Proved by:** `tests/unit/test_R011_30__a_comparison_describes_what_it_lost.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

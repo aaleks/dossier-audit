@@ -734,6 +734,7 @@ def comparison_description(
     rows: Sequence[FieldDelta],
     overalls: tuple[FieldTotal | None, FieldTotal | None],
     left_out: int = 0,
+    failed: tuple[Sequence[Failure], Sequence[Failure]] = ((), ()),
 ) -> str:
     """What a comparison says about itself (R11.12 row 3).
 
@@ -742,6 +743,10 @@ def comparison_description(
     say. `regressed nothing` is said rather than omitted, for the reason R11.9
     row 3 gives for the tag: a missing line reads as a record written before the
     line existed.
+
+    What regressed is every marker the terminal printed: the fields, then each
+    document the change lost, beneath them as the terminal lists them (R11.30).
+    It said `regressed nothing` beside `INC-4822 … <- regression` before.
     """
     lines = [
         f"compare {runs[0]} -> {runs[1]} · {pipeline}",
@@ -758,7 +763,10 @@ def comparison_description(
         lines.append(
             f"overall {earlier.percentage:.1f}% -> {later.percentage:.1f}% ({moved:+.1f})"
         )
-    worse = regressed_fields(rows)
+    worse = [
+        *regressed_fields(rows),
+        *(f"{document} (failed at {step})" for step, document, _ in lost_documents(failed)),
+    ]
     lines.append(f"regressed {', '.join(worse)}" if worse else "regressed nothing")
     return "\n".join(lines)
 
@@ -798,24 +806,36 @@ def not_compared_line(
     return f"not compared: {document} failed at {step} in {run}{said}{marked}"
 
 
+def lost_documents(failed: tuple[Sequence[Failure], Sequence[Failure]]) -> list[Failure]:
+    """The documents a comparison's change lost: `b` failed them, `a` answered them.
+
+    `failed` is what each run left unscored (R7.53), and the loss is `b`'s
+    failure, in the order `b` names them. Not the other way round, where the
+    change recovered the document, and not when both failed it, where the change
+    lost nothing (R7.55). The one decision behind the terminal's marker, the
+    description's `regressed` line (R11.30) and `dossier.lost` (R11.29), so the
+    three cannot disagree.
+    """
+    failed_before = {document for _, document, _ in failed[0]}
+    return [failure for failure in failed[1] if failure[1] not in failed_before]
+
+
 def not_compared_lines(
     failed: tuple[Sequence[Failure], Sequence[Failure]], *, runs: tuple[str, str]
 ) -> list[str]:
     """Each document a comparison left out, run `a`'s first (R7.55, R7.54).
 
-    `failed` is what each run left unscored (R7.53). A document `b` failed and
-    `a` answered is marked as a regression: the change lost it, and R7.8 flags
-    every regression. Not the other way round, where the change recovered it,
-    and not when both failed it, where the change lost nothing.
+    `failed` is what each run left unscored (R7.53). A document the change lost
+    is marked as a regression, as R7.8 flags every regression.
     """
-    lost_before = {document for _, document, _ in failed[0]}
+    lost = {document for _, document, _ in lost_documents(failed)}
     return [
         not_compared_line(
             step=step,
             document=document,
             run=run,
             reason=reason,
-            regressed=bool(later) and document not in lost_before,
+            regressed=bool(later) and document in lost,
         )
         for later, (run, failures) in enumerate(zip(runs, failed, strict=True))
         for step, document, reason in failures
