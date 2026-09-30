@@ -436,6 +436,8 @@ all, because that is every pipeline written before a kind could be named
 | 3 | `incidents-manual` declaring `convert: [markdown, page_images]` | resolves; both kinds are produced and the step reads one of them (R8.4) |
 | 4 | two sources in `sources`, one declaring `convert: [markdown, page_images]` and one declaring none | stops, naming the source that cannot supply it; a step reads its whole set, and a half-answered input is the silent-gap failure this rule exists to prevent |
 | 5 | *counter-example* — `extract` declaring `input: documents` against a source declaring `convert: [page_images]` | stops for the same reason, on the kind nobody wrote down: bare `documents` is `documents@markdown` (R3.11) and that source does not produce it |
+| 6 | `describe` declaring `input: [previous, extract, documents@page_images]`, `incidents-manual` declaring no `convert:` | stops as row 1: the sugar and the step id are passed over, and the kind after them is still checked |
+| 7 | `extract` declaring `input: documents` over `incidents-jira`, declaring no `convert:`, and `incidents-manual`, declaring `convert: [page_images]` | stops, naming `incidents-manual`: the first source's default is no answer for the second |
 
 ### R4.14 — a replay reproduces a `per_part` step part by part
 

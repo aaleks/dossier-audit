@@ -275,6 +275,7 @@ should have recorded.
 | 3 | `DOSSIER_MLFLOW_ENABLED=ture` | refused before any work, naming the variable and the two values it takes |
 | 4 | `DOSSIER_MLFLOW_ENABLED=true`, no URI | refused before any work, naming `DOSSIER_MLFLOW_TRACKING_URI` |
 | 5 | *counter-example* — `MLFLOW_TRACKING_URI` set in the shell, `DOSSIER_MLFLOW_ENABLED` unset | off; MLflow's own variables do not switch dossier's tracking on |
+| 6 | `DOSSIER_MLFLOW_ENABLED=1`, or `True` | refused as row 3: the switch takes the two words, and neither a number nor a capital is one of them |
 
 ### R10.2 — the experiment a record lands in is rendered from the template for its command
 
@@ -602,6 +603,7 @@ variable. An empty value counts as unset, as an empty endpoint does (R9.2):
 | 8 | *counter-example* — `DOSSIER_MLFLOW_AUTH_TOKEN` set, `DOSSIER_MLFLOW_AUTH` unset | no credential; a variable for a mode nobody chose chooses nothing |
 | 9 | *counter-example* — `DOSSIER_MLFLOW_USER=a.aleks`, `DOSSIER_MLFLOW_AUTH=basic`, no `DOSSIER_MLFLOW_AUTH_USERNAME` | refused, naming `DOSSIER_MLFLOW_AUTH_USERNAME`; who a record says ran it (R10.12) is never a login |
 | 10 | *counter-example* — `DOSSIER_MLFLOW_ENABLED` unset, `DOSSIER_MLFLOW_AUTH=keycloak` | off, and not refused; nothing reads a credential for a server nothing records to (R10.1) |
+| 11 | the settings rows 2, 3 and 4 read, printed as a refusal or a log line prints them | the password, the token and the client secret are nowhere in it; `dossier-ci` and the token URL are (R10.7) |
 
 ### R10.17 — every request dossier makes to MLflow carries the credential R10.16 decided, and no other
 
