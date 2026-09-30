@@ -97,6 +97,13 @@ dev = [
     "pytest>=8.2",
     "ruff>=0.5",
 ]
+# Mutation testing over domain/ (dev/mutation/README.md): cosmic-ray lists and
+# applies the mutants, coverage says which tests run each line. Installed only
+# with `--group mutation`; nothing in the default suite or in dossier needs it.
+mutation = [
+    "cosmic-ray>=8.7",
+    "coverage>=7.6",
+]
 
 [project.scripts]
 dossier = "dossier.cli.main:app"

@@ -1,4 +1,7 @@
-# Mutation testing configuration — see the mutation-analyst agent.
+# Mutation testing configuration, read by dev/mutation/mutate.py (module-path and
+# excluded-modules). The rest keeps plain `cosmic-ray exec` working, though at about
+# 90 seconds a mutant it takes a week: dev/mutation/README.md says what the runner
+# does instead.
 #
 # Scope is src/dossier/domain only, and deliberately so. Mutation testing runs
 # the suite once per mutant; that is affordable only where tests are fast and
