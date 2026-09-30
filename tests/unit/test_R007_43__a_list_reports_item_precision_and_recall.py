@@ -14,7 +14,9 @@ recall 3 of 5.
 
 from __future__ import annotations
 
-from tests.fakes import FakeTracker
+from pathlib import Path
+
+from tests.fakes import FakeTracker, NoModelClient
 
 from dossier.application.eval import record_eval
 from dossier.domain.grounding import FieldCheck, FieldVerdict
@@ -129,3 +131,41 @@ class TestAListReportsItemPrecisionAndRecall:
         metrics = recorded(total)
         assert "precision/affected_systems" not in metrics
         assert metrics["recall/affected_systems"] == 0.0
+
+    def test_the_command_records_the_figures_it_printed(self, workspace: Path, monkeypatch):
+        """Row 1, through `dossier eval` with tracking on: the line and the record agree.
+
+        R7.45's workspace: the list example beside an `enum` field. The rows above
+        record through `record_eval`; the command records through `finish_eval`,
+        and only this row watches the figures leave the command.
+        """
+        from tests.acceptance.test_R007_45__eval_scores_a_list_field import (
+            GOLD_SYSTEMS,
+            PIPELINE,
+            _audited,
+            _cli,
+            _line_of,
+        )
+
+        import dossier.cli.bootstrap as cli
+
+        _audited(workspace, monkeypatch, GOLD_SYSTEMS)
+        tracker = FakeTracker()
+        monkeypatch.setattr(cli, "build_model_client", lambda model_id: NoModelClient())
+        monkeypatch.setenv("DOSSIER_MLFLOW_ENABLED", "true")
+        monkeypatch.setenv("DOSSIER_MLFLOW_TRACKING_URI", "http://localhost:5000")
+        monkeypatch.setattr(cli, "build_tracker", lambda settings: tracker, raising=False)
+
+        result = _cli(workspace, monkeypatch, "eval", PIPELINE, "--gold", "gold/incidents")
+
+        assert result.exit_code == 0, result.output
+        line = " ".join(_line_of(result.output, FIELD).split())
+        assert line.startswith(
+            "affected_systems 50.0% items: precision 75.0% (3/4), recall 60.0% (3/5)"
+        ), result.output
+        (run,) = tracker.runs
+        assert {name: run.metrics[name] for name in run.metrics if FIELD in name} == {
+            "accuracy/affected_systems": 50.0,
+            "precision/affected_systems": 75.0,
+            "recall/affected_systems": 60.0,
+        }
