@@ -99,3 +99,20 @@ class TestADocumentIsNamedUnscoredOnceWhereItFailed:
         )
 
         assert named == []
+
+    def test_the_scored_step_in_the_middle_is_consulted_and_the_one_after_it_is_not(self):
+        """Row 6 — the one where `extract` is scored, with `verify` after it.
+
+        The steps consulted are the scored one and those before it, counted to
+        its place in the pipeline. Second of three is where a count that stops
+        one short, or runs one long, shows: `extract`'s failure goes unnamed, or
+        `verify`'s is named for a document `extract` only passed over.
+        """
+        named = unscored(
+            [("extract", "INC-4822", INVALID), ("verify", "handover-note.md", EMPTY)],
+            steps=["notes", "extract", "verify"],
+            scored="extract",
+            answered={"INC-4821", "INC-4901", "INC-5455"},
+        )
+
+        assert named == [("extract", "INC-4822", INVALID)]
