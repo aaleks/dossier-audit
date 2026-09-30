@@ -39,9 +39,10 @@ The other 21 were equivalent:
 - string orderings with no mode between them.
 
 Three real in 38 is why the cap stays, and why a capped survivor is run in full
-before anyone decides about it. Without the cap the first run took days. With
-it, the survivors that need a second look are named, and a capped result is
-never a verdict on its own.
+before anyone decides about it. Without the cap, a survivor runs every test on
+its lines, up to 903 of them here, and pays for all of them on every mutant of
+the line. With it, the survivors that need a second look are named, and a capped
+result is never a verdict on its own.
 
 A sitemap's `http://` pages for an `https://` source (2026-09-30, R1.29 rows
 11-14). The live check of 2026-09-28 found `www.gnu.org`'s sitemap naming its
