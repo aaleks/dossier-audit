@@ -241,6 +241,7 @@ its name carries the pipeline too.
 | 2 | `extract` and `verify` both declaring `output: schemas/incident.yaml` | `incident-audit.judge.root_cause` published once, not twice. Two steps reading one declaration is one job, and the name is the field's rather than the step's for exactly this reason |
 | 3 | *counter-example* — `loss_amount`, `resolution_date`, `severity`, declared with no `judge` | no prompt for any of them; a field scored by string comparison has no rubric to publish (R6.10) |
 | 4 | *counter-example* — the judge prompt `dossier` renders around that rubric (R7.19) | not published, and not part of `incident-audit.judge.root_cause`'s template. What a version holds is the author's file; what the model was asked is in the calibration, which hashes both |
+| 5 | `extract` declaring `schemas/incident.yaml`, and `verify` declaring `schemas/verification.yaml`, which judges `root_cause` and then `remediation` against `rubrics/remediation.md` | `incident-audit.judge.root_cause` once, then `incident-audit.judge.remediation`. A field already published is passed over, and the fields declared after it are still published |
 
 ### R14.3 — a version holds the text the prompt's hash was taken over, tagged with that hash
 

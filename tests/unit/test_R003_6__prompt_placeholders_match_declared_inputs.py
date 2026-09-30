@@ -51,9 +51,9 @@ class TestPlaceholdersMatchDeclaredInputs:
                 prompt="<source_document>{{documents}}</source_document>\n",
             )
 
-        message = str(error.value)
-        assert "verify" in message
-        assert "extract" in message
+        assert str(error.value).startswith(
+            "step 'verify' declares ['extract'] but its prompt never injects it."
+        )
 
     def test_an_injected_placeholder_never_declared_is_an_error(self):
         """Example 3: the one where `{{reference}}` would ship as literal braces.
@@ -69,9 +69,10 @@ class TestPlaceholdersMatchDeclaredInputs:
                 "<procedure>{{reference}}</procedure>\n",
             )
 
-        message = str(error.value)
-        assert "verify" in message
-        assert "reference" in message
+        assert str(error.value).startswith(
+            "step 'verify' injects ['reference'], which is not among its declared "
+            "inputs ['documents']."
+        )
 
     def test_braces_inside_a_fenced_code_block_are_not_placeholders(self):
         """Counter-example (row 4): the one where a prompt shows example code.
@@ -136,6 +137,29 @@ class TestPlaceholdersMatchDeclaredInputs:
         assert "declared" in str(declared_unused.value).lower()
         assert str(declared_unused.value) != str(never_declared.value)
 
+    def test_two_on_one_side_are_named_together(self):
+        """Examples 2 and 3 with two names each: the one where the sentence is plural."""
+        with pytest.raises(ValueError) as declared_unused:
+            check_placeholders(
+                step="verify",
+                declared=["documents", "extract", "previous"],
+                prompt="{{documents}}",
+            )
+        with pytest.raises(ValueError) as never_declared:
+            check_placeholders(
+                step="verify",
+                declared=["documents"],
+                prompt="{{documents}}{{reference}}{{extract}}",
+            )
+
+        assert str(declared_unused.value).startswith(
+            "step 'verify' declares ['extract', 'previous'] but its prompt never injects them."
+        )
+        assert str(never_declared.value).startswith(
+            "step 'verify' injects ['extract', 'reference'], which are not among its "
+            "declared inputs ['documents']."
+        )
+
     def test_a_placeholder_may_be_repeated(self):
         """The one where an input is injected twice on purpose.
 
@@ -196,3 +220,16 @@ class TestRenderingIsTheOtherHalf:
 
         assert "the document" in rendered
         assert '{{"field": "loss_amount"}}' in rendered
+
+    def test_a_placeholder_written_inside_a_fence_is_left_as_written(self):
+        """Counter-example (row 4): the one where the example code names an input.
+
+        The fence above holds braces no placeholder could match, so it would come
+        through whether or not the renderer knew about fences. This one holds a
+        real input's name, and only the text outside the fence is filled.
+        """
+        prompt = "{{documents}}\n~~~\nWrite {{documents}} as it came.\n~~~\n{{documents}}"
+
+        rendered = render(prompt, {"documents": "X"})
+
+        assert rendered == "X\n~~~\nWrite {{documents}} as it came.\n~~~\nX"

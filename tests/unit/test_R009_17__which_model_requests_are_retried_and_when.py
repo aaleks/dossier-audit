@@ -35,12 +35,13 @@ class TestWhichAnswersAreSentAgain:
         """Row 4: the one where no server answered -- refused, reset or timed out."""
         assert retryable(None)
 
-    @pytest.mark.parametrize("status", [400, 401, 403, 404, 422])
+    @pytest.mark.parametrize("status", [400, 401, 403, 404, 422, 499])
     def test_an_answer_that_would_come_back_the_same_is_not(self, status: int):
         """Rows 7 and 8, counter-examples: the one where asking again changes nothing.
 
         A key refused once is refused again, and a request the server could not
-        read is not re-read. Sending either twice only doubles the refusal.
+        read is not re-read. Sending either twice only doubles the refusal. 499
+        is the last status below "every 5xx", and a client's like the others.
         """
         assert not retryable(status)
 
@@ -76,18 +77,28 @@ class TestHowLongToWait:
         do not come back together."""
         assert wait_before(2, retry_after=None, jitter=0.75) == 0.75
 
-    def test_a_wait_longer_than_a_minute_is_not_waited_for(self):
+    @pytest.mark.parametrize("seconds", ["120", "61"])
+    def test_a_wait_longer_than_a_minute_is_not_waited_for(self, seconds: str):
         """Row 6, a counter-example: the one where the 429 asks for two minutes.
 
         Both SDKs use their own backoff instead, and a server asking for longer is
-        a quota rather than a burst.
+        a quota rather than a burst. 61 is the first whole second past the limit.
         """
-        asked = retry_after({"Retry-After": "120"}, now=NOW)
+        asked = retry_after({"Retry-After": seconds}, now=NOW)
         assert wait_before(1, retry_after=asked, jitter=1.0) == 0.5
 
     def test_a_wait_of_exactly_a_minute_is_waited_for(self):
         """Row 6's boundary: 60 s is the longest wait honoured, and it is honoured."""
         assert wait_before(1, retry_after=60.0, jitter=1.0) == 60.0
+
+    def test_a_wait_under_a_second_is_waited_for(self):
+        """Row 2's other boundary: any wait above 0 is the server's to ask for.
+
+        `retry-after-ms: 250` is shorter than the backoff would wait, and it is
+        still the server's wait that is kept.
+        """
+        asked = retry_after({"retry-after-ms": "250"}, now=NOW)
+        assert wait_before(1, retry_after=asked, jitter=1.0) == 0.25
 
     @pytest.mark.parametrize("value", ["0", "-2", "soon", ""])
     def test_a_wait_that_is_not_a_wait_falls_back_to_the_backoff(self, value: str):
