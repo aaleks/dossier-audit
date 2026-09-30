@@ -21,7 +21,7 @@ from pathlib import Path
 from tests.pipelines import PROVIDERS, write_pipeline
 
 from dossier.application.eval import CALIBRATIONS_DIR, judge_prompt_hash
-from dossier.cli.eval import _judge_gate
+from dossier.cli.eval import judge_gate
 from dossier.config.load import load_pipeline
 from dossier.domain.grounding import DESCRIBED, GROUNDED, judge_name, judged_states
 from dossier.domain.hashing import text_hash
@@ -166,7 +166,7 @@ class TestAJudgeThatLetsClaimsThroughIsWithheld:
             )
         config = load_pipeline(path, providers=PROVIDERS)
 
-        _, withheld = _judge_gate(
+        _, withheld = judge_gate(
             gold,
             path.parent / "schemas" / "incident.yaml",
             path.parent,
