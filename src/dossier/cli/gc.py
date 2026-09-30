@@ -116,6 +116,9 @@ def gc(
             environ=environment(workspace),
             dossier_version=version("dossier"),
         )
+        # Said where it was made, as `eval` and `calibrate` say theirs: without
+        # it, only MLflow knows that `gc` recorded anything (R11.28 row 6).
+        typer.echo(f"recorded to MLflow: {experiment}")
 
 
 def _held_snapshots(workspace: Path) -> set[str]:

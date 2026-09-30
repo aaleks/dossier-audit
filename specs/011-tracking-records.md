@@ -745,7 +745,10 @@ the line printed. `collected.json` names each run it deleted, with its pipeline,
 so a run whose record is still in MLflow can be traced to the `gc` that removed
 its files. A preview records nothing, as `--plan` records nothing, and neither
 does an `--apply` that found nothing to delete. No traces: `gc` asks no model.
-Decided by `a.aleks` on 2026-09-30.
+Decided by `a.aleks` on 2026-09-30. A record is said in the terminal where
+it was made, as `eval`'s and `calibrate`'s are (row 6): without the line, a
+person has to open MLflow to learn that `gc` recorded anything. Its absence was
+found by the live check that closed spec 016.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.gc`), domain (`dossier.domain.tracking.experiment_name`)
@@ -759,3 +762,5 @@ Decided by `a.aleks` on 2026-09-30.
 | 3 | `DOSSIER_MLFLOW_EXPERIMENT=team/{pipeline}/{kind}` and no `DOSSIER_MLFLOW_EXPERIMENT_GC` | refused before anything is deleted, naming `DOSSIER_MLFLOW_EXPERIMENT_GC` as the setting to give a template without `{pipeline}` |
 | 4 | *counter-example* — `dossier gc`, a preview, tracking on | 0 MLflow runs: nothing was deleted |
 | 5 | *counter-example* — `dossier gc --apply` with nothing to collect, tracking on | 0 MLflow runs |
+| 6 | row 1's `gc --apply` | its last line is `recorded to MLflow: dossier-audit/gc`: the one extra line R10.4 row 3 allows a command that records, as `eval` and `calibrate` print theirs |
+| 7 | *counter-example* — the same `gc --apply`, tracking off | no `recorded to MLflow` line: nothing was recorded |
