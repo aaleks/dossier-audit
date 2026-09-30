@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.30
 
 ## Purpose
@@ -780,7 +780,7 @@ slice's acceptance rule, proved through `dossier eval --compare`.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval.record_comparison`), domain (`dossier.domain.tracking.lost_documents`)
 - **Proved by:** `tests/acceptance/test_R011_29__compare_tags_the_documents_it_lost.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

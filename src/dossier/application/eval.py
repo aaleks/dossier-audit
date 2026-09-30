@@ -418,6 +418,7 @@ def record_comparison(
     withheld: Mapping[str, str] | None = None,
     prompt_prefix: str = "",
     failed: tuple[int, int] = (0, 0),
+    lost: Sequence[str] = (),
 ) -> None:
     """Record a comparison as one MLflow run of per-field deltas (R11.8, R11.9).
 
@@ -454,6 +455,11 @@ def record_comparison(
             # existed, as an absent `changes.json` is from a sync that never ran
             # (R11.6 row 2).
             "dossier.regressed": ", ".join(regressed_fields(rows)),
+            # The documents the change lost, which `dossier.regressed` leaves
+            # out because it names fields (R7.55). Without it, a comparison whose
+            # change broke a document was tagged as one that changed nothing.
+            # Present and empty when none was, for the reason above (R11.29).
+            "dossier.lost": ", ".join(lost),
             # What differs between the two runs, from the same decision
             # `--plan` makes (R4.12). Present and empty when nothing moved, for
             # the reason `dossier.regressed` is (R11.13 row 4).
