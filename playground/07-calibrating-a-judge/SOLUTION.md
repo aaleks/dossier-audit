@@ -436,6 +436,10 @@ changed since`.
   no one answer. It exits 2 and says to name the pipeline.
 - `run` would write a record, and R10.5 refuses a command whose record would
   be lost. `status` writes none, so it needs no server (R11.32).
+- Without `failures.json`: `incident-audit · latest run 20260930T171758Z-e1ad ·
+  5 documents · failures not recorded`. A run writes the file when every step
+  has run, `[]` when nothing failed (R4.27), so a missing one means it stopped
+  before it ended, or ran before R4.27. `0 failed` would say it finished.
 
 ---
 

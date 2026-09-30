@@ -13,6 +13,29 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`/verify` of spec 017 (2026-09-30). The suite was green and `status` was wrong
+in four places, each found by asking what a real workspace leaves behind:
+- **A first sync that failed a fetch crashed it.** The watermark moves only
+  when a sync handled every item (R2.8), so a source holding documents can
+  have none, and `status` formatted the missing instant. It now says
+  `no complete sync yet` (R17.1 row 5). Reproduced through a real sync, a web
+  source on a local server whose sitemap names a page that answers `404`: main
+  raised `AttributeError`.
+- **A source owed its only document read `never synced`.** `read_held` found
+  sources by their rows and watermark, and such a source has neither: only
+  what it is owed, which was the line to print (R17.2 row 5).
+- **A stopped run read `0 failed`.** R4.27 writes `[]` for a run that finished
+  so it can be told from one that stopped, and `status` read both as `[]`. It
+  now says `failures not recorded` (R17.3 row 5).
+- **`status PIPELINE --gold` answered where `eval` refuses.** With two steps
+  declaring an output it answered from the first, the guess `eval` refuses to
+  make, and R17.4 row 6's test used a pipeline with none, the other case `eval`
+  refuses. Both commands now ask `scored_step` and refuse in the same words
+  (R17.6 rows 5 and 6). R17.4 row 6 now uses an output declaring no judged
+  field, as it says.
+
+---
+
 `dossier status` (2026-09-30, spec 017 and R11.32, #635 to #641). A stale
 calibration was found only when `eval` withheld the field, after the run it
 scored had been paid for. `status` asks first: what each source holds and still
