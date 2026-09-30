@@ -30,9 +30,9 @@ judged fields · incident-audit against gold/incidents
 
 - **`sources`** is every source `sources.yaml` declares, in its order, then any
   source the ledger still holds that it no longer declares. The counts are the
-  ledger's rows. `last synced` is the source's watermark (R2.4). An owed
-  document is one whose fetch failed and that the next sync will ask for again
-  (R2.23).
+  ledger's rows. `last synced` is the source's watermark (R2.4), which moves
+  only when a sync handled every item (R2.8). An owed document is one whose
+  fetch failed and that the next sync will ask for again (R2.23).
 - **`pipelines`** is every pipeline under `pipelines/`, by name. Its latest run
   is the last by run id, as `dossier eval` and `dossier gc` find it (R16.2). A
   document counts as failed once, however many of its steps failed it.
@@ -47,7 +47,9 @@ always printed whole.
 
 `status` exits 0 whatever it finds. It informs, and the gates are `eval` and
 `calibrate`. It exits 2 only when it cannot answer the question: a pipeline that
-does not exist, or `--gold` with no pipeline. It records nothing to MLflow, as
+does not exist, `--gold` with no pipeline, `--gold` with a pipeline `eval` would
+refuse to score because not exactly one of its steps declares an output, or a
+file it has to read that does not load. It records nothing to MLflow, as
 `--plan` and `gc`'s preview record nothing (R11.32). Decided by `a.aleks` on
 2026-09-30.
 
@@ -70,7 +72,7 @@ no general tool knows.
 ### R17.1 — `dossier status` names every source, with the documents it holds active and tombstoned and when it last synced
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.status.source_lines`), read by application (`dossier.application.status`)
+- **Layer:** domain (`dossier.domain.status.source_lines`), read by infrastructure (`dossier.infrastructure.ledger.read_held`, read-only)
 - **Proved by:** `tests/unit/test_R017_1__status_names_every_source_and_what_it_holds.py`
 - **Status:** MET
 
@@ -80,6 +82,8 @@ no general tool knows.
 | 2 | `incidents-manual` holding `audit-note.pdf`, and `handover-note.md` tombstoned | `1 held · 1 tombstoned`: a tombstoned document is counted apart, not dropped |
 | 3 | *counter-example* — `procedures-confluence` declared and never synced | `procedures-confluence · never synced`, with no counts: none is 0 held, which is a different state |
 | 4 | *counter-example* — `incidents-jira` held in the ledger and no longer declared in `sources.yaml` | listed after the declared sources, with its counts and `· not in sources.yaml` |
+| 5 | *counter-example* — `procedures-confluence`, whose first sync stored `OPS-115` and was refused `81920114.pdf`, so its watermark never moved (R2.8) | `procedures-confluence · 1 held · 0 tombstoned · no complete sync yet`: it holds a document, and there is no watermark to name |
+| 6 | *counter-example* — no `sources.yaml`, and `incidents-jira` held in the ledger | `incidents-jira` with its counts and `· not in sources.yaml`, and exit 0: a workspace with no `sources.yaml` declares nothing, and what the ledger holds is still held |
 
 ### R17.2 — a source names each document a sync still owes it, with when its fetch failed and why
 
@@ -94,6 +98,7 @@ no general tool knows.
 | 2 | two owed, `INC-4821/report.pdf` and `81920114.pdf` | one line each, by key |
 | 3 | *counter-example* — nothing owed | no `owed` line |
 | 4 | *counter-example* — a ledger written before R2.23, with no `owed` table | no `owed` line, and the ledger is read as it is: not migrated, its bytes unchanged |
+| 5 | `procedures-confluence`, whose first sync was refused `OPS-114`, its only page | `procedures-confluence · 0 held · 0 tombstoned · no complete sync yet`, with `owed OPS-114` beneath: the ledger holds no row and no watermark for it, and `never synced` would hide what it is owed |
 
 ### R17.3 — `dossier status` names each pipeline's latest run, with its documents and how many of them a step failed
 
@@ -108,6 +113,7 @@ no general tool knows.
 | 2 | `handover-note.md` failed by both `notes` and `extract` in the latest run (R6.29) | `1 failed`: a document is counted once, as R7.53 row 2 names it once |
 | 3 | *counter-example* — `postmortem-review` under `pipelines/` with no run | `postmortem-review · no run yet` |
 | 4 | *counter-example* — a directory under `runs/` with no `manifest.json`, named later than every run | not the latest run: it is not a run (R16.2 row 6) |
+| 5 | *counter-example* — the latest run wrote no `failures.json`: it stopped before it ended (R4.27 row 5), or ran before R4.27 | `incident-audit · latest run 20260925T091500Z-5e6f · 4 documents · failures not recorded`: `0 failed` would say it finished and failed nothing, which `[]` alone says |
 
 ### R17.4 — `dossier status PIPELINE --gold DIR` names each judged field with the reason `dossier eval PIPELINE --gold DIR` would withhold it, or `reportable`
 
@@ -140,7 +146,7 @@ no general tool knows.
 ### R17.6 — `dossier status` exits 0 whatever it finds, and 2 only when it cannot answer
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.status`)
+- **Layer:** cli (`dossier.cli.status`, refused in `eval`'s words by `dossier.cli.eval.scored_step`)
 - **Proved by:** `tests/unit/test_R017_6__status_exits_zero_whatever_it_finds.py`
 - **Status:** MET
 
@@ -150,6 +156,8 @@ no general tool knows.
 | 2 | `dossier status incident-audit` | the `pipelines` section holds `incident-audit` alone; `sources` is printed whole |
 | 3 | *counter-example* — `dossier status --gold gold/incidents`, no pipeline | exit 2, saying a gold set can serve several pipelines and naming the argument to give (R3.7); nothing on stdout |
 | 4 | *counter-example* — `dossier status incident-audti` | exit 2, naming `incident-audti` as `dossier eval` names a pipeline it cannot find |
+| 5 | *counter-example* — `dossier status incident-audit --gold gold/incidents`, with `extract` and `verify` both declaring an output | exit 2, with the refusal `dossier eval` gives, word for word: `incident-audit: 2 steps declare an output; eval scores exactly one`. Nothing on stdout: answering from the first would be the guess `eval` refuses to make |
+| 6 | *counter-example* — `dossier status postmortem-review --gold gold/incidents`, no step declaring an output | exit 2, `postmortem-review: 0 steps declare an output; eval scores exactly one`, as `eval` refuses it |
 
 ### R17.7 — what `dossier status` says `dossier eval` will withhold is what it withholds
 
