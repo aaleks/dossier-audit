@@ -13,8 +13,14 @@ import typer
 
 from dossier.application.status import read_runs
 from dossier.cli import bootstrap
-from dossier.cli.eval import has_per_part, judge_gate, scored_step
-from dossier.config.load import ConfigError, load_judge_rubrics, load_pipeline, load_sources
+from dossier.cli.eval import has_per_part, judge_gate, refuse_unmeetable_gold, scored_step
+from dossier.config.load import (
+    ConfigError,
+    load_fields,
+    load_judge_rubrics,
+    load_pipeline,
+    load_sources,
+)
 from dossier.domain.grounding import judged_states
 from dossier.domain.status import judged_lines, pipeline_lines, source_lines
 from dossier.infrastructure.connectors.registry import declared_keys
@@ -82,12 +88,14 @@ def judged_fields(workspace: Path, pipeline: str, gold: str) -> list[str]:
 
     The gate is `eval`'s own, asked with what `eval` asks it with: the
     pipeline's model, and every grounding state the pipeline can answer in. A
-    pipeline `eval` would refuse to score is refused here, in its words: to
-    answer from one of two outputs is the guess `eval` refuses (R17.6).
+    pipeline or gold set `eval` would refuse before scoring is refused here, in
+    its words: to answer from one of two outputs is the guess `eval` refuses,
+    and a field of a gold set it refuses is never reached (R17.6).
     """
     path = bootstrap.pipeline_path(workspace, pipeline)
     config = load_pipeline(path, providers=available_providers())
     declaration = path.parent / scored_step(pipeline, config).output
+    refuse_unmeetable_gold(pipeline, workspace / gold, load_fields(declaration))
     rubrics = load_judge_rubrics(declaration)
     _, withheld = judge_gate(
         workspace / gold,

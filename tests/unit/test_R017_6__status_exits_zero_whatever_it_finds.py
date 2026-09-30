@@ -9,6 +9,7 @@ does not exist, or one `eval` would refuse to score.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -142,5 +143,28 @@ class TestStatusExitsZeroWhateverItFinds:
         assert status.stdout == ""
         assert status.stderr == (
             "postmortem-review: 0 steps declare an output; eval scores exactly one\n"
+        )
+        assert status.stderr == eval_.stderr
+
+    def test_a_gold_set_eval_would_refuse_is_refused_as_eval_refuses_it(
+        self, audited: Path, monkeypatch
+    ):
+        """Row 7, counter-example — the one whose gold writes `severity` as an array.
+
+        `eval` refuses it before scoring anything (R7.44 row 5), so no field is
+        reached, and `reportable` would be said of one `eval` never gets to.
+        """
+        answer = audited / GOLD / "INC-4821.json"
+        gold = json.loads(answer.read_text(encoding="utf-8"))
+        gold["fields"]["severity"] = {"value": ["major"]}
+        answer.write_text(json.dumps(gold), encoding="utf-8")
+
+        status = _cli(audited, monkeypatch, "status", PIPELINE, "--gold", GOLD)
+        eval_ = _cli(audited, monkeypatch, "eval", PIPELINE, "--gold", GOLD)
+
+        assert status.exit_code == 2
+        assert status.stdout == ""
+        assert status.stderr == (
+            f"{PIPELINE}: INC-4821: severity is enum, and only a list field holds an array\n"
         )
         assert status.stderr == eval_.stderr
