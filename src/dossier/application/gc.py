@@ -265,9 +265,7 @@ def record_gc(
     label = label_for(None, environ)
     tracker.start_run(
         experiment=experiment,
-        name=run_name(
-            kind="gc", values={"started": started, "label": label}, environ=environ
-        ),
+        name=run_name(kind="gc", values={"started": started, "label": label}, environ=environ),
         # `dossier.pipeline` present and empty, as `dossier.label` is when
         # nobody gave one: `gc` reclaims space across every pipeline.
         tags=tracking_tags(kind="gc", pipeline="", label=label, environ=environ),
