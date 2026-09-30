@@ -16,7 +16,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from tests.docs_site import SITE, SITEMAP, URL, DocsSite, sitemapindex, urlset
+from tests.docs_site import HTML, SITE, SITEMAP, URL, DocsSite, page_body, sitemapindex, urlset
 
 from dossier.application.sync import sync_source
 from dossier.domain.pipeline import SourceConfig
@@ -216,3 +216,61 @@ class TestAWebSourceListsWhatItsSitemapNames:
         site = DocsSite(responses={SITEMAP: httpx.Response(200, content=served)})
 
         assert keys(site) == ["escalation"]
+
+    def test_a_page_the_sitemap_writes_over_http_is_fetched_over_https(self):
+        """Row 11: the one where the sitemap writes `http://` for an `https` source."""
+        plain = "http://docs.example.org/ops/escalation"
+        site = DocsSite(responses={SITEMAP: httpx.Response(200, content=urlset({plain: None}))})
+        connector = WebConnector(url=URL, transport=site.transport())
+
+        assert [ref.key for ref in connector.list(None)] == ["escalation"]
+        assert connector.fetch("escalation").payload == page_body(f"{SITE}/ops/escalation")
+        assert f"{SITE}/ops/escalation" in site.urls_asked()
+        assert plain not in site.urls_asked()
+
+    def test_the_sources_url_decides_the_scheme_whichever_way_round(self):
+        """Row 12: the one where the source is `http` and its sitemap writes `https`."""
+        plain = "http://docs.example.org/ops/escalation"
+        site = DocsSite(
+            responses={
+                "http://docs.example.org/sitemap.xml": httpx.Response(
+                    200, content=urlset({f"{SITE}/ops/escalation": None})
+                ),
+                plain: httpx.Response(
+                    200, headers={"Content-Type": HTML}, content=b"<p>plain</p>"
+                ),
+            }
+        )
+        connector = WebConnector(url="http://docs.example.org/ops/", transport=site.transport())
+
+        assert [ref.key for ref in connector.list(None)] == ["escalation"]
+        assert connector.fetch("escalation").payload == b"<p>plain</p>"
+        assert f"{SITE}/ops/escalation" not in site.urls_asked()
+
+    def test_a_page_named_with_both_schemes_is_one_page(self):
+        """Row 13: the one where the sitemap names `escalation` over `http` and `https`."""
+        served = urlset(
+            {
+                "http://docs.example.org/ops/escalation": "2026-08-05",
+                f"{SITE}/ops/escalation": "2026-08-06",
+            }
+        )
+        site = DocsSite(responses={SITEMAP: httpx.Response(200, content=served)})
+        connector = WebConnector(url=URL, transport=site.transport())
+
+        assert [(ref.key, ref.remote_version) for ref in connector.list(None)] == [
+            ("escalation", "2026-08-05")
+        ]
+
+    def test_only_the_scheme_is_set_aside_and_only_http_for_https(self):
+        """Counter-example, row 14: the one where the prefix, host and `ftp` still decide."""
+        site = DocsSite(
+            pages={
+                f"{SITE}/ops/": None,
+                "http://docs.example.org/blog/release-notes": None,
+                "http://other.example.net/ops/escalation": None,
+                "ftp://docs.example.org/ops/escalation": None,
+            }
+        )
+
+        assert keys(site) == ["index"]

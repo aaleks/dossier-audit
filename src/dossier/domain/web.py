@@ -134,9 +134,10 @@ def listing(
     kept: dict[str, Listed] = {}
     disallowed: dict[str, str] = {}
     for page in pages:
-        if not in_scope(page.loc, scope):
+        loc = _over_scope_scheme(page.loc, scope)
+        if not in_scope(loc, scope):
             continue
-        url = urldefrag(page.loc.strip()).url
+        url = urldefrag(loc.strip()).url
         key = page_key(url, scope)
         if not allowed(url):
             disallowed[key] = url
@@ -380,6 +381,22 @@ def _gunzipped(payload: bytes) -> bytes:
 
 def _same_host(first: str, second: str) -> bool:
     return first.lower() == second.lower()
+
+
+def _over_scope_scheme(url: str, scope: str) -> str:
+    """`url` over `scope`'s scheme, when it is asked over `http` or `https`.
+
+    `http` and `https` on one host are one site, as a redirect between them
+    already is (R1.34 row 4), and the source's `url` says which of them its
+    pages are asked over. A sitemap written with the other scheme would
+    otherwise list nothing, and a complete listing that names nothing
+    tombstones everything held (R1.29 rows 11-14). Whether it is on the
+    source's host is still `in_scope`'s to say.
+    """
+    page = urlsplit(url.strip())
+    if page.scheme.lower() not in {"http", "https"}:
+        return url
+    return page._replace(scheme=urlsplit(scope).scheme).geturl()
 
 
 def _address(url: str) -> str:
