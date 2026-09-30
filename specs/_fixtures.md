@@ -372,6 +372,7 @@ differ.
 |---|---|
 | `incident-audit.extract`, `incident-audit.verify`, `incident-audit.report` | the three prompts `incident-audit` publishes, one per step. The separator is a dot because MLflow rejects `/` and `:` in a prompt name (R14.1) |
 | `incident-audit.judge.root_cause` | the rubric `root_cause` is judged against, published under the field it judges rather than the file it sits in (R14.2) |
+| `incident-audit.judge.remediation` | a second judged field's rubric, `rubrics/remediation.md`: `schemas/verification.yaml`, which `verify` alone declares, judges `root_cause` and then `remediation` (R14.2 row 5) |
 | `postmortem-review.verify` | the same prompt file in a second pipeline: a separate prompt, because a prompt name is global in MLflow and a prompt file is resolved against the pipeline's own directory (R14.1 row 2) |
 | `dossier.prompt_hash` | the tag carrying the full 64 characters of the hash that enters the stage key, and the one a publish compares before sending (R14.3, R14.4) |
 | `sandbox` | `DOSSIER_MLFLOW_NAMESPACE` in the examples: a per-machine namespace, so `incident-audit.extract` publishes as `sandbox.incident-audit.extract` and `gold/incidents` as the dataset `sandbox.incidents` (R10.13). R14.8's `DOSSIER_MLFLOW_PROMPT_PREFIX` named the same value for prompts alone, and is retired (R10.15) |
