@@ -25,14 +25,22 @@ from dossier.domain.gc import (
     kept_runs,
 )
 from dossier.domain.ports import ArtifactStore, CollectableStore, SnapshotReader
+from dossier.domain.store import REPLAYS, RUNS_ROOT, TRIES_ROOT
 
 
 @dataclass(frozen=True)
 class GcPlan:
-    """What `dossier gc` deletes: the runs not kept, and the entries nothing kept reads."""
+    """What `dossier gc` deletes (R16.2 - R16.4).
+
+    The runs not kept, the entries nothing kept reads, every try, and the
+    replays under the runs kept, as paths relative to the workspace. A replay
+    under a run that is deleted goes with its run, and is not named twice.
+    """
 
     runs: tuple[HeldRun, ...]
     entries: tuple[CacheEntry, ...]
+    tries: tuple[str, ...] = ()
+    replays: tuple[str, ...] = ()
 
 
 def held_runs(runs: Path) -> list[HeldRun]:
@@ -60,18 +68,19 @@ def held_runs(runs: Path) -> list[HeldRun]:
 
 
 def gc_plan(
+    workspace: Path,
     *,
-    runs: Path,
     store: SnapshotReader,
     caches: Mapping[str, CollectableStore],
     held: Collection[str],
     keep_last: int = KEEP_LAST,
 ) -> GcPlan:
-    """What `gc` deletes, and nothing deleted yet (R16.2, R16.3).
+    """What `gc` deletes, and nothing deleted yet (R16.2 - R16.4).
 
     `caches` are the stage and convert caches, by name; `held` the snapshots the
     ledger holds now.
     """
+    runs = workspace / RUNS_ROOT
     every = held_runs(runs)
     kept, deleted = kept_runs(every, keep_last=keep_last)
     needed = _needed(runs, kept, store=store, caches=caches)
@@ -86,9 +95,25 @@ def gc_plan(
         for namespace in COLLECTED_CACHES
         for key in caches[namespace].all_keys()
     ]
+    tries = workspace / TRIES_ROOT
     return GcPlan(
         runs=tuple(run for run in every if run.run_id in set(deleted)),
         entries=collectable(entries, needed=needed, held=held),
+        # Every try: none is ever replayed or scored (R4.20), and an answer of
+        # one that a run was served is that run's entry (R16.3 row 3).
+        tries=tuple(
+            f"{TRIES_ROOT}/{path.name}"
+            for path in sorted(tries.iterdir() if tries.is_dir() else ())
+            if path.is_dir()
+        ),
+        # Every replay under a kept run: byte copies of entries its run
+        # reproduces at any time (R0.12, R16.4).
+        replays=tuple(
+            f"{RUNS_ROOT}/{run}/{REPLAYS}/{path.name}"
+            for run in kept
+            for path in sorted((runs / run / REPLAYS).glob("*"))
+            if path.is_dir()
+        ),
     )
 
 

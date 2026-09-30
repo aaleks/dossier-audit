@@ -102,7 +102,7 @@ def _plan(workspace: Path, *, keep_last: int = 1):
     from dossier.infrastructure.store import SnapshotStore
 
     return gc_plan(
-        runs=workspace / "runs",
+        workspace,
         store=SnapshotStore(workspace),
         caches={
             name: ArtifactCache(workspace, namespace=name) for name in ("stage", "convert")

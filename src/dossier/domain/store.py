@@ -81,6 +81,9 @@ RUNS_ROOT = "runs"
 # for the pipeline's result, and a try is not one (R4.20).
 TRIES_ROOT = "tries"
 
+# Under a run: where each replay of it writes what it reproduced (R0.12).
+REPLAYS = "replays"
+
 # Beside a run's manifest: the units the run failed, written when it ends (R4.27).
 # Not in the manifest, which is what resolution produced and byte-identical for
 # one pipeline (R4.8), while what failed depends on what a model answered.
@@ -134,7 +137,7 @@ def replay_path(run_id: str, replay_id: str) -> str:
     replay cannot be mistaken for a run and never touches what the run wrote.
     A replay id has the form of a run id, minted the same way.
     """
-    return f"{RUNS_ROOT}/{run_id}/replays/{replay_id}"
+    return f"{RUNS_ROOT}/{run_id}/{REPLAYS}/{replay_id}"
 
 
 def try_path(try_id: str) -> str:

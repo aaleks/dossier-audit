@@ -127,7 +127,7 @@ run reproduces again at any time (R0.12). What else a kept run holds stays.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.gc`)
 - **Proved by:** `tests/unit/test_R016_4__tries_and_replays_are_deleted.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
