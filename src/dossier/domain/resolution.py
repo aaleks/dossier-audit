@@ -14,7 +14,7 @@ provable in milliseconds.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -409,8 +409,8 @@ def moved_since(
     return moved
 
 
-def run_id(started_at: datetime, suffix: str) -> str:
-    """The identifier one run is filed under (R0.8, R0.7 example 4).
+def run_id(started_at: datetime, suffix: str, *, taken: Iterable[str] = ()) -> str:
+    """The identifier one run is filed under (R0.8, R0.7 example 4, R0.15).
 
     ISO 8601 *basic* format, because a run id is a directory name and the
     extended form's colons are illegal on Windows -- found the hard way, by a
@@ -419,6 +419,10 @@ def run_id(started_at: datetime, suffix: str) -> str:
 
     The suffix separates two runs started in the same second. It is passed in
     rather than generated, because randomness belongs to the composition root.
+    `taken` is the ids already filed beside this one. When one shares its
+    second, the suffix is the one after the last used in that second, so the
+    later run sorts later: drawn at random, two runs in one second sorted by
+    chance, and "the latest run" could be the earlier of the two (R0.15).
 
     A naive or non-UTC timestamp is refused. `strftime` appends a literal `Z`
     whatever the tzinfo says, so a local time would be filed as if it were UTC --
@@ -431,4 +435,24 @@ def run_id(started_at: datetime, suffix: str) -> str:
             f"a run id needs a UTC timestamp; got {started_at!r}. `Z` is appended "
             "literally, so anything else would be filed as a time it was not."
         )
-    return f"{started_at.strftime('%Y%m%dT%H%M%SZ')}-{suffix}"
+    stamp = started_at.strftime("%Y%m%dT%H%M%SZ")
+    prefix = f"{stamp}-"
+    same_second = sorted(name[len(prefix) :] for name in taken if name.startswith(prefix))
+    if same_second and suffix <= same_second[-1]:
+        suffix = _after(same_second[-1])
+    return f"{stamp}-{suffix}"
+
+
+def _after(last: str) -> str:
+    """The suffix that sorts next after `last`, in its form where it can (R0.15).
+
+    One more, in as many hex digits, so the id looks as every other does. Past
+    `ffff` no four-digit suffix sorts later, and neither does one that is not
+    hex at all -- a directory someone named by hand -- so a digit is appended:
+    `last` followed by anything sorts after `last`.
+    """
+    try:
+        bumped = f"{int(last, 16) + 1:0{len(last)}x}"
+    except ValueError:
+        return f"{last}0"
+    return bumped if len(bumped) == len(last) else f"{last}0"

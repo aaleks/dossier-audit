@@ -13,6 +13,17 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+Two things the `gc` live check showed (R11.28 rows 6 and 7, R0.15). `gc --apply`
+now ends with `recorded to MLflow: dossier-audit/gc`, as `eval` and `calibrate`
+end with theirs; `sync` and `convert` still print no such line, which is the
+same gap in two older commands. And run ids now sort in the order runs started.
+A run is filed as `<second>-<suffix>`, and every reader of "the latest run"
+takes the last by name, but the suffix was drawn at random, so two runs within
+one second sorted by chance. When the second already holds a run, the suffix is
+now the one after the last used in it (`4f1a` then `4f1b`, `ffff` then `ffff0`),
+and the id keeps its form. A try is ordered among tries. Two processes starting
+at the same moment are still not ordered: neither is filed when the other looks.
+
 Reclaiming space: `dossier gc` (spec 016, R11.28). Nothing in `dossier` deleted
 anything. Runs, tries, replays and the stage and convert caches only grew, and
 "the cache is safe to delete" (R5.9) is true for the next run only: a replay and

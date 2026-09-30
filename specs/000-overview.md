@@ -1,6 +1,6 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R0.1 – R0.15
 
 ## Purpose
@@ -486,7 +486,7 @@ the other looks.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.resolution.run_id`), cli (`dossier.cli.run`)
 - **Proved by:** `tests/unit/test_R000_15__run_ids_sort_in_the_order_runs_started.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
