@@ -14,7 +14,10 @@ from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
+from tests.unit.test_R017_1__status_names_every_source_and_what_it_holds import held_row
+
 from dossier.domain.status import Held, Owed, source_lines
+from dossier.infrastructure.ledger import Ledger, read_held
 
 SYNCED = datetime(2026, 8, 6, 9, 0, tzinfo=UTC)
 # The ledger as it was before R2.23: no `owed` table, and `items` without the
@@ -29,6 +32,7 @@ CREATE TABLE items (
 CREATE TABLE watermarks (source_id TEXT PRIMARY KEY, last_sync_at TEXT NOT NULL);
 """
 REFUSED = "GET https://wiki.example.internal/spaces/flyingpdf/pdfpageexport.action answered 403"
+PAGE_REFUSED = "GET https://wiki.example.internal/rest/api/content/81920114 answered 403"
 
 
 def lines_for(*owed: Owed) -> list[str]:
@@ -39,9 +43,25 @@ def lines_for(*owed: Owed) -> list[str]:
 class TestStatusNamesWhatASyncStillOwes:
     """R17.2 — every owed document, under its source, with when and why."""
 
-    def test_an_owed_document_is_named_under_its_source(self):
-        """Row 1 — the one where `81920114.pdf` was refused `403`."""
-        lines = lines_for(Owed(key="81920114.pdf", failed_at=SYNCED, error=REFUSED))
+    def test_an_owed_document_is_named_under_its_source(self, tmp_path: Path):
+        """Row 1 — the one where `81920114.pdf` was refused `403`.
+
+        Read back from the ledger `sync` wrote it to, so the instant and the
+        error are the ones it recorded, not ones handed in.
+        """
+        with Ledger(tmp_path) as ledger:
+            for key in ("OPS-114", "OPS-115", "OPS-116"):
+                ledger.record(held_row("procedures-confluence", key))
+            ledger.set_watermark("procedures-confluence", SYNCED)
+            ledger.owe(
+                "procedures-confluence",
+                "81920114.pdf",
+                item_key="81920114",
+                at=SYNCED,
+                error=REFUSED,
+            )
+
+        lines = source_lines(["procedures-confluence"], read_held(tmp_path))
 
         assert lines == [
             "procedures-confluence · 3 held · 0 tombstoned · last synced 2026-08-06T09:00:00Z",
@@ -104,3 +124,22 @@ class TestStatusNamesWhatASyncStillOwes:
             "procedures-confluence": Held(active=1, tombstoned=0, last_synced=SYNCED)
         }
         assert path.read_bytes() == before
+
+    def test_a_source_owed_everything_is_not_called_never_synced(self, tmp_path: Path):
+        """Row 5 — the one whose first sync was refused `OPS-114`, its only page.
+
+        The ledger holds no row for it and no watermark (R2.8): only what it is
+        owed. `never synced` would hide that, and it is the line `status`
+        exists to print.
+        """
+        with Ledger(tmp_path) as ledger:
+            ledger.owe(
+                "procedures-confluence", "OPS-114", item_key=None, at=SYNCED, error=PAGE_REFUSED
+            )
+
+        lines = source_lines(["procedures-confluence"], read_held(tmp_path))
+
+        assert lines == [
+            "procedures-confluence · 0 held · 0 tombstoned · no complete sync yet",
+            f"  owed OPS-114, since 2026-08-06T09:00:00Z: {PAGE_REFUSED}",
+        ]

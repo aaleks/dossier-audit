@@ -20,7 +20,7 @@ def read_runs(workspace: Path) -> list[RunSeen]:
     A run is a directory holding `manifest.json`, as `gc` counts one (R16.2):
     anything else under `runs/` was put there by a person (R0.11), and is not a
     run however its name sorts. A run that stopped wrote no `failures.json`,
-    and so names no failure.
+    and is read as having recorded none, which is not as having failed none.
     """
     runs = workspace / RUNS_ROOT
     if not runs.is_dir():
@@ -31,13 +31,15 @@ def read_runs(workspace: Path) -> list[RunSeen]:
         if not manifest.is_file():
             continue
         plan = Manifest.read(manifest).plan
-        failures = recorded_failures(directory) or []
+        failures = recorded_failures(directory)
         seen.append(
             RunSeen(
                 run_id=directory.name,
                 pipeline=plan.pipeline,
                 documents=len(plan.documents),
-                failed=tuple(str(failure["document"]) for failure in failures),
+                failed=None
+                if failures is None
+                else tuple(str(failure["document"]) for failure in failures),
             )
         )
     return seen

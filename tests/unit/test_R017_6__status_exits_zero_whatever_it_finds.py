@@ -3,8 +3,8 @@
 It informs; `eval` and `calibrate` are the gates. A status that failed on a
 stale calibration or an owed page would stop a script for something the script
 was asking about. It fails only when the question cannot be answered: a gold
-set named without the pipeline it would be judged for (R3.7), or a pipeline
-that does not exist.
+set named without the pipeline it would be judged for (R3.7), a pipeline that
+does not exist, or one `eval` would refuse to score.
 """
 
 from __future__ import annotations
@@ -107,4 +107,40 @@ class TestStatusExitsZeroWhateverItFinds:
 
         assert status.exit_code == 2
         assert "incident-audti" in status.stderr
+        assert status.stderr == eval_.stderr
+
+    def test_a_pipeline_declaring_two_outputs_is_refused_as_eval_refuses_it(
+        self, audited: Path, monkeypatch
+    ):
+        """Row 5, counter-example — the one where `extract` and `verify` both declare one.
+
+        `eval` scores exactly one output, and refuses to guess which (spec 007).
+        Answering from the first would be that guess, said before `eval` is run.
+        """
+        write_pipeline(audited, steps=["extract", "verify"], sources=[SOURCE_ID])
+
+        status = _cli(audited, monkeypatch, "status", PIPELINE, "--gold", GOLD)
+        eval_ = _cli(audited, monkeypatch, "eval", PIPELINE, "--gold", GOLD)
+
+        assert status.exit_code == 2
+        assert status.stdout == ""
+        assert status.stderr == (
+            f"{PIPELINE}: 2 steps declare an output; eval scores exactly one\n"
+        )
+        assert status.stderr == eval_.stderr
+
+    def test_a_pipeline_declaring_no_output_is_refused_as_eval_refuses_it(
+        self, audited: Path, monkeypatch
+    ):
+        """Row 6, counter-example — the one whose `postmortem-review` declares no output."""
+        write_pipeline(audited, name="postmortem-review", outputs={"extract": None})
+
+        status = _cli(audited, monkeypatch, "status", "postmortem-review", "--gold", GOLD)
+        eval_ = _cli(audited, monkeypatch, "eval", "postmortem-review", "--gold", GOLD)
+
+        assert status.exit_code == 2
+        assert status.stdout == ""
+        assert status.stderr == (
+            "postmortem-review: 0 steps declare an output; eval scores exactly one\n"
+        )
         assert status.stderr == eval_.stderr
