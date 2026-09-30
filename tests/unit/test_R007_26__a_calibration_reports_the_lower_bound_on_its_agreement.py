@@ -21,6 +21,9 @@ from dossier.domain.judges import Calibration, lower_bound, withholding
 TWENTY_OF_TWENTY = 0.838874842
 NINETEEN_OF_TWENTY = 0.763868807
 THIRTY_EIGHT_OF_FORTY = 0.834961226
+# Row 6, and SciPy's `binomtest(5, 20).proportion_ci(method="wilson")` agrees to the
+# ninth decimal.
+FIVE_OF_TWENTY = 0.111861701
 
 
 class TestACalibrationReportsTheLowerBoundOnItsAgreement:
@@ -57,12 +60,28 @@ class TestACalibrationReportsTheLowerBoundOnItsAgreement:
         for agreed, cases in ((20, 20), (19, 20), (38, 40), (12, 20), (1, 20)):
             assert 0.0 <= lower_bound(agreed=agreed, cases=cases) < agreed / cases
 
+    def test_nothing_agreed_is_bounded_at_nothing(self):
+        """Row 5: the one where the judge agreed on none of the 20 cases.
+
+        Floating point leaves it a hair above zero, which is printed as 0.0%.
+        """
+        bound = lower_bound(agreed=0, cases=20)
+
+        assert bound == pytest.approx(0.0, abs=1e-12)
+        assert f"{bound:.1%}" == "0.0%"
+
+    def test_an_agreement_below_half_is_bounded_as_the_formula_says(self):
+        """Row 6: the one where the judge agreed on 5 of 20."""
+        bound = lower_bound(agreed=5, cases=20)
+
+        assert bound == pytest.approx(FIVE_OF_TWENTY, abs=1e-9)
+        assert f"{bound:.1%}" == "11.2%"
+
     def test_a_count_that_is_not_a_sample_is_refused(self):
-        """No sample, or more agreed than cases: a caller's mistake, not a figure."""
-        with pytest.raises(ValueError):
-            lower_bound(agreed=0, cases=0)
-        with pytest.raises(ValueError):
-            lower_bound(agreed=21, cases=20)
+        """No sample, fewer than none agreed, or more agreed than cases: a caller's mistake."""
+        for agreed, cases in ((0, 0), (-1, 20), (21, 20)):
+            with pytest.raises(ValueError, match="is not a sample"):
+                lower_bound(agreed=agreed, cases=cases)
 
     def test_the_bound_gates_nothing(self):
         """Row 4, counter-example: the one where the bound is reported and gates nothing.

@@ -54,6 +54,30 @@ class TestWhyAJudgedFieldIsWithheld:
 
         assert reason is not None and "stale" in reason and OTHER_JUDGE in reason
 
+    def test_a_moved_rubric_is_the_half_named(self):
+        """Example 2's other half: the one where the rubric moved, either way its hash sorts."""
+        for measured, current in (("0" * 64, RUBRIC), ("f" * 64, RUBRIC)):
+            calibration = _measured().model_copy(update={"rubric_hash": measured})
+            reason = withholding(
+                calibration,
+                judge_model=JUDGE,
+                rubric_hash=current,
+                prompt_hash=PROMPT,
+                threshold=BAR,
+            )
+
+            assert reason == "calibration is stale: the rubric has changed since"
+
+    def test_a_short_calibration_is_not_measurable(self):
+        """Example 8: the one measured on 12 cases, where 20 is the minimum (R7.11 row 3)."""
+        reason = _why(_measured(sample=12))
+
+        assert reason is not None
+        assert reason.startswith(
+            "agreement was measured on 12 case(s), and 20 is the minimum at which the "
+            "figure means anything."
+        )
+
     def test_never_measured_asks_for_a_calibration(self):
         """Example 3: the one with no calibration file at all."""
         reason = _why(None)

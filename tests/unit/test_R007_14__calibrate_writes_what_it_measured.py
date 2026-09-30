@@ -172,6 +172,13 @@ class TestCalibrateWritesWhatItMeasured:
         assert "19" in str(error.value)
         assert not (tmp_path / "calibrations").exists()
 
+    def test_a_sample_past_the_minimum_is_measured(self):
+        """Example 3's other side: the one with 25 cases, where 20 is the minimum."""
+        from dossier.domain.judges import require_measurable
+
+        assert require_measurable("root_cause", MINIMUM_SAMPLE) is None
+        assert require_measurable("root_cause", 25) is None
+
     def test_a_field_with_no_sample_is_refused_naming_the_field_and_the_path(
         self, tmp_path: Path
     ):

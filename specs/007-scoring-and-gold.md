@@ -610,6 +610,7 @@ declaration for this reason (R7.8); this says the single-run report does too.
 | 5 | a withheld `root_cause` whose every verdict was deferred — gold states a value for every document and every run answer is grounded | the line is still printed with its reason; there is no deterministic verdict to total, and a field that vanished would read as one nobody verified |
 | 6 | *counter-example* — `severity`, scored by exact match | reported; no judge, no threshold, and no calibration that could be stale (R7.1) |
 | 7 | *counter-example* — a declared field no gold file mentions at all | no line; absent is not withheld, and inventing one would report a field nobody verified as a field somebody refused (R7.3 row 4) |
+| 8 | `root_cause` calibrated on 12 cases | no percentage; a line saying the agreement was measured on 12 cases and 20 is the minimum (R7.11 row 3) |
 
 ### R7.16 — a calibration sample records candidate answers a human marked supported or unsupported
 
@@ -945,6 +946,8 @@ machine (R0.4).
 | 2 | 19 of 20 agreed | agreement 95.0%, lower bound 76.4%: one miss costs 5 points of agreement and 7.5 of the bound |
 | 3 | 38 of 40 agreed, the same 95% | lower bound 83.5%; a larger sample earns a tighter bound, so the count is read and not only the ratio |
 | 4 | *counter-example* — 20 of 20 against R7.11's bar of 0.95 | `root_cause` reported by `dossier eval` as before; the bound gates nothing, and R7.5 still compares the agreement |
+| 5 | 0 of 20 agreed | agreement 0.0%, lower bound 0.0%: a judge that agreed on nothing is measured like any other, and its bound is not below nothing |
+| 6 | 5 of 20 agreed | lower bound 11.2%. Below half, where the bound's arithmetic differs most from the rows above it |
 
 ### R7.27 — a calibration reports Cohen's kappa between the judge and the reviewer
 
@@ -970,6 +973,8 @@ measurement.
 | 2 | a judge that calls all 20 supported | agreement 60.0% and kappa 0.00: every agreement it has is what chance would give |
 | 3 | 19 of 20 agreed, the miss an unsupported case called supported | kappa 0.89 |
 | 4 | *counter-example* — the reviewer marked all 20 supported, and the judge agreed on every one | kappa not measurable, never 0 or 1; a sample with one verdict in it cannot tell agreement from chance |
+| 5 | the reviewer marked 10 supported and 10 unsupported, and the judge called supported 2 of the first and 8 of the second | agreement 20.0% and kappa -0.60: a judge that agrees less often than chance scores below 0, not at it |
+| 6 | *counter-example* — the reviewer marked all 20 unsupported | kappa not measurable, as row 4: one verdict in the sample, whichever it is |
 
 ### R7.28 — a calibration reports the supported and the unsupported cases apart, each as how many the judge agreed on out of how many there were
 
@@ -1078,6 +1083,7 @@ the sample, and the message has to say which.
 | 4 | bar 0.875, a calibration file written before R7.26 | withheld: measured before its unsupported cases were counted -- run `dossier calibrate` |
 | 5 | bar declared, agreement below its own bar | withheld on the agreement, as today; R7.15's order holds, with the unsupported half checked after it |
 | 6 | *counter-example* — no unsupported bar declared | gated on the agreement alone, exactly as before (R7.5) |
+| 7 | bar 0.875, unsupported 11 of 12 | reported: more unsupported cases than the minimum of 8, and 91.7% of them caught |
 
 ### R7.32 — a `per_group` step's answers are scored per group, against the gold answer whose `document` is the group
 
