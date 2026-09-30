@@ -100,6 +100,7 @@ dossier dataset publish <pipeline> --gold …  # the gold set as an MLflow evalu
 dossier prompts publish <pipeline>   # each step's prompt and each rubric as an MLflow prompt version
 dossier review pull <pipeline>       # reviewers' verdicts from MLflow, into review/<pipeline>/
 dossier review apply <pipeline> --gold … --verified-by …  # their expected values, into gold
+dossier gc [--keep-last N] [--apply]  # preview, then delete old runs, tries, replays and unread cache entries
 ```
 
 A prompt is iterated on one document at a time. `dossier run <pipeline> --doc
@@ -114,6 +115,19 @@ tagged `dossier.try`, and is not linked to a pipeline version as a run that
 produced it (R4.24). A key no source holds stops the try before anything is
 asked (R4.19). Two of `--plan`, `--replay` and `--doc` are two commands, and are
 refused together rather than one being ignored (R4.26).
+
+Nothing else deletes anything, so `runs/`, `tries/` and the cache only grow.
+`dossier gc` reclaims the space without making a run it keeps impossible to
+reproduce (spec 016). It keeps the latest five runs of each pipeline
+(`--keep-last N`) and every run holding a `keep` file, which `--keep RUN`
+writes. It deletes every other run, every try and every replay, and the cache
+entries no kept run's replay reads. What a kept run needs is found by tracing
+its own replay, so a kept run replays, and scores, after `gc` exactly as it did
+before (R16.1). Converted documents the ledger holds now are kept too, and the
+judge's verdicts and the snapshots are never touched. Without `--apply` it only
+prints what it would delete and how much space that frees. It takes no lock, so
+it is run when no `dossier run` is. With tracking on, each `--apply` is one
+MLflow run in `dossier-audit/gc`, naming the runs it deleted (R11.28).
 
 ## What it reads
 
