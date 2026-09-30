@@ -160,7 +160,7 @@ field that eval then withholds, in the same words. After `dossier calibrate`,
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.status`, `dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R017_7__status_says_what_eval_will_withhold.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
