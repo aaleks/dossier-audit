@@ -13,6 +13,32 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`dossier status` (2026-09-30, spec 017 and R11.32, #635 to #641). A stale
+calibration was found only when `eval` withheld the field, after the run it
+scored had been paid for. `status` asks first: what each source holds and still
+owes, each pipeline's latest run, and, with a pipeline and `--gold`, which judged
+fields `eval` would withhold. It gives those fields in `eval`'s own words,
+because it calls `eval`'s gate, made public as `judge_gate`. Two gates written to
+agree would have drifted the first time one learned a new reason. The acceptance
+rule, R17.7, runs both commands on one workspace and holds `eval` to what
+`status` printed.
+
+Two things were found while building it:
+- **Opening the ledger writes to it.** `Ledger()` creates `.dossier/ledger.db`
+  and migrates an older one, so a command that promises to change nothing
+  could not use it. `read_held` opens the file read-only, finds none where none
+  was written, and reads a ledger from before R2.23 as it is.
+- **A failed listing leaves no mark.** Sync raises before it moves the
+  watermark. So `status` reports what a failed fetch does leave, the documents
+  owed, and recording a failed listing is left to a spec 002 rule if one is
+  wanted.
+
+Decided by `a.aleks`: exit 0 whatever `status` finds, and no MLflow record,
+so no server check, as `--plan`. Exercise 07's task 9 was run against the stub
+on the day. It covered never measured, reportable after `calibrate`, stale after
+a rubric edit in the same words `eval` printed, and a note moved out counted as
+tombstoned.
+
 The mutation runner, and the survivors the first run capped (2026-09-30,
 #633). The first run over `domain/` was made with throwaway scripts, because
 the method `mutation.toml` and `/verify` described would have taken a week.

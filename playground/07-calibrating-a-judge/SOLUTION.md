@@ -389,6 +389,54 @@ would leave that run `RUNNING`, which reads as a command still at work. Instead
 it is closed `FAILED`, and the command still fails with the same line and exit
 code (R11.23 rows 1 and 7).
 
+## Task 9 — ask before you score
+
+Before the sync, in a fresh copy of the workspace:
+
+```
+$ dossier status incident-audit --gold gold/incidents
+sources
+  incidents-manual · never synced
+pipelines
+  incident-audit · no run yet
+judged fields · incident-audit against gold/incidents
+  root_cause · withheld: never measured -- run `dossier calibrate`
+```
+
+No `.dossier/` was created: the ledger is read, never opened for writing, and
+there was none to read (R17.5). After sync and run (the times are the run's own):
+
+```
+sources
+  incidents-manual · 5 held · 0 tombstoned · last synced 2026-09-30T17:17:58Z
+pipelines
+  incident-audit · latest run 20260930T171758Z-e1ad · 5 documents · 0 failed
+judged fields · incident-audit against gold/incidents
+  root_cause · withheld: never measured -- run `dossier calibrate`
+```
+
+After `calibrate`, `root_cause · reportable`. After a sentence is added to the
+rubric:
+
+```
+  root_cause · withheld: calibration is stale: the rubric has changed since
+```
+
+and `eval` prints `root_cause             -- calibration is stale: the rubric has
+changed since`.
+
+- They cannot disagree because they ask one gate: `status` calls
+  `dossier.cli.eval.judge_gate`, the function `eval` calls, with the same judge
+  model and grounding states, and prints its reason unchanged (R17.4).
+- With `PLAY-1004.md` moved out and a sync: `incidents-manual · 4 held · 1
+  tombstoned`. A tombstoned note is still held, and a run that pinned it still
+  resolves it (R2.7), so it is counted apart rather than dropped.
+- One gold set can serve several pipelines (R3.7), and a judge is checked
+  against one pipeline's rubric and model, so `--gold` without a pipeline has
+  no one answer. It exits 2 and says to name the pipeline.
+- `run` would write a record, and R10.5 refuses a command whose record would
+  be lost. `status` writes none, so it needs no server (R11.32).
+
 ---
 
 ## What to take to your own project
