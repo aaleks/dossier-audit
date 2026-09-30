@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.27
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.28
 
 ## Purpose
 
@@ -24,7 +24,8 @@ that could disagree with the terminal would leave nobody sure which to believe.
 | `dossier convert` | one | none | `<source>/held`, `/converted`, `/cached`, `/failed`, `/left_out` (R11.26) |
 | `dossier calibrate` | one, per gold set | one per sample case | `judge/<field>/agreement`, `judge/<field>/cases` |
 | `dossier eval --compare a b` | one | none | `a/<field>`, `b/<field>`, `delta/<field>`, and the same three for the overall (R11.8); `a/failed`, `b/failed` when a run failed a document (R11.27) |
-| `dossier run --plan`, `--replay` | none | none | none |
+| `dossier gc --apply` | one, in `dossier-audit/gc` (R11.28) | none | `runs`, `tries`, `replays`, `entries`, `megabytes`; `collected.json` attached |
+| `dossier run --plan`, `--replay`, `dossier gc` without `--apply` | none | none | none |
 | `dossier dataset publish` | none | none | none; it publishes a dataset rather than recording a run (spec 012) |
 
 Metric names use `/` so MLflow's UI groups them: every field's accuracy under
@@ -731,3 +732,30 @@ like it, is recorded only when there is one.
 | 2 | the same | the description reads `gold incidents 3b7e1d90 · 3 of 4 documents`, as the headline counts them |
 | 3 | the same | `deltas.md` holds the `not compared` line the terminal printed, marked as it was |
 | 4 | *counter-example* — a comparison in which neither run failed a document | no `failed` metric, and `4 documents`: the record R11.8 has always written |
+
+### R11.28 — a `dossier gc --apply` is one MLflow run of what it deleted, in `dossier-audit/gc`; a preview records nothing
+
+As every command that changes something records it. `gc` is the
+first command with no pipeline, so its default experiment drops the pipeline
+from R10.2's default template: `dossier-audit/gc`. `DOSSIER_MLFLOW_EXPERIMENT_GC`
+overrides it, and a template naming `{pipeline}` is refused for it, as one
+naming `{gold}` is for a sync (R10.2 row 5). `dossier.pipeline` is present and
+empty, as `dossier.label` is when nobody gave one. Its metrics are the counts
+the line printed. `collected.json` names each run it deleted, with its pipeline,
+so a run whose record is still in MLflow can be traced to the `gc` that removed
+its files. A preview records nothing, as `--plan` records nothing, and neither
+does an `--apply` that found nothing to delete. No traces: `gc` asks no model.
+Decided by `a.aleks` on 2026-09-30.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.gc`), domain (`dossier.domain.tracking.experiment_name`)
+- **Proved by:** `tests/unit/test_R011_28__gc_records_what_it_deleted.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | R16.5 row 2's `dossier gc --keep-last 2 --apply`, tracking on, started `20260930T090000Z` | 1 MLflow run, `gc 20260930T090000Z`, in `dossier-audit/gc`, tagged `dossier.kind=gc` and `dossier.pipeline` empty; metrics `runs` 1, `tries` 1, `replays` 0, and `entries` and `megabytes` as the line printed them; param `keep_last` 2; 0 traces |
+| 2 | the same | `collected.json` attached: `[{"run": "20260806T142203Z-4f1a", "pipeline": "incident-audit"}]` |
+| 3 | `DOSSIER_MLFLOW_EXPERIMENT=team/{pipeline}/{kind}` and no `DOSSIER_MLFLOW_EXPERIMENT_GC` | refused before anything is deleted, naming `DOSSIER_MLFLOW_EXPERIMENT_GC` as the setting to give a template without `{pipeline}` |
+| 4 | *counter-example* — `dossier gc`, a preview, tracking on | 0 MLflow runs: nothing was deleted |
+| 5 | *counter-example* — `dossier gc --apply` with nothing to collect, tracking on | 0 MLflow runs |

@@ -291,6 +291,9 @@ differ.
 | `20260806T142203Z-4f1a` | the run id used in provenance examples. ISO 8601 *basic* format on purpose: a run id is a directory name (`runs/<run_id>/`, R0.8), and the extended form's colons are illegal in a Windows filename |
 | `20260907T090000Z-bbbb` | a second run of the same pipeline, served from cache; the id R0.8 row 3 and R0.11 row 2 write under |
 | `20260918T140000Z-1e2f` | the replay id: a directory under `runs/20260806T142203Z-4f1a/replays/`, in the run-id form (R0.12) |
+| `20260925T091500Z-5e6f` | a third run of `incident-audit`, after a second prompt change: the latest run in spec 016's examples |
+| `20260929T100000Z-1a2b` | a try id: `tries/20260929T100000Z-1a2b/` (R4.22) |
+| `20260930T090000Z` | when `dossier gc --apply` started, in spec 016's examples: its record is named `gc 20260930T090000Z` (R11.28) |
 
 ## Token counts (R9.18, R5.11, R5.12, R11.20)
 
