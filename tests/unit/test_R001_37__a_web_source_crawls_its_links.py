@@ -187,3 +187,49 @@ class TestAWebSourceCrawlsItsLinks:
         keys(site)
 
         assert f"{ESCALATION}?print=1" not in site.urls_asked()
+
+    def test_a_link_passed_over_is_not_the_end_of_the_pages_links(self):
+        """Row 12: the one where `index` links the blog and a draft before the rest."""
+        site = vendor_docs()
+        site.links[INDEX] = ["/blog/release-notes", "drafts/escalation-v2", *site.links[INDEX]]
+
+        assert keys(site) == [
+            "escalation",
+            "escalation-matrix.pdf",
+            "index",
+            "runbooks/dns-failover.html",
+        ]
+
+    def test_a_stylesheet_is_not_the_pages_base(self):
+        """Row 13: the one where `<link href>` comes before any `<a href>`."""
+        anchors = "".join(f'<a href="{href}">{href}</a>' for href in vendor_docs().links[INDEX])
+        body = (
+            '<html><head><link rel="stylesheet" href="/assets/site.css"></head>'
+            f"<body>{anchors}</body></html>"
+        )
+        html = httpx.Response(200, headers={"Content-Type": "text/html"}, content=body)
+        site = vendor_docs({INDEX: html})
+
+        assert keys(site) == [
+            "escalation",
+            "escalation-matrix.pdf",
+            "index",
+            "runbooks/dns-failover.html",
+        ]
+        assert not any("/assets/" in url for url in site.urls_asked())
+
+    def test_a_link_queued_before_its_redirect_was_answered_is_not_asked(self):
+        """Row 5: the one where `index` links `escalation` and `escalation/` both.
+
+        `escalation/` is queued before `escalation` is asked and answered from
+        it. It is not asked a second time, and the links queued after it still are.
+        """
+        moved = f"{ESCALATION}/"
+        site = vendor_docs({ESCALATION: httpx.Response(301, headers={"Location": moved})})
+        site.pages[moved] = None
+        site.links[INDEX] = ["escalation", "escalation/", "runbooks/dns-failover.html"]
+
+        listed = keys(site)
+
+        assert pages_asked(site)[moved] == 1
+        assert "runbooks/dns-failover.html" in listed

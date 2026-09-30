@@ -58,3 +58,27 @@ class TestAWebPagesMarkerIsItsLastmod:
 
         assert ref.remote_version == "last week"
         assert ref.updated_at is None
+
+    def test_a_lastmod_with_an_offset_is_read_at_that_offset(self):
+        """Row 6: the one where the sitemap writes the time in Zurich's summer."""
+        ref = refs({f"{SITE}/ops/escalation": "2026-08-05T18:02:00+02:00"})["escalation"]
+
+        assert ref.remote_version == "2026-08-05T18:02:00+02:00"
+        assert ref.updated_at == datetime(2026, 8, 5, 16, 2, tzinfo=UTC)
+
+    def test_a_lastmod_written_before_its_loc_is_the_same_marker(self):
+        """Row 7: the one where a `<url>` names its children in another order."""
+        import httpx
+        from tests.docs_site import SITEMAP
+
+        served = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            "<url><lastmod>2026-08-05T16:02:00+00:00</lastmod>"
+            f"<loc>{SITE}/ops/escalation</loc></url></urlset>"
+        ).encode()
+        site = DocsSite(responses={SITEMAP: httpx.Response(200, content=served)})
+        (ref,) = WebConnector(url=URL, transport=site.transport()).list(None)
+
+        assert ref.key == "escalation"
+        assert ref.remote_version == "2026-08-05T16:02:00+00:00"

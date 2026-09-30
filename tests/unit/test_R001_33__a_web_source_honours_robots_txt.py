@@ -75,3 +75,30 @@ class TestAWebSourceHonoursRobotsTxt:
             list(connector.list(None))
 
         assert ROBOTS in str(raised.value) and "503" in str(raised.value)
+
+
+class TestWhatAStatusMeans:
+    """R1.33 rows 1, 4 and 5 at their bounds: read a `2xx`, allow on any `4xx`, else refuse.
+
+    RFC 9309 reads a `robots.txt` answered `2xx` and allows everything on a
+    `4xx`; anything else is unreadable, and refused rather than obeyed (row 5).
+    """
+
+    @pytest.mark.parametrize(
+        ("status", "answer"),
+        [
+            (200, "read"),
+            (299, "read"),
+            (300, "refuse"),
+            (399, "refuse"),
+            (400, "allow_all"),
+            (404, "allow_all"),
+            (499, "allow_all"),
+            (500, "refuse"),
+            (503, "refuse"),
+        ],
+    )
+    def test_each_status_is_read_allowed_or_refused(self, status: int, answer: str):
+        from dossier.domain.web import robots_answer
+
+        assert robots_answer(status) == answer

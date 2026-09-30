@@ -169,3 +169,50 @@ class TestAWebSourceListsWhatItsSitemapNames:
 
         assert keys(site) == []
         assert elsewhere not in site.urls_asked()
+
+    @pytest.mark.parametrize(
+        "served",
+        [b"<urlset><url>", b"\x1f\x8b\x08\x00" + b"not a gzip stream after all"],
+        ids=["cut-short", "damaged-gzip"],
+    )
+    def test_a_sitemap_that_is_not_one_fails_the_listing(self, served: bytes):
+        """Counter-example, row 8: the one where the bytes cannot be read as a sitemap."""
+        site = DocsSite(responses={SITEMAP: httpx.Response(200, content=served)})
+        connector = WebConnector(url=URL, transport=site.transport())
+
+        with pytest.raises(WebRequestFailed) as raised:
+            list(connector.list(None))
+
+        assert str(raised.value).startswith(f"{SITEMAP}: not a sitemap: ")
+
+    def test_a_sitemap_is_inflated_no_further_than_the_protocols_limit(self):
+        """Counter-example, row 9: the one where a small file would inflate past 50 MiB.
+
+        The limit is written out rather than imported: a test reading the
+        constant would move with it.
+        """
+        from dossier.domain.web import sitemap
+
+        limit = 50 * 1024 * 1024
+        head = urlset({f"{SITE}/ops/escalation": None})
+
+        def inflating_to(size: int) -> bytes:
+            return gzip.compress(head + b" " * (size - len(head)), compresslevel=1)
+
+        assert [page.loc for page in sitemap(inflating_to(limit)).pages] == [
+            f"{SITE}/ops/escalation"
+        ]
+        with pytest.raises(ValueError, match=f"it inflates past {limit} bytes"):
+            sitemap(inflating_to(limit + 1))
+
+    def test_an_element_that_is_not_a_url_is_passed_over(self):
+        """Row 10: the one where the `<urlset>` holds something else first."""
+        served = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            "<note>generated nightly</note>"
+            f"<url><loc>{SITE}/ops/escalation</loc></url></urlset>"
+        ).encode()
+        site = DocsSite(responses={SITEMAP: httpx.Response(200, content=served)})
+
+        assert keys(site) == ["escalation"]
