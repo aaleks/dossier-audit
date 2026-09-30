@@ -21,7 +21,13 @@ from dossier.application.extract import DocumentResult
 from dossier.application.prompts import link_published
 from dossier.application.recording import failed_if_stopped
 from dossier.application.run import StepReport
-from dossier.domain.gold import CalibrationCase, GoldDocument, gold_set_hash
+from dossier.domain.gold import (
+    CalibrationCase,
+    GoldDocument,
+    UnreadableGold,
+    gold_set_hash,
+    read_gold_file,
+)
 from dossier.domain.grounding import DESCRIBED, GROUNDED, FieldCheck, FieldVerdict, judge_name
 from dossier.domain.hashing import content_hash
 from dossier.domain.judges import (
@@ -79,12 +85,21 @@ def load_gold(directory: Path) -> dict[str, GoldDocument]:
 
     Keyed by the `document` inside the file rather than by its name: the key is
     what a run reports a document under (R4.10), and a file renamed on disk is
-    still the same verified answer.
+    still the same verified answer. A file that cannot be read is not skipped:
+    every one is named in one `UnreadableGold`, so one pass finds them all
+    (R7.56).
     """
     documents: dict[str, GoldDocument] = {}
+    unreadable: list[str] = []
     for path in sorted(directory.glob("*.json")):
-        gold = GoldDocument.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        try:
+            gold = read_gold_file(path.name, path.read_text(encoding="utf-8"))
+        except UnreadableGold as error:
+            unreadable += error.lines
+            continue
         documents[gold.document] = gold
+    if unreadable:
+        raise UnreadableGold(unreadable)
     return documents
 
 

@@ -18,13 +18,15 @@ human in it by design.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import json
+from collections.abc import Mapping, Sequence
 from datetime import date
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from dossier.domain.hashing import content_hash
+from dossier.domain.scoring import GoldField
 
 
 class AnonymousCorrection(ValueError):
@@ -66,6 +68,78 @@ class GoldDocument(BaseModel):
     verified_by: str
     verified_at: date
     fields: dict[str, dict[str, Any]] = {}
+
+
+class UnreadableGold(ValueError):
+    """Gold files that cannot be read as verified answers, one line each (R7.56)."""
+
+    def __init__(self, lines: Sequence[str]) -> None:
+        self.lines = tuple(lines)
+        super().__init__("\n".join(self.lines))
+
+
+# Every shape a gold value can take, in the words of the person writing one.
+_GOLD_VALUES = "a number, a string, true or false, a list of strings, or null"
+
+
+def read_gold_file(name: str, text: str) -> GoldDocument:
+    """One gold file's verified answers, or `UnreadableGold` naming what stops them (R7.56).
+
+    A file that does not read stopped `eval` on a traceback, the parser's or
+    pydantic's, naming neither the file nor the field. Each answer is read as
+    scoring reads it, so a value no scorer can take is refused here, before
+    anything is scored, rather than partway through.
+    """
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as error:
+        # Where it stopped, and not the parser's words, which change between
+        # Python versions.
+        raise UnreadableGold(
+            [f"{name}: not JSON (line {error.lineno}, column {error.colno})"]
+        ) from error
+    try:
+        document = GoldDocument.model_validate(data)
+    except ValidationError as error:
+        raise UnreadableGold(_explained(name, error)) from error
+    lines: list[str] = []
+    for field, entry in document.fields.items():
+        scored = {key: entry[key] for key in GoldField.model_fields if key in entry}
+        try:
+            GoldField.model_validate(scored)
+        except ValidationError as error:
+            lines += _explained(name, error, field=field)
+    if lines:
+        raise UnreadableGold(lines)
+    return document
+
+
+def _explained(name: str, error: ValidationError, *, field: str | None = None) -> list[str]:
+    """One line per key pydantic refused, in words a person editing the file can act on.
+
+    A value no member of a union accepts is refused once per member; the first
+    says it, and the rest would repeat it.
+    """
+    lines: list[str] = []
+    seen: set[object] = set()
+    for problem in error.errors():
+        location = problem["loc"]
+        if location[:1] in seen:
+            continue
+        seen.add(location[:1])
+        # A field's own keys are named under it: `loss_amount.currency`.
+        where = ".".join(str(part) for part in (*([field] if field else []), *location))
+        if field is not None and location[:1] == ("value",):
+            said = f"{field} holds {problem['input']!r}, and a gold value is {_GOLD_VALUES}"
+        elif problem["type"] == "missing":
+            said = f"{where} is missing"
+        elif problem["type"].startswith("date"):
+            said = f"{where} {problem['input']!r} is not a date, written as 2026-09-15"
+        else:
+            # Pydantic's words, where no plainer ones are written (R7.56 row 7).
+            said = f"{where}: {problem['msg']}"
+        lines.append(f"{name}: {said}")
+    return lines
 
 
 class CalibrationCase(BaseModel):

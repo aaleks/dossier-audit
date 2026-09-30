@@ -48,7 +48,7 @@ from dossier.config.load import (
     load_unsupported_bars,
 )
 from dossier.domain.datasets import PublishedDataset
-from dossier.domain.gold import gold_set_hash
+from dossier.domain.gold import UnreadableGold, gold_set_hash
 from dossier.domain.grounding import GROUNDED, judge_name, judged_states
 from dossier.domain.hashing import text_hash
 from dossier.domain.judges import Calibration, withholding
@@ -126,13 +126,20 @@ def scored_step(pipeline: str, config):
 
 
 def refuse_unmeetable_gold(pipeline: str, directory: Path, kinds) -> None:
-    """Exit 2 naming every gold answer in a shape no run can meet (R7.44).
+    """Exit 2 naming every gold file that cannot be read (R7.56), or every answer
+    in a shape no run can meet (R7.44).
 
     Before anything reads the gold set to score: such an answer is the gold
     set's fault, and scoring against it would blame the run. `status` asks it
     too, and is refused in the same words (R17.6 row 7).
     """
-    refused = gold_refusals(load_gold(directory), kinds)
+    try:
+        gold = load_gold(directory)
+    except UnreadableGold as error:
+        for line in error.lines:
+            typer.echo(f"{pipeline}: {line}", err=True)
+        raise typer.Exit(code=2) from error
+    refused = gold_refusals(gold, kinds)
     if refused:
         for line in refused:
             typer.echo(f"{pipeline}: {line}", err=True)

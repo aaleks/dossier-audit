@@ -96,6 +96,17 @@ exit 2
 Scoring reproduces a run from its own manifest and cache entries — exactly as a
 replay does — so it asks no model and it needs a run to exist (R7.10).
 
+```console
+$ dossier eval incident-audit --gold gold/incidents     # two gold files broken
+incident-audit: PLAY-1001.json: loss_amount holds [18400.0], and a gold value is a number, a string, true or false, a list of strings, or null
+incident-audit: PLAY-1003.json: not JSON (line 11, column 1)
+exit 2
+```
+
+Every file that does not read is named before anything is scored, so one pass
+finds them all (R7.56). The line and column of a file that is not JSON depend
+on where your edit left it.
+
 ## Task 3 — one prompt edit, four changed answers, two moved scores
 
 ```console

@@ -13,6 +13,21 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+R7.56 (2026-09-30). A gold file that does not read stopped `dossier eval`, and
+`dossier status --gold`, on a traceback naming neither the file nor the field:
+the JSON parser's for a file cut short, pydantic's for an amount written as
+`[48200.0]`, a missing `verified_by` or a `verified_at` that is not a date.
+R7.44 only ever saw answers that had read. `read_gold_file` in `domain/gold.py`
+now reads each file as scoring reads it and names every key it refuses. Plain
+words are written for the value, the missing key and the date, and pydantic's
+own are used for anything else. `load_gold` collects every file before it
+raises, so one pass finds them all. A file that is not JSON is named by line
+and column, not by the parser's message: that message is worded differently on
+another Python version, and CI runs 3.12 where this machine runs 3.14. A
+container on 3.12 confirmed the position is the same on both.
+
+---
+
 R17.6 row 7 (2026-09-30). The last way found for `status` and `eval` to
 disagree: `eval` refuses a gold answer in a shape no run can meet before
 scoring anything (R7.44), and `status` called `root_cause` reportable of a gold
