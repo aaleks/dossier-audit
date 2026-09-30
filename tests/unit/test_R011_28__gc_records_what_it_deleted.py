@@ -123,3 +123,24 @@ class TestGcRecordsWhatItDeleted:
 
         assert result.output.splitlines() == ["nothing to collect"], result.output
         assert tracker.runs == []
+
+    def test_the_terminal_says_where_it_was_recorded(self, workspace: Path, monkeypatch):
+        """Row 6 — the one ending with the line `eval` and `calibrate` end with."""
+        _three_runs_and_a_try(workspace, monkeypatch)
+        _no_model(monkeypatch)
+        _tracked(workspace, monkeypatch)
+
+        result = _gc(workspace, monkeypatch, "--apply")
+
+        assert result.exit_code == 0, result.output
+        assert result.output.splitlines()[-1] == "recorded to MLflow: dossier-audit/gc"
+
+    def test_nothing_recorded_is_not_said_to_be(self, workspace: Path, monkeypatch):
+        """Row 7, counter-example — the one with tracking off."""
+        _three_runs_and_a_try(workspace, monkeypatch)
+        _no_model(monkeypatch)
+
+        result = _gc(workspace, monkeypatch, "--apply")
+
+        assert result.exit_code == 0, result.output
+        assert "recorded to MLflow" not in result.output
