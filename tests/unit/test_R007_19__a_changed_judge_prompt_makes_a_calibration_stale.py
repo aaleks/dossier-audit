@@ -68,6 +68,26 @@ class TestAChangedJudgePromptMakesACalibrationStale:
             is True
         )
 
+    def test_eval_names_which_of_the_two_it_is(self):
+        """Examples 1 and 2 as `dossier eval` words them: changed, or never recorded."""
+        from dossier.domain.judges import withholding
+
+        def reason(prompt: str | None) -> str | None:
+            return withholding(
+                _measured(prompt=prompt),
+                judge_model=JUDGE,
+                rubric_hash=RUBRIC,
+                prompt_hash=OTHER_PROMPT,
+                threshold=0.95,
+            )
+
+        assert (
+            reason(PROMPT) == "calibration is stale: the judge prompt has changed since (R7.19)"
+        )
+        assert reason(None) == (
+            "calibration is stale: measured under a judge prompt nobody recorded (R7.19)"
+        )
+
     def test_nothing_moved_so_it_proceeds(self):
         """Counter-example (row 3): the one where rubric, model and prompt all match (R7.6)."""
         assert (

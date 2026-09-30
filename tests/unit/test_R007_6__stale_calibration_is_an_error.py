@@ -62,6 +62,16 @@ class TestACalibrationBelongsToOneJudge:
             )
             is True
         )
+        # Whichever way the hash moved: a hash has no order worth reading.
+        assert (
+            is_stale(
+                calibrated(rubric=OTHER_RUBRIC),
+                judge_model=JUDGE,
+                rubric_hash=RUBRIC,
+                prompt_hash=PROMPT,
+            )
+            is True
+        )
 
     def test_both_unchanged_is_not_stale(self):
         """Example 3: the one that proves the check is not simply always true.

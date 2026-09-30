@@ -70,6 +70,12 @@ class TestAJudgeThatLetsClaimsThroughIsWithheld:
 
         assert _withheld(calibration, threshold=0.95, unsupported=0.875) is None
 
+    def test_more_cases_than_the_minimum_and_above_the_bar_is_reported(self):
+        """Row 7: the one with 11 of 12 caught -- past the minimum of 8, and above 0.875."""
+        calibration = _measured(0.95, unsupported=Tally(agreed=11, cases=12))
+
+        assert _withheld(calibration, threshold=0.95, unsupported=0.875) is None
+
     def test_a_judge_that_clears_its_agreement_and_lets_claims_through_is_withheld(self):
         """Row 2: exercise 10's described judge -- 90% against 0.90, 6 of 8 caught."""
         calibration = _measured(0.90, unsupported=Tally(agreed=6, cases=8))

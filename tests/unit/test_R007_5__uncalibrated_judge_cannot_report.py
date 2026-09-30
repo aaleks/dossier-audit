@@ -82,6 +82,10 @@ class TestAJudgeMustEarnTheRightToBeQuoted:
         for bad in (-0.1, 1.5, 85):
             with pytest.raises(ValueError):
                 is_eligible(calibrated(0.91), threshold=bad)
+        # Both ends of the range are proportions: a bar of 1.0 asks for every
+        # case, and one of 0.0 for none.
+        assert is_eligible(calibrated(0.91), threshold=1.0) is False
+        assert is_eligible(calibrated(0.91), threshold=0.0) is True
 
     def test_a_calibration_measured_on_too_small_a_sample_is_refused(self):
         """R7.11 row 3, enforced here: "not measurable at this N".

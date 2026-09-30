@@ -73,3 +73,23 @@ class TestACalibrationReportsKappa:
 
         assert kappa(verdicts=dict(human), human=human) is None
         assert kappa(verdicts=mixed, human=human) is None
+
+    def test_a_judge_worse_than_chance_is_below_zero(self):
+        """Row 5: the one where the judge agrees on 4 of 20.
+
+        The reviewer marked 10 supported and 10 unsupported; the judge called 2
+        of the first supported and 8 of the second. Chance alone would agree on
+        half of them.
+        """
+        human = _human(supported=10)
+        verdicts = {case: (int(case[3:]) < 2 or int(case[3:]) >= 12) for case in human}
+
+        assert agreement(verdicts=verdicts, human=human)[0] == 0.2
+        assert kappa(verdicts=verdicts, human=human) == -0.6
+
+    def test_a_reviewer_who_said_unsupported_to_everything_leaves_nothing_to_measure(self):
+        """Row 6, counter-example: the one where all 20 are unsupported."""
+        human = dict.fromkeys(_human(), False)
+
+        assert kappa(verdicts=dict(human), human=human) is None
+        assert kappa(verdicts={**human, "rc-00": True}, human=human) is None
