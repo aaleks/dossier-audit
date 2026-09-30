@@ -283,3 +283,18 @@ class TestApplyingToTheGoldSet:
             "severity"
         ]
         assert severity["value"] == "minor"
+
+    def test_a_line_left_blank_is_not_the_end_of_the_file(self, tmp_path: Path):
+        """Row 10: the maintainer blanked the first candidate's line, not deleted it."""
+        gold = _gold(tmp_path)
+        path = _write(
+            tmp_path,
+            candidate(),
+            candidate(document="INC-4830", field="root_cause", value=STATED),
+        )
+        lines = path.read_text(encoding="utf-8").splitlines()
+        path.write_text("\n".join(["", *lines[1:]]) + "\n", encoding="utf-8")
+
+        _apply(tmp_path, path, gold)
+
+        assert (gold / "INC-4830.json").exists()

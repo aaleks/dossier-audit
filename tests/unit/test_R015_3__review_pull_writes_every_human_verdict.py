@@ -81,6 +81,19 @@ class TestTheFileAndTheReport:
             "verify  overall  1 yes · 0 no",
         ]
 
+    def test_a_no_after_a_yes_still_gives_its_reason(self):
+        """Row 8: a yes on `INC-4821`, then row 1's no on `INC-4822`.
+
+        The yes is reported first and has no reason to print. Passing over it is
+        not the end of the field's verdicts.
+        """
+        yes = verdict(document="INC-4821", value=True, rationale=None, trace="tr-4821")
+
+        assert review_report([verdict(), yes]) == [
+            "extract  severity  1 yes · 1 no",
+            f"    INC-4822  User: {REASON}",
+        ]
+
     def test_an_author_is_reported_as_recorded(self):
         """Row 5: a verdict logged through the API as `s.brunner` is `s.brunner`'s."""
         lines = review_report([verdict(reviewer="s.brunner")])
@@ -93,6 +106,10 @@ class TestTheFileAndTheReport:
 
         assert '"kind": "expectation"' in feedback_jsonl([expected])
         assert review_report([expected]) == ["extract  severity  1 value expected"]
+        another = verdict(
+            kind="expectation", value="critical", rationale=None, reviewer="j.okafor"
+        )
+        assert review_report([expected, another]) == ["extract  severity  2 values expected"]
 
 
 class TestThePullWritesTheFileOrNothing:

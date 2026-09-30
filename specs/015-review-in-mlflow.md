@@ -191,6 +191,7 @@ server, and with the server unreachable (R10.5).
 | 5 | feedback `overall` = yes on `verify · INC-4821`, logged through the API as `s.brunner` | a line naming `s.brunner`: the author MLflow holds is reported, whatever it is, and none is invented |
 | 6 | *counter-example* — `DOSSIER_MLFLOW_ENABLED` unset | refused before any work, naming the variable; nothing written |
 | 7 | *counter-example* — no human verdict on any of the pipeline's runs | `no reviewer verdicts on incident-audit's runs`, and no file written |
+| 8 | `severity` = yes on `extract · INC-4821`, and row 1's no on `extract · INC-4822` | the report prints `extract  severity  1 yes · 1 no`, and beneath it the no's reason; a yes has none to print, and the reasons after it are still printed |
 
 ### R15.4 — a reviewer's expected value is a gold candidate, and becomes gold only when a maintainer applies it
 
@@ -229,6 +230,7 @@ a definition of correct nobody agreed to.
 | 7 | *counter-example* — `severity` = `catastrophic`, not among `minor`, `major`, `critical` | refused, naming the allowed values |
 | 8 | *counter-example* — the maintainer deleted a candidate's line before applying | that candidate is not applied: the file as the maintainer left it is the decision |
 | 9 | *counter-example* — `dossier review apply` with no `--verified-by` | refused before any file is read; there is no anonymous path into the gold set (R7.7) |
+| 10 | the maintainer deleted a candidate's line and left it blank, with row 1's candidate after it | row 1's candidate is applied. A blank line is not a candidate, and not the end of the file either |
 
 ### R15.5 — only `dossier review pull` reads a verdict back, and what it reads reaches the review files and nothing else
 

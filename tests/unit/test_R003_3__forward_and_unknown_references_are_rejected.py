@@ -82,6 +82,17 @@ class TestStepReferences:
 
         assert "enrich" in str(error.value)
 
+    def test_an_unknown_id_after_the_sugar_is_still_refused(self, tmp_path: Path):
+        """Example 6: the one where `enrich` follows `previous`."""
+        path = write_pipeline(
+            tmp_path, steps=["extract", "verify"], inputs={"verify": "[previous, enrich]"}
+        )
+
+        with pytest.raises(ConfigError) as error:
+            load_pipeline(path, providers=PROVIDERS)
+
+        assert "enrich" in str(error.value)
+
     def test_a_step_may_not_read_itself(self, tmp_path: Path):
         """The one the check's ordering makes impossible.
 
