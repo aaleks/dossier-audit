@@ -86,6 +86,9 @@ _CAPTURES = ("full", "hashes")
 # traces and an eval's per-field accuracy are not comparable with one another,
 # so they do not share an experiment unless someone asks them to (spec 010).
 DEFAULT_EXPERIMENT = "dossier-audit/{pipeline}/{kind}"
+# The default for a command that belongs to no pipeline, `dossier gc`: the
+# pipeline segment dropped rather than rendered empty (R11.28).
+DEFAULT_EXPERIMENT_WITHOUT_PIPELINE = "dossier-audit/{kind}"
 
 # Exactly spec 010's placeholders. `{gold}` exists only for the two commands that
 # read a gold set, `eval` and `calibrate`.
@@ -352,7 +355,7 @@ def token_due(*, expires_at: datetime | None, now: datetime, margin_seconds: int
 
 
 def experiment_name(
-    *, kind: str, pipeline: str, gold: str | None, environ: Mapping[str, str]
+    *, kind: str, pipeline: str | None, gold: str | None, environ: Mapping[str, str]
 ) -> str:
     """The experiment a `dossier <kind>` record lands in (R10.2).
 
@@ -367,7 +370,8 @@ def experiment_name(
     """
     own = f"{EXPERIMENT}_{kind.upper()}"
     variable = own if environ.get(own) else EXPERIMENT
-    template = environ.get(variable) or DEFAULT_EXPERIMENT
+    default = DEFAULT_EXPERIMENT_WITHOUT_PIPELINE if pipeline is None else DEFAULT_EXPERIMENT
+    template = environ.get(variable) or default
 
     used = set(_PLACEHOLDER.findall(template))
     unknown = sorted(used - set(_PLACEHOLDERS))
@@ -385,7 +389,19 @@ def experiment_name(
             f"there is nothing to put in {{gold}}. Set {own} to a template without it."
         )
 
-    values = {"pipeline": pipeline, "kind": kind, "gold": _gold_name(gold) if gold else ""}
+    if "pipeline" in used and pipeline is None:
+        # `dossier gc` belongs to no pipeline: rendered empty, `{pipeline}` would
+        # file its record under an experiment named for nothing (R11.28).
+        raise ValueError(
+            f"{variable} is {template!r}, and `dossier {kind}` belongs to no pipeline, so "
+            f"there is nothing to put in {{pipeline}}. Set {own} to a template without it."
+        )
+
+    values = {
+        "pipeline": pipeline or "",
+        "kind": kind,
+        "gold": _gold_name(gold) if gold else "",
+    }
     return _PLACEHOLDER.sub(lambda match: values[match.group(1)], template)
 
 
@@ -402,6 +418,8 @@ DEFAULT_NAMES = {
     "eval": "{prefix}eval {run_id} · {model}{label}",
     "compare": "{prefix}compare {a} -> {b}{label}",
     "calibrate": "{prefix}calibrate {gold} · {judge_model}{label}",
+    # No pipeline to name it by: `gc` reclaims space across every one (R11.28).
+    "gc": "{prefix}gc {started}{label}",
 }
 
 # What ` · ` separates. A name is read left to right, and the separator belongs to
@@ -429,6 +447,7 @@ NAME_PLACEHOLDERS = {
     "eval": (*_EVERY_COMMAND, "run_id", "model", "pipeline_hash", "gold", "gold_hash"),
     "compare": (*_EVERY_COMMAND, "a", "b", "gold", "gold_hash"),
     "calibrate": (*_EVERY_COMMAND, "gold", "gold_hash", "judge_model"),
+    "gc": ("prefix", "label", "kind", "started"),
 }
 
 
@@ -987,6 +1006,11 @@ def sync_description(*, pipeline: str, lines: Sequence[str]) -> str:
 def convert_description(*, pipeline: str, lines: Sequence[str]) -> str:
     """What a `dossier convert` says about itself (R11.17 row 4)."""
     return _described([f"convert {pipeline}"], lines)
+
+
+def gc_description(*, lines: Sequence[str]) -> str:
+    """What a `dossier gc --apply` says about itself: the lines it printed (R11.28, R11.17)."""
+    return _described(["gc"], lines)
 
 
 def calibration_description(
