@@ -25,7 +25,7 @@ spec assumes.
 | `014-prompt-publishing.md` | Publishing a pipeline's prompts and rubrics as MLflow prompt versions, and the half of that registry dossier declines to use | R14.1 – R14.12 | Implemented |
 | `015-review-in-mlflow.md` | Reviewing a run's answers in MLflow, reading reviewers' verdicts back, and turning expected values into gold candidates a maintainer applies | R15.1 – R15.6 | Implemented |
 | `016-reclaiming-space.md` | `dossier gc`: which runs are kept, which cache entries a kept run still needs, and deleting the rest without making a kept run irreproducible | R16.1 – R16.7 | Implemented |
-| `017-workspace-status.md` | `dossier status`: what each source holds and still owes, each pipeline's latest run, and which judged fields `eval` would withhold, changing nothing | R17.1 – R17.7 | Proposed |
+| `017-workspace-status.md` | `dossier status`: what each source holds and still owes, each pipeline's latest run, and which judged fields `eval` would withhold, changing nothing | R17.1 – R17.7 | Partially implemented |
 
 Supporting files:
 
