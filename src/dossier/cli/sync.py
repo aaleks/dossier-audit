@@ -172,6 +172,10 @@ def sync(
         tracker.describe(sync_description(pipeline=pipeline, lines=printed))
         failed_items = any(report.failed or report.listing_failed for report in reports)
         tracker.end_run(status="FAILED" if failed_items else "FINISHED")
+        # Said where it was made, as `run`, `eval` and `gc` say theirs. After
+        # the description, which restates what the command printed about the
+        # sources, not this (R11.4 row 4).
+        typer.echo(f"recorded to MLflow: {experiment}")
 
     failed = [key for report in reports for key in report.failed]
     unlisted = [report.source_id for report in reports if report.listing_failed is not None]

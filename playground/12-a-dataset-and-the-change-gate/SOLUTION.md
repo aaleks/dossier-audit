@@ -39,6 +39,7 @@ dossier calibrate incident-audit --gold gold/incidents
 ```
 incidents-manual  0 known · 0 changed · 5 new -> 5 fetched
 ledger updated · 5 new snapshots · 0 tombstoned
+recorded to MLflow: dossier-audit/incident-audit/sync
 run 20260922T055408Z-2071 · …/runs/20260922T055408Z-2071/manifest.json
 recorded to MLflow: dossier-audit/incident-audit/run · run 20260922T055408Z-2071
   extract: 5 document(s) · 0 from cache · 0 failed

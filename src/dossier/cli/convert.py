@@ -150,6 +150,8 @@ def convert(
         tracker.log_metrics(metrics)
         tracker.describe(convert_description(pipeline=pipeline, lines=printed))
         tracker.end_run(status="FAILED" if failed else "FINISHED")
+        # Said where it was made, as `sync` says its own (R11.4 row 5).
+        typer.echo(f"recorded to MLflow: {experiment}")
 
     if failed:
         # A failure is not zero work. Exiting zero here would make a run that

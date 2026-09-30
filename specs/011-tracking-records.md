@@ -121,6 +121,11 @@ same field would hand it back in the figure most people read first.
 
 ### R11.4 — a `dossier sync` or `dossier convert` is one MLflow run of per-source counts, with no traces
 
+A record is said in the terminal where it was made (rows 4 and 5), as `run`,
+`eval`, `calibrate` and `gc` say theirs (R11.28 row 6). Both commands recorded
+without saying so, so only MLflow knew a sync had been recorded. Found by the
+`gc` live check on 2026-09-30. Decided by `a.aleks` on 2026-09-30.
+
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.count_metrics`)
 - **Proved by:** `tests/unit/test_R011_4__sync_and_convert_record_per_source_counts.py`, `tests/acceptance/test_R011_4__sync_and_convert_record_to_mlflow.py`
@@ -131,6 +136,9 @@ same field would hand it back in the figure most people read first.
 | 1 | a sync where `incidents-jira` holds 420 items, 18 changed and 2 new | `incidents-jira/known` 420, `/changed` 18, `/new` 2, `/fetched` 20 -- the numbers R2.13 prints |
 | 2 | a convert of `incidents-manual` holding three documents, none converted | `incidents-manual/held` 3, `/converted` 3, `/cached` 0 (R8.8) |
 | 3 | *counter-example* — `procedures-confluence` where nothing changed | recorded with its zeros, not omitted; a missing source is indistinguishable from a skipped one (R2.13) |
+| 4 | `dossier sync incident-audit`, tracking on | its last line on standard output is `recorded to MLflow: dossier-audit/incident-audit/sync`: the one extra line R10.4 row 3 allows a command that records |
+| 5 | `dossier convert incident-audit`, tracking on | its last line on standard output is `recorded to MLflow: dossier-audit/incident-audit/convert` |
+| 6 | *counter-example* — the same sync and convert, tracking off | no `recorded to MLflow` line: nothing was recorded |
 
 ### R11.5 — a `dossier calibrate` is one MLflow run per gold set holding what it measured, with one trace per sample case
 

@@ -13,6 +13,12 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`sync` and `convert` say they recorded (R11.4 rows 4 to 6). They were the last
+two commands that recorded to MLflow without saying so: `run`, `eval`,
+`calibrate` and, since R11.28 row 6, `gc` end with
+`recorded to MLflow: <experiment>`. Now every command that records says where,
+and one that records nothing says nothing.
+
 A comparison that lost a document says so on its record (R11.29, R11.30).
 R7.55 marks a document `b` failed and `a` answered as a regression, and keeps it
 out of `dossier.regressed`, which names fields. That left the terminal and
