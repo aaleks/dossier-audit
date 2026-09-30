@@ -588,6 +588,7 @@ that a platform fills in.
 | 3 | `PLAY-2002`, which has no text layer | one part; rendering a page does not depend on there being text on it, which is the whole reason this kind exists |
 | 4 | a container written and read back | the same ordered parts, so the format has exactly one definition and a converter and a step cannot disagree about it |
 | 5 | *counter-example* — the three pages as three artifacts under three keys | not this; R8.4 says one declared conversion is one artifact, and three keys would let R5.4 invalidate a document's pages one at a time |
+| 6 | *counter-example* — a container cut off inside a part's header, one holding fewer bytes than a part's header claims, and one whose header is not ASCII | each refused, saying which it is (R8.11); never read as the parts before the damage |
 
 ### R8.30 — `confluence-page-markdown` writes a page's comments after its body, each under its author and time, in thread order
 

@@ -121,7 +121,7 @@ class TestTheAuthModeDecidesTheCredential:
         assert settings({"DOSSIER_MLFLOW_AUTH": "keycloak"}) is None
 
     def test_no_secret_is_in_the_repr(self):
-        """A refusal or a log line that prints settings discloses nothing (R10.7, R9.8)."""
+        """Example 11: a refusal or a log line printing settings discloses nothing (R10.7)."""
         shown = repr(MlflowAuth(mode="basic", username="dossier-ci", password=PASSWORD)) + repr(
             MlflowAuth(mode="oidc", client_secret=SECRET, token="mlf-token-2b9c")
         )
@@ -129,3 +129,4 @@ class TestTheAuthModeDecidesTheCredential:
         assert PASSWORD not in shown
         assert SECRET not in shown
         assert "mlf-token-2b9c" not in shown
+        assert "dossier-ci" in shown

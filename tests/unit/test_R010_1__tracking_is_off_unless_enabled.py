@@ -63,3 +63,11 @@ class TestTrackingIsOffUnlessEnabled:
         tracking on; only `DOSSIER_` variables are read (R9.11).
         """
         assert settings({"MLFLOW_TRACKING_URI": URI}) is None
+
+    @pytest.mark.parametrize("switch", ["1", "True"])
+    def test_a_number_or_a_capital_is_not_one_of_the_two_words(self, switch: str):
+        """Example 6: the one written as a shell or a YAML file would write it."""
+        with pytest.raises(ValueError) as error:
+            settings({"DOSSIER_MLFLOW_ENABLED": switch, "DOSSIER_MLFLOW_TRACKING_URI": URI})
+
+        assert "DOSSIER_MLFLOW_ENABLED" in str(error.value)

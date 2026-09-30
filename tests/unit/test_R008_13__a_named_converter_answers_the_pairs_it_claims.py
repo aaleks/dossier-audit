@@ -106,6 +106,10 @@ class TestANamedConverterAnswersThePairsItClaims:
         message = str(error.value)
         assert "application/pdf" in message and "markdown" in message
         assert "pdf-markdown" in message and "docling-markdown" in message, message
+        # Installed the other way round, the same refusal: which is found first
+        # decides nothing.
+        with pytest.raises(NoConverter):
+            answering(INSTALLED[::-1], named=["pdf-markdown", "docling-markdown"])
 
     def test_two_claimants_neither_opt_in_are_refused_and_told_how_to_choose(self):
         """Counter-example, row 6: the one where nothing is named and nothing is opt-in.

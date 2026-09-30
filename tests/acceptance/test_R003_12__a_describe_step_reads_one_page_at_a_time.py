@@ -124,3 +124,33 @@ class TestADescribeStepReadsOnePageAtATime:
 
         assert again.exit_code == 0, again.output
         assert second.call_count == 0
+
+    def test_a_per_part_step_reading_text_is_refused_at_load(
+        self, describes_pages: Path, monkeypatch
+    ):
+        """Counter-example, row 5: the one where `describe` reads `documents`.
+
+        Converted text is one artifact with no parts, so a `per_part` step over
+        it would run once and answer a question nobody asked. Refused when the
+        pipeline loads, naming the step, before a document is synced. `extract`
+        comes first and is `per_file`: the steps after it are checked all the same.
+        """
+        from tests.fakes import NoModelClient
+
+        write_pipeline(
+            describes_pages,
+            steps=["extract", "describe"],
+            inputs={"extract": "documents", "describe": "documents"},
+            outputs={"extract": None, "describe": None},
+            sources=["postmortems"],
+            modes={"describe": "per_part"},
+        )
+        _use(monkeypatch, NoModelClient())
+
+        result = _cli(describes_pages, monkeypatch, "run", PIPELINE)
+
+        assert result.exit_code != 0
+        said = " ".join(result.output.split())
+        assert "step 'describe' is mode: per_part and reads 'documents'" in said, said
+        assert "no parts to run over" in said
+        assert not (describes_pages / "runs").exists()

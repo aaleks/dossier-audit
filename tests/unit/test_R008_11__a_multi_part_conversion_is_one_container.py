@@ -123,3 +123,27 @@ class TestThePartsTravelTogether:
         """
         with pytest.raises(ValueError, match="container"):
             unpack_parts(b"this is a markdown artifact, not a container")
+
+    @pytest.mark.parametrize(
+        ("damage", "said"),
+        [
+            (lambda packed, magic: packed + b"page-003.png 4", "ends inside a header"),
+            (lambda packed, magic: packed[:-1], "shorter than its header claims"),
+            (lambda packed, magic: magic + b"page-\xff01.png 3\nabc", "bad header"),
+            (lambda packed, magic: magic + b"page-001.png three\nabc", "bad header"),
+        ],
+        ids=["cut-in-a-header", "cut-in-a-part", "not-ascii", "no-count"],
+    )
+    def test_a_damaged_container_is_refused_saying_how(self, damage, said: str):
+        """Counter-example, row 6: the one where the container is not whole.
+
+        Never the parts before the damage: a step reading two of three pages
+        would audit a document it had not seen.
+        """
+        magic = pack_parts([], suffix=".png")
+        # 255 bytes, every low bit set: a bound that or-ed or xor-ed the offset
+        # with the size would land short of where the part ends.
+        packed = pack_parts([b"abc", b"x" * 255], suffix=".png")
+
+        with pytest.raises(ValueError, match=said):
+            unpack_parts(damage(packed, magic))

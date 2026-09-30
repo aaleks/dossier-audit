@@ -602,6 +602,7 @@ dropped.
 | 3 | text `certi­ficate`, span `certificate` | grounded |
 | 4 | row 1's text behind `<!-- page 2 -->`, in a document with three pages | the span's page is `2` |
 | 5 | *counter-example* — text `pre- and post-deploy checks`, span `pre and post-deploy checks` | `ungrounded`; that hyphen is not at a line break |
+| 6 | row 2's text behind `<!-- page 2 -->`, in a document with three pages | the span's page is `2`. Found only in the reading that keeps the hyphen, its page is read from that reading, as row 4's is from the joined one |
 
 ### R6.20 — the markdown a converter wrote around words is not part of the text a span is compared with
 

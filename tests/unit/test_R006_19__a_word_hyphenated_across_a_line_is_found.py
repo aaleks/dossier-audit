@@ -67,3 +67,17 @@ class TestAWordHyphenatedAcrossALineIsFound:
     def test_a_hyphen_before_a_break_between_numbers_is_left_alone(self):
         """Counter-example: `-` then a line then a digit is a range or a sign, not a word."""
         assert not locate_span("09:1209:54", document_text="09:12-\n09:54")
+
+    def test_the_page_of_a_span_found_only_hyphenated_is_read_too(self):
+        """Example 6: the one where `a well-known gap` is on page 2.
+
+        Joined, the text reads `wellknown` and the span is not there; only the
+        reading that keeps the hyphen holds it, and its page is read from that.
+        """
+        text = (
+            "<!-- page 1 -->\nIntro.\n"
+            "<!-- page 2 -->\na well-\nknown gap\n"
+            "<!-- page 3 -->\nEnd."
+        )
+
+        assert page_of_span("a well-known gap", document_text=text) == 2
