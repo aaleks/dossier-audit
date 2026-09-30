@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.31
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.32
 
 ## Purpose
 
@@ -843,3 +843,21 @@ landed, on 2026-09-30.
 | 1 | R7.52 row 1's eval, tracking on: `INC-4822` failing `extract` of four | the description reads `gold incidents 3b7e1d90 · 3 of 4 documents`, as a comparison's does (R11.27 row 2) |
 | 2 | the same | `scores.json`'s `not_scored` holds `INC-4822` with the step `extract` and the reason its `not scored` line printed, and `scores` holds no entry for it |
 | 3 | *counter-example* — an eval in which nothing failed | `4 documents`, and `not_scored` present and empty |
+
+### R11.32 — a `dossier status` records nothing, and needs no server
+
+`status` changes nothing (R17.5), and a command that changes nothing records
+nothing, as `--plan` and `gc`'s preview do not (R11.28 row 4). So it needs no
+server, and does not check for one: R10.5 refuses a command whose record would
+be lost, and `status` has none to lose. Decided by `a.aleks` on 2026-09-30.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.status`)
+- **Proved by:** `tests/unit/test_R011_32__status_records_nothing.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier status incident-audit --gold gold/incidents`, tracking on | 0 MLflow runs, and no `recorded to MLflow` line |
+| 2 | *counter-example* — tracking enabled and nothing answering at `http://localhost:5000` | exit 0 with the status printed: the unreachable server R10.5 refuses `run` for is not asked (R10.5 row 4) |
+| 3 | *counter-example* — tracking enabled and the `tracking` extra not installed | exit 0 with the status printed, where R10.5 row 3 would refuse a command that records |
