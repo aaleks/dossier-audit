@@ -13,6 +13,18 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+R17.6 row 7 (2026-09-30). The last way found for `status` and `eval` to
+disagree: `eval` refuses a gold answer in a shape no run can meet before
+scoring anything (R7.44), and `status` called `root_cause` reportable of a gold
+set `eval` then refused outright. The check moved into
+`cli.eval.refuse_unmeetable_gold`, which both commands call. Checked through
+the CLI with `severity: ["major"]` in a gold file: both exit 2 with the same
+line. The same check found that a gold amount written as `[48200.0]` is not
+refused at all: both commands stop on a pydantic `ValidationError` before R7.44
+is asked. That is a spec 007 question and is not fixed here.
+
+---
+
 `/verify` of spec 017 (2026-09-30). The suite was green and `status` was wrong
 in four places, each found by asking what a real workspace leaves behind:
 - **A first sync that failed a fetch crashed it.** The watermark moves only

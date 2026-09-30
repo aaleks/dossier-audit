@@ -136,8 +136,8 @@ each document a sync still owes it; each pipeline's latest run, its documents
 and how many a step failed, or `failures not recorded` for a run that stopped
 before it ended. With a pipeline and `--gold`, it names each judged field
 `dossier eval` would withhold, in `eval`'s own words, because it asks `eval`'s
-own gate, and a pipeline `eval` would refuse to score is refused as `eval`
-refuses it. It changes no file, records nothing to MLflow, needs no server, and
+own gate, and a pipeline or gold set `eval` would refuse to score is refused as
+`eval` refuses it. It changes no file, records nothing to MLflow, needs no server, and
 exits 0 whatever it finds.
 
 ## What it reads
