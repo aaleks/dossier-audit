@@ -262,6 +262,9 @@ and `eval` withholds it in exactly those words.
   there no one answer to give? (R3.7.)
 - With tracking on and the MLflow server stopped, `run` is refused and `status`
   is not. Why? (R11.32, R10.5.)
+- Move `failures.json` out of your latest run's directory, which is what a run
+  stopped partway leaves, and ask `status` again. Why does it not say
+  `0 failed`? Put the file back afterwards. (R17.3, R4.27.)
 
 ---
 

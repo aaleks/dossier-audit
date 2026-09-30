@@ -2,7 +2,8 @@
 
 Every function here takes what was read -- the ledger's counts, the runs'
 manifests, a calibration -- and returns the lines `status` prints. The reading
-is `dossier.application.status`'s; nothing here opens a file.
+is `dossier.infrastructure.ledger.read_held`'s and `dossier.application.status`'s;
+nothing here opens a file.
 """
 
 from __future__ import annotations
@@ -77,10 +78,19 @@ def source_lines(declared: Sequence[str], held: Mapping[str, Held]) -> list[str]
 
 
 def _held_lines(source: str, holding: Held) -> list[str]:
-    """The source's line, then one beneath it for each document it is owed (R17.2)."""
+    """The source's line, then one beneath it for each document it is owed (R17.2).
+
+    The watermark moves only when a sync handled every item (R2.8), so a
+    source whose first sync failed a fetch holds documents, or is owed them,
+    and has no instant to name (R17.1 row 5, R17.2 row 5).
+    """
+    synced = (
+        "no complete sync yet"
+        if holding.last_synced is None
+        else f"last synced {_instant(holding.last_synced)}"
+    )
     return [
-        f"{source} · {holding.active} held · {holding.tombstoned} tombstoned"
-        f" · last synced {_instant(holding.last_synced)}",
+        f"{source} · {holding.active} held · {holding.tombstoned} tombstoned · {synced}",
         *(
             f"  owed {owed.key}, since {_instant(owed.failed_at)}: {owed.error}"
             for owed in sorted(holding.owed, key=lambda owed: owed.key)
@@ -97,13 +107,14 @@ class RunSeen:
     """One run under `runs/`, as `status` reads it (R17.3).
 
     `failed` names the document of each failure `failures.json` holds, once per
-    failure: a document two steps failed is in it twice.
+    failure: a document two steps failed is in it twice. `None` when the run
+    wrote no `failures.json`: it stopped before it ended, or ran before R4.27.
     """
 
     run_id: str
     pipeline: str
     documents: int
-    failed: tuple[str, ...] = ()
+    failed: tuple[str, ...] | None = ()
 
 
 def pipeline_lines(pipelines: Sequence[str], runs: Iterable[RunSeen]) -> list[str]:
@@ -122,10 +133,16 @@ def pipeline_lines(pipelines: Sequence[str], runs: Iterable[RunSeen]) -> list[st
             lines.append(f"{pipeline} · no run yet")
             continue
         # A document is counted once however many steps failed it: counted per
-        # failure, four documents could report five failed (R7.53 row 2).
+        # failure, four documents could report five failed (R7.53 row 2). A run
+        # that recorded nothing is not one that failed nothing: only `[]` says
+        # it finished (R4.27, R17.3 row 5).
+        failed = (
+            "failures not recorded"
+            if seen.failed is None
+            else f"{len(set(seen.failed))} failed"
+        )
         lines.append(
-            f"{pipeline} · latest run {seen.run_id} · {seen.documents} documents"
-            f" · {len(set(seen.failed))} failed"
+            f"{pipeline} · latest run {seen.run_id} · {seen.documents} documents · {failed}"
         )
     return lines
 

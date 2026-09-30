@@ -28,6 +28,25 @@ def run(run_id: str, *failed: str, pipeline: str = "incident-audit") -> RunSeen:
     return RunSeen(run_id=run_id, pipeline=pipeline, documents=4, failed=failed)
 
 
+def write_run(runs: Path, run_id: str) -> None:
+    """A run's manifest, pinning four documents, and nothing beside it."""
+    Manifest(
+        run_id=run_id,
+        started_at=datetime(2026, 9, 25, 9, 15, tzinfo=UTC),
+        dossier_version="0.1.0",
+        plan=ResolvedPlan(
+            pipeline="incident-audit",
+            pipeline_hash="2f60a7d3",
+            model="anthropic:claude-sonnet-4-5-20250929",
+            steps=[],
+            documents=[
+                PinnedDocument(key=key, snapshot=f"snapshots/{key}")
+                for key in ("INC-4821", "INC-4822", "INC-4901", "INC-5455")
+            ],
+        ),
+    ).write(runs)
+
+
 class TestStatusNamesEachPipelinesLatestRun:
     """R17.3 — the latest run of every pipeline, its documents and its failures."""
 
@@ -52,10 +71,18 @@ class TestStatusNamesEachPipelinesLatestRun:
         assert line.endswith("· 4 documents · 1 failed")
 
     def test_a_pipeline_with_no_run_says_so(self):
-        """Row 3, counter-example — the one `postmortem-review` has never run."""
-        lines = pipeline_lines(["incident-audit", "postmortem-review"], [run(LATEST)])
+        """Row 3, counter-example — the one `postmortem-review` has never run.
 
-        assert lines[1] == "postmortem-review · no run yet"
+        Named first, so a pipeline with no run is seen not to end the list: every
+        pipeline after it is still named (a survivor of mutation testing, found
+        by the /verify of 2026-09-30).
+        """
+        lines = pipeline_lines(["postmortem-review", "incident-audit"], [run(LATEST)])
+
+        assert lines == [
+            "postmortem-review · no run yet",
+            f"incident-audit · latest run {LATEST} · 4 documents · 0 failed",
+        ]
 
     def test_a_directory_with_no_manifest_is_not_the_latest_run(self, tmp_path: Path):
         """Row 4, counter-example — the one a person left under `runs/`, named last.
@@ -67,21 +94,7 @@ class TestStatusNamesEachPipelinesLatestRun:
 
         runs = tmp_path / "runs"
         for run_id in (FIRST, LATEST):
-            Manifest(
-                run_id=run_id,
-                started_at=datetime(2026, 9, 25, 9, 15, tzinfo=UTC),
-                dossier_version="0.1.0",
-                plan=ResolvedPlan(
-                    pipeline="incident-audit",
-                    pipeline_hash="2f60a7d3",
-                    model="anthropic:claude-sonnet-4-5-20250929",
-                    steps=[],
-                    documents=[
-                        PinnedDocument(key=key, snapshot=f"snapshots/{key}")
-                        for key in ("INC-4821", "INC-4822", "INC-4901", "INC-5455")
-                    ],
-                ),
-            ).write(runs)
+            write_run(runs, run_id)
         (runs / LATEST / "failures.json").write_text(
             json.dumps(
                 [
@@ -100,3 +113,21 @@ class TestStatusNamesEachPipelinesLatestRun:
         lines = pipeline_lines(["incident-audit"], read_runs(tmp_path))
 
         assert lines == [f"incident-audit · latest run {LATEST} · 4 documents · 1 failed"]
+
+    def test_a_run_that_recorded_no_failures_does_not_say_none_failed(self, tmp_path: Path):
+        """Row 5, counter-example — the one stopped before it ended.
+
+        A run writes `failures.json` when every step has run, `[]` if nothing
+        failed (R4.27). One that stopped wrote none, and neither did a run
+        from before R4.27: `0 failed` would say it finished, which only `[]`
+        says.
+        """
+        from dossier.application.status import read_runs
+
+        write_run(tmp_path / "runs", LATEST)
+
+        lines = pipeline_lines(["incident-audit"], read_runs(tmp_path))
+
+        assert lines == [
+            f"incident-audit · latest run {LATEST} · 4 documents · failures not recorded"
+        ]

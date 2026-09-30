@@ -134,8 +134,19 @@ class TestStatusNamesWhatEvalWouldWithhold:
     def test_a_pipeline_that_declares_no_judged_field_says_so(
         self, workspace: Path, monkeypatch
     ):
-        """Row 6, counter-example — the one whose `postmortem-review` judges nothing."""
-        write_pipeline(workspace, name="postmortem-review", outputs={"extract": None})
+        """Row 6, counter-example — the one whose `postmortem-review` judges nothing.
+
+        Its output declares fields, and no `free_text` one with a rubric. A
+        pipeline declaring no output at all is another case: `eval` refuses it,
+        and so does `status` (R17.6 row 6).
+        """
+        write_pipeline(
+            workspace, name="postmortem-review", outputs={"extract": "schemas/review.yaml"}
+        )
+        (workspace / "pipelines" / "postmortem-review" / "schemas" / "review.yaml").write_text(
+            "fields:\n  severity: {kind: enum, values: [minor, major, critical]}\n",
+            encoding="utf-8",
+        )
 
         result = _cli(workspace, monkeypatch, "status", "postmortem-review", "--gold", GOLD)
 

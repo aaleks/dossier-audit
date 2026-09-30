@@ -107,6 +107,24 @@ def has_per_part(config) -> bool:
     return any(step.mode == "per_part" and step.output is not None for step in config.steps)
 
 
+def scored_step(pipeline: str, config):
+    """The one step whose output `eval` scores, or exit 2 saying how many declare one.
+
+    Spec 007 scores "the output" against gold and does not yet say which step's
+    output that is when several declare one. Refused rather than guessed,
+    because a guess would report one step's scores as another's. `status` asks
+    it too, before `eval` is run, and is refused in the same words (R17.6).
+    """
+    declaring = [step for step in config.steps if step.output is not None]
+    if len(declaring) != 1:
+        typer.echo(
+            f"{pipeline}: {len(declaring)} steps declare an output; eval scores exactly one",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    return declaring[0]
+
+
 def judge_gate(
     directory: Path, declaration: Path, pipeline_dir: Path, model: str, *, states=(GROUNDED,)
 ) -> tuple[dict[str, Calibration], dict[str, str]]:
@@ -186,17 +204,7 @@ def eval_(
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
 
-    declaring = [step for step in config.steps if step.output is not None]
-    if len(declaring) != 1:
-        # Spec 007 scores "the output" against gold and does not yet say which
-        # step's output that is when several declare one. Refused rather than
-        # guessed, because a guess would report one step's scores as another's.
-        typer.echo(
-            f"{pipeline}: {len(declaring)} steps declare an output; eval scores exactly one",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-    step = declaring[0]
+    step = scored_step(pipeline, config)
     kinds = load_fields(path.parent / step.output)
 
     # Before anything reads the gold set to score: an answer in a shape no run

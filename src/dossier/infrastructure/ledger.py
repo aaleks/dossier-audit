@@ -411,5 +411,7 @@ def read_held(workspace: Path) -> dict[str, Held]:
             last_synced=_from_text(synced[source]) if source in synced else None,
             owed=tuple(owed.get(source, ())),
         )
-        for source in sorted(states.keys() | synced.keys())
+        # A source owed its only document has no row and no watermark (R2.8),
+        # and is still a source a sync has visited (R17.2 row 5).
+        for source in sorted(states.keys() | synced.keys() | owed.keys())
     }
