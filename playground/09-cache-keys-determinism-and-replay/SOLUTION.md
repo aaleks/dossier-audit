@@ -243,6 +243,30 @@ replay would produce text the original run never saw.
 
 ---
 
+## Task 6 — what `gc` keeps
+
+**Four entries, not eight.** The prompt edit moved every `extract` key (R5.2),
+so each run holds four answers of its own. `--keep-last 1` keeps the second run,
+whose replay reads its own four, and the first run's four are read by nothing
+kept. Without the edit the two runs would share one set, and `gc` would free no
+cache entry at all: an entry goes only when no kept run's replay reads it
+(R16.3), whichever run wrote it first.
+
+**The replay went with its run.** A replay under a run that is itself deleted is
+deleted with the run, so the preview counts it once, as part of the run. Under a
+kept run it is counted on its own: it is byte copies of entries the run can
+reproduce at any time (R0.12, R16.4).
+
+**The conversions stay for two reasons.** The second, kept run read the same
+four conversions, since the notes did not change. And even if no kept run had,
+a conversion of a snapshot the ledger holds now is kept: the next run reads it,
+and for a scanned PDF re-converting takes minutes (R16.3 row 4).
+
+**Pinned and replayed.** `--keep` wrote `runs/<first run>/keep` and deleted
+nothing. It is a pin, not a deletion, so it needs no `--apply` (R16.6). The
+second `--apply` collects the two replays the loop just wrote: they are
+reproductions, and `gc` deletes every one (R16.4).
+
 ## Where to go from here
 
 You have now touched every command and most of the rules — over documents that

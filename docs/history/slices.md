@@ -13,6 +13,44 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+Reclaiming space: `dossier gc` (spec 016, R11.28). Nothing in `dossier` deleted
+anything. Runs, tries, replays and the stage and convert caches only grew, and
+"the cache is safe to delete" (R5.9) is true for the next run only: a replay and
+an eval reproduce a past run from its manifest and the cache (R4.7, R7.10). So
+`gc` keeps the latest five runs of each pipeline and every run holding a `keep`
+file. It deletes every other run, every try and every replay, and the cache
+entries no kept run's replay reads, and it previews unless given `--apply`. A
+run's `--label` could not be the pin, because it lives only in MLflow, which
+`gc` never reads back. What a kept run needs is found by running that run's own
+replay through a cache that notes each key and refuses every write, so no
+second computation of the keys can drift from the one a replay makes. It works
+across every pipeline, which made it the first command with no pipeline: its
+record lands in `dossier-audit/gc` with `dossier.pipeline` present and empty
+(all decided by `a.aleks` on 2026-09-30).
+
+Three things were found on the way. R16.2's counter-example, three runs and N
+five, caught a negative slice that kept only the last two. A mutant that forgot
+every conversion a kept run read passed R16.3's first six rows, because in each
+of them the held-now exception kept those conversions anyway, so row 7 was added
+before the code: a kept run that read a snapshot the ledger no longer holds. And
+a test fixture built with `execute` alone had no snapshots, so its "kept run"
+could never replay, and a plan over it proved nothing. The tests now build their
+workspaces through the CLI. `apply_plan` deletes directories before cache
+entries, so an interruption leaves only entries no run names, for the next
+`gc`, never a run whose entries are gone. A kept run that already cannot be
+replayed, a Ctrl-C'd latest run, is named and kept as it is, rather than
+blocking every `gc` (R16.7).
+
+The live check on a copy of exercise 06's workspace, against the real MLflow,
+read back both records with their counts and `collected.json`, and the kept run
+still replayed and scored. Two things it showed are not changed here. Unlike
+`run` and `eval`, `gc --apply` prints no `recorded to MLflow: …` line, and no
+rule asks for one. And runs started within one second, which only a stub model
+manages, sort by their random suffix, so "the latest run" `eval` picks (R0.8),
+and the runs `gc` keeps, can follow the suffix rather than the order they were
+made. Exercise 09 task 6 walks through a preview, a pin, `--apply` and the
+replays after it.
+
 Comparing runs with a failed document (R7.53, R7.54, R7.55, R11.27). A
 `/verify` on the day's second batch of rules found that R4.28 had changed
 more than it meant to. Letting a replay reproduce a failure let `eval --compare`

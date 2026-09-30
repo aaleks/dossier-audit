@@ -121,6 +121,53 @@ installed and no model endpoint configured? Try it — uninstall exercise 03's
 converter package if you still have it, or unset the endpoint — and reason about
 why the answer is what it is.
 
+## Task 6 — what `gc` keeps
+
+Nothing you have done here deleted anything: two runs, a try and a replay are
+all still on disk, and so is every answer they wrote. Make a second run after a
+prompt edit if you have not, a try of `PLAY-1002.md`, and a replay of the first
+run. Then preview:
+
+```bash
+dossier gc
+dossier gc --keep-last 1
+```
+
+**Checkpoint.** Nothing is deleted by either. The first keeps the five latest
+runs, so only the try and the replay would go. The second would take the first
+run as well, and the answers only it read:
+
+```
+would free 0.0 MB: 0 runs, 1 try, 1 replay, 0 cache entries
+nothing deleted: run `dossier gc --apply` to delete it
+
+would free 0.0 MB: 1 run, 1 try, 0 replays, 4 cache entries
+  runs/20260930T072527Z-ca17/  incident-audit, beyond the latest 1
+nothing deleted: run `dossier gc --apply` to delete it
+```
+
+- Why four cache entries, and not eight? Which run read the other four, and
+  what did the prompt edit have to do with it?
+- The replay count went from 1 to 0 as the run count went from 0 to 1. Where
+  did the replay go?
+- The converted notes are not among the entries, though the first run read
+  them. There are two reasons they stay: name both.
+
+Now pin the first run as a baseline, apply, and replay both runs:
+
+```bash
+dossier gc --keep <first run>
+dossier gc --keep-last 1 --apply
+for run in runs/*/; do dossier run --replay "$run"; done
+```
+
+**Checkpoint.** The pinned run survives `--apply` (`runs/<first run>/keep`),
+and both replay with no model call. Check the stub's call log: nothing since the
+two runs. `gc` finds what a kept run needs by tracing that run's own replay, so
+the one thing it can never do is make a kept run irreproducible (R16.1). Run
+`dossier gc --keep-last 1 --apply` once more and read what it collects this
+time.
+
 ---
 
 ## Done when
@@ -130,6 +177,7 @@ why the answer is what it is.
 - a cache you deleted and rebuilt byte for byte;
 - identical keys in two workspaces at different paths;
 - a replay that failed honestly and one that ignored a configuration change.
+- a `gc` that freed space and left both kept runs replaying, and you can say why.
 
 **Next:** [10 · Charts, screenshots and the `described` state](../10-charts-screenshots-and-the-described-state/) — the one where the
 evidence is drawn rather than written, and a key holds a page.
