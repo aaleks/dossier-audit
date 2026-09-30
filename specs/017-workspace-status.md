@@ -1,6 +1,6 @@
 # 017 — Workspace status
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R17.1 – R17.7
 
 ## Purpose
@@ -72,7 +72,7 @@ no general tool knows.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.status.source_lines`), read by application (`dossier.application.status`)
 - **Proved by:** `tests/unit/test_R017_1__status_names_every_source_and_what_it_holds.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
