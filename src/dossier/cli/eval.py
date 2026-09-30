@@ -424,10 +424,11 @@ def eval_(
                     documents=len(manifest.plan.documents),
                     totals=reported,
                     withheld=withheld,
+                    left_out=len(failed),
                 ),
                 # The per-document lines printed just above, which nothing else
-                # keeps (R11.14).
-                detail=scores_artifact(scores, withheld=withheld),
+                # keeps (R11.14), the `not scored` lines among them (R11.31).
+                detail=scores_artifact(scores, withheld=withheld, not_scored=failed),
                 # The accuracy this eval measured, recorded against the version it
                 # scored as well as against this run (R13.3).
                 version_id=scored_version,

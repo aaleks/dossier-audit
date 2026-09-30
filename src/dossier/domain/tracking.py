@@ -689,6 +689,7 @@ def eval_description(
     documents: int,
     totals: Sequence[FieldTotal],
     withheld: Mapping[str, str],
+    left_out: int = 0,
 ) -> str:
     """What an eval says about itself, in MLflow's Description (R11.12).
 
@@ -703,7 +704,9 @@ def eval_description(
     lines = [
         f"eval of {run_id} · {pipeline}",
         f"model {model} · pipeline {pipeline_hash[:_DISPLAY_HASH]}",
-        f"gold {gold} {gold_hash[:_DISPLAY_HASH]} · {documents} documents",
+        # How many of them were scored: `4 documents` over a run that failed one
+        # read as all four scored (R11.31, R7.52).
+        _gold_line(gold, gold_hash, documents=documents, left_out=left_out),
     ]
     summed = overall(totals)
     if summed is not None:
@@ -721,6 +724,12 @@ def eval_description(
         # different problem wanting different work (R7.3 row 4).
         lines.append(f"withheld {field} — {why}")
     return "\n".join(lines)
+
+
+def _gold_line(gold: str, gold_hash: str, *, documents: int, left_out: int) -> str:
+    """`gold incidents 3b7e1d90 · 3 of 4 documents`; `· 4 documents` when none was left out."""
+    scored = f"{documents - left_out} of " if left_out else ""
+    return f"gold {gold} {gold_hash[:_DISPLAY_HASH]} · {scored}{documents} documents"
 
 
 def comparison_description(
@@ -753,9 +762,7 @@ def comparison_description(
         f"model {models[0]} -> {models[1]}",
         # How many of them were compared, as the headline counts them: a
         # document either run left unscored is scored in neither (R11.27, R7.54).
-        f"gold {gold} {gold_hash[:_DISPLAY_HASH]} · "
-        + (f"{documents - left_out} of " if left_out else "")
-        + f"{documents} documents",
+        _gold_line(gold, gold_hash, documents=documents, left_out=left_out),
     ]
     earlier, later = overalls
     if earlier is not None and later is not None:

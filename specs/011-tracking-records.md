@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
 **Status:** Implemented
-**Rules:** R11.1 – R11.30
+**Rules:** R11.1 – R11.31
 
 ## Purpose
 
@@ -818,3 +818,26 @@ documents. Decided by `a.aleks` on 2026-09-30.
 | 2 | the same, with `affected_systems` flagged as regressed too | `regressed affected_systems, INC-4822 (failed at extract)` |
 | 3 | *counter-example* — `20260806T142203Z-4f1a` failing `INC-4822`, which `20260907T090000Z-bbbb` answered | `regressed nothing`: the change recovered it |
 | 4 | *counter-example* — both runs failing `INC-4822` | `regressed nothing`: the change lost nothing |
+
+### R11.31 — an eval's record names the documents it did not score, as the terminal did
+
+R7.52 has `eval` count a failed document in its headline and name it on a
+`not scored` line. Its record holds the count as the metric `failed` and
+nothing else about it. The description said `gold incidents 3b7e1d90 · 4
+documents` over a run it scored three of, and `scores.json` (R11.14) held
+fifteen entries for four documents by five fields with nothing saying why the
+fourth was missing. This is R11.27 for an eval: a comparison's record already
+names the documents it left out. `not_scored` is present and empty when
+nothing failed, as `changes.json`'s lists are (R11.6 row 2). Found after R7.52
+landed, on 2026-09-30.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.eval`), application (`dossier.application.eval.scores_artifact`), domain (`dossier.domain.tracking.eval_description`)
+- **Proved by:** `tests/unit/test_R011_31__an_eval_records_what_it_did_not_score.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | R7.52 row 1's eval, tracking on: `INC-4822` failing `extract` of four | the description reads `gold incidents 3b7e1d90 · 3 of 4 documents`, as a comparison's does (R11.27 row 2) |
+| 2 | the same | `scores.json`'s `not_scored` holds `INC-4822` with the step `extract` and the reason its `not scored` line printed, and `scores` holds no entry for it |
+| 3 | *counter-example* — an eval in which nothing failed | `4 documents`, and `not_scored` present and empty |
