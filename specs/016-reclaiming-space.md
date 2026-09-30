@@ -64,7 +64,7 @@ longer reproduces, and that is the one thing `gc` must never do.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.gc`), application (`dossier.application.gc`)
 - **Proved by:** `tests/acceptance/test_R016_1__a_kept_run_replays_after_gc.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
