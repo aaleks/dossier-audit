@@ -613,6 +613,7 @@ whether `comments:` is on or off.
 | 3 | *counter-example* — the page held without `comments:` (R1.17) | the note R8.19 writes, and no `## Comments` |
 | 4 | *counter-example* — `{"page": …, "comments": [{"results": []}]}` | the same note as row 3 |
 | 5 | *counter-example* — `{"comments": […]}` and no `page` | that document fails, naming `confluence-page-markdown` and saying it is not a rendered Confluence page (R8.19 row 4) |
+| 6 | `m.keller` answering `a.aleks`'s reply `81920502`, so that its `ancestors` are `81920501` then `81920502` | its heading ends `· reply to a.aleks`. Confluence lists a reply's ancestors nearest last, and the one it answers is its nearest, not the comment that began the thread |
 
 ### R8.31 — `jira-issue-markdown` writes each custom field that holds something a person reads, under the name Jira gives it
 

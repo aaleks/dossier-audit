@@ -147,6 +147,7 @@ run reproduces again at any time (R0.12). What else a kept run holds stays.
 | 1 | R16.1 row 1's workspace; `dossier gc --keep-last 2` | `would free … MB: 1 run, 1 try, 0 replays, … cache entries`, then `  runs/20260806T142203Z-4f1a/  incident-audit, beyond the latest 2`, then ``nothing deleted: run `dossier gc --apply` to delete it``; no file changes; exit 0 |
 | 2 | the same, `--apply` | `freed … MB: 1 run, 1 try, 0 replays, … cache entries`, the counts and the size the preview printed, and the same line for the run |
 | 3 | *counter-example* — nothing to collect, with or without `--apply` | `nothing to collect`; exit 0 |
+| 4 | one run to delete, its files 1 572 864 bytes in all (1.5 MiB) | `would free 1.6 MB: 1 run, 0 tries, 0 replays, 0 cache entries`. A megabyte is 10^6 bytes, as a disk's free space is reported, and the figure is rounded to one decimal, not cut |
 
 ### R16.6 — `dossier gc --keep RUN` pins a run by writing `runs/<RUN>/keep`, and refuses a run that does not exist
 
