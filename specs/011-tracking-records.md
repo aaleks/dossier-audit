@@ -321,6 +321,7 @@ Carried in `mlflow.note.content`, one of the four tags R10.12 permits.
 | 3 | the comparison example (R7.8) | `overall 80.0% -> 90.0% (+10.0)`, `regressed affected_systems`, both run ids and both pinned models |
 | 4 | *counter-example* — a comparison refused because the two runs cover different documents (R7.8 row 3) | no run is opened, so there is no description. Nothing was measured |
 | 5 | *counter-example* — the same eval run twice, with tracking on and off | byte-identical manifests and stage keys (R10.4). A description is a record, and a record is not an input |
+| 6 | a comparison whose second run was asked by `ollama:qwen2.5:7b@sha256:7f3c29a1`, and whose overall fell from 90.0% to 80.0% | `model anthropic:claude-sonnet-4-5-20250929 -> ollama:qwen2.5:7b@sha256:7f3c29a1`, and `overall 90.0% -> 80.0% (-10.0)`: each model in its run's place, and a fall signed as one |
 
 ### R11.13 — a comparison names the steps that differ between the two runs it compared
 
@@ -542,6 +543,7 @@ claimed here; a stage's are.
 | 3 | `DOSSIER_MLFLOW_CAPTURE=hashes` | the same usage on every span, and still no prompt or reply text (R10.8 row 2) |
 | 4 | *counter-example* — the same run again, every document from cache | no LLM span (R11.2 row 3), and `tokens_in` and `tokens_out` both `0`: nothing was asked |
 | 5 | *counter-example* — a provider that reports nothing (R9.18 row 4) | no `mlflow.chat.tokenUsage` on the span, and no `tokens_in` or `tokens_out` on the run: missing, not `0` |
+| 6 | *counter-example* — a provider that reports `input_tokens` 1204 and no `output_tokens` | as row 5: no `mlflow.chat.tokenUsage` on the span and no `tokens_in` or `tokens_out` on the run. Half a count is not recorded as a count |
 
 ### R11.21 — a run asking about several documents at once records each one's trace holding only its own spans, and says how many it asked at once
 
