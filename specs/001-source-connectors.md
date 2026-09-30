@@ -242,10 +242,19 @@ browser with JavaScript is drawn by a headless browser when its source asks
 **What is listed.** Every URL the sitemap names under `url`, and nothing else
 (R1.29). A sitemap index is followed to the sitemaps it names, on the same host.
 A sitemap served compressed is read compressed. `url` is a prefix of the whole
-URL, scheme and host included, and is read as a directory whether or not it
-ends in `/`: `…/ops` does not match `…/opsx/`. A URL carrying a query string is
-left out, because a query is how a site serves one page many ways, and none of
-them is the page's address.
+URL, host included, and is read as a directory whether or not it ends in `/`:
+`…/ops` does not match `…/opsx/`. A URL carrying a query string is left out,
+because a query is how a site serves one page many ways, and none of them is
+the page's address.
+
+The scheme is set aside, and only between `http` and `https`. A sitemap naming
+`http://docs.example.org/ops/escalation` for a source whose `url` is
+`https://docs.example.org/ops/` names that source's page, and the page is asked
+for over `https`: `url` says which scheme a page is asked over, whichever the
+sitemap wrote. `http` and `https` on one host are one site, as a redirect from
+one to the other already is (R1.34 row 4). A sitemap written with the other
+scheme would otherwise list nothing, and a complete listing that names nothing
+tombstones everything held.
 
 The sitemap is the listing, unless the source asks for a crawl. A sitemap is what a site
 publishes to say which pages it has; the generators behind nearly every
@@ -1119,6 +1128,10 @@ would tombstone every page held (R1.11, R2.7).
 | 8 | *counter-example* — `sitemap.xml` answered with `<urlset><url>` and nothing after it, or `sitemap.xml.gz` whose stream is damaged past its first bytes | the listing fails, naming the sitemap and saying it is not a sitemap; nothing held is tombstoned |
 | 9 | *counter-example* — `sitemap.xml.gz` inflating to one byte more than 50 MiB, the most the sitemaps.org protocol lets a sitemap hold | the listing fails, naming the limit: it is inflated no further, so a small file that would inflate without end is refused. One inflating to exactly 50 MiB is read |
 | 10 | an element other than `<url>` in the `<urlset>`, before `…/ops/escalation`'s `<url>` | `escalation` is listed: the element is passed over, and the entries after it are still read |
+| 11 | the sitemap naming `http://docs.example.org/ops/escalation`, for `url: https://docs.example.org/ops/` | `escalation` is listed, and fetched from `https://docs.example.org/ops/escalation`; `http://` is never asked |
+| 12 | the sitemap naming `https://docs.example.org/ops/escalation`, for `url: http://docs.example.org/ops/` | `escalation` is listed, and fetched from `http://docs.example.org/ops/escalation`: `url` decides the scheme, whichever way round |
+| 13 | both `http://docs.example.org/ops/escalation`, with `<lastmod>2026-08-05</lastmod>`, and then `https://docs.example.org/ops/escalation`, with `<lastmod>2026-08-06</lastmod>` | one page, `escalation`, marked `2026-08-05`: one URL named twice, whose first `<lastmod>` stands, not two URLs claiming one key (R1.30 row 7) |
+| 14 | *counter-example* — `http://docs.example.org/blog/release-notes`, `http://other.example.net/ops/escalation` and `ftp://docs.example.org/ops/escalation` in the sitemap | none is listed: only the scheme is set aside, and only `http` for `https`. The prefix and the host still decide, and another scheme is not a page |
 
 ### R1.30 — a web page is keyed by its URL relative to the source's `url`, with `index` for a directory
 
