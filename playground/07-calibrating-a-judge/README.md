@@ -220,6 +220,49 @@ Connection refused`.
 
 Start the stub again, and both commands work as before.
 
+## Task 9 — ask before you score
+
+`eval` withholds a field after the run it scores has been paid for. `dossier
+status` asks the same question first, and changes nothing while it does
+(spec 017). In a copy of your workspace from task 1, before you sync:
+
+```bash
+dossier status incident-audit --gold gold/incidents
+```
+
+**Checkpoint.**
+
+```
+sources
+  incidents-manual · never synced
+pipelines
+  incident-audit · no run yet
+judged fields · incident-audit against gold/incidents
+  root_cause · withheld: never measured -- run `dossier calibrate`
+```
+
+Look for `.dossier/` afterwards: there is none. Then sync, run, and ask again.
+Then calibrate, and ask again. Then add a sentence to the rubric, ask `status`,
+and run `eval`.
+
+**Checkpoint.** After calibrating, `root_cause · reportable`. After the rubric
+edit:
+
+```
+  root_cause · withheld: calibration is stale: the rubric has changed since
+```
+
+and `eval` withholds it in exactly those words.
+
+- `status` and `eval` are separate commands. Why can they never disagree about
+  a field? Find the one function both ask (R17.4).
+- Move one note out of `inbox/incidents/` and sync. What does the `sources`
+  line say now, and why is the note counted rather than dropped? (R17.1, R2.7.)
+- `dossier status --gold gold/incidents`, with no pipeline, is refused. Why is
+  there no one answer to give? (R3.7.)
+- With tracking on and the MLflow server stopped, `run` is refused and `status`
+  is not. Why? (R11.32, R10.5.)
+
 ---
 
 ## Done when
@@ -232,5 +275,7 @@ Start the stub again, and both commands work as before.
   is failing on, from the line under it;
 - you can tell a judge nobody is serving from a bug in `dossier` by what the
   terminal shows.
+- you can say which fields `eval` will withhold before you run it, and why
+  `status` and `eval` cannot disagree about one.
 
 **Next:** [08 · MLflow tracing end to end](../08-mlflow-tracing-end-to-end/).

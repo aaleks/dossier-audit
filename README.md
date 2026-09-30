@@ -101,6 +101,7 @@ dossier prompts publish <pipeline>   # each step's prompt and each rubric as an 
 dossier review pull <pipeline>       # reviewers' verdicts from MLflow, into review/<pipeline>/
 dossier review apply <pipeline> --gold … --verified-by …  # their expected values, into gold
 dossier gc [--keep-last N] [--apply]  # preview, then delete old runs, tries, replays and unread cache entries
+dossier status [<pipeline> --gold …]  # what each source holds, each latest run, what eval would withhold
 ```
 
 A prompt is iterated on one document at a time. `dossier run <pipeline> --doc
@@ -128,6 +129,14 @@ judge's verdicts and the snapshots are never touched. Without `--apply` it only
 prints what it would delete and how much space that frees. It takes no lock, so
 it is run when no `dossier run` is. With tracking on, each `--apply` is one
 MLflow run in `dossier-audit/gc`, naming the runs it deleted (R11.28).
+
+`dossier status` says what the workspace holds before anything is spent (spec
+017). Each source's documents, active and tombstoned, when it last synced, and
+each document a sync still owes it; each pipeline's latest run, its documents
+and how many a step failed. With a pipeline and `--gold`, it names each judged
+field `dossier eval` would withhold, in `eval`'s own words, because it asks
+`eval`'s own gate. It changes no file, records nothing to MLflow, needs no
+server, and exits 0 whatever it finds.
 
 ## What it reads
 
