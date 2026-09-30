@@ -1116,6 +1116,9 @@ would tombstone every page held (R1.11, R2.7).
 | 5 | *counter-example* — `https://docs.example.org/blog/release-notes`, `https://other.example.net/ops/escalation`, and `…/ops/escalation?lang=de` in the sitemap | none is listed: outside the prefix, on another host, and carrying a query |
 | 6 | *counter-example* — the sitemap answered `404` | the listing fails, naming the sitemap's URL and `404`; nothing held is tombstoned |
 | 7 | *counter-example* — an index naming a sitemap on another host | not read |
+| 8 | *counter-example* — `sitemap.xml` answered with `<urlset><url>` and nothing after it, or `sitemap.xml.gz` whose stream is damaged past its first bytes | the listing fails, naming the sitemap and saying it is not a sitemap; nothing held is tombstoned |
+| 9 | *counter-example* — `sitemap.xml.gz` inflating to one byte more than 50 MiB, the most the sitemaps.org protocol lets a sitemap hold | the listing fails, naming the limit: it is inflated no further, so a small file that would inflate without end is refused. One inflating to exactly 50 MiB is read |
+| 10 | an element other than `<url>` in the `<urlset>`, before `…/ops/escalation`'s `<url>` | `escalation` is listed: the element is passed over, and the entries after it are still read |
 
 ### R1.30 — a web page is keyed by its URL relative to the source's `url`, with `index` for a directory
 
@@ -1148,6 +1151,8 @@ would tombstone every page held (R1.11, R2.7).
 | 3 | `fetch("escalation")` | the same marker as the listing gave |
 | 4 | *counter-example* — `…/ops/runbooks/dns-failover.html` with no `<lastmod>` | `remote_version is None`, not the fetch time; its bytes decide whether it changed (R1.5, R2.2) |
 | 5 | *counter-example* — `<lastmod>last week</lastmod>` | `remote_version == "last week"`, `updated_at is None`. A marker is compared, never read as a time (R2.1) |
+| 6 | `<lastmod>2026-08-05T18:02:00+02:00</lastmod>` | `remote_version == "2026-08-05T18:02:00+02:00"`, and `updated_at` `2026-08-05T16:02:00Z`: the offset is read, not replaced by UTC |
+| 7 | a `<url>` writing its `<lastmod>` before its `<loc>` | the same page and the same marker as row 1. A child is found by its name, not its place |
 
 ### R1.32 — a web page is labelled with the media type its `Content-Type` header states
 
@@ -1270,6 +1275,8 @@ each URL once.
 | 9 | *counter-example* — `index` also links `login`, which redirects to `https://sso.example.org/login` | `login` is not listed, and `sso.example.org` is not asked |
 | 10 | *counter-example* — `escalation` links `drafts/escalation-v2`, which `robots.txt` disallows | neither asked nor listed (R1.33) |
 | 11 | *counter-example* — `index` also links `escalation?print=1` | not asked (R1.29 row 5) |
+| 12 | `index` linking `/blog/release-notes` and `drafts/escalation-v2` before its other links | the four pages of row 1: a link passed over, outside `url` or disallowed (R1.33), is not the end of the page's links |
+| 13 | `index`'s `<head>` holding `<link rel="stylesheet" href="/assets/site.css">`, and no `<base>` | the four pages of row 1. Only a `<base>` says where a page's links start, and a stylesheet's `href` is not one |
 
 ### R1.38 — a crawl that cannot finish fails the listing, and lists nothing
 

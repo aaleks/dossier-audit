@@ -174,8 +174,14 @@ class TestWhatBecomesOfEachRequest:
             (PAGE, "GET", "document", True, True, False, "page"),
             (PAGE, "GET", "document", True, True, True, "stay"),
             (f"{SITE}/ops/login", "GET", "document", True, True, True, "stay"),
+            # Row 6 before the page is drawn: the frame is moved away from the
+            # page to a URL sorting after it, and to one sorting before it.
+            (f"{SITE}/ops/login", "GET", "document", True, True, False, "stay"),
+            (f"{SITE}/ops/", "GET", "document", True, True, False, "stay"),
             ("https://video.example.org/embed", "GET", "document", True, False, True, "refuse"),
             (f"{SITE}/api/views", "POST", "fetch", False, True, True, "refuse"),
+            # Row 8 for a method sorting before `GET`: anything but `GET` could write.
+            (f"{SITE}/api/views/42", "DELETE", "fetch", False, True, True, "refuse"),
             (DIAGRAM, "GET", "image", False, True, True, "refuse"),
             (f"{SITE}/fonts/inter.woff2", "GET", "font", False, True, True, "refuse"),
             (f"{SITE}/media/walkthrough.mp4", "GET", "media", False, True, True, "refuse"),

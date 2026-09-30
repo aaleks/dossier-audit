@@ -64,17 +64,18 @@ class TestAWebPageIsKeyedByItsRelativeUrl:
         assert list(listed.pages) == ["escalation"]
         assert listed.pages["escalation"].url == f"{SITE}/ops/escalation"
 
-    def test_two_urls_claiming_one_key_fail_the_listing(self):
-        """Counter-example, row 7: the one where `runbooks/` and `runbooks/index` collide."""
+    @pytest.mark.parametrize("backwards", [False, True], ids=["as-listed", "reversed"])
+    def test_two_urls_claiming_one_key_fail_the_listing(self, backwards: bool):
+        """Counter-example, row 7: the one where `runbooks/` and `runbooks/index` collide.
+
+        In either order: which the sitemap names first decides nothing.
+        """
+        pages = [
+            SitemapPage(loc=f"{SITE}/ops/runbooks/", lastmod=None),
+            SitemapPage(loc=f"{SITE}/ops/runbooks/index", lastmod=None),
+        ]
         with pytest.raises(ValueError) as raised:
-            listing(
-                [
-                    SitemapPage(loc=f"{SITE}/ops/runbooks/", lastmod=None),
-                    SitemapPage(loc=f"{SITE}/ops/runbooks/index", lastmod=None),
-                ],
-                SCOPE,
-                allowed=everything,
-            )
+            listing(pages[::-1] if backwards else pages, SCOPE, allowed=everything)
 
         message = str(raised.value)
         assert f"{SITE}/ops/runbooks/" in message
