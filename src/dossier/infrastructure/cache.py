@@ -101,6 +101,24 @@ class ArtifactCache:
             if path.is_file() and not path.name.endswith((".meta.json", ".part"))
         )
 
+    def size(self, key: str) -> int:
+        """The bytes the entry at `key` takes on disk: its artifact and its record."""
+        return sum(
+            path.stat().st_size
+            for path in (self._path(key), self._record_path(key))
+            if path.is_file()
+        )
+
+    def delete(self, key: str) -> None:
+        """Remove the entry at `key`, record first, for `dossier gc` (R16.3).
+
+        The record goes first, so an interruption leaves an artifact with no
+        record, which every reader already treats as a miss (R5.8), and never
+        a record describing bytes that are gone.
+        """
+        self._record_path(key).unlink(missing_ok=True)
+        self._path(key).unlink(missing_ok=True)
+
     def _record_path(self, key: str) -> Path:
         """`<name>.meta.json`, the sibling record R0.3 requires."""
         return self._path(key).with_suffix(".meta.json")

@@ -7,6 +7,7 @@ to a replay: this module constructs none of them.
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -162,3 +163,39 @@ class _Traced:
 
     def put(self, key: str, payload: bytes, *, record: dict | None = None) -> None:
         raise AssertionError(f"gc wrote to the cache, at {key}: it only ever reads")
+
+
+def _directories(workspace: Path, plan: GcPlan) -> list[Path]:
+    """The directories `plan` deletes whole: runs, tries and replays."""
+    return [
+        *(workspace / RUNS_ROOT / run.run_id for run in plan.runs),
+        *(workspace / path for path in plan.tries),
+        *(workspace / path for path in plan.replays),
+    ]
+
+
+def plan_size(workspace: Path, plan: GcPlan, *, caches: Mapping[str, CollectableStore]) -> int:
+    """The bytes every file `plan` deletes takes, for the line `gc` prints (R16.5)."""
+    files = sum(
+        path.stat().st_size
+        for directory in _directories(workspace, plan)
+        for path in directory.rglob("*")
+        if path.is_file()
+    )
+    return files + sum(caches[entry.namespace].size(entry.key) for entry in plan.entries)
+
+
+def apply_plan(
+    workspace: Path, plan: GcPlan, *, caches: Mapping[str, CollectableStore]
+) -> None:
+    """Delete what `plan` names, and nothing else (R16.2 - R16.4).
+
+    Directories first, then cache entries. Interrupted between the two, what
+    is left is entries no run names, which the next `gc` collects; the other
+    order could leave a run directory whose entries are gone, a run that no
+    longer replays.
+    """
+    for directory in _directories(workspace, plan):
+        shutil.rmtree(directory)
+    for entry in plan.entries:
+        caches[entry.namespace].delete(entry.key)
