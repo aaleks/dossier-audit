@@ -126,3 +126,18 @@ class TestAnUnreadableGoldFileIsRefused:
         assert refusal("INC-4821.json", json.dumps(gold)) == (
             "INC-4821.json: loss_amount.currency: Input should be a valid string",
         )
+
+    def test_a_field_refused_on_two_keys_is_named_on_both(self):
+        """Row 8 — the one whose value is an array and whose currency is a number.
+
+        Pydantic refuses the value once for each shape it tried. The repeats
+        are dropped, and the currency after them must not be dropped with them.
+        """
+        gold = fixture("INC-4821")
+        gold["fields"]["loss_amount"] = {"value": [48200.0], "currency": 5}
+
+        assert refusal("INC-4821.json", json.dumps(gold)) == (
+            "INC-4821.json: loss_amount holds [48200.0], and a gold value is a number, "
+            "a string, true or false, a list of strings, or null",
+            "INC-4821.json: loss_amount.currency: Input should be a valid string",
+        )
