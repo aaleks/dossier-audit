@@ -1,7 +1,7 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Implemented
-**Rules:** R7.1 – R7.55
+**Status:** Partially implemented
+**Rules:** R7.1 – R7.56
 
 ## Purpose
 
@@ -1614,3 +1614,27 @@ which names fields (R11.9). Decided by `a.aleks` on 2026-09-29.
 | 2 | both runs failing `INC-4822` | two lines, `20260806T142203Z-4f1a`'s first, each with its own run and reason, and neither marked: the change lost nothing |
 | 3 | *counter-example* — `20260806T142203Z-4f1a` failing `INC-4822`, which `20260907T090000Z-bbbb` answered | named, and not marked: the change recovered it |
 | 4 | *counter-example* — neither run failed a document | no `not compared` line |
+
+### R7.56 — a gold file that cannot be read as verified answers is refused before anything is scored, naming the file and what stops it
+
+R7.44 refuses an answer that reads, in a shape no run can meet. A file that
+does not read at all stopped `dossier eval` on a traceback, the JSON parser's or
+pydantic's, which names neither the file nor the field. Found on 2026-09-30,
+checking R17.6 row 7. Every such file is named, as every refused answer is
+(R7.44), so one pass finds them all, and `dossier status` is refused in the
+same words (R17.6 row 7).
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.gold.read_gold_file`), read by application (`dossier.application.eval.load_gold`), refused by cli (`dossier.cli.eval.refuse_unmeetable_gold`)
+- **Proved by:** `tests/unit/test_R007_56__an_unreadable_gold_file_is_refused.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821.json` writing `loss_amount` as `{"value": [48200.0], "currency": "CHF"}` | `INC-4821.json: loss_amount holds [48200.0], and a gold value is a number, a string, true or false, a list of strings, or null` |
+| 2 | `INC-4822.json` cut off before its closing brace | `INC-4822.json: not JSON (line …, column …)`, where the parser stopped, and not the parser's own words, which change between Python versions |
+| 3 | `INC-4901.json` with no `verified_by` | `INC-4901.json: verified_by is missing`: an answer nobody stands behind is not gold (R7.7) |
+| 4 | `INC-5455.json` with `"verified_at": "15 September 2026"` | `INC-5455.json: verified_at '15 September 2026' is not a date, written as 2026-09-15` |
+| 5 | rows 1 and 3 in one gold set, then `dossier eval incident-audit --gold gold/incidents` | exit 2, `incident-audit: INC-4821.json: …` then `incident-audit: INC-4901.json: …`, in file order, and nothing scored |
+| 6 | *counter-example* — `INC-4821.json` as `tests/fixtures/gold/incidents/` holds it | read, and nothing refused |
+| 7 | `INC-4821.json` writing `loss_amount`'s `currency` as `5` | `INC-4821.json: loss_amount.currency: Input should be a valid string`: where no plainer words are written for what was refused, pydantic's own, after the file and the key |
