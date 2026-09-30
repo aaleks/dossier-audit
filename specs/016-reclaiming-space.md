@@ -1,6 +1,6 @@
 # 016 — Reclaiming space
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R16.1 – R16.7
 
 ## Purpose
@@ -82,7 +82,7 @@ the time the run started (R0.8), as `dossier eval` finds the latest run.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.gc.kept_runs`)
 - **Proved by:** `tests/unit/test_R016_2__the_latest_runs_of_each_pipeline_are_kept.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
