@@ -13,7 +13,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from dossier.application.manifest import MANIFEST_NAME, Manifest
-from dossier.application.run import recorded_failures, replay, replayed_inputs, replayed_parts
+from dossier.application.run import (
+    MissingFromReplay,
+    recorded_failures,
+    replay,
+    replayed_inputs,
+    replayed_parts,
+)
 from dossier.domain.gc import (
     COLLECTED_CACHES,
     CONVERT,
@@ -42,6 +48,8 @@ class GcPlan:
     entries: tuple[CacheEntry, ...]
     tries: tuple[str, ...] = ()
     replays: tuple[str, ...] = ()
+    # Kept runs whose replay already stops, each with the replay's error (R16.7).
+    unreplayable: tuple[tuple[str, str], ...] = ()
 
 
 def held_runs(runs: Path) -> list[HeldRun]:
@@ -84,7 +92,7 @@ def gc_plan(
     runs = workspace / RUNS_ROOT
     every = held_runs(runs)
     kept, deleted = kept_runs(every, keep_last=keep_last)
-    needed = _needed(runs, kept, store=store, caches=caches)
+    needed, unreplayable = _needed(runs, kept, store=store, caches=caches)
     entries = [
         CacheEntry(
             namespace=namespace,
@@ -100,6 +108,7 @@ def gc_plan(
     return GcPlan(
         runs=tuple(run for run in every if run.run_id in set(deleted)),
         entries=collectable(entries, needed=needed, held=held),
+        unreplayable=unreplayable,
         # Every try: none is ever replayed or scored (R4.20), and an answer of
         # one that a run was served is that run's entry (R16.3 row 3).
         tries=tuple(
@@ -124,8 +133,8 @@ def _needed(
     *,
     store: SnapshotReader,
     caches: Mapping[str, CollectableStore],
-) -> dict[str, set[str]]:
-    """The keys each kept run's replay reads, by cache (R16.3).
+) -> tuple[dict[str, set[str]], tuple[tuple[str, str], ...]]:
+    """The keys each kept run's replay reads, by cache, and the runs that stop (R16.3).
 
     Found by running that replay, reading through a cache that notes each key
     it is asked for and writes nothing. It is the replay the kept run would get,
@@ -134,16 +143,23 @@ def _needed(
     (R0.11), so they decide nothing.
     """
     traced = {namespace: _Traced(caches[namespace]) for namespace in COLLECTED_CACHES}
+    unreplayable: list[tuple[str, str]] = []
     for run_id in kept:
         manifest = Manifest.read(runs / run_id / MANIFEST_NAME)
-        replay(
-            manifest=manifest,
-            document_text=replayed_inputs(manifest, store=store, cache=traced[CONVERT]),
-            document_parts=replayed_parts(manifest, store=store, cache=traced[CONVERT]),
-            cache=traced[STAGE],
-            failures=recorded_failures(runs / run_id),
-        )
-    return {namespace: cache.read for namespace, cache in traced.items()}
+        try:
+            replay(
+                manifest=manifest,
+                document_text=replayed_inputs(manifest, store=store, cache=traced[CONVERT]),
+                document_parts=replayed_parts(manifest, store=store, cache=traced[CONVERT]),
+                cache=traced[STAGE],
+                failures=recorded_failures(runs / run_id),
+            )
+        except MissingFromReplay as error:
+            # Already irreproducible, so `gc` cannot make it so: named, and
+            # what its replay read before it stopped is kept, as traced
+            # (R16.7). Stopping here would let one killed run block every gc.
+            unreplayable.append((run_id, str(error)))
+    return {namespace: cache.read for namespace, cache in traced.items()}, tuple(unreplayable)
 
 
 class _Traced:

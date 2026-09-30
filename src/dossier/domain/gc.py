@@ -132,3 +132,12 @@ def summary_line(
 def run_line(run: HeldRun, *, keep_last: int) -> str:
     """The line naming a run `gc` deletes, and why (R16.5)."""
     return f"  runs/{run.run_id}/  {run.pipeline}, beyond the latest {keep_last}"
+
+
+def unreplayable_line(run_id: str, reason: str) -> str:
+    """The line naming a kept run that already cannot be replayed (R16.7).
+
+    One line, as a failure's is (R6.31): the replay's own error, which spans
+    several, put on one.
+    """
+    return f"  kept as it is: runs/{run_id}/ cannot be replayed: {' '.join(reason.split())}"
