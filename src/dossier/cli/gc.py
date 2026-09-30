@@ -7,7 +7,7 @@ from typing import Annotated
 
 import typer
 
-from dossier.application.gc import apply_plan, gc_plan, plan_size
+from dossier.application.gc import apply_plan, gc_plan, pin_runs, plan_size
 from dossier.domain.gc import (
     COLLECTED_CACHES,
     KEEP_LAST,
@@ -35,6 +35,14 @@ def gc(
         bool,
         typer.Option("--apply", help="Delete what the preview lists (R16.5)."),
     ] = False,
+    keep: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--keep",
+            help="Pin a run, so no gc deletes it: writes runs/<RUN>/keep (R16.6).",
+            metavar="RUN",
+        ),
+    ] = None,
 ) -> None:
     """Delete old runs, tries, replays and the cache entries no kept run reads.
 
@@ -42,6 +50,13 @@ def gc(
     that deletes cannot do so by accident (R16.5).
     """
     workspace = Path.cwd()
+    # Before anything is planned: a pin deletes nothing, so it is written with
+    # or without --apply, and the plan then sees the run as kept (R16.6).
+    try:
+        pin_runs(workspace, keep or [])
+    except ValueError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from error
     caches = {name: ArtifactCache(workspace, namespace=name) for name in COLLECTED_CACHES}
     plan = gc_plan(
         workspace,
