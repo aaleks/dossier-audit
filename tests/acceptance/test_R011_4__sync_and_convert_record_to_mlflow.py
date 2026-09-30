@@ -131,3 +131,23 @@ class TestSyncAndConvertRecordToMLflow:
         assert len(tracker.runs) == 2
         assert tracker.traces == []
         assert tracker.spans == []
+
+    @pytest.mark.parametrize("command", ["sync", "convert"])
+    def test_each_says_where_it_recorded(
+        self, synced: Path, monkeypatch, tracker: FakeTracker, command: str
+    ):
+        """Rows 4 and 5 — the ones that recorded, and say so where they were run."""
+        result = _run(synced, monkeypatch, command, PIPELINE)
+
+        assert result.exit_code == 0, result.output
+        assert result.stdout.splitlines()[-1] == (
+            f"recorded to MLflow: dossier-audit/{PIPELINE}/{command}"
+        ), result.output
+
+    @pytest.mark.parametrize("command", ["sync", "convert"])
+    def test_nothing_recorded_is_not_said_to_be(self, synced: Path, monkeypatch, command: str):
+        """Row 6, counter-example — the ones with tracking off."""
+        result = _run(synced, monkeypatch, command, PIPELINE)
+
+        assert result.exit_code == 0, result.output
+        assert "recorded to MLflow" not in result.output
