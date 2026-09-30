@@ -105,3 +105,10 @@ class TestCompareRefusesRunsShownDifferentReference:
             _plan(reference={"OPS-114": NEW_SNAPSHOT}, verify=["documents", "extract"]),
             runs=RUNS,
         )
+        # Nor does a step whose input sorts after `reference`: `summary` is a
+        # step's name, and reading it is not reading the reference documents.
+        check_same_reference(
+            _plan(reference={"OPS-114": SNAPSHOT}, verify=["documents", "summary"]),
+            _plan(reference={"OPS-114": NEW_SNAPSHOT}, verify=["documents", "summary"]),
+            runs=RUNS,
+        )

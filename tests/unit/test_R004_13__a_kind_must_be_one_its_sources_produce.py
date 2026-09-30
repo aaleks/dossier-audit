@@ -145,3 +145,23 @@ class TestAKindMustBeOneItsSourcesProduce:
             sources=[source(MANUAL)],
             reference=[],
         )
+
+    def test_a_kind_after_the_sugar_and_a_step_id_is_still_checked(self):
+        """Example 6: the one where `previous` and `extract` come first."""
+        with pytest.raises(ValueError, match="page_images"):
+            check_kinds(
+                steps=[step("describe", ["previous", "extract", "documents@page_images"])],
+                sources=[source(MANUAL)],
+                reference=[],
+            )
+
+    def test_the_second_source_is_checked_after_a_silent_first(self):
+        """Example 7: the one where `incidents-jira` declares nothing and the manual, images."""
+        with pytest.raises(ValueError) as raised:
+            check_kinds(
+                steps=[step("extract", "documents")],
+                sources=[source(JIRA), source(MANUAL, convert=["page_images"])],
+                reference=[],
+            )
+
+        assert MANUAL in str(raised.value)

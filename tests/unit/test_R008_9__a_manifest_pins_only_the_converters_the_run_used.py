@@ -194,6 +194,21 @@ class TestAManifestPinsOnlyTheConvertersTheRunUsed:
 
         assert pinned == [PDF_MARKDOWN_RAISED]
 
+    def test_a_document_nothing_claims_pins_nothing_and_stops_nothing(self):
+        """Example 3 beside R8.25: the one where a file nothing converts is held first.
+
+        It fails on its own and pins no converter; the markdown after it is
+        still pinned.
+        """
+        from dossier.domain.conversion import used
+
+        pinned = used(
+            requests=[("application/x-ndjson", None), ("text/markdown", None)],
+            available=[PDF_MARKDOWN, MARKDOWN_TEXT],
+        )
+
+        assert pinned == [MARKDOWN_TEXT]
+
     def test_a_run_holding_nothing_pins_nothing(self):
         """Counter-example (row 5): the one over an empty source (R4.12 row 10)."""
         from dossier.domain.conversion import used
