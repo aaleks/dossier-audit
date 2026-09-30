@@ -1,7 +1,7 @@
 # 000 — Overview, vocabulary and global invariants
 
 **Status:** Implemented
-**Rules:** R0.1 – R0.14
+**Rules:** R0.1 – R0.15
 
 ## Purpose
 
@@ -466,3 +466,33 @@ that R0.2's reasoning says should never be rewritten in place.
 | 4 | a record whose `document` is `PLAY-1001.md` and whose `fields` list is empty | `{"document": "PLAY-1001.md", "fields": []}` indented; an empty list is still a record, and `document` still precedes `fields` |
 | 5 | *counter-example* — a `report` step with no `output` declaration | `report/PLAY-1001.md.md` holds the model's prose exactly as returned, with no newline appended and no formatting applied; there is no JSON here to indent |
 | 6 | *counter-example* — a cache entry written before this rule, still hit | served and copied as stored, on one line; nothing rewrites an entry in place, and the key it is held under did not move |
+
+### R0.15 — a run started in the same second as a run already filed is filed after it, so run ids sort in the order runs started
+
+A run is filed as `<started>-<suffix>` (R0.8), and every reader of "the latest
+run" takes the last by name: `dossier eval` (R7.10), `--plan` (R4.6), the
+warning that the source has moved (R4.9 row 4), and the runs `gc` keeps (R16.2).
+The time is to the second, and the suffix was drawn at random, so two runs
+started within one second sorted by chance, and the latest could be the earlier
+of the two. Found by the live check that closed spec 016, with a stub model fast
+enough for two runs to share a second.
+
+The id keeps its form. When the second already holds a run, the suffix is the
+one after the last used in it; otherwise it is drawn at random, as before. A
+try is filed under `tries/` and ordered among tries (R4.22). Two runs started at
+the same moment by two processes are not ordered by this: neither is filed when
+the other looks.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.resolution.run_id`), cli (`dossier.cli.run`)
+- **Proved by:** `tests/unit/test_R000_15__run_ids_sort_in_the_order_runs_started.py`
+- **Status:** MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `20260806T142203Z-4f1a` under `runs/`, and a run started at `2026-08-06T14:22:03Z` drawing `0bbb` | `20260806T142203Z-4f1b`: after `4f1a`, not before it |
+| 2 | the same, drawing `9c2e` | `20260806T142203Z-9c2e`: the draw already sorts after |
+| 3 | `20260806T142203Z-ffff` under `runs/`, and a draw of `0bbb` | `20260806T142203Z-ffff0`: no four-digit suffix sorts after `ffff` |
+| 4 | two `dossier run incident-audit` in one second, the second drawing a smaller suffix than the first | the second's id sorts last, and `dossier eval` scores the second |
+| 5 | *counter-example* — `20260907T090000Z-bbbb` under `runs/`, and a run started at `2026-08-06T14:22:03Z` drawing `0bbb` | `20260806T142203Z-0bbb`: no run shares its second, so the draw stands |
+| 6 | *counter-example* — `dossier run incident-audit --doc INC-4821` in the second of `20260806T142203Z-4f1a`, drawing `0bbb` | `tries/20260806T142203Z-0bbb`: a try is ordered among tries, and none shares its second |

@@ -44,7 +44,7 @@ from dossier.domain.pipeline import PipelineConfig, SourceConfig
 from dossier.domain.plan import check_tried
 from dossier.domain.ports import ImagePart
 from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
-from dossier.domain.store import replay_path, try_path
+from dossier.domain.store import RUNS_ROOT, TRIES_ROOT, replay_path, try_path
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.domain.tracking import NAMESPACE, failure_line, label_for, step_line
 from dossier.infrastructure.cache import ArtifactCache
@@ -402,7 +402,15 @@ def _execute(
     # the ones the run used rather than the ones this machine carries (R8.9).
     requests: list[tuple[str, Sequence[str] | None]] = []
     started_at = datetime.now(UTC)
-    this_run = run_id(started_at, token_hex(2))
+    # Filed after any run already filed in the same second, so the latest by
+    # name is the latest started (R0.15). A try is ordered among tries: it is
+    # filed under `tries/`, and no reader of `runs/` sees it (R4.20).
+    filed_under = workspace / (TRIES_ROOT if tried else RUNS_ROOT)
+    this_run = run_id(
+        started_at,
+        token_hex(2),
+        taken=[path.name for path in filed_under.iterdir()] if filed_under.is_dir() else [],
+    )
     convert_cache = ArtifactCache(workspace, namespace="convert")
     unreadable: list[tuple[str, str, str]] = []
 
