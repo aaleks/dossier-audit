@@ -1,6 +1,6 @@
 # 007 — Gold sets, scoring and the change gate
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R7.1 – R7.56
 
 ## Purpose
@@ -1627,7 +1627,7 @@ same words (R17.6 row 7).
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.gold.read_gold_file`), read by application (`dossier.application.eval.load_gold`), refused by cli (`dossier.cli.eval.refuse_unmeetable_gold`)
 - **Proved by:** `tests/unit/test_R007_56__an_unreadable_gold_file_is_refused.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
