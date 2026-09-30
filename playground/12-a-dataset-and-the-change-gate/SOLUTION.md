@@ -343,6 +343,19 @@ comparison where nothing regressed from one recorded before the tag existed, whi
 is the same reasoning that has `sync` attach a `changes.json` whose lists are all
 empty rather than no artifact (R11.6 row 2). So it is present and empty.
 
+(The run above was recorded before R11.29, so it has no `dossier.lost`. Yours
+has one, present and empty.)
+
+**A lost document is its own tag.** `dossier.regressed` holds field names, and
+the filter above treats it that way. Put `PLAY-1004.md` in it and every reader
+that takes the tag as a list of fields is wrong. A comparison scores both runs
+over the documents both answered (R7.54), so a lost document moves no field. It
+is named on its `not compared` line, in `dossier.lost`, and in the description,
+whose `regressed` line reads `regressed PLAY-1004.md (failed at extract)`
+(R11.30). The filter is ``tags.`dossier.lost` != ''``. MLflow's search has no
+`OR`, so "did anything regress at all" is two searches, one per tag. That is
+the price of keeping the field tag readable as fields.
+
 **Why `compare/` and not beside the evals.** Put `accuracy/severity` and
 `delta/severity` in one experiment and MLflow shows you a column of numbers where
 `100.0` means "all correct" in some rows and "improved by a hundred points" in

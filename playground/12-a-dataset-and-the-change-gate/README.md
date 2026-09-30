@@ -253,6 +253,11 @@ Open that experiment and read the run.
 - `dossier.regressed` is `loss_amount, resolution_date`. Build the MLflow filter
   that finds every comparison in which `affected_systems` regressed. Then consider
   what an *absent* tag would have meant on a comparison where nothing regressed.
+- Beside it, `dossier.lost` is present and empty. It names a different kind of
+  regression: a document run B failed that run A answered, which exercise 06's
+  `--compare` marks `<- regression` (R7.55, R11.29). Why is that not in
+  `dossier.regressed`? Write the filter for every comparison that lost a
+  document, and say what it costs to ask "did anything regress at all".
 - Why is this run in `compare/` rather than beside the evals? Put
   `accuracy/severity` and `delta/severity` in one experiment in your head and say
   what goes wrong.

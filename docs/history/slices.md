@@ -13,6 +13,25 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A comparison that lost a document says so on its record (R11.29, R11.30).
+R7.55 marks a document `b` failed and `a` answered as a regression, and keeps it
+out of `dossier.regressed`, which names fields. That left the terminal and
+`deltas.md` as the only places the loss appeared: the record was tagged
+`dossier.regressed` empty, as a comparison that changed nothing is, and its
+description said `regressed nothing` beside the marked document. So a search for
+regressions missed the worst one. `dossier.lost` now names those documents,
+present and empty when there are none, and the description's `regressed` line
+names them after the fields: `regressed INC-4822 (failed at extract)`. One
+decision, `lost_documents`, is behind the marker, the tag and the line, so they
+cannot disagree. The live check ran exercise 06's failed `PLAY-1004.md` against
+the local MLflow in both directions and read both records back. The lost
+comparison was tagged `PLAY-1004.md`, and the recovered one was tagged present
+and empty, with `regressed nothing`. The server kept the empty tag, and the
+filter ``tags.`dossier.lost` != ''`` found the lost comparison alone. While
+writing the rule, R11.12 row 3 turned out to spell the line
+`regressed: affected_systems`, which no code had ever written. It now reads as
+shipped.
+
 Two things the `gc` live check showed (R11.28 rows 6 and 7, R0.15). `gc --apply`
 now ends with `recorded to MLflow: dossier-audit/gc`, as `eval` and `calibrate`
 end with theirs; `sync` and `convert` still print no such line, which is the
