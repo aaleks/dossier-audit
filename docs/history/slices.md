@@ -34,6 +34,11 @@ in four places, each found by asking what a real workspace leaves behind:
   (R17.6 rows 5 and 6). R17.4 row 6 now uses an output declaring no judged
   field, as it says.
 
+Mutation testing of `domain/status.py` gave 30 mutants and one survivor: a
+`continue` made `break`, so a pipeline with no run would have ended the list.
+The test for R17.3 row 3 had put the never-run pipeline last. It now puts it
+first, and all 30 are killed.
+
 ---
 
 `dossier status` (2026-09-30, spec 017 and R11.32, #635 to #641). A stale

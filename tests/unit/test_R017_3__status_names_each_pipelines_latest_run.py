@@ -71,10 +71,18 @@ class TestStatusNamesEachPipelinesLatestRun:
         assert line.endswith("· 4 documents · 1 failed")
 
     def test_a_pipeline_with_no_run_says_so(self):
-        """Row 3, counter-example — the one `postmortem-review` has never run."""
-        lines = pipeline_lines(["incident-audit", "postmortem-review"], [run(LATEST)])
+        """Row 3, counter-example — the one `postmortem-review` has never run.
 
-        assert lines[1] == "postmortem-review · no run yet"
+        Named first, so a pipeline with no run is seen not to end the list: every
+        pipeline after it is still named (a survivor of mutation testing, found
+        by the /verify of 2026-09-30).
+        """
+        lines = pipeline_lines(["postmortem-review", "incident-audit"], [run(LATEST)])
+
+        assert lines == [
+            "postmortem-review · no run yet",
+            f"incident-audit · latest run {LATEST} · 4 documents · 0 failed",
+        ]
 
     def test_a_directory_with_no_manifest_is_not_the_latest_run(self, tmp_path: Path):
         """Row 4, counter-example — the one a person left under `runs/`, named last.
