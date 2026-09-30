@@ -116,6 +116,7 @@ it: the next run reads it, and re-converting a scanned PDF takes minutes
 | 4 | a conversion of `INC-4821`'s current snapshot, made by `dossier convert` after the latest run | kept: the document is held now, and the next run reads it |
 | 5 | *counter-example* — the conversion of `INC-4821`'s previous snapshot, which no kept run read | deleted |
 | 6 | *counter-example* — `.dossier/cache/judge`, `.dossier/snapshots/` and `.dossier/ledger.db` | not a byte changes |
+| 7 | the conversion of `INC-4821`'s previous snapshot, read by `20260806T142203Z-4f1a`, which `--keep-last 2` keeps | kept: the ledger no longer holds that snapshot, and the kept run is reproduced from it |
 
 ### R16.4 — `gc` deletes every try and every replay, under a kept run as well
 
