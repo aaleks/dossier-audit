@@ -20,7 +20,7 @@ import pytest
 from tests.pipelines import PROVIDERS, write_pipeline
 
 from dossier.application.eval import CALIBRATIONS_DIR, judge_prompt_hash
-from dossier.cli.eval import _judge_gate
+from dossier.cli.eval import judge_gate
 from dossier.config.load import load_pipeline
 from dossier.domain.grounding import DESCRIBED, GROUNDED, judge_name, judged_states
 from dossier.domain.hashing import text_hash
@@ -71,7 +71,7 @@ def _calibrate(gold: Path, pipeline: Path, *, state: str, agreement: float) -> N
 
 
 def _gate(pipeline: Path, gold: Path, config):
-    return _judge_gate(
+    return judge_gate(
         gold,
         pipeline.parent / "schemas" / "incident.yaml",
         pipeline.parent,

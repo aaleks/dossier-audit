@@ -128,3 +128,19 @@ def pipeline_lines(pipelines: Sequence[str], runs: Iterable[RunSeen]) -> list[st
             f" · {len(set(seen.failed))} failed"
         )
     return lines
+
+
+def judged_lines(fields: Sequence[str], withheld: Mapping[str, str]) -> list[str]:
+    """One line per judged field: `reportable`, or why `eval` would withhold it (R17.4).
+
+    The reason is `withholding`'s, passed through unchanged, so `status` and
+    `eval` say the same thing in the same words.
+    """
+    if not fields:
+        return ["no judged fields"]
+    return [
+        f"{field} · withheld: {withheld[field]}"
+        if field in withheld
+        else f"{field} · reportable"
+        for field in fields
+    ]

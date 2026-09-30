@@ -107,7 +107,7 @@ def has_per_part(config) -> bool:
     return any(step.mode == "per_part" and step.output is not None for step in config.steps)
 
 
-def _judge_gate(
+def judge_gate(
     directory: Path, declaration: Path, pipeline_dir: Path, model: str, *, states=(GROUNDED,)
 ) -> tuple[dict[str, Calibration], dict[str, str]]:
     """Which judged fields may be reported, and why the rest may not (R7.15, R7.23).
@@ -245,7 +245,7 @@ def eval_(
     )
     scores = score_run(report=scored, gold=load_gold(workspace / gold), kinds=kinds)
 
-    judges, withheld = _judge_gate(
+    judges, withheld = judge_gate(
         workspace / gold,
         path.parent / step.output,
         path.parent,
@@ -494,7 +494,7 @@ def _compare_runs(
     # Gated exactly as an eval is (R7.17 row 7): the change gate is the place a
     # judge's number is most likely to be quoted, and a withheld field prints
     # its reason on both sides and no delta.
-    _, withheld = _judge_gate(
+    _, withheld = judge_gate(
         workspace / gold,
         declaration,
         pipeline_dir,

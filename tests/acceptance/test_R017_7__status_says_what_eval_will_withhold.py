@@ -35,8 +35,6 @@ from tests.scoring_example import (
     RoutedModel,
 )
 
-pytestmark = pytest.mark.outer_loop
-
 JUDGED = "root_cause"
 GOLD = "gold/incidents"
 

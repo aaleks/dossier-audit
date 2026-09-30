@@ -112,9 +112,9 @@ no general tool knows.
 ### R17.4 — `dossier status PIPELINE --gold DIR` names each judged field with the reason `dossier eval PIPELINE --gold DIR` would withhold it, or `reportable`
 
 - **Kind:** deterministic
-- **Layer:** application (`dossier.application.status`), deciding by domain (`dossier.domain.judges.withholding`)
+- **Layer:** cli (`dossier.cli.status.judged_fields`, asking `eval`'s own `dossier.cli.eval.judge_gate`), deciding by domain (`dossier.domain.judges.withholding`, `dossier.domain.status.judged_lines`)
 - **Proved by:** `tests/unit/test_R017_4__status_names_what_eval_would_withhold.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -160,7 +160,7 @@ field that eval then withholds, in the same words. After `dossier calibrate`,
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.status`, `dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R017_7__status_says_what_eval_will_withhold.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

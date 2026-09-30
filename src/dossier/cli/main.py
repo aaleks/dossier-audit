@@ -18,6 +18,7 @@ from dossier.cli.gc import gc
 from dossier.cli.prompts import prompts_app
 from dossier.cli.review import review_app
 from dossier.cli.run import run
+from dossier.cli.status import status
 from dossier.cli.sync import sync
 
 app = typer.Typer(add_completion=False)
@@ -40,6 +41,7 @@ app.command()(convert)
 app.command()(calibrate)
 app.command("eval")(eval_)
 app.command()(gc)
+app.command()(status)
 app.add_typer(dataset_app, name="dataset")
 app.add_typer(review_app, name="review")
 app.add_typer(prompts_app, name="prompts")
