@@ -43,6 +43,7 @@ from dossier.domain.resolution import ResolvedPlan
 from dossier.domain.schemas import FieldRecord
 from dossier.domain.scoring import (
     DocumentScore,
+    Failure,
     FieldDelta,
     FieldKind,
     FieldTotal,
@@ -1198,7 +1199,12 @@ SCORES_NAME = "scores.json"
 DELTAS_NAME = "deltas.md"
 
 
-def scores_artifact(scores: Sequence[DocumentScore], *, withheld: Mapping[str, str]) -> bytes:
+def scores_artifact(
+    scores: Sequence[DocumentScore],
+    *,
+    withheld: Mapping[str, str],
+    not_scored: Sequence[Failure] = (),
+) -> bytes:
     """`scores.json`: every verdict an eval reached, with the detail it printed (R11.14).
 
     The percentage says a field is at 75.0%; these entries say which document and
@@ -1214,6 +1220,11 @@ def scores_artifact(scores: Sequence[DocumentScore], *, withheld: Mapping[str, s
     A withheld field is named with its reason rather than dropped: an absent
     entry reads as a field nobody verified, which wants different work (R7.15,
     R7.3 row 4).
+
+    A document the run failed is named under `not_scored`, with the step and the
+    reason its `not scored` line printed (R11.31). Without it, the entries held
+    three documents of four and nothing said why. Present and empty when nothing
+    failed, as `changes.json`'s lists are (R11.6 row 2).
     """
     entries = sorted(
         (
@@ -1229,7 +1240,23 @@ def scores_artifact(scores: Sequence[DocumentScore], *, withheld: Mapping[str, s
         ),
         key=lambda entry: (entry["document"], entry["field"]),
     )
-    record = {"scores": entries, "withheld": dict(sorted(withheld.items()))}
+    unscored = sorted(
+        (
+            {
+                "document": document,
+                "step": step,
+                # On one line, as the `not scored` line prints it (R6.31).
+                "reason": " ".join(reason.split()) if reason else None,
+            }
+            for step, document, reason in not_scored
+        ),
+        key=lambda entry: entry["document"],
+    )
+    record = {
+        "scores": entries,
+        "withheld": dict(sorted(withheld.items())),
+        "not_scored": unscored,
+    }
     return (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 

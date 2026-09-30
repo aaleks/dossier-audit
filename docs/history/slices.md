@@ -13,6 +13,16 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+An eval's record names the documents it did not score (R11.31). R7.52 has
+`eval` count a failed document in its headline and name it on a `not scored`
+line, and its record kept only the count: the description said `4 documents`
+over a run it scored three of, and `scores.json` held entries for three with
+nothing saying why the fourth was missing. It is R11.27 for an eval, since a
+comparison's record already named what it left out. The description now counts
+`3 of 4 documents`, through one helper shared with the comparison's, and
+`scores.json` gains `not_scored`, the document, step and one-line reason.
+`not_scored` is present and empty when nothing failed.
+
 `sync` and `convert` say they recorded (R11.4 rows 4 to 6). They were the last
 two commands that recorded to MLflow without saying so: `run`, `eval`,
 `calibrate` and, since R11.28 row 6, `gc` end with

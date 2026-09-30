@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.31
 
 ## Purpose
@@ -834,7 +834,7 @@ landed, on 2026-09-30.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.eval`), application (`dossier.application.eval.scores_artifact`), domain (`dossier.domain.tracking.eval_description`)
 - **Proved by:** `tests/unit/test_R011_31__an_eval_records_what_it_did_not_score.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
