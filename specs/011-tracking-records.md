@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.28
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.30
 
 ## Purpose
 
@@ -23,7 +23,7 @@ that could disagree with the terminal would leave nobody sure which to believe.
 | `dossier sync` | one | none | `<source>/known`, `/changed`, `/new`, `/returned`, `/fetched`, `/failed` (R11.25); `changes.json` attached (R11.6, R11.24) |
 | `dossier convert` | one | none | `<source>/held`, `/converted`, `/cached`, `/failed`, `/left_out` (R11.26) |
 | `dossier calibrate` | one, per gold set | one per sample case | `judge/<field>/agreement`, `judge/<field>/cases` |
-| `dossier eval --compare a b` | one | none | `a/<field>`, `b/<field>`, `delta/<field>`, and the same three for the overall (R11.8); `a/failed`, `b/failed` when a run failed a document (R11.27) |
+| `dossier eval --compare a b` | one | none | `a/<field>`, `b/<field>`, `delta/<field>`, and the same three for the overall (R11.8); `a/failed`, `b/failed` when a run failed a document (R11.27); the documents `b` lost tagged `dossier.lost` (R11.29) |
 | `dossier gc --apply` | one, in `dossier-audit/gc` (R11.28) | none | `runs`, `tries`, `replays`, `entries`, `megabytes`; `collected.json` attached |
 | `dossier run --plan`, `--replay`, `dossier gc` without `--apply` | none | none | none |
 | `dossier dataset publish` | none | none | none; it publishes a dataset rather than recording a run (spec 012) |
@@ -310,7 +310,7 @@ Carried in `mlflow.note.content`, one of the four tags R10.12 permits.
 |---|-------|------|
 | 1 | the scoring example (R7.2) | the description holds `overall 80.0% over 5 fields`, `root_cause 50.0% — weakest`, the run id scored, the pinned model, and `gold incidents 3b7e1d90` |
 | 2 | `root_cause` withheld because its calibration is stale (R7.15) | the description names the field and the reason, as the terminal line does, and states no accuracy for it |
-| 3 | the comparison example (R7.8) | `overall 80.0% -> 90.0% (+10.0)`, `regressed: affected_systems`, both run ids and both pinned models |
+| 3 | the comparison example (R7.8) | `overall 80.0% -> 90.0% (+10.0)`, `regressed affected_systems`, both run ids and both pinned models |
 | 4 | *counter-example* — a comparison refused because the two runs cover different documents (R7.8 row 3) | no run is opened, so there is no description. Nothing was measured |
 | 5 | *counter-example* — the same eval run twice, with tracking on and off | byte-identical manifests and stage keys (R10.4). A description is a record, and a record is not an input |
 
@@ -764,3 +764,49 @@ found by the live check that closed spec 016.
 | 5 | *counter-example* — `dossier gc --apply` with nothing to collect, tracking on | 0 MLflow runs |
 | 6 | row 1's `gc --apply` | its last line is `recorded to MLflow: dossier-audit/gc`: the one extra line R10.4 row 3 allows a command that records, as `eval` and `calibrate` print theirs |
 | 7 | *counter-example* — the same `gc --apply`, tracking off | no `recorded to MLflow` line: nothing was recorded |
+
+### R11.29 — a comparison names the documents the change lost on its run, as `dossier.lost`
+
+R7.55 marks a document `b` failed and `a` answered as a regression, and keeps
+it out of `dossier.regressed`, which names fields (R11.9). The marker reached
+the terminal and `deltas.md` (R11.27) and nothing a person can filter on. A
+comparison whose change broke a document was tagged `dossier.regressed` empty,
+as one that changed nothing is, so a search for regressions missed the worst
+one. `dossier.lost` names those documents, in the order the terminal does, and
+is present and empty when there are none, for the reason R11.9 row 3 gives.
+Found after R7.55 landed. Decided by `a.aleks` on 2026-09-30. This is the
+slice's acceptance rule, proved through `dossier eval --compare`.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval.record_comparison`), domain (`dossier.domain.tracking.lost_documents`)
+- **Proved by:** `tests/acceptance/test_R011_29__compare_tags_the_documents_it_lost.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | R7.54 row 1's comparison, tracking on: `20260907T090000Z-bbbb` failing `INC-4822` at `extract`, which `20260806T142203Z-4f1a` answered | `dossier.lost=INC-4822`, and `dossier.regressed` present and empty: it names fields, and no field moved |
+| 2 | `20260907T090000Z-bbbb` failing `INC-4822` and `INC-4901`, both answered by `20260806T142203Z-4f1a` | `dossier.lost=INC-4822, INC-4901`, in the order the `not compared` lines name them |
+| 3 | *counter-example* — `20260806T142203Z-4f1a` failing `INC-4822`, which `20260907T090000Z-bbbb` answered | `dossier.lost` present and empty: the change recovered it (R7.55 row 3) |
+| 4 | *counter-example* — both runs failing `INC-4822` | present and empty: the change lost nothing (R7.55 row 2) |
+| 5 | *counter-example* — neither run failed a document | present and empty. An absent tag reads as a record written before this rule existed (R11.9 row 3) |
+
+### R11.30 — a comparison's description says `regressed nothing` only when the terminal marked nothing
+
+R11.12 has a comparison's description say what regressed, restating the
+terminal's markers. R7.55 added a marker it did not read, so beside
+`INC-4822 … <- regression` the description said `regressed nothing`. The
+`regressed` line names each document the change lost after the fields, with
+the step that failed it: fields first, as the terminal prints them above the
+documents. Decided by `a.aleks` on 2026-09-30.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.tracking.comparison_description`)
+- **Proved by:** `tests/unit/test_R011_30__a_comparison_describes_what_it_lost.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | R7.54 row 1's comparison | `regressed INC-4822 (failed at extract)` |
+| 2 | the same, with `affected_systems` flagged as regressed too | `regressed affected_systems, INC-4822 (failed at extract)` |
+| 3 | *counter-example* — `20260806T142203Z-4f1a` failing `INC-4822`, which `20260907T090000Z-bbbb` answered | `regressed nothing`: the change recovered it |
+| 4 | *counter-example* — both runs failing `INC-4822` | `regressed nothing`: the change lost nothing |
