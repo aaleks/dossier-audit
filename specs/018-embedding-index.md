@@ -313,6 +313,7 @@ support.
 | 2 | `INC-4830`'s `root_cause`, grounded: `Certificate renewal and certificate deployment were two separate processes, and only the first was automated.` | a chunk of kind `record` whose text holds `root_cause: Certificate renewal and certificate deployment were two separate processes, and only the first was automated.` |
 | 3 | *counter-example* — `component: payments-api`, whose span is not in `INC-4830` | not carried; `INC-4830: 1 value left out: ungrounded` |
 | 4 | *counter-example* — `root_cause_category` abstained: `null`, with a reason | no value: the document does not state one |
+| 5 | `INC-4830`'s `failure_category` answered `Certificate-Expiry`, grounded, where the declaration writes `certificate-expiry` | carried as `certificate-expiry`, the declared spelling: the check let it through folded (R6.26), and a filter on the declared value must find what `eval` scored correct |
 
 ### R18.10 — an index declaration is refused at load when a field is undeclared, a filter is free text, an embedded field is a category, or the model is not pinned
 
