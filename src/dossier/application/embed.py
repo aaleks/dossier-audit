@@ -39,9 +39,17 @@ from dossier.domain.index import (
     vector_column,
 )
 from dossier.domain.keys import embedding_key
-from dossier.domain.ports import ArtifactStore, Chunker, EmbeddingProvider, IndexSink
+from dossier.domain.ports import (
+    ArtifactStore,
+    Chunker,
+    EmbeddingProvider,
+    IndexSink,
+    Tracker,
+)
 from dossier.domain.schemas import FieldRecord, StageOutput
 from dossier.domain.store import RUNS_ROOT
+from dossier.domain.tracking import label_for, run_name
+from dossier.domain.tracking import tags as tracking_tags
 
 # How many texts one request for vectors carries. A few dozen keeps a request
 # small enough to retry and a CPU-bound model responsive; nothing depends on
@@ -65,6 +73,14 @@ class ToIndex:
 
 
 @dataclass(frozen=True)
+class EmbedRequest:
+    """One request for vectors: the chunks it was for, and what the model counted (R11.33)."""
+
+    chunk_ids: tuple[str, ...]
+    tokens: int | None
+
+
+@dataclass(frozen=True)
 class EmbedReport:
     """What one `dossier embed` did, in the counts its line prints (R18.7)."""
 
@@ -77,6 +93,8 @@ class EmbedReport:
     # What the command says about a document beyond the counts: a record not
     # carried, or values left out of one (R18.8, R18.9). Printed before the line.
     notes: tuple[str, ...] = ()
+    # Each request the model was sent, in order: a trace each (R11.33).
+    requests: tuple[EmbedRequest, ...] = ()
 
     @property
     def line(self) -> str:
@@ -170,9 +188,17 @@ def embed_index(
     cached = sum(1 for cut in every if cut.embedded_as in held_vectors)
 
     answered: dict[str, tuple[float, ...]] = {}
+    requests: list[EmbedRequest] = []
     for start in range(0, len(missing), BATCH):
         batch = missing[start : start + BATCH]
         replies = embedder.embed(batch)
+        asked = set(batch)
+        requests.append(
+            EmbedRequest(
+                chunk_ids=tuple(cut.chunk_id for cut in every if cut.embedded_as in asked),
+                tokens=getattr(embedder, "last_tokens", None),
+            )
+        )
         if len(replies) != len(batch):
             raise ValueError(
                 f"{model} answered {len(replies)} vectors for {len(batch)} texts: "
@@ -243,6 +269,7 @@ def embed_index(
         written=len(write),
         removed=len(remove),
         notes=tuple(notes),
+        requests=tuple(requests),
     )
 
 
@@ -327,3 +354,69 @@ def read_latest_run(workspace: Path, pipeline: str, step: str) -> LatestRun | No
         failed=failed,
         records=answers,
     )
+
+
+def record_embed(
+    tracker: Tracker,
+    *,
+    experiment: str,
+    declaration: IndexDeclaration,
+    report: EmbedReport,
+    started: str,
+    environ: Mapping[str, str],
+    dossier_version: str,
+) -> bool:
+    """Record an `embed` that changed the index as one MLflow run, or nothing (R11.33).
+
+    Opened once the index is written, as `gc`'s record is once the deleting is
+    done: what it records are the counts the line printed. Each request for
+    vectors is a model call, and a trace. An `embed` that wrote and removed
+    nothing changed nothing, and records nothing, as a `gc` that found nothing
+    to delete does. Answers whether it recorded.
+    """
+    if not (report.written or report.removed):
+        return False
+    label = label_for(None, environ)
+    tracker.start_run(
+        experiment=experiment,
+        name=run_name(
+            kind="embed",
+            values={"index": declaration.name, "started": started, "label": label},
+            environ=environ,
+        ),
+        tags=tracking_tags(
+            kind="embed", pipeline=declaration.pipeline, label=label, environ=environ
+        ),
+    )
+    params = {"index": declaration.name, "embedding_model": declaration.embedding_model}
+    if dossier_version:
+        params["dossier_version"] = dossier_version
+    tracker.log_params(params)
+    tracker.log_metrics(
+        {
+            "chunks": report.chunks,
+            "embedded": report.embedded,
+            "cached": report.cached,
+            "written": report.written,
+            "removed": report.removed,
+        }
+    )
+    for at, asked in enumerate(report.requests, start=1):
+        tracker.start_trace(
+            name=f"embed {declaration.name} · request {at}",
+            tags={"dossier.kind": "embed"},
+            inputs={"chunks": list(asked.chunk_ids)},
+        )
+        tracker.span(
+            kind="embedding",
+            name=declaration.embedding_model,
+            attributes={
+                "dossier.model": declaration.embedding_model,
+                "dossier.chunks": list(asked.chunk_ids),
+                "dossier.tokens": asked.tokens,
+            },
+        )
+        tracker.end_trace(status="OK")
+    tracker.describe(report.line)
+    tracker.end_run(status="FINISHED")
+    return True

@@ -42,6 +42,7 @@ class OllamaEmbeddings:
         # Checked once, before the first request, as the chat client checks it:
         # an embed served wholly from the cache asks the server nothing (R18.3).
         self._unchecked = True
+        self.last_tokens: int | None = None
         self._checking = threading.Lock()
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
@@ -64,6 +65,9 @@ class OllamaEmbeddings:
         body = {"model": self._name, "input": list(texts), "truncate": False}
         response = request(self._http, "POST", self._url, json=body, sleep=self._sleep)
         vectors = _vectors(response)
+        # What the model counted, for the trace of this request (R11.33).
+        counted = response.json().get("prompt_eval_count")
+        self.last_tokens = counted if isinstance(counted, int) else None
         if len(vectors) != len(texts):
             # A vector filed under the wrong chunk would be found for text it
             # does not describe, so a count that does not match files nothing.

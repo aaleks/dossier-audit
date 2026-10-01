@@ -825,6 +825,8 @@ class FakeEmbeddingProvider:
     def __init__(self, dimensions: int = 2560) -> None:
         self.dimensions = dimensions
         self.requests: list[list[str]] = []
+        # A model's count of the tokens it read; here, the words (R11.33).
+        self.last_tokens: int | None = None
 
     @property
     def calls(self) -> int:
@@ -836,6 +838,7 @@ class FakeEmbeddingProvider:
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
         self.requests.append(list(texts))
+        self.last_tokens = sum(len(text.split()) for text in texts)
         return [self._vector(text) for text in texts]
 
     def _vector(self, text: str) -> list[float]:

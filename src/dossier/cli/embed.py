@@ -8,13 +8,15 @@ ledger holds active are converted as a run converts them, and handed over.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from dossier.application.convert import convert_source
-from dossier.application.embed import ToIndex, embed_index, read_latest_run
+from dossier.application.embed import ToIndex, embed_index, read_latest_run, record_embed
 from dossier.cli import bootstrap
 from dossier.cli.convert import exit_if_unconvertible, read_holdings
 from dossier.config.endpoints import index_dsn
@@ -43,6 +45,7 @@ def embed(
 ) -> None:
     """Write a pipeline's documents into its index, asking only for missing vectors."""
     workspace = Path.cwd()
+    started = f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     try:
         sources = load_sources(workspace / "sources.yaml", connectors=declared_keys())
         declaration = load_index(
@@ -68,6 +71,9 @@ def embed(
     except (ConfigError, UnknownChunker, UnknownProvider, IndexSinkFailed) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
+    # Before any work, as every command's: a server nobody can reach is refused
+    # now, not after the model has been asked for every vector (R10.5, R11.33).
+    tracker, experiment = bootstrap.tracking_for(workspace, declaration.pipeline, kind="embed")
 
     declared = {source.id: source for source in sources}
     converters = bootstrap.converters_for(workspace)
@@ -118,3 +124,14 @@ def embed(
     for note in report.notes:
         typer.echo(note)
     typer.echo(report.line)
+    if tracker is not None and record_embed(
+        tracker,
+        experiment=experiment or "",
+        declaration=declaration,
+        report=report,
+        started=started,
+        environ=environment(workspace),
+        dossier_version=version("dossier"),
+    ):
+        # Said where it was made, as `gc` and `eval` say theirs (R10.4 row 3).
+        typer.echo(f"recorded to MLflow: {experiment}")
