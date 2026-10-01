@@ -1,7 +1,7 @@
 # 019 — Searching the index
 
-**Status:** Implemented
-**Rules:** R19.1 – R19.8
+**Status:** Partially implemented
+**Rules:** R19.1 – R19.9
 
 ## Purpose
 
@@ -43,7 +43,8 @@ The query is asked twice of one index, inside one transaction:
   through the HNSW index (R18.5).
 - **By words:** the chunks whose `text_search` matches
   `websearch_to_tsquery('simple', QUERY)`, ranked by `ts_rank_cd`. `simple`,
-  as the index was written (spec 018).
+  as the index was written (spec 018). A chunk's words are its heading path
+  and its text, the text its vector was made from (R19.9).
 
 Each list holds at most 100 chunks, after the filters. The two are fused by
 **reciprocal rank fusion**: a chunk's score is the sum, over the lists it is
@@ -291,3 +292,26 @@ index as fakes, as R18.7's are.
 | 2 | the same, `--json` | one JSON object: `index`, `query`, `reader`, and `results`, each with `rank`, `document_id`, `title`, `values`, the chunk's `heading_path`, `kind` and `text`, and its `score`; nothing else on stdout |
 | 3 | *counter-example* — `dossier search incidents "kubernetes"`, which no chunk matches by words, and only far chunks by meaning | the documents by meaning still listed: a fusion of one list is that list |
 | 4 | *counter-example* — `--where component=payments-api`, which no document carries | `no documents found`; exit 0 |
+
+### R19.9 — a chunk's words are its heading path and its text, the text its vector was made from
+
+`text_search` is the `tsvector` of what R18.3 embeds: the chunk's heading
+path, then its text. A note's key and title are in its first heading, which
+every chunk beneath it carries in its heading path and none holds in its text.
+Searched by its text alone, a chunk is near its key in meaning and does not
+hold it in words, and a search for `PLAY-1004` listed `PLAY-1004` third (the
+live check of R19.8). An index written before this rule has its words rebuilt
+from the heading paths and texts it holds the next time `dossier embed`
+prepares it; nothing is embedded again.
+
+- **Kind:** deterministic
+- **Layer:** infrastructure (`dossier.infrastructure.index.postgres.PostgresIndexSink`), domain (`dossier.domain.index.embedding_text`)
+- **Proved by:** `tests/integration/test_R019_9__a_chunks_words_are_its_heading_path_and_text.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4821`'s chunk holding `CHF 48'200`, heading path `["INC-4821 — Card payments declined at checkout", "Impact"]`, `INC-4821` nowhere in its text; the query `INC-4821` | the chunk is in the list by words |
+| 2 | that chunk and the one under `Comments`; the query `declined at checkout`, words of the title alone | both in the list by words: each carries the title in its heading path |
+| 3 | an index written before R19.9, its words its chunks' texts alone; prepared again, as each `dossier embed` prepares it | row 1's chunk found by `INC-4821`, its id and vector unchanged: the words are rebuilt from what the index holds |
+| 4 | *counter-example* — `audit-note.pdf`'s chunk, heading path `[]` | its words are its text's alone, as its embedded text is its text alone |

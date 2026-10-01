@@ -69,7 +69,7 @@ Two tables, in a schema `dossier` creates and owns (`dossier_index`):
 | Table | Columns |
 |---|---|
 | `documents` | `index`, `document_id` (`<source>:<key>`), `source_id`, `key`, `title`, `snapshot`, `acl`, `embedding_model`, `content_hash` (the hash of everything written for the document, compared to write only what changed, R18.4), `run_id`, and `filter_values`: the carried values as JSON |
-| `chunks` | `index`, `chunk_id`, `document_id`, `kind` (`body` or `record`), `chunk_index`, `heading_path`, `text`, `text_search` (a `tsvector` of `text`, configuration `simple`), `embedding`, `acl` |
+| `chunks` | `index`, `chunk_id`, `document_id`, `kind` (`body` or `record`), `chunk_index`, `heading_path`, `text`, `text_search` (a `tsvector` of the heading path and `text`, as embedded, configuration `simple`; R19.9), `embedding`, `acl` |
 
 One `chunks` table holds every index, so its vector column has one type, fixed by
 the first index written: two indexes pinning models of different lengths need
