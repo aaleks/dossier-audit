@@ -18,8 +18,6 @@ from tests.acceptance import test_R018_11__embed_carries_the_runs_record as carr
 from tests.acceptance.test_R018_7__embed_builds_the_index_from_what_was_synced import _cli
 from tests.acceptance.test_R018_11__embed_carries_the_runs_record import INDEX
 
-pytestmark = pytest.mark.outer_loop
-
 QUERY = "certificate expired at checkout"
 
 # R18.11's workspace, its fixtures shared rather than copied.
