@@ -48,9 +48,9 @@ filter on (spec 018). An index is declared in a file of its own,
 `indexes/<name>.yaml`, so declaring one changes neither the pipeline's hash nor
 its version. The index is derived data. Everything in it is rebuilt from the
 workspace: the snapshots, their conversions, the runs, and a cache of vectors
-under `.dossier/cache/embed/`. `dossier` writes the index, and something else
-searches it. `dossier search` is a later spec, so here you search it by hand,
-with SQL and a few lines of Python, as that something else would.
+under `.dossier/cache/embed/`. Here you search it by hand, with SQL and a few
+lines of Python, to see what a search is made of. Exercise 21 asks it the same
+questions with `dossier search` (spec 019).
 
 ---
 
@@ -154,7 +154,7 @@ is of kind `body`. The column is `halfvec(2560)`, under an `hnsw` index with
 - **The column.** Why `halfvec` and not `vector`? What would a model answering
   1,024 numbers be written as, and one answering 4,001 (R18.5)?
 - **The readers.** `acl` is on every chunk row, not only on the document row.
-  Who reads it? `dossier` never searches this index, so who must put
+  Who reads it? `embed` never reads it back, so who must put
   `'incident-response' = any(acl)` into a query (R18.6, "Decisions")?
 - **The words.** `text_search` holds `'play':1 '-1001':2`, `'18':27 '400':28`
   and `'s':19`. Where do its first ten words come from, when the chunk's text

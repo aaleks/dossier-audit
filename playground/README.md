@@ -11,15 +11,16 @@ the gold set under a maintainer's name, reading a public Confluence that belongs
 to someone else without leaning on it, asking one question of a contract that
 is several files, checking incidents against the procedures that apply to
 them without auditing the procedures, reading three public websites as
-documents, one of them drawn by a browser, and finally scoring answers that are
-not text: a yes or no, a length of time, and a list.
+documents, one of them drawn by a browser, scoring answers that are not text:
+a yes or no, a length of time, and a list, and finally indexing the notes to
+search them by meaning, and asking that index questions.
 
 **Exercises 01 to 10, 16, 17 and 19 run offline, in seconds, at zero cost.** No API key, no
 model bill, no network. A stub model server in `toolkit/` answers the same
 OpenAI-compatible route a real endpoint would, from a file of rules you can read
 and edit — so the code path is the real one and the answers are yours to control.
 
-**Exercises 11, 15, 18 and 20 are the exceptions, deliberately.** Exercise 11 brings up
+**Exercises 11, 15, 18, 20 and 21 are the exceptions, deliberately.** Exercise 11 brings up
 a Jira Data Center in Docker, which costs an evaluation licence, about 4 GB of
 RAM and an interactive setup wizard. Exercise 15 needs network access instead:
 it reads two public Confluence servers anonymously, and asks them for three
@@ -27,7 +28,8 @@ pages, because the servers belong to someone else. Exercise 18 reads three publi
 websites the same way, and runs no model at all. Exercise 20 writes an index
 to the Postgres in `dev/index`, in Docker, and embeds with a local Ollama's
 `qwen3-embedding:4b-fp16`: about 10 GB of RAM between them, and no stub can
-stand in, because a vector is only worth what the model meant. In 11 and 15 the model is still
+stand in, because a vector is only worth what the model meant. Exercise 21 asks
+that index questions, and needs the same. In 11 and 15 the model is still
 the stub; only the source is real. They come late because everything they
 teach — a named credential, someone else's version marker, a listing that
 cannot report a deletion, a payload that is mostly machinery — only exists once
@@ -80,6 +82,7 @@ when you want the reasoning behind what you just saw.
 | 18 | [A website, read as documents](18-a-website-read-as-documents/) | a sitemap and its `<lastmod>`, a key for every page of a site, a note that is the page's `<main>`, a site with no sitemap listed by crawling, a crawl that fails rather than lists a part, a source that cannot be listed beside ones that can, a page drawn by a headless browser and what it may ask for, and a held source drawn once more | R1.29, R1.30, R1.31, R1.33, R1.36, R1.37, R1.38, R1.39, R1.40, R1.41, R1.43, R2.26, R2.27, R8.33 |
 | 19 | [Answers that are not text](19-answers-that-are-not-text/) | a `boolean`, a `duration` and a `list`, a prompt that says how each is answered, `false` against `null`, why three months is not ninety days, one record per item scored as a set, item precision and recall, gold refused before scoring, a kind that is not there, and one question answered twice | R7.36, R7.37, R7.38, R7.40, R7.41, R7.43, R7.44, R6.24, R6.2, R7.3, R7.2 |
 | 20 | [An index to search by meaning](20-an-index-to-search-by-meaning/) | an index declared apart from its pipeline, who may read a source, chunks cut at their headings and embedded with them, a vector cache that makes a second `embed` free, a search by words and a search by meaning and what each one misses, a run's categories carried only where grounded and only while the note is the one the run read, declarations refused before any work, an `embed` recorded in MLflow, and an index rebuilt from the workspace | R18.1 – R18.11, R11.33 |
+| 21 | [Asking the index a question](21-asking-the-index-a-question/) | `dossier search`, a note listed once at its best chunk, a ranking by meaning and a ranking by words fused by reciprocal rank, what decides a tie, a key found by its words and a question found by meaning alone, chunks against documents, filters on a run's values and the spelling they are read in, readers, refusals before the model is asked, notes the index has not seen, the question's instruction and its cached vector, and a search recorded as one trace with no run | R19.1 – R19.9, R11.34 |
 
 ## How an exercise folder is laid out
 

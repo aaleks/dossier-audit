@@ -43,6 +43,12 @@ through a port of its own, and keys, the run and eval may import nothing of it.
   written, and `PLAY-1004` came first. And `--where
   affected_systems=checkout-api` matched nothing: a `reference` is one string,
   matched whole, so a field filtered on its parts is declared a `list`.
+- Playground exercise 21 asks exercise 20's index questions with `dossier
+  search`, from a pass run live on the same day. It showed one thing more: over
+  four notes, every chunk holding `warehouse` once ranks `0.1` by `ts_rank_cd`,
+  so the words list is in chunk id order, and the export incident outranks the
+  warehouse incident on a hash. BM25 would weigh rarity and length; whether that
+  matters on a real corpus is "Measuring relevance".
 - R19.1's first example did not add up: two unnamed chunks above `INC-4830` by
   words would have outranked the one it put second. Fixed in the spec before the
   test was written.

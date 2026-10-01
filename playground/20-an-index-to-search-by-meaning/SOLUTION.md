@@ -169,10 +169,10 @@ dimensions and a `halfvec` of up to 4,000. Qwen3-Embedding-4B answers 2,560, so
 be `vector(1024)`. One answering 4,001 is refused, because no pgvector type
 indexes it (row 4).
 
-**The readers.** The search that reads this index, not `dossier`. `dossier`
-writes who may read each row and never reads the index to answer anyone. So the
-system reading it, through a view or a query like task 3's, is the one that
-must filter on `acl` (R18.6, "Decisions"). It is on every chunk row because a
+**The readers.** The search that reads this index, not `embed`. `embed`
+writes who may read each row and never reads them back. So whatever reads the
+index, through a view, a query like task 3's or `dossier search --as` (R19.5,
+exercise 21), is what must filter on `acl` (R18.6, "Decisions"). It is on every chunk row because a
 search returns chunks, and so it can filter them without a join.
 
 **The words.** The first ten are the heading path's, `PLAY-1001 — Checkout
@@ -287,7 +287,8 @@ that cause. So nearness cannot tell an answer from its denial, and a search by
 words cannot either: `autoscaler` finds the same chunk. A reader of the index
 needs something that reads the passage before it calls the first one an answer:
 a person, a reranker, or a model asked whether it answers. That is the search
-side, and `dossier search` is a later spec. The slowness question shows it too.
+side, and `dossier search` ranks without reading either (exercise 21). The
+slowness question shows it too.
 The root cause, which is the answer, comes second, behind the note that
 discusses scaling without explaining anything.
 
