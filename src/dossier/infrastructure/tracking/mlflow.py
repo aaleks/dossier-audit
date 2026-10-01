@@ -492,6 +492,35 @@ class MlflowTracker:
         self._this.trace_id = self._this.root_span_id = None
         self._this.pending = []
 
+    def use_experiment(self, experiment: str) -> None:
+        """Send the traces that follow to `experiment`, under no run (R11.34)."""
+        found = self._client.get_experiment_by_name(experiment)
+        self._experiment_id = (
+            found.experiment_id
+            if found is not None
+            else self._client.create_experiment(experiment)
+        )
+        self._run_id = None
+
+    def end_traces(self) -> None:
+        """Look for every trace opened under no run, as `end_run` does for a run's (R10.24).
+
+        The exporter is flushed first: it sends a trace after it ends, on a
+        thread of its own, and a trace looked for before then is not there yet.
+        """
+        import mlflow
+
+        if not self._opened:
+            return
+        mlflow.flush_trace_async_logging()
+        held = set()
+        for trace_id in self._opened:
+            if trace_id is not None and self._client.get_trace(trace_id) is not None:
+                held.add(trace_id)
+        self.unrecorded_traces = frozenset(
+            place for place, trace_id in enumerate(self._opened) if trace_id not in held
+        )
+
     def end_run(self, *, status: str) -> None:
         """Look for every trace the run opened, then close it (R10.24).
 

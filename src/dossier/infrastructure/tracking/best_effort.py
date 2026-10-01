@@ -180,8 +180,20 @@ class BestEffortTracker:
                 self._lost_traces.add(self._this_trace.place)
         self._this_trace.lost = False
 
+    def use_experiment(self, experiment: str) -> None:
+        self._experiment = experiment
+        self._sent(self._inner.use_experiment, experiment)
+
+    def end_traces(self) -> None:
+        """Close what `use_experiment` opened, counting what was lost as `end_run` does."""
+        self._sent(self._inner.end_traces)
+        self._count_lost()
+
     def end_run(self, *, status: str) -> None:
         self._sent(self._inner.end_run, status=status)
+        self._count_lost()
+
+    def _count_lost(self) -> None:
         # Read whether the close landed or not: the lookup is made before it.
         # Each trace not already counted is one record more (R10.24, R10.21).
         # Only a tracker that looks has anything to say, and reading what it says
