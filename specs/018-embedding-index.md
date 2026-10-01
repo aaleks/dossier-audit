@@ -1,6 +1,6 @@
 # 018 — The embedding index
 
-**Status:** Implemented
+**Status:** Partially implemented
 **Rules:** R18.1 – R18.11
 
 ## Purpose
@@ -37,9 +37,12 @@ target: {dsn_env: DOSSIER_INDEX_DSN}
 ```
 
 - **`pipeline`** names the documents (its sources) and the run output (its
-  latest run's scored step, R16.2) the index is built from. The link between a
-  document and the answers about it already exists: a run files each answer
-  under the document's key, and its manifest pins the snapshot it read (R0.11).
+  latest run's scored step, R16.2) the index is built from. The answers are the
+  run's as `dossier eval` reads them: reproduced from its manifest and the cache
+  (R4.7, R7.10), its manifest pinning the snapshot each document was read at.
+  They are never read from the copies under `runs/`, which are for people and
+  may be edited without any later command noticing (R0.11): the index and
+  `eval` read one run the same way.
 - **`embedding_model`** is pinned exactly, as a pipeline's model is (R0.6). An
   Ollama tag is pinned by digest (R9.3); the digest above is the registry's for
   `qwen3-embedding:4b-fp16` on 2026-10-01.
@@ -287,9 +290,9 @@ A run's answers describe the snapshot it read. Attached to a newer one, they
 would describe text that is no longer there.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.index.record_for`)
-- **Proved by:** `tests/unit/test_R018_8__a_record_comes_from_the_run_that_read_the_held_snapshot.py`
-- **Status:** MET
+- **Layer:** domain (`dossier.domain.index.record_for`), application (`dossier.application.embed.read_latest_run`)
+- **Proved by:** `tests/unit/test_R018_8__a_record_comes_from_the_run_that_read_the_held_snapshot.py`, `tests/unit/test_R018_8__embed_reads_a_run_as_eval_does.py`
+- **Status:** NOT MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -299,6 +302,8 @@ would describe text that is no longer there.
 | 4 | *counter-example* — `incident-audit` has no run | every document indexed with no record; `no run of incident-audit yet` |
 | 5 | *counter-example* — `INC-4901` synced after the latest run | indexed with no record; `INC-4901: no record: 20260925T091500Z-5e6f did not read it` |
 | 6 | *counter-example* — the latest run read `INC-4901`, failed nothing, and filed no answer for it | indexed with no record; `INC-4901: no record: 20260925T091500Z-5e6f filed no answer for it` |
+| 7 | *counter-example* — the latest run cannot be replayed: `extract`'s entry for `INC-4821` deleted from the cache | every document indexed with no record; once, `no record: 20260925T091500Z-5e6f cannot be replayed: ` and the replay's own error |
+| 8 | *counter-example* — a reviewer edited `runs/20260925T091500Z-5e6f/extract/INC-4821.json`, its `severity` changed to `minor` | `major` carried, as the cache holds it and `eval` scores it: the copy is for people, and is never read back (R0.11) |
 
 ### R18.9 — a filter field is carried only when the run grounded it, and a text field is embedded in the document's record chunk
 
