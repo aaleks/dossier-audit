@@ -322,7 +322,7 @@ The outer loop of the second slice.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.embed`)
 - **Proved by:** `tests/acceptance/test_R018_11__embed_carries_the_runs_record.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
