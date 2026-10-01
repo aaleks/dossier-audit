@@ -174,6 +174,35 @@ class TestPostgresIndexSink:
             (["incident-response"], None, {})
         ]
 
+    def test_a_documents_run_and_its_grounded_values_are_written(self, sink, schema, query):
+        """No row — R18.11's record, as the database holds it.
+
+        Found by the live check that closed slice 2: the document row's run and
+        values reached the fake index and not the real one.
+        """
+        sink.prepare(INDEX, COLUMN)
+        row, chunks = indexed(
+            index=INDEX,
+            source_id="incidents-jira",
+            key="INC-4830",
+            title="INC-4830",
+            snapshot="a3f9c1e2",
+            acl=("incident-response",),
+            embedding_model=MODEL,
+            chunks=[IMPACT],
+            run_id="20260925T091500Z-5e6f",
+            values={"failure_category": "certificate-expiry", "component": "checkout"},
+        )
+
+        sink.write(INDEX, row, chunks)
+
+        assert query(f"SELECT run_id, filter_values FROM {schema}.documents") == [
+            (
+                "20260925T091500Z-5e6f",
+                {"component": "checkout", "failure_category": "certificate-expiry"},
+            )
+        ]
+
     def test_a_second_write_replaces_the_document_and_every_chunk_of_it(
         self, sink, schema, query
     ):

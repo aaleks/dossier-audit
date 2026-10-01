@@ -15,29 +15,43 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
+from dossier.application.plan import latest_manifest
+from dossier.application.run import recorded_failures
 from dossier.domain.chunks import chunk_id
+from dossier.domain.grounding import check_field
 from dossier.domain.index import (
+    Carried,
     Embedded,
     IndexDeclaration,
     IndexedChunk,
     IndexedDocument,
+    LatestRun,
+    carried,
     changes,
     document_id,
     embedding_text,
     indexed,
     mismatched_length,
+    record_for,
     title_of,
     vector_column,
 )
 from dossier.domain.keys import embedding_key
 from dossier.domain.ports import ArtifactStore, Chunker, EmbeddingProvider, IndexSink
+from dossier.domain.schemas import FieldRecord, StageOutput
+from dossier.domain.store import RUNS_ROOT
 
 # How many texts one request for vectors carries. A few dozen keeps a request
 # small enough to retry and a CPU-bound model responsive; nothing depends on
 # the number but how many requests a first build makes.
 BATCH = 32
 BODY = "body"
+RECORD = "record"
+# What renders a record chunk, as a chunker's identity names what cut a body
+# chunk: moved whenever the rendering of `field: value` lines changes.
+RECORD_CHUNKER = "record@1"
 
 
 @dataclass(frozen=True)
@@ -60,6 +74,9 @@ class EmbedReport:
     cached: int
     written: int
     removed: int
+    # What the command says about a document beyond the counts: a record not
+    # carried, or values left out of one (R18.8, R18.9). Printed before the line.
+    notes: tuple[str, ...] = ()
 
     @property
     def line(self) -> str:
@@ -79,6 +96,7 @@ class _Cut:
     heading_path: tuple[str, ...]
     text: str
     embedded_as: str
+    kind: str = BODY
 
 
 def embed_index(
@@ -90,18 +108,55 @@ def embed_index(
     embedder: EmbeddingProvider,
     vectors: ArtifactStore,
     sink: IndexSink,
+    run: LatestRun | None = None,
+    enums: Mapping[str, Sequence[str]] | None = None,
 ) -> EmbedReport:
     """Bring `declaration`'s index to exactly `documents`, asking only for missing vectors.
 
     Every vector is in hand and checked before the index is touched, so a
-    refusal leaves it as it was (R18.5 row 5).
+    refusal leaves it as it was (R18.5 row 5). A document's record is the
+    latest run's, of the snapshot held (R18.8), its values checked as `eval`
+    checks them before any is carried (R18.9).
     """
     model = declaration.embedding_model
     ordered = sorted(documents, key=lambda document: (document.source_id, document.key))
-    cuts = {
-        document_id(document.source_id, document.key): _cut(document, chunker)
-        for document in ordered
-    }
+    asks = bool(declaration.fields.filter or declaration.fields.embed)
+    notes: list[str] = []
+    if asks and run is None:
+        notes.append(f"no run of {declaration.pipeline} yet")
+    cuts: dict[str, list[_Cut]] = {}
+    records: dict[str, Carried] = {}
+    for document in ordered:
+        identity = document_id(document.source_id, document.key)
+        cuts[identity] = _cut(document, chunker)
+        if not asks:
+            continue
+        answered, note = record_for(document.key, held_snapshot=document.snapshot, run=run)
+        if note is not None:
+            notes.append(note)
+        if answered is None:
+            continue
+        checked = [
+            (
+                record,
+                check_field(
+                    record, input_documents={document.key: document.text}, enums=enums
+                ).verdict,
+            )
+            for record in answered
+        ]
+        records[identity] = carried(declaration.fields, checked)
+        if (left_out := records[identity].note(document.key)) is not None:
+            notes.append(left_out)
+        if records[identity].record_text is not None:
+            cuts[identity].append(
+                _record_cut(
+                    identity,
+                    records[identity].record_text,
+                    at=len(cuts[identity]),
+                    embedded=declaration.fields.embed,
+                )
+            )
     every = [cut for document_cuts in cuts.values() for cut in document_cuts]
 
     held_vectors: dict[str, tuple[float, ...]] = {}
@@ -153,10 +208,12 @@ def embed_index(
             snapshot=document.snapshot,
             acl=readers[document.source_id],
             embedding_model=model,
+            run_id=run.run_id if run is not None and identity in records else None,
+            values=records[identity].values if identity in records else None,
             chunks=[
                 Embedded(
                     chunk_id=cut.chunk_id,
-                    kind=BODY,
+                    kind=cut.kind,
                     chunk_index=cut.chunk_index,
                     heading_path=cut.heading_path,
                     text=cut.text,
@@ -185,6 +242,30 @@ def embed_index(
         cached=cached,
         written=len(write),
         removed=len(remove),
+        notes=tuple(notes),
+    )
+
+
+def _record_cut(identity: str, text: str, *, at: int, embedded: Sequence[str]) -> _Cut:
+    """The record chunk: the run's grounded free text, filed after the body (R18.9).
+
+    Its id names what made it, as a body chunk's names its chunker (R18.2): the
+    fields it renders, so carrying another field re-files it.
+    """
+    return _Cut(
+        document=identity,
+        chunk_id=chunk_id(
+            document_id=identity,
+            chunker=RECORD_CHUNKER,
+            settings={"embed": list(embedded)},
+            index=at,
+            text=text,
+        ),
+        chunk_index=at,
+        heading_path=(),
+        text=text,
+        embedded_as=text,
+        kind=RECORD,
     )
 
 
@@ -207,3 +288,42 @@ def _cut(document: ToIndex, chunker: Chunker) -> list[_Cut]:
         )
         for piece in chunker.chunk(document.text)
     ]
+
+
+def read_latest_run(workspace: Path, pipeline: str, step: str) -> LatestRun | None:
+    """What the pipeline's latest run read, failed and answered at `step` (R18.8).
+
+    The latest is found as `eval` and `status` find it (R16.2). Its pins come
+    from its manifest, its failures from `failures.json` (R4.27), and its
+    answers from the step's files under `runs/` (R0.11), so nothing is asked
+    of a model to learn them. A document two steps failed is named by the
+    first, as the run met it.
+    """
+    plan, run_dir = latest_manifest(workspace / RUNS_ROOT, pipeline)
+    if plan is None or run_dir is None:
+        return None
+    directory = workspace / RUNS_ROOT / run_dir
+    failed: dict[str, str] = {}
+    for failure in recorded_failures(directory) or []:
+        failed.setdefault(str(failure["document"]), str(failure["step"]))
+    answers: dict[str, tuple[FieldRecord, ...]] = {}
+    for document in plan.documents:
+        filed = directory / step / f"{document.key}.json"
+        # A `per_part` step files each part under its document (R0.13).
+        parts = sorted((directory / step / document.key).glob("*.json"))
+        if filed.is_file():
+            parts = [filed]
+        if parts:
+            answers[document.key] = tuple(
+                record
+                for part in parts
+                for record in StageOutput.model_validate_json(
+                    part.read_text(encoding="utf-8")
+                ).fields
+            )
+    return LatestRun(
+        run_id=run_dir,
+        pinned={document.key: document.snapshot for document in plan.documents},
+        failed=failed,
+        records=answers,
+    )

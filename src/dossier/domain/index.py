@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -164,6 +164,10 @@ class IndexedDocument:
     acl: tuple[str, ...]
     embedding_model: str
     content_hash: str
+    # The run whose record the document carries, and the grounded values to
+    # filter on that it gave (R18.8, R18.9). `None` and empty when it carries none.
+    run_id: str | None = None
+    values: Mapping[str, object] = field(default_factory=dict)
 
 
 def indexed(
@@ -176,6 +180,8 @@ def indexed(
     acl: tuple[str, ...],
     embedding_model: str,
     chunks: Sequence[Embedded],
+    run_id: str | None = None,
+    values: Mapping[str, object] | None = None,
 ) -> tuple[IndexedDocument, list[IndexedChunk]]:
     """A document's rows, each carrying its source's readers (R18.6).
 
@@ -199,9 +205,11 @@ def indexed(
         "embedding_model": embedding_model,
         "index": index,
         "key": key,
+        "run_id": run_id,
         "snapshot": snapshot,
         "source_id": source_id,
         "title": title,
+        "values": dict(values or {}),
     }
     document = IndexedDocument(
         document_id=identity,
@@ -215,6 +223,8 @@ def indexed(
         content_hash=content_hash(
             json.dumps(written, sort_keys=True, ensure_ascii=False).encode("utf-8")
         ),
+        run_id=run_id,
+        values=dict(values or {}),
     )
     rows = [
         IndexedChunk(
