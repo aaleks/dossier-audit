@@ -262,7 +262,7 @@ index as fakes, as R18.7's are.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.search`)
 - **Proved by:** `tests/acceptance/test_R019_8__search_lists_what_answers_the_query.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
