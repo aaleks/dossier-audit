@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.34
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.35
 
 ## Purpose
 
@@ -903,4 +903,23 @@ retrieval views read, and what a later retrieval eval would score.
 | 1 | tracking on; `dossier search incidents "certificate expired at checkout"` | one trace, its request the query and its filters, its response the document ids in rank order; an EMBEDDING span naming the model and its tokens; a RETRIEVER span listing each result with its rank and score; no MLflow run |
 | 2 | the same search again | an EMBEDDING span with 0 tokens, marked `cached` |
 | 3 | *counter-example* — a refused search (R19.4 row 5) | no trace |
+| 4 | *counter-example* — tracking off | nothing recorded, and the search prints as before |
+
+### R11.35 — a `dossier search` is one MLflow trace in its pipeline's `search` experiment, with an EMBEDDING and a RETRIEVER span, and no run
+
+A search changes nothing, so it opens no run. Its trace is what MLflow's
+retrieval views read, and what a later retrieval eval would score. Its request
+names the readers it was for, so the trace says whose search it was. When
+R19.11 lands, it supersedes R11.34, whose search names no reader.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.search.record_search`)
+- **Proved by:** `tests/unit/test_R011_35__a_search_is_one_trace.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | tracking on; `dossier search incidents "certificate expired at checkout" --as incident-response` | one trace, its request the query, its filters and its readers, its response the document ids in rank order; an EMBEDDING span naming the model and its tokens; a RETRIEVER span listing each result with its rank and score; no MLflow run |
+| 2 | the same search again | an EMBEDDING span with 0 tokens, marked `cached` |
+| 3 | *counter-example* — a search refused for naming no reader (R19.11 row 1) | no trace |
 | 4 | *counter-example* — tracking off | nothing recorded, and the search prints as before |
