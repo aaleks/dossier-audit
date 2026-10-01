@@ -1,6 +1,6 @@
 # 019 — Searching the index
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R19.1 – R19.8
 
 ## Purpose
@@ -148,11 +148,11 @@ chunk id, so a search lists the same order on every machine.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.search.fused`)
 - **Proved by:** `tests/unit/test_R019_1__chunks_are_ranked_by_reciprocal_rank_fusion.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `INC-4830`'s root-cause chunk 1st by meaning and 3rd by words; `INC-4977`'s 2nd by meaning and in no list by words | `INC-4830`'s first, at `1/61 + 1/63`; `INC-4977`'s second, at `1/62` |
+| 1 | `INC-4830`'s root-cause chunk 1st by meaning and 2nd by words; `INC-4977`'s body 2nd by meaning only; `INC-4901`'s 1st by words only | `INC-4830`'s first, at `1/61 + 1/62`; then `INC-4901`'s, at `1/61`; then `INC-4977`'s, at `1/62`: found both ways outweighs leading one way |
 | 2 | the query `INC-4830`: its chunks 1st and 2nd by words, and nowhere in the first 100 by meaning | both ranked, at `1/61` and `1/62`: an incident key is found by words, and is near nothing in meaning |
 | 3 | two chunks, one only 1st by meaning and one only 1st by words | equal scores, `1/61`; the one whose chunk id sorts first, first |
 | 4 | *counter-example* — a chunk in neither list | not ranked at all; a fusion gives no chunk a score of 0 |
@@ -160,9 +160,9 @@ chunk id, so a search lists the same order on every machine.
 ### R19.2 — a search lists documents, each once, at its best chunk's place; `--chunks` lists the chunks
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.search.by_document`)
+- **Layer:** domain (`dossier.domain.search.listed`)
 - **Proved by:** `tests/unit/test_R019_2__a_document_is_listed_once_at_its_best_chunk.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

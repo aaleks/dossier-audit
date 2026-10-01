@@ -18,6 +18,7 @@ from dossier.domain.datasets import PublishedDataset
 from dossier.domain.index import IndexedChunk, IndexedDocument
 from dossier.domain.prompts import PublishedPrompt
 from dossier.domain.review import Verdict
+from dossier.domain.search import Lists
 from dossier.domain.versions import PublishedVersion, VersionRecord
 
 
@@ -671,3 +672,45 @@ class IndexSink(Protocol):
         ...
 
     def remove(self, index: str, document_ids: Sequence[str]) -> None: ...
+
+
+class IndexSearch(Protocol):
+    """The embedding index, searched by `dossier search` (spec 019).
+
+    Its own port, beside `IndexSink`, because it reads back what the index is
+    for -- chunks, their text, their documents' titles and values -- where
+    `IndexSink` reads back only ids and content hashes (R18.4). What it reads
+    reaches the terminal and MLflow, and nothing else: no key, manifest or
+    score (R0.17).
+    """
+
+    def models(self, index: str) -> frozenset[str]:
+        """The embedding models the index's documents were embedded with (R19.6).
+
+        Empty when the index holds nothing, or does not exist yet.
+        """
+        ...
+
+    def snapshots(self, index: str) -> Mapping[str, str]:
+        """Each document the index holds, by id, with the snapshot it was written at (R19.7)."""
+        ...
+
+    def search(
+        self,
+        index: str,
+        *,
+        vector: Sequence[float],
+        words: str,
+        where: Mapping[str, Sequence[str]],
+        reader: str | None,
+        candidates: int,
+    ) -> Lists:
+        """The chunks nearest `vector`, and the chunks `words` match, each best first.
+
+        Both lists are filtered alike before they are cut at `candidates`:
+        every field of `where` must hold one of its values, a field's value
+        being a document's carried value or any of its values when it holds a
+        list (R19.4); and with a `reader`, a chunk's readers must name it
+        (R19.5). `words` is asked as `websearch_to_tsquery('simple', words)`.
+        """
+        ...
