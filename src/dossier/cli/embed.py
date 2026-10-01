@@ -14,12 +14,19 @@ from typing import Annotated
 import typer
 
 from dossier.application.convert import convert_source
-from dossier.application.embed import ToIndex, embed_index
+from dossier.application.embed import ToIndex, embed_index, read_latest_run
 from dossier.cli import bootstrap
 from dossier.cli.convert import exit_if_unconvertible, read_holdings
 from dossier.config.endpoints import index_dsn
 from dossier.config.environment import environment
-from dossier.config.load import INDEXES, ConfigError, load_index, load_pipeline, load_sources
+from dossier.config.load import (
+    INDEXES,
+    ConfigError,
+    load_enum_values,
+    load_index,
+    load_pipeline,
+    load_sources,
+)
 from dossier.domain.conversion import NoConverter
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.chunkers.registry import UnknownChunker, chunker_for
@@ -47,10 +54,15 @@ def embed(
         # to is found now, not after the model has been asked (R18.7 row 3).
         dsn = index_dsn(declaration.target.dsn_env, index=index, environ=environment(workspace))
         chunker = chunker_for(declaration.chunker)
-        pipeline = load_pipeline(
-            bootstrap.pipeline_path(workspace, declaration.pipeline),
-            providers=available_providers(),
-        )
+        path = bootstrap.pipeline_path(workspace, declaration.pipeline)
+        pipeline = load_pipeline(path, providers=available_providers())
+        run, enums = None, None
+        if declaration.fields.filter or declaration.fields.embed:
+            # The one step declaring an output: `load_index` refused any other
+            # number, as `eval` does (R18.10 row 6).
+            step = next(step for step in pipeline.steps if step.output is not None)
+            enums = load_enum_values(path.parent / step.output)
+            run = read_latest_run(workspace, declaration.pipeline, step.id)
         embedder = bootstrap.build_embedding_provider(declaration.embedding_model)
         sink = bootstrap.build_index_sink(dsn)
     except (ConfigError, UnknownChunker, UnknownProvider, IndexSinkFailed) as error:
@@ -92,6 +104,8 @@ def embed(
             embedder=embedder,
             vectors=ArtifactCache(workspace, namespace="embed"),
             sink=sink,
+            run=run,
+            enums=enums,
         )
     except ValueError as error:
         typer.echo(str(error), err=True)
@@ -101,4 +115,6 @@ def embed(
         # did not answer. What was cached stays cached for the next embed.
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from error
+    for note in report.notes:
+        typer.echo(note)
     typer.echo(report.line)

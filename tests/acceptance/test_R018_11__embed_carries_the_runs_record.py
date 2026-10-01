@@ -25,8 +25,6 @@ from tests.fakes import FakeEmbeddingProvider, FakeIndexSink, register_connector
 from tests.pipelines import write_pipeline
 from tests.scoring_example import SOURCE_ID, SOURCE_TYPE, IssueTracker, RoutedModel, found
 
-pytestmark = pytest.mark.outer_loop
-
 PIPELINE = "incident-audit"
 INDEX = "incidents"
 ROOT_CAUSE = (
@@ -50,7 +48,9 @@ fields:
 """
 ANSWERS = {
     "INC-4830": [
-        found("INC-4830", "failure_category", "certificate-expiry", "the TLS certificate expired"),
+        found(
+            "INC-4830", "failure_category", "certificate-expiry", "the TLS certificate expired"
+        ),
         found("INC-4830", "component", "checkout", "Checkout returned 502"),
         found("INC-4830", "root_cause", ROOT_CAUSE, ROOT_CAUSE),
     ]
@@ -91,9 +91,7 @@ def run_once(workspace: Path, monkeypatch, issues, embedder, index) -> Path:
         "    acl: [incident-response]\n",
         encoding="utf-8",
     )
-    write_pipeline(
-        workspace, sources=[SOURCE_ID], outputs={"extract": "schemas/taxonomy.yaml"}
-    )
+    write_pipeline(workspace, sources=[SOURCE_ID], outputs={"extract": "schemas/taxonomy.yaml"})
     schema = workspace / "pipelines" / PIPELINE / "schemas" / "taxonomy.yaml"
     schema.write_text(TAXONOMY, encoding="utf-8")
     (workspace / "indexes").mkdir()
