@@ -60,6 +60,20 @@ case-folded was carried as the run spelled it, so a filter on the declared
 `major` missed a `MAJOR` that eval scored correct: it is now carried in the
 declared spelling (R18.9 row 5).
 
+Mutation testing of `domain/chunks.py` and `domain/index.py` gave 357
+mutants, 319 killed. Fifteen survivors were boundaries no row stated:
+- packing to exactly `max_chars`, and one past it;
+- `vector` and `halfvec` at their limits;
+- a pipeline with no output;
+- `max_chars` 0;
+- a stale check that only caught a snapshot hash sorting before the held one.
+
+They are R18.1 rows 6-7, R18.5 rows 6-7 and R18.10 rows 8-9, with a test each.
+Of the rest:
+- Two sat in a class body, and only the whole suite killed them.
+- The remainder are equivalent, among them a fold of `"filter"`/`"embed"`
+  string comparisons and `[-1]` of a one-item list.
+
 ---
 
 R7.56 (2026-09-30). A gold file that does not read stopped `dossier eval`, and
