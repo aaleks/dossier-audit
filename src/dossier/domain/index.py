@@ -15,7 +15,9 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from dossier.domain.grounding import FieldVerdict
 from dossier.domain.hashing import content_hash
+from dossier.domain.schemas import FieldRecord
 from dossier.domain.scoring import FieldKind
 
 
@@ -305,3 +307,100 @@ def changes(held: Mapping[str, str], current: Mapping[str, str]) -> tuple[list[s
     )
     remove = sorted(set(held) - set(current))
     return write, remove
+
+
+@dataclass(frozen=True)
+class LatestRun:
+    """What the pipeline's latest run read and answered, as `embed` needs it (R18.8).
+
+    `pinned` is the snapshot the run read for each document (its manifest),
+    `failed` the step that first failed each failed document (R4.27), and
+    `records` the answers of the step whose output the index carries.
+    """
+
+    run_id: str
+    pinned: Mapping[str, str]
+    failed: Mapping[str, str]
+    records: Mapping[str, Sequence[FieldRecord]]
+
+
+def record_for(
+    key: str, *, held_snapshot: str, run: LatestRun | None
+) -> tuple[Sequence[FieldRecord] | None, str | None]:
+    """The latest run's answers about `key`, or why there are none (R18.8).
+
+    A run's answers describe the snapshot it read. Carried beside a newer one,
+    they would describe text that is no longer there, so a record is carried
+    only when the run read the snapshot the ledger holds now. With no run at
+    all there is nothing to say per document: the command says it once.
+    """
+    if run is None:
+        return None, None
+    pinned = run.pinned.get(key)
+    if pinned is None:
+        return None, f"{key}: no record: {run.run_id} did not read it"
+    if pinned != held_snapshot:
+        return None, f"{key}: record stale: {run.run_id} read an earlier snapshot"
+    if key in run.failed:
+        return None, f"{key}: no record: failed at {run.failed[key]} in {run.run_id}"
+    answered = run.records.get(key)
+    if answered is None:
+        return None, f"{key}: no record: {run.run_id} filed no answer for it"
+    return answered, None
+
+
+@dataclass(frozen=True)
+class Carried:
+    """What a document's record puts in the index (R18.9)."""
+
+    # Each filter field's grounded value, or values when a field was answered
+    # more than once, as a list field is.
+    values: Mapping[str, object]
+    # The record chunk's text: one `field: value` line per grounded text field,
+    # or `None` when there is none to embed.
+    record_text: str | None
+    # How many values were not carried, by verdict.
+    left_out: Mapping[str, int]
+
+    def note(self, key: str) -> str | None:
+        if not self.left_out:
+            return None
+        count = sum(self.left_out.values())
+        reasons = ", ".join(sorted(self.left_out))
+        return f"{key}: {count} value{'' if count == 1 else 's'} left out: {reasons}"
+
+
+def carried(
+    fields: IndexFields, checked: Sequence[tuple[FieldRecord, FieldVerdict]]
+) -> Carried:
+    """The grounded values of `fields`, from records checked as `eval` checks them (R18.9).
+
+    Only a `valid` record is carried: its value was found in the document.
+    An `ungrounded` one is scored incorrect whatever it says (R7.4); a
+    `described` one is evidence on a page a string search cannot read (R6.15),
+    and so is not evidence here either. An abstention says the document states
+    nothing, which is not a value and not a value left out.
+    """
+    values: dict[str, list[object]] = {}
+    texts: dict[str, list[str]] = {}
+    left_out: dict[str, int] = {}
+    wanted = set(fields.filter) | set(fields.embed)
+    for record, verdict in checked:
+        if record.field not in wanted or verdict is FieldVerdict.ABSTAINED:
+            continue
+        if verdict is not FieldVerdict.VALID:
+            left_out[verdict.value] = left_out.get(verdict.value, 0) + 1
+            continue
+        if record.field in fields.filter:
+            values.setdefault(record.field, []).append(record.value)
+        else:
+            texts.setdefault(record.field, []).append(str(record.value))
+    lines = [f"{field}: {text}" for field in fields.embed for text in texts.get(field, [])]
+    return Carried(
+        values={
+            field: answered[0] if len(answered) == 1 else answered
+            for field, answered in sorted(values.items())
+        },
+        record_text="\n".join(lines) if lines else None,
+        left_out=left_out,
+    )

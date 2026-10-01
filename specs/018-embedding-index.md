@@ -271,7 +271,7 @@ would describe text that is no longer there.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.index.record_for`)
 - **Proved by:** `tests/unit/test_R018_8__a_record_comes_from_the_run_that_read_the_held_snapshot.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -290,7 +290,7 @@ support.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.index.carried`)
 - **Proved by:** `tests/unit/test_R018_9__only_grounded_values_are_carried.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
