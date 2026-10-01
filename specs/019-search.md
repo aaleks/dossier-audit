@@ -1,6 +1,6 @@
 # 019 — Searching the index
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R19.1 – R19.8
 
 ## Purpose
@@ -148,7 +148,7 @@ chunk id, so a search lists the same order on every machine.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.search.fused`)
 - **Proved by:** `tests/unit/test_R019_1__chunks_are_ranked_by_reciprocal_rank_fusion.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -162,7 +162,7 @@ chunk id, so a search lists the same order on every machine.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.search.listed`)
 - **Proved by:** `tests/unit/test_R019_2__a_document_is_listed_once_at_its_best_chunk.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

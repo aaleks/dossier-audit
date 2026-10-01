@@ -9,8 +9,10 @@ without a database.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
+
+from dossier.domain.grounding import enum_folded
 
 # The constant of reciprocal rank fusion: a chunk's score is the sum, over the
 # lists it is in, of 1 / (RRF_K + rank). 60 is Cormack et al.'s (2009), and the
@@ -61,3 +63,179 @@ class Lists:
     meaning: tuple[Candidate, ...] = ()
     words: tuple[Candidate, ...] = ()
     documents: Mapping[str, Described] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Ranked:
+    """A chunk in a search's fused order: its score, and its rank in each list (R19.1)."""
+
+    candidate: Candidate
+    score: float
+    # Its place in each list, counted from 1, or `None` for a list it is not in.
+    meaning: int | None = None
+    words: int | None = None
+
+
+def fused(
+    *, meaning: Sequence[Candidate], words: Sequence[Candidate], k: int = RRF_K
+) -> tuple[Ranked, ...]:
+    """The chunks of both lists, best first, by reciprocal rank fusion (R19.1).
+
+    A chunk is scored by where it stands in each list, not by its distance or
+    its text rank, which are on scales that cannot be added: `1 / (k + rank)`
+    for each list it is in. A chunk found only by words still ranks -- an
+    incident key is found by words and is near nothing in meaning. Equal scores
+    are ordered by chunk id, so the order is the same on every machine.
+    """
+    places: dict[str, dict[str, int]] = {}
+    chunks: dict[str, Candidate] = {}
+    for name, ranked in (("meaning", meaning), ("words", words)):
+        for rank, candidate in enumerate(ranked, start=1):
+            chunks.setdefault(candidate.chunk_id, candidate)
+            places.setdefault(candidate.chunk_id, {}).setdefault(name, rank)
+    scored = [
+        Ranked(
+            candidate=chunks[chunk_id],
+            # Meaning first, then words, so the same sum is the same float.
+            score=sum(1 / (k + place[name]) for name in ("meaning", "words") if name in place),
+            meaning=place.get("meaning"),
+            words=place.get("words"),
+        )
+        for chunk_id, place in places.items()
+    ]
+    return tuple(sorted(scored, key=lambda ranked: (-ranked.score, ranked.candidate.chunk_id)))
+
+
+def listed(ranked: Sequence[Ranked], *, limit: int, chunks: bool = False) -> tuple[Ranked, ...]:
+    """What a search lists: documents, each once at its best chunk, or the chunks (R19.2).
+
+    A person looks for incidents, not fragments, and one long runbook must not
+    fill the page; `chunks` lists the fused chunks as they are, cut at `limit`.
+    """
+    if chunks:
+        return tuple(ranked[:limit])
+    best: dict[str, Ranked] = {}
+    for each in ranked:
+        best.setdefault(each.candidate.document_id, each)
+        if len(best) == limit:
+            break
+    return tuple(best.values())
+
+
+def query_text(query: str, *, instruction: str | None) -> str:
+    """The text a query is embedded as: after its instruction, in Qwen3's format (R19.3).
+
+    `None` is the default instruction; an instruction declared empty embeds
+    the query as typed, for a model trained without one. Documents are
+    embedded without one (spec 018).
+    """
+    told = DEFAULT_INSTRUCTION if instruction is None else instruction
+    if not told:
+        return query
+    return f"Instruct: {told}\nQuery:{query}"
+
+
+class UnfilterableWhere(ValueError):
+    """A `--where` the index cannot answer: no `=`, a field it does not filter on, or a value
+    the field does not declare (R19.4). Refused before the model is asked."""
+
+
+def wheres(
+    given: Sequence[str],
+    *,
+    index: str,
+    filters: Sequence[str],
+    enums: Mapping[str, Sequence[str]] | None = None,
+) -> dict[str, tuple[str, ...]]:
+    """Each `FIELD=VALUE` given, as the values each field may hold (R19.4).
+
+    Two fields must both hold; one field given twice may hold either value. A
+    value is read in the spelling its declaration writes, found by the fold
+    the scorer compares by, so a filter finds what `embed` carried (R18.9 row
+    5). Raises `UnfilterableWhere` for anything the index cannot answer: a
+    typo would otherwise find nothing, and look like an answer.
+    """
+    chosen: dict[str, tuple[str, ...]] = {}
+    for pair in given:
+        name, equals, value = pair.partition("=")
+        name, value = name.strip(), value.strip()
+        if not equals or not name or not value:
+            raise UnfilterableWhere(f"--where takes FIELD=VALUE; got {pair}")
+        if name not in filters:
+            listed_filters = ", ".join(sorted(filters))
+            raise UnfilterableWhere(
+                f"{name} is not a filter of {index}; its filters are {listed_filters}"
+            )
+        declared = (enums or {}).get(name)
+        if declared is not None:
+            spelled = {enum_folded(each): each for each in declared}
+            if enum_folded(value) not in spelled:
+                values = ", ".join(sorted(declared))
+                raise UnfilterableWhere(
+                    f"{value} is not a value of {name}; it declares {values}"
+                )
+            value = spelled[enum_folded(value)]
+        if value not in chosen.get(name, ()):
+            chosen[name] = (*chosen.get(name, ()), value)
+    return chosen
+
+
+def reader_refusal(
+    reader: str | None, *, declared: Collection[str], pipeline: str
+) -> str | None:
+    """Why `--as reader` is refused, or `None` (R19.5).
+
+    A reader no source of the pipeline declares would find nothing, and an
+    empty list looks like an answer.
+    """
+    if reader is None or reader in declared:
+        return None
+    return (
+        f"no source of {pipeline} declares {reader} as a reader; "
+        f"they declare {', '.join(sorted(declared))}"
+    )
+
+
+def header(index: str, *, found: int, reader: str | None, chunks: bool) -> str:
+    """The line a search opens with: what was found, and as whom (R19.5, R19.8)."""
+    unit = "chunk" if chunks else "document"
+    counted = f"{found} {unit}{'' if found == 1 else 's'}"
+    who = "not filtered by reader" if reader is None else f"as {reader}"
+    return f"{index} · {counted} · {who}"
+
+
+def model_refusal(index: str, *, held: Collection[str], declared: str) -> str | None:
+    """Why a search of `index` is refused before the model is asked, or `None` (R19.6).
+
+    A query vector from one model is meaningless against another's, and the
+    lengths need not even agree.
+    """
+    if not held:
+        return f"{index} holds nothing yet: run dossier embed {index}"
+    if set(held) != {declared}:
+        return (
+            f"{index} was embedded with {', '.join(sorted(held))}, and is declared with "
+            f"{declared}: run dossier embed {index}"
+        )
+    return None
+
+
+def unreflected(*, held: Mapping[str, str], indexed: Mapping[str, str]) -> int:
+    """How many documents the index does not hold as the ledger holds them (R19.7).
+
+    `held` and `indexed` map a document id to its snapshot. A document synced
+    since the last embed, changed since, or tombstoned since each count once.
+    """
+    return sum(
+        1
+        for document in held.keys() | indexed.keys()
+        if held.get(document) != indexed.get(document)
+    )
+
+
+def unreflected_line(index: str, count: int) -> str | None:
+    """The line saying so, or `None` when the index reflects every held document (R19.7)."""
+    if count == 0:
+        return None
+    documents = "document" if count == 1 else "documents"
+    return f"{count} held {documents} not in {index} as held: run dossier embed {index}"
