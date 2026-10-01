@@ -83,11 +83,23 @@ class TestWhereKeepsTheDocumentsCarryingAValue:
         )
 
     def test_a_where_without_an_equals_sign_is_refused(self):
-        """The one that names no value at all."""
+        """Row 9, counter-example — the one that names no value at all."""
         with pytest.raises(UnfilterableWhere) as refused:
             _wheres("checkout")
 
         assert str(refused.value) == "--where takes FIELD=VALUE; got checkout"
+
+    def test_a_where_with_an_empty_side_is_refused(self):
+        """Row 9, counter-example — a field and no value, and a value and no field.
+
+        Each side alone would otherwise be read as something it is not: an empty
+        value of a declared field, or a field named nothing.
+        """
+        for given in ("component=", "=checkout", "failure_category= "):
+            with pytest.raises(UnfilterableWhere) as refused:
+                _wheres(given)
+
+            assert str(refused.value) == f"--where takes FIELD=VALUE; got {given}"
 
     def test_no_where_filters_nothing(self):
         """Row 8, counter-example — the one with no `--where`."""

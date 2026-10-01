@@ -178,6 +178,7 @@ chunk id, so a search lists the same order on every machine.
 | 2 | the query `INC-4830`: its chunks 1st and 2nd by words, and nowhere in the first 100 by meaning | both ranked, at `1/61` and `1/62`: an incident key is found by words, and is near nothing in meaning |
 | 3 | two chunks, one only 1st by meaning and one only 1st by words | equal scores, `1/61`; the one whose chunk id sorts first, first |
 | 4 | *counter-example* — a chunk in neither list | not ranked at all; a fusion gives no chunk a score of 0 |
+| 5 | one chunk 1st by meaning and 4th by words, another 4th by meaning and 1st by words, as `warehouse or cost` ranked two of exercise 05's notes | both at `1/61 + 1/64`, to the last digit; the one whose chunk id sorts first, first |
 
 ### R19.2 — a search lists documents, each once, at its best chunk's place; `--chunks` lists the chunks
 
@@ -227,6 +228,7 @@ carried (R18.9 row 5). A refusal comes before the model is asked.
 | 6 | `--where failure_category=meteor-strike` | exit 2, naming the field and its declared values; 0 embedding calls |
 | 7 | a live index of 400 documents, 10 carrying `failure_category=certificate-expiry` and farthest from the query; the planner reading the HNSW index; `--limit 10` | 10 documents: the scan goes on past its first 40 chunks until the list is full. With `hnsw.iterative_scan = off`, fewer |
 | 8 | *counter-example* — no `--where` | every document the reader may read is considered |
+| 9 | *counter-example* — `--where checkout`, `--where component=` or `--where =checkout` | exit 2, `--where takes FIELD=VALUE; got component=`, naming what was given; 0 embedding calls |
 
 ### R19.5 — `--as READER` keeps only the chunks that reader may read, and a search without it says it is not filtered
 
@@ -282,8 +284,8 @@ The slice's acceptance rule, through the CLI, with the embedding model and the
 index as fakes, as R18.7's are.
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.search`)
-- **Proved by:** `tests/acceptance/test_R019_8__search_lists_what_answers_the_query.py`
+- **Layer:** cli (`dossier.cli.search`), domain (`dossier.domain.search.excerpt`)
+- **Proved by:** `tests/acceptance/test_R019_8__search_lists_what_answers_the_query.py`, `tests/unit/test_R019_8__a_result_shows_its_text_on_one_line.py`
 - **Status:** MET
 
 | # | Given | Then |
@@ -291,7 +293,10 @@ index as fakes, as R18.7's are.
 | 1 | R18.11's workspace, synced, run and embedded; `dossier search incidents "certificate expired at checkout"` | the first line, `incidents · 1 document · not filtered by reader`; then `1. INC-4830`, its title, the heading path of its best chunk, its text on one line cut at a word to at most 200 characters, and its carried values; exit 0 |
 | 2 | the same, `--json` | one JSON object: `index`, `query`, `reader`, and `results`, each with `rank`, `document_id`, `title`, `values`, the chunk's `heading_path`, `kind` and `text`, and its `score`; nothing else on stdout |
 | 3 | *counter-example* — `dossier search incidents "kubernetes"`, which no chunk matches by words, and only far chunks by meaning | the documents by meaning still listed: a fusion of one list is that list |
-| 4 | *counter-example* — `--where component=payments-api`, which no document carries | `no documents found`; exit 0 |
+| 4 | *counter-example* — `--where component=payments-api`, which no document carries | the first line, `incidents · 0 documents · not filtered by reader`, then `no documents found`; exit 0 |
+| 5 | a chunk's text of `incident` thirty times, over three lines, 269 characters | on one line, cut at the last space within 200 characters: `incident` 22 times, 197 characters, then `…` |
+| 6 | *counter-example* — `INC-4830`'s root cause over two lines; a text of exactly 200 characters | each shown whole, on one line, with no `…`: a text that fits is not cut |
+| 7 | a text that is one word of 250 characters | its first 200 characters, then `…`: a word longer than the line is cut where the line ends |
 
 ### R19.9 — a chunk's words are its heading path and its text, the text its vector was made from
 
