@@ -346,7 +346,7 @@ carried as a JSON array, which `filter_values -> 'affected_systems' ?
 
 **`MAJOR`. [derived]** This pass's run answered `major`. Given exercise 05's
 task 3 answer instead, the two calls `embed` makes, the check and then
-`carried`, pass it and carry `MAJOR` as written:
+`carried`, pass it and carry it in the declared spelling:
 
 ```python
 from dossier.domain.grounding import check_field
@@ -354,26 +354,25 @@ from dossier.domain.index import IndexFields, carried
 from dossier.domain.schemas import FieldRecord
 
 text = open(".dossier/snapshots/6b/db/6bdb8cad3ebd2dcf76a24acdf1d36b55a5cda49f0a7222c9809044573892b1d0", encoding="utf-8").read()
+enums = {"severity": ["minor", "major", "critical"]}
 record = FieldRecord(field="severity", value="MAJOR", confidence="high",
                      source={"document": "PLAY-1001.md", "span": "**Severity:** major"})
-check = check_field(record, input_documents={"PLAY-1001.md": text},
-                    enums={"severity": ["minor", "major", "critical"]})
+check = check_field(record, input_documents={"PLAY-1001.md": text}, enums=enums)
 print(check.verdict)
-print(carried(IndexFields(filter=("severity",)), [(record, check.verdict)]).values)
+print(carried(IndexFields(filter=("severity",)), [(record, check.verdict)], enums=enums).values)
 ```
 
 ```
 FieldVerdict.VALID
-{'severity': 'MAJOR'}
+{'severity': 'major'}
 ```
 
 An `enum` value is checked against the declared values case-folded, as eval
-compares it (R6.26), which is why eval scored it correct in exercise 05. But
-what is carried is the run's spelling, not the declaration's. So `= 'major'`
-finds `PLAY-1004` alone, and only `lower(filter_values ->> 'severity')` finds
-both. Spec 018 does not say which spelling a carried category takes. Whether it
-should be the declared one is a question for an amendment to R18.9, not for
-this exercise.
+compares it (R6.26), which is why eval scored it correct in exercise 05. It is
+carried in the spelling the declaration writes (R18.9 row 5), so `= 'major'`
+finds both incidents. The first run of this exercise found it carried as
+`MAJOR`, which `= 'major'` missed while eval called it correct. That finding is
+what added the row.
 
 ## Task 5 — change a note after the run
 

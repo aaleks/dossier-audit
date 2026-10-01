@@ -52,6 +52,14 @@ were found only live:
   The MLflow record shows the EMBEDDING span with Ollama's own count of 60
   tokens.
 
+The `/verify` that followed, from an independent review and from exercise 20's
+run, found two more things. A held document whose conversion failed was
+dropped from `embed`'s input and its rows removed, with only `1 removed` said:
+it is now kept and named (R18.4 row 6). An enum the check let through
+case-folded was carried as the run spelled it, so a filter on the declared
+`major` missed a `MAJOR` that eval scored correct: it is now carried in the
+declared spelling (R18.9 row 5).
+
 ---
 
 R7.56 (2026-09-30). A gold file that does not read stopped `dossier eval`, and

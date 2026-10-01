@@ -280,8 +280,9 @@ removed`. Every document row names your latest run, and holds its two values:
   `payments-gateway` with an exact filter. Why can't you? What kind would have
   let you (exercise 19)?
 - **`MAJOR`.** Exercise 05's task 3 run answered `PLAY-1001`'s severity
-  `MAJOR`. If yours did, it was carried. What does `= 'major'` return then, and
-  why did eval score it correct? If not, work it out from R18.9 and R6.26.
+  `MAJOR`. Why did eval score it correct, and in which spelling is it carried?
+  What would `= 'major'` miss if it were carried as answered (R18.9 row 5,
+  R6.26)?
 
 ## Task 5 — change a note after the run
 

@@ -19,12 +19,15 @@ model bill, no network. A stub model server in `toolkit/` answers the same
 OpenAI-compatible route a real endpoint would, from a file of rules you can read
 and edit — so the code path is the real one and the answers are yours to control.
 
-**Exercises 11, 15 and 18 are the exceptions, deliberately.** Exercise 11 brings up
+**Exercises 11, 15, 18 and 20 are the exceptions, deliberately.** Exercise 11 brings up
 a Jira Data Center in Docker, which costs an evaluation licence, about 4 GB of
 RAM and an interactive setup wizard. Exercise 15 needs network access instead:
 it reads two public Confluence servers anonymously, and asks them for three
 pages, because the servers belong to someone else. Exercise 18 reads three public
-websites the same way, and runs no model at all. In 11 and 15 the model is still
+websites the same way, and runs no model at all. Exercise 20 writes an index
+to the Postgres in `dev/index`, in Docker, and embeds with a local Ollama's
+`qwen3-embedding:4b-fp16`: about 10 GB of RAM between them, and no stub can
+stand in, because a vector is only worth what the model meant. In 11 and 15 the model is still
 the stub; only the source is real. They come late because everything they
 teach — a named credential, someone else's version marker, a listing that
 cannot report a deletion, a payload that is mostly machinery — only exists once
