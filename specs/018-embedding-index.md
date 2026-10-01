@@ -279,6 +279,7 @@ would describe text that is no longer there.
 | 2 | *counter-example* — `INC-4830` re-synced since, at a new snapshot | indexed with no record; `INC-4830: record stale: 20260925T091500Z-5e6f read an earlier snapshot` |
 | 3 | *counter-example* — the latest run failed `INC-4822` at `extract` (R4.27) | indexed with no record; `INC-4822: no record: failed at extract in 20260925T091500Z-5e6f` |
 | 4 | *counter-example* — `incident-audit` has no run | every document indexed with no record; `no run of incident-audit yet` |
+| 5 | *counter-example* — `INC-4901` synced after the latest run | indexed with no record; `INC-4901: no record: 20260925T091500Z-5e6f did not read it` |
 
 ### R18.9 — a filter field is carried only when the run grounded it, and a text field is embedded in the document's record chunk
 
