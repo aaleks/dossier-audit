@@ -64,3 +64,14 @@ class TestTriesAndReplaysAreDeleted:
             path = f"runs/{run}/{held}"
             assert not any(path.startswith(name + "/") for name in named), held
             assert (workspace / path).is_file()
+
+    def test_a_directory_not_named_as_one_is_left(self, workspace: Path, monkeypatch):
+        """Row 4, counter-example — the one where a person kept notes beside them."""
+        run, replay, tried = _held(workspace, monkeypatch)
+        (workspace / "tries" / "my-notes").mkdir()
+        (workspace / "runs" / run / "replays" / "my-notes").mkdir()
+
+        plan = _plan(workspace)
+
+        assert plan.tries == (f"tries/{tried}",)
+        assert plan.replays == (f"runs/{run}/replays/{replay}",)

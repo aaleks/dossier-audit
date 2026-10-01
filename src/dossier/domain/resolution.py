@@ -443,6 +443,18 @@ def run_id(started_at: datetime, suffix: str, *, taken: Iterable[str] = ()) -> s
     return f"{stamp}-{suffix}"
 
 
+def is_run_id(name: str) -> bool:
+    """Whether `name` has the shape `run_id` gives a run, a try or a replay (R0.15).
+
+    What `gc` deletes under `tries/` and `replays/`: a directory named any
+    other way is not one, and is left as it is (R16.4 row 4).
+    """
+    return _RUN_ID.fullmatch(name) is not None
+
+
+_RUN_ID = re.compile(r"\d{8}T\d{6}Z-[0-9a-f]+")
+
+
 def _after(last: str) -> str:
     """The suffix that sorts next after `last`, in its form where it can (R0.15).
 

@@ -23,6 +23,11 @@ pipeline's latest run, and is refused (R16.9). Two wipe mutants, of the judge
 and embed caches and of the snapshots, had survived every gc test, and so had
 a size of `0`: each is now killed, R16.3 row 8 saying in the spec that the
 embed cache is never touched.
+The review's three smaller findings followed: a run directory is deleted
+manifest last, so a `gc` stopped part way leaves a run the next one deletes
+(R16.10); a manifest or `failures.json` cut short is named rather than
+stopping `gc` with a traceback (R16.11); and a directory under `tries/` not
+named as a try is left as it is (R16.4 row 4).
 
 `dossier embed` (2026-10-01, spec 018, R0.16 and R11.33, #647 to #657). What
 `dossier` held was searchable only by the categories a run extracted. `embed`

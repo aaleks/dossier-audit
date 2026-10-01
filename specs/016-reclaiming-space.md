@@ -1,6 +1,6 @@
 # 016 — Reclaiming space
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R16.1 – R16.11
 
 ## Purpose
@@ -246,11 +246,11 @@ is held for good, and nothing names it.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.gc.apply_plan`)
 - **Proved by:** `tests/unit/test_R016_10__an_interrupted_apply_is_finished_by_the_next.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `gc --keep-last 1 --apply`, stopped after the first file of `20260806T142203Z-4f1a` was deleted | `runs/20260806T142203Z-4f1a/manifest.json` still there |
+| 1 | `20260806T142203Z-4f1a` holding a reviewer's `review.md` beside its manifest (R0.11); `gc --keep-last 1 --apply` stopped after any file of it but the last was deleted | `runs/20260806T142203Z-4f1a/manifest.json` still there: it is the last file of the run deleted, whatever the file system lists after it |
 | 2 | the same, then `dossier gc --keep-last 1 --apply` | `freed … MB: 1 run, …`, and `runs/20260806T142203Z-4f1a/` gone |
 | 3 | *counter-example* — `gc --keep-last 1 --apply` not stopped | `runs/20260806T142203Z-4f1a/` gone, and nothing of it left |
 
@@ -266,7 +266,7 @@ a replay that stops before its stages, R16.8's case.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.gc`)
 - **Proved by:** `tests/unit/test_R016_11__an_unreadable_run_record_stops_no_gc.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
