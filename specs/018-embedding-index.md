@@ -65,8 +65,12 @@ Two tables, in a schema `dossier` creates and owns (`dossier_index`):
 
 | Table | Columns |
 |---|---|
-| `documents` | `document_id`, `index`, `source_id`, `container` (the Jira project, the Confluence space, the folder), `key`, `title`, `snapshot`, `synced_at`, `acl`, `run_id`, the carried filter values as JSON, and `content_hash`: the hash of everything written for the document, compared to write only what changed (R18.4) |
-| `chunks` | `chunk_id`, `document_id`, `kind` (`body` or `record`), `chunk_index`, `heading_path`, `text`, `text_search` (a `tsvector` of `text`, configuration `simple`), `embedding`, `acl` |
+| `documents` | `index`, `document_id` (`<source>:<key>`), `source_id`, `key`, `title`, `snapshot`, `acl`, `embedding_model`, `content_hash` (the hash of everything written for the document, compared to write only what changed, R18.4), `run_id`, and `filter_values`: the carried values as JSON |
+| `chunks` | `index`, `chunk_id`, `document_id`, `kind` (`body` or `record`), `chunk_index`, `heading_path`, `text`, `text_search` (a `tsvector` of `text`, configuration `simple`), `embedding`, `acl` |
+
+One `chunks` table holds every index, so its vector column has one type, fixed by
+the first index written: two indexes pinning models of different lengths need
+two databases (R18.5).
 
 `text_search` uses `simple`: no stemming and no stop words, because incidents
 are written in more than one language and a stemmer for the wrong one mangles
@@ -137,6 +141,13 @@ every chunk's identity, so a change of chunker re-chunks rather than mixing
   readers without changing shape.
 - **A URL for a Jira issue or a Confluence page.** It needs each connector's
   base address and a rule of its own.
+- **The container: a Jira project, a Confluence space.** Each connector knows
+  it, and the core may not name it (R1.7): it needs a connector-declared field
+  and a rule of its own. A source's documents are filtered by `source_id` until
+  then.
+- **When a document was synced.** The ledger's `last_seen` moves at every sync,
+  so writing it would rewrite every row each time. `snapshot` says which content
+  a row holds, and moves only when the content does.
 
 ## Open questions
 
@@ -188,7 +199,9 @@ keeps its section's heading path.
 The text embedded is the chunk's heading path, then its text, so the chunk
 holding `CHF 48'200` is found as `INC-4821`'s impact. The vector is cached
 under the model and that text, as a stage's answer is cached under its inputs
-(R5.5).
+(R5.5), and its key is the same on every machine (R0.4). The texts missing a
+vector are asked for in requests of at most 32. A cached vector that cannot be
+read is a miss, as any cache entry is (R5.9).
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.embed`), domain (`dossier.domain.keys.embedding_key`)
@@ -216,6 +229,7 @@ under the model and that text, as a stage's answer is cached under its inputs
 | 3 | `handover-note.md` tombstoned (R2.7) | its document row and its chunks deleted; `1 removed` |
 | 4 | *counter-example* — `81920114.pdf` owed: its fetch failed at the last sync (R2.23) | its rows from the last embed kept: the ledger still holds it |
 | 5 | *counter-example* — the index's tables emptied by hand | every row written again, from the cache, with 0 embedding calls: the index is derived data |
+| 6 | *counter-example* — `INC-4822`, held, failing to convert at this `embed` (R8.6) | its rows from the last embed kept, and named: `INC-4822: not converted, its rows are kept: <the reason>`; `0 removed`. Removed, one converter's failure would take a held document out of search without a word |
 
 ### R18.5 — the vector column's type follows the length of the model's vectors
 
@@ -233,7 +247,7 @@ pgvector indexes a `vector` of up to 2,000 dimensions and a `halfvec` of up to
 | 2 | 2,000 values | `vector(2000)` |
 | 3 | 2,001 values | `halfvec(2001)` |
 | 4 | *counter-example* — 4,001 values | refused: no pgvector type indexes it |
-| 5 | *counter-example* — one chunk answered with 1,024 values, in an index of 2,560 | refused, naming the chunk and both lengths; nothing of that `embed` is written |
+| 5 | *counter-example* — one chunk answered with 1,024 values, the others with 2,560 | refused, naming that chunk and both lengths; nothing of that `embed` is written, and none of its vectors cached |
 
 ### R18.6 — every row carries the readers its source declares, and a source declaring none is not indexed
 
@@ -246,7 +260,7 @@ pgvector indexes a `vector` of up to 2,000 dimensions and a `halfvec` of up to
 |---|-------|------|
 | 1 | `incidents-jira` declaring `acl: [incident-response]` | every `INC-*` document row and chunk row holds `{incident-response}` |
 | 2 | *counter-example* — `procedures-confluence`, read by the index, declaring no `acl` | refused at load, naming the source and the key to add; nothing written |
-| 3 | *counter-example* — `incidents-manual` declaring `acl: []` | refused as row 2 is: an empty list is not a decision about who may read it |
+| 3 | *counter-example* — `incidents-manual` declaring `acl: []` | refused when `sources.yaml` loads, whether or not an index reads it: an empty list names no reader, and is not a decision about who may read it |
 
 ### R18.7 — `dossier embed INDEX` builds the index from what was synced
 
@@ -259,7 +273,7 @@ The outer loop of the first slice.
 
 | # | Given | Then |
 |---|-------|------|
-| 1 | `dossier sync incident-audit`, then `dossier embed incidents` | a document row for each active document and its chunk rows with their vectors; `N chunks · N embedded · 0 cached · N written · 0 removed`; exit 0 |
+| 1 | `dossier sync incident-audit`, then `dossier embed incidents` | a document row for each active document and its chunk rows with their vectors; `incidents · N chunks · N embedded · 0 cached · N written · 0 removed`, every count but `written` and `removed` in chunks; exit 0 |
 | 2 | then `dossier embed incidents` again | `0 embedded · N cached · 0 written · 0 removed`; 0 embedding calls |
 | 3 | *counter-example* — `DOSSIER_INDEX_DSN` not set | exit 2, naming the variable, before any embedding call |
 
@@ -280,6 +294,7 @@ would describe text that is no longer there.
 | 3 | *counter-example* — the latest run failed `INC-4822` at `extract` (R4.27) | indexed with no record; `INC-4822: no record: failed at extract in 20260925T091500Z-5e6f` |
 | 4 | *counter-example* — `incident-audit` has no run | every document indexed with no record; `no run of incident-audit yet` |
 | 5 | *counter-example* — `INC-4901` synced after the latest run | indexed with no record; `INC-4901: no record: 20260925T091500Z-5e6f did not read it` |
+| 6 | *counter-example* — the latest run read `INC-4901`, failed nothing, and filed no answer for it | indexed with no record; `INC-4901: no record: 20260925T091500Z-5e6f filed no answer for it` |
 
 ### R18.9 — a filter field is carried only when the run grounded it, and a text field is embedded in the document's record chunk
 
@@ -314,6 +329,7 @@ support.
 | 4 | `embedding_model: ollama:qwen3-embedding:4b-fp16` | refused as R9.3 refuses an Ollama tag with no digest |
 | 5 | *counter-example* — `indexes/incidents.yaml` as this spec writes it | loads |
 | 6 | `fields` declared over a pipeline in which `extract` and `verify` both declare an output | refused, as `dossier eval` refuses it: an index carries the answers of one output (R17.6 row 5) |
+| 7 | `embedding_model: openai:text-embedding-3-small`, and no installed package embedding for `openai` | refused, naming `openai` and the providers that do embed: a chat provider is not one that answers with vectors |
 
 ### R18.11 — what `dossier embed` carries of a run is the latest run's grounded record of the snapshot it holds
 
