@@ -78,3 +78,35 @@ issues and attachments to sync. It reads `DOSSIER_JIRA_URL`, so for this Jira
 set `DOSSIER_JIRA_URL=http://127.0.0.1:8091`. That exercise brings up its own
 Jira on port 8080, where the project's default model is served on this setup
 (`.env.example`); this one is on 8091 so the two do not collide.
+
+## The embedding index
+
+A PostgreSQL with pgvector, for `dossier embed` to write an index into (spec
+018). Unlike the two above, a test uses it: the live test of the Postgres index
+sink, `tests/integration/test_R018_4__postgres_index_sink.py`, which writes into
+a schema of its own and drops it.
+
+```bash
+docker compose -f dev/index/docker-compose.yml up -d
+docker compose -f dev/index/docker-compose.yml ps        # wait for (healthy)
+```
+
+It needs no setup: the user, the password and the database are all `dossier`,
+and `dossier` creates its schema, `dossier_index`, on the first embed. Point an
+index at it with the variable its `target.dsn_env` names, in `.env`:
+
+```
+DOSSIER_INDEX_DSN=postgresql://dossier:dossier@127.0.0.1:5435/dossier
+```
+
+Port 5435, because the machine this was first run on already had PostgreSQLs
+on 5432, 5433 and 5434. RAM is capped at 512 MB. The image,
+`pgvector/pgvector:pg17`, is a floating tag, unlike the two above: it served
+PostgreSQL 17.10 with pgvector 0.8.6 at the first live check.
+
+The driver is the `index` extra: `uv sync --extra index`, or `--all-extras`.
+
+```bash
+DOSSIER_INDEX_DSN=postgresql://dossier:dossier@127.0.0.1:5435/dossier \
+  .venv/Scripts/python.exe -m pytest -m live tests/integration/test_R018_4__postgres_index_sink.py
+```

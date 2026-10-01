@@ -108,28 +108,35 @@ class OllamaClient:
         )
 
     def _check_digest(self) -> None:
-        """Stop before the first completion if the tag now holds another digest (R9.4).
+        check_digest(self._http, self._base, self.model_id, sleep=self._sleep)
 
-        `GET <url>/api/tags` lists every model the server holds, with the digest
-        each tag currently points at. A bare tag is listed with `:latest`, so
-        `llama3` is looked for as `llama3:latest` too. The decision itself is
-        the domain's (`check_served`).
-        """
-        url = self._base + "/api/tags"
-        response = request(self._http, "GET", url, sleep=self._sleep)
-        names = {self._name} if ":" in self._name else {self._name, f"{self._name}:latest"}
-        try:
-            served = {
-                entry["digest"].removeprefix("sha256:")
-                for entry in response.json()["models"]
-                if entry.get("name") in names and isinstance(entry.get("digest"), str)
-            }
-        except (ValueError, KeyError, TypeError, AttributeError):
-            raise ModelRequestFailed(f"GET {url} answered with no model list") from None
-        try:
-            check_served(self.model_id, served=served)
-        except ValueError as error:
-            raise ModelRequestFailed(f"{error} (reported by {url})") from None
+
+def check_digest(http: httpx.Client, base: str, model_id: str, *, sleep: Sleep) -> None:
+    """Stop before the first request if the tag now holds another digest (R9.4).
+
+    `GET <base>/api/tags` lists every model the server holds, with the digest
+    each tag currently points at. A bare tag is listed with `:latest`, so
+    `llama3` is looked for as `llama3:latest` too. The decision itself is the
+    domain's (`check_served`). Shared by the chat client and the embedding
+    client: a vector cached under a pinned identifier is vouched for exactly as
+    an answer is (R18.3).
+    """
+    url = base + "/api/tags"
+    response = request(http, "GET", url, sleep=sleep)
+    name = _tag(model_id)
+    names = {name} if ":" in name else {name, f"{name}:latest"}
+    try:
+        served = {
+            entry["digest"].removeprefix("sha256:")
+            for entry in response.json()["models"]
+            if entry.get("name") in names and isinstance(entry.get("digest"), str)
+        }
+    except (ValueError, KeyError, TypeError, AttributeError):
+        raise ModelRequestFailed(f"GET {url} answered with no model list") from None
+    try:
+        check_served(model_id, served=served)
+    except ValueError as error:
+        raise ModelRequestFailed(f"{error} (reported by {url})") from None
 
 
 class Ollama:

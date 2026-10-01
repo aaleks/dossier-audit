@@ -1,0 +1,39 @@
+# A PostgreSQL with pgvector on your machine, for `dossier embed` to write an
+# index into (spec 018), and for the live test of the Postgres index sink:
+#
+#   DOSSIER_INDEX_DSN=postgresql://dossier:dossier@127.0.0.1:5435/dossier
+#
+# Nothing here is part of `dossier`. Port 5435, because the machine this was
+# first run on already has PostgreSQLs on 5432, 5433 and 5434, and a DSN that
+# reaches another one fails on its password at best. Bound to 127.0.0.1,
+# because the password is in this file. See dev/README.md.
+#
+#   docker compose -f dev/index/docker-compose.yml up -d
+#   docker compose -f dev/index/docker-compose.yml ps                # healthy?
+#   docker compose -f dev/index/docker-compose.yml down              # keeps the data
+#   docker compose -f dev/index/docker-compose.yml down -v           # and the data is gone
+
+name: dossier-index
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: dossier-index
+    # The WSL VM this was first run in is 8 GB, shared with other stacks.
+    mem_limit: 512m
+    ports:
+      - "127.0.0.1:5435:5432"
+    environment:
+      POSTGRES_DB: dossier
+      POSTGRES_USER: dossier
+      POSTGRES_PASSWORD: dossier
+    volumes:
+      - index-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dossier -d dossier"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  index-db:

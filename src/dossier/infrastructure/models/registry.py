@@ -10,6 +10,8 @@ from __future__ import annotations
 from importlib.metadata import entry_points
 
 ENTRY_POINT_GROUP = "dossier.models"
+# Providers that answer with vectors (spec 018, R18.3), under the same prefixes.
+EMBEDDING_ENTRY_POINT_GROUP = "dossier.embeddings"
 
 
 class UnknownProvider(LookupError):
@@ -23,13 +25,7 @@ def provider(name: str):
     machine reaches it at (R9.2). Its `default_url`, where it has one, is used
     when that endpoint is not set.
     """
-    for point in entry_points(group=ENTRY_POINT_GROUP):
-        if point.name == name:
-            return point.load()
-    raise UnknownProvider(
-        f"no installed package provides model provider {name!r}. "
-        f"Available: {', '.join(available_providers()) or 'none'}"
-    )
+    return _load(ENTRY_POINT_GROUP, name, "model provider", available_providers)
 
 
 def available_providers() -> list[str]:
@@ -39,3 +35,30 @@ def available_providers() -> list[str]:
     asks this, and loading reaches no network and no model (R3.8, R0.9).
     """
     return sorted(point.name for point in entry_points(group=ENTRY_POINT_GROUP))
+
+
+def embedding_provider(name: str):
+    """The embedding client factory an installed package declares for provider `name`.
+
+    Built as a chat client is: `factory(model_id, url=..., api_key=...)`, with
+    the endpoint `DOSSIER_<PROVIDER>_URL` names or the factory's `default_url`
+    (R9.2). The client it returns has `embed(texts)`.
+    """
+    return _load(
+        EMBEDDING_ENTRY_POINT_GROUP, name, "embedding provider", available_embedding_providers
+    )
+
+
+def available_embedding_providers() -> list[str]:
+    """Every embedding provider an installed package declares, sorted. Names only."""
+    return sorted(point.name for point in entry_points(group=EMBEDDING_ENTRY_POINT_GROUP))
+
+
+def _load(group: str, name: str, what: str, available):
+    for point in entry_points(group=group):
+        if point.name == name:
+            return point.load()
+    raise UnknownProvider(
+        f"no installed package provides {what} {name!r}. "
+        f"Available: {', '.join(available()) or 'none'}"
+    )

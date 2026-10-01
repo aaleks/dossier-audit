@@ -90,6 +90,16 @@ docling = [
 # install chromium-headless-shell`, which dossier never runs itself (R1.42).
 # Only `dossier.infrastructure.connectors` may import it (R0.10).
 browser = ["playwright>=1.49"]
+# The embedding index (spec 018): psycopg 3, the PostgreSQL driver, and
+# pgvector-python, which hands it pgvector's `vector` and `halfvec` types.
+# Chosen over LlamaIndex and Haystack's Postgres stores, whose schema and clients
+# would sit outside dossier's keys and network boundary (spec 018, "Existing
+# options considered"). LGPL-3.0 (psycopg, imported and not modified) and MIT
+# (pgvector); `[binary]` carries libpq in its wheel, so no PostgreSQL client has
+# to be installed. Optional, because only `dossier.infrastructure.index` imports
+# them (R0.16) and only `dossier embed` reaches it: a workspace that builds no
+# index installs no database driver.
+index = ["psycopg[binary]>=3.3", "pgvector>=0.5"]
 
 [dependency-groups]
 dev = [
@@ -145,6 +155,14 @@ gemini = "dossier.infrastructure.models.openai_compatible:gemini"
 hf = "dossier.infrastructure.models.openai_compatible:hf"
 ollama = "dossier.infrastructure.models.ollama:ollama"
 openai = "dossier.infrastructure.models.openai_compatible:openai"
+
+# A provider that answers with vectors declares one of these (spec 018, R18.3).
+# A group of its own, keyed by the same prefix as `dossier.models`, so an
+# `embedding_model:` naming a provider that embeds nothing is refused by name
+# rather than found to lack a method. The endpoint is the provider's either way:
+# `DOSSIER_OLLAMA_URL` serves both (R9.2).
+[project.entry-points."dossier.embeddings"]
+ollama = "dossier.infrastructure.models.ollama_embed:ollama_embeddings"
 
 [build-system]
 requires = ["hatchling"]
