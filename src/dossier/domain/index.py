@@ -345,6 +345,9 @@ class LatestRun:
     pinned: Mapping[str, str]
     failed: Mapping[str, str]
     records: Mapping[str, Sequence[FieldRecord]]
+    # Why the run's answers could not be reproduced from the cache, on one
+    # line, or `None` when they were (R18.8 row 7).
+    unreplayable: str | None = None
 
 
 def record_for(
@@ -357,7 +360,8 @@ def record_for(
     only when the run read the snapshot the ledger holds now. With no run at
     all there is nothing to say per document: the command says it once.
     """
-    if run is None:
+    if run is None or run.unreplayable is not None:
+        # Nothing to say per document: the command says it once.
         return None, None
     pinned = run.pinned.get(key)
     if pinned is None:

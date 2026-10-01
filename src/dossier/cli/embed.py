@@ -71,12 +71,11 @@ def embed(
         chunker = chunker_for(declaration.chunker)
         path = bootstrap.pipeline_path(workspace, declaration.pipeline)
         pipeline = load_pipeline(path, providers=available_providers())
-        run, enums = None, None
+        step, enums = None, None
         if declaration.fields.carried:
             # `load_index` has refused any number but one (R18.10 row 6).
             step = carried_output(pipeline.steps, pipeline=declaration.pipeline)
             enums = load_enum_values(path.parent / step.output)
-            run = read_latest_run(workspace, declaration.pipeline, step.id)
         embedder = bootstrap.build_embedding_provider(declaration.embedding_model)
         sink = bootstrap.build_index_sink(dsn)
     except (ConfigError, UnknownChunker, UnknownProvider, IndexSinkFailed) as error:
@@ -117,6 +116,21 @@ def embed(
                 Unconverted(source_id=name, key=failed.document, reason=failed.error or "")
                 for failed in report.failed
             )
+    # After converting: the run's answers are replayed from the cache, as
+    # `eval` reads them (R18.8 row 8), and a conversion the cache had lost is
+    # made again above before the replay needs it.
+    run = (
+        None
+        if step is None
+        else read_latest_run(
+            workspace,
+            declaration.pipeline,
+            step.id,
+            store=store,
+            converted=cache,
+            stage=ArtifactCache(workspace, namespace="stage"),
+        )
+    )
 
     try:
         report = embed_index(

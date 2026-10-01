@@ -13,6 +13,15 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`embed` reads a run as `eval` does (2026-10-01, spec 018, R18.8 rows 7 and 8).
+The spec 016 /verify found R0.11 and R18.8 disagreeing: R0.11 says the copies
+under `runs/` are never read back, and `embed` read its records from them, so a
+reviewer's edit of a copy changed what the index filtered on while `eval` went
+on scoring the cached answer. `a.aleks` chose R0.11: `embed` now replays the
+latest run from its manifest and the cache, after converting, so a conversion
+the cache had lost is made again first. A run that cannot be replayed carries
+no record, and says why once.
+
 `gc` verified (2026-10-01, spec 016, R16.8 and R16.9). The /verify found that
 deleting `.dossier/cache/convert`, which R5.9 calls safe, made `gc` delete every
 stage entry: a kept run's replay reads its conversions before any stage key,

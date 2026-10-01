@@ -17,8 +17,15 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.plan import latest_manifest
-from dossier.application.run import recorded_failures
+from dossier.application.run import (
+    MissingFromReplay,
+    recorded_failures,
+    replay,
+    replayed_inputs,
+    replayed_parts,
+)
 from dossier.domain.chunks import chunk_id, record_chunk_id
 from dossier.domain.grounding import check_field
 from dossier.domain.index import (
@@ -44,9 +51,9 @@ from dossier.domain.ports import (
     Chunker,
     EmbeddingProvider,
     IndexSink,
+    SnapshotReader,
     Tracker,
 )
-from dossier.domain.schemas import FieldRecord, StageOutput
 from dossier.domain.store import RUNS_ROOT
 from dossier.domain.tracking import label_for, run_name
 from dossier.domain.tracking import tags as tracking_tags
@@ -149,6 +156,8 @@ def embed_index(
     notes: list[str] = []
     if asks and run is None:
         notes.append(f"no run of {declaration.pipeline} yet")
+    elif asks and run.unreplayable is not None:
+        notes.append(f"no record: {run.run_id} cannot be replayed: {run.unreplayable}")
     cuts: dict[str, list[_Cut]] = {}
     records: dict[str, Carried] = {}
     for document in ordered:
@@ -325,43 +334,59 @@ def _cut(document: ToIndex, chunker: Chunker) -> list[_Cut]:
     ]
 
 
-def read_latest_run(workspace: Path, pipeline: str, step: str) -> LatestRun | None:
+def read_latest_run(
+    workspace: Path,
+    pipeline: str,
+    step: str,
+    *,
+    store: SnapshotReader,
+    converted: ArtifactStore,
+    stage: ArtifactStore,
+) -> LatestRun | None:
     """What the pipeline's latest run read, failed and answered at `step` (R18.8).
 
     The latest is found as `eval` and `status` find it (R16.2). Its pins come
-    from its manifest, its failures from `failures.json` (R4.27), and its
-    answers from the step's files under `runs/` (R0.11), so nothing is asked
-    of a model to learn them. A document two steps failed is named by the
-    first, as the run met it.
+    from its manifest and its failures from `failures.json` (R4.27). Its
+    answers are reproduced from the manifest and the cache, as `eval` reads
+    them (R4.7, R7.10), and never from the copies under `runs/`: those are for
+    people, who may edit them, and a copy read back would carry an answer
+    `eval` never scored (R0.11, R18.8 row 8). Nothing is asked of a model. A
+    run that cannot be reproduced carries nothing, and says why (row 7).
     """
     plan, run_dir = latest_manifest(workspace / RUNS_ROOT, pipeline)
     if plan is None or run_dir is None:
         return None
     directory = workspace / RUNS_ROOT / run_dir
+    recorded = recorded_failures(directory)
     failed: dict[str, str] = {}
-    for failure in recorded_failures(directory) or []:
+    for failure in recorded or []:
         failed.setdefault(str(failure["document"]), str(failure["step"]))
-    answers: dict[str, tuple[FieldRecord, ...]] = {}
-    for document in plan.documents:
-        filed = directory / step / f"{document.key}.json"
-        # A `per_part` step files each part under its document (R0.13).
-        parts = sorted((directory / step / document.key).glob("*.json"))
-        if filed.is_file():
-            parts = [filed]
-        if parts:
-            answers[document.key] = tuple(
-                record
-                for part in parts
-                for record in StageOutput.model_validate_json(
-                    part.read_text(encoding="utf-8")
-                ).fields
-            )
-    return LatestRun(
-        run_id=run_dir,
-        pinned={document.key: document.snapshot for document in plan.documents},
-        failed=failed,
-        records=answers,
-    )
+    pinned = {document.key: document.snapshot for document in plan.documents}
+    manifest = Manifest.read(directory / MANIFEST_NAME)
+    try:
+        report = replay(
+            manifest=manifest,
+            document_text=replayed_inputs(manifest, store=store, cache=converted),
+            document_parts=replayed_parts(manifest, store=store, cache=converted),
+            cache=stage,
+            failures=recorded,
+        )
+    except MissingFromReplay as error:
+        return LatestRun(
+            run_id=run_dir,
+            pinned=pinned,
+            failed=failed,
+            records={},
+            unreplayable=" ".join(str(error).split()),
+        )
+    answers = {
+        result.document: result.records
+        for done in report.steps
+        if done.step == step
+        for result in done.results
+        if not result.failed
+    }
+    return LatestRun(run_id=run_dir, pinned=pinned, failed=failed, records=answers)
 
 
 def record_embed(
