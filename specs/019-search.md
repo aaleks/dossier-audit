@@ -1,7 +1,7 @@
 # 019 — Searching the index
 
-**Status:** Implemented
-**Rules:** R19.1 – R19.9
+**Status:** Partially implemented
+**Rules:** R19.1 – R19.12
 
 ## Purpose
 
@@ -18,19 +18,20 @@ model's input like any other, embedded only on a cache miss.
 ## The command
 
 ```
-dossier search incidents "certificate expired at checkout"
-dossier search incidents "certificate expired at checkout" --where component=checkout
-dossier search incidents "alert routed to an archived channel" --as incident-response --limit 5
-dossier search incidents "certificate expired at checkout" --chunks --json
+dossier search incidents "certificate expired at checkout" --as incident-response
+dossier search incidents "certificate expired at checkout" --as incident-response --where component=checkout
+dossier search incidents "alert routed to an archived channel" --as incident-response --as sre --limit 5
+dossier search incidents "certificate expired at checkout" --all-readers --chunks --json
 ```
 
 | Option | Default | Does |
 |---|---|---|
+| `--as READER` | none; it or `--all-readers` is required | keeps the chunks one of the named readers may read; repeatable (R19.10, R19.11) |
+| `--all-readers` | off | searches every chunk, whoever may read it, and says so (R19.11) |
 | `--limit N` | 10 | how many documents, or chunks with `--chunks`, are listed |
 | `--where FIELD=VALUE` | none | keeps the documents carrying that value; repeatable (R19.4) |
-| `--as READER` | none | keeps the chunks that reader may read (R19.5) |
 | `--chunks` | off | lists chunks rather than documents (R19.2) |
-| `--json` | off | prints the same results as JSON (R19.8) |
+| `--json` | off | prints the same results as JSON (R19.12) |
 
 It changes nothing: it writes no file, no row and no cache entry but the
 query's vector (R19.3).
@@ -119,6 +120,19 @@ Decided by `a.aleks` on 2026-10-01:
 - `query_instruction:` declared per index, with the default above.
 - Text, and `--json`.
 
+Decided by `a.aleks` on 2026-10-01, after the rest was built, for an agent that
+will search on people's behalf:
+
+- Readers are kept apart by the application holding the connection, as `--as`
+  does, and never by Postgres: where `dossier` runs, a role per reader cannot
+  be managed. Whoever holds the connection string reads every row ("Left out
+  on purpose").
+- A search names the readers it is for, or asks for every chunk with
+  `--all-readers` (R19.11). Before, a search with no `--as` listed every chunk,
+  and an agent that forgot the flag would have shown someone everything.
+- `--as` is repeatable, and keeps what any of the readers named may read, in
+  one ranked list (R19.10): a person often reads as more than one.
+
 ## Reading back from the index
 
 Spec 018 fenced what `dossier` reads from the index to the ids and content
@@ -142,9 +156,14 @@ decisions it adds, fusion and grouping, are pure and belong in `domain/`.
 
 ## Left out on purpose
 
-- **Row-level security.** `--as` filters; it does not enforce. Enforcing needs
-  a Postgres role per reader, or a session setting the views read, and is its
-  own spec.
+- **Enforcing readers in the database.** Decided against ("Decisions"). A
+  role per reader needs roles managed where `dossier` runs, and a session
+  setting the policies read is set by whoever holds the connection, so it
+  enforces nothing. Measured on `dev/index`, 30,000 chunks: under row-level
+  security the vector index still serves the list by meaning, and the words
+  list loses its GIN index, because `@@` is not leakproof and Postgres will not
+  apply it before the policy. Every search by words then read every row, 6.5
+  ms here, in proportion to the table.
 - **Reranking.** A cross-encoder over the fused list is pgvector's other
   suggestion. It is a second model per search, and nothing yet measures
   whether it helps.
@@ -294,6 +313,65 @@ index as fakes, as R18.7's are.
 | 2 | the same, `--json` | one JSON object: `index`, `query`, `reader`, and `results`, each with `rank`, `document_id`, `title`, `values`, the chunk's `heading_path`, `kind` and `text`, and its `score`; nothing else on stdout |
 | 3 | *counter-example* — `dossier search incidents "kubernetes"`, which no chunk matches by words, and only far chunks by meaning | the documents by meaning still listed: a fusion of one list is that list |
 | 4 | *counter-example* — `--where component=payments-api`, which no document carries | the first line, `incidents · 0 documents · not filtered by reader`, then `no documents found`; exit 0 |
+| 5 | a chunk's text of `incident` thirty times, over three lines, 269 characters | on one line, cut at the last space within 200 characters: `incident` 22 times, 197 characters, then `…` |
+| 6 | *counter-example* — `INC-4830`'s root cause over two lines; a text of exactly 200 characters | each shown whole, on one line, with no `…`: a text that fits is not cut |
+| 7 | a text that is one word of 250 characters | its first 200 characters, then `…`: a word longer than the line is cut where the line ends |
+
+### R19.10 — `--as READER`, repeatable, keeps only the chunks one of the readers named may read
+
+A person often reads as more than one reader, and an agent searching for them
+asks as all of theirs at once: `--as incident-response --as sre` lists what
+either may read, in one ranked list. Each reader must be declared by a source
+of the pipeline. When it lands, it supersedes R19.5, whose search without
+`--as` is R19.11's.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.search.readers_for`), infrastructure (`dossier.infrastructure.index.postgres`)
+- **Proved by:** `tests/unit/test_R019_10__as_keeps_what_a_named_reader_may_read.py`, `tests/integration/test_R019_4__postgres_search_filters.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents-jira` declaring `[incident-response]`, `procedures-confluence` declaring `[sre]`; `--as incident-response` | `incidents-jira`'s documents only; the first line says `as incident-response` |
+| 2 | the same, `--as incident-response --as sre` | both sources' documents, in one ranked list; the first line says `as incident-response, sre` |
+| 3 | the same, `--as sre --as incident-response --as sre` | as row 2: each reader once, in order |
+| 4 | *counter-example* — `--as incident-responce --as sre` | exit 2, `no source of incident-audit declares incident-responce as a reader; they declare incident-response, sre`; 0 embedding calls. A typo would otherwise narrow the search silently |
+
+### R19.11 — a search names its readers, or asks for every chunk with `--all-readers`; with neither, it is refused before the model is asked
+
+The connection string reads every row, so the application holding it is what
+keeps readers apart ("Decisions"). A search that names no reader would list
+every chunk, whoever it was for, and an agent that forgot `--as` would show
+someone everything. Asking for everything is a choice, and says so.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.search.readers_for`), cli (`dossier.cli.search`)
+- **Proved by:** `tests/unit/test_R019_11__a_search_names_its_readers.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier search incidents "certificate expired at checkout"`, with neither | exit 2, `name the readers this search is for with --as READER (incident-response, sre), or search every chunk with --all-readers`; 0 embedding calls |
+| 2 | the same, `--all-readers` | both sources' documents; the first line says `not filtered by reader` |
+| 3 | *counter-example* — `--as sre --all-readers` | exit 2, `--as and --all-readers contradict: name the readers, or ask for every chunk`; 0 embedding calls |
+
+### R19.12 — `dossier search INDEX QUERY --as READER` prints the documents that answer it, best first
+
+The slice's acceptance rule, through the CLI, with the embedding model and the
+index as fakes, as R18.7's are. When R19.10 and R19.11 land, it supersedes
+R19.8, whose searches name no reader.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.search`), domain (`dossier.domain.search.excerpt`)
+- **Proved by:** `tests/acceptance/test_R019_12__search_lists_what_answers_the_query_for_its_readers.py`, `tests/unit/test_R019_12__a_result_shows_its_text_on_one_line.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | R18.11's workspace, synced, run and embedded; `dossier search incidents "certificate expired at checkout" --as incident-response` | the first line, `incidents · 1 document · as incident-response`; then `1. INC-4830`, its title, the heading path of its best chunk, its text on one line cut at a word to at most 200 characters, and its carried values; exit 0 |
+| 2 | the same, `--json` | one JSON object: `index`, `query`, `readers` (`["incident-response"]`, and `null` with `--all-readers`), and `results`, each with `rank`, `document_id`, `title`, `values`, the chunk's `heading_path`, `kind` and `text`, and its `score`; nothing else on stdout |
+| 3 | *counter-example* — `dossier search incidents "kubernetes" --as incident-response`, which no chunk matches by words, and only far chunks by meaning | the documents by meaning still listed: a fusion of one list is that list |
+| 4 | *counter-example* — `--where component=payments-api`, which no document carries | the first line, `incidents · 0 documents · as incident-response`, then `no documents found`; exit 0 |
 | 5 | a chunk's text of `incident` thirty times, over three lines, 269 characters | on one line, cut at the last space within 200 characters: `incident` 22 times, 197 characters, then `…` |
 | 6 | *counter-example* — `INC-4830`'s root cause over two lines; a text of exactly 200 characters | each shown whole, on one line, with no `…`: a text that fits is not cut |
 | 7 | a text that is one word of 250 characters | its first 200 characters, then `…`: a word longer than the line is cut where the line ends |
