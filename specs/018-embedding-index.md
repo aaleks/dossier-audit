@@ -1,6 +1,6 @@
 # 018 — The embedding index
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R18.1 – R18.11
 
 ## Purpose
@@ -292,7 +292,7 @@ would describe text that is no longer there.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.index.record_for`), application (`dossier.application.embed.read_latest_run`)
 - **Proved by:** `tests/unit/test_R018_8__a_record_comes_from_the_run_that_read_the_held_snapshot.py`, `tests/unit/test_R018_8__embed_reads_a_run_as_eval_does.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
