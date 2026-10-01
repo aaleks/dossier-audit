@@ -123,6 +123,50 @@ def query(dsn: str):
 class TestPostgresIndexSink:
     """R18.4 -- what the index holds is what was last written, and nothing of before."""
 
+    def test_the_tables_hold_the_columns_spec_018_lists(self, sink, schema, query):
+        """No row — "What it writes", as the database holds it.
+
+        The /verify of spec 018 found the table the spec listed and the one the
+        sink wrote apart, with every rule green: no rule reads the schema, so
+        this does, against the spec's own list.
+        """
+        sink.prepare(INDEX, COLUMN)
+
+        def columns(table: str) -> set[str]:
+            return {
+                name
+                for (name,) in query(
+                    "SELECT column_name FROM information_schema.columns "
+                    f"WHERE table_schema = '{schema}' AND table_name = '{table}'"
+                )
+            }
+
+        assert columns("documents") == {
+            "index",
+            "document_id",
+            "source_id",
+            "key",
+            "title",
+            "snapshot",
+            "acl",
+            "embedding_model",
+            "content_hash",
+            "run_id",
+            "filter_values",
+        }
+        assert columns("chunks") == {
+            "index",
+            "chunk_id",
+            "document_id",
+            "kind",
+            "chunk_index",
+            "heading_path",
+            "text",
+            "text_search",
+            "embedding",
+            "acl",
+        }
+
     def test_nothing_is_held_and_nothing_removed_before_anything_is_prepared(self, sink):
         """No row — the first `dossier embed` asks what is held before any table exists."""
         assert sink.held(INDEX) == {}

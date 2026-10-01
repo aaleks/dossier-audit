@@ -10,7 +10,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.fakes import FakeEmbeddingProvider, FakeIndexSink
+from tests.acceptance.test_R018_7__embed_builds_the_index_from_what_was_synced import (
+    INDEX,
+    _cli,
+    synced_workspace,
+)
+from tests.fakes import FakeEmbeddingProvider, FakeIndexSink, register_connector
+from tests.scoring_example import ISSUES as SYNCED_ISSUES
+from tests.scoring_example import PIPELINE, SOURCE_TYPE, IssueTracker
 from tests.unit.test_R018_3__a_chunk_is_embedded_only_on_a_cache_miss import (
     declaration,
 )
@@ -18,6 +25,7 @@ from tests.unit.test_R018_3__a_chunk_is_embedded_only_on_a_cache_miss import (
 from dossier.application.embed import ToIndex, embed_index
 from dossier.domain.chunks import HeadingsChunker
 from dossier.domain.hashing import content_hash
+from dossier.domain.ports import RawItem
 from dossier.infrastructure.cache import ArtifactCache
 
 ISSUES = {
@@ -81,7 +89,7 @@ class TestTheIndexHoldsTheActiveDocuments:
         """Row 2 — the one where `INC-4822` was re-synced with new content."""
         embedder, sink = FakeEmbeddingProvider(), FakeIndexSink()
         embed(tmp_path, held(), embedder, sink)
-        before = dict(sink.documents)
+        before, chunks_before, writes = dict(sink.documents), dict(sink.chunks), sink.writes
 
         report = embed(
             tmp_path,
@@ -93,10 +101,20 @@ class TestTheIndexHoldsTheActiveDocuments:
         )
 
         assert report.written == 1
+        assert sink.writes == writes + 1
+        rewritten = ("incidents", "incidents-jira:INC-4822")
         changed = {
             key for key, document in sink.documents.items() if before.get(key) != document
         }
-        assert changed == {("incidents", "incidents-jira:INC-4822")}
+        assert changed == {rewritten}
+        # Every other document's rows are the objects written the first time:
+        # not rewritten with equal values, not written at all.
+        assert all(
+            sink.chunks[key] is chunks_before[key] for key in chunks_before if key != rewritten
+        )
+        assert [chunk.text for chunk in sink.chunks[rewritten]] == [
+            "Finance confirmed a total exposure CHF 13'000."
+        ]
 
     def test_a_tombstoned_document_is_removed(self, tmp_path: Path):
         """Row 3 — the one where `handover-note.md` left its folder (R2.7)."""
@@ -108,22 +126,31 @@ class TestTheIndexHoldsTheActiveDocuments:
 
         assert report.removed == 1
         assert "incidents-manual:handover-note.md" not in sink.held("incidents")
+        assert ("incidents", "incidents-manual:handover-note.md") not in sink.chunks
         assert report.line.endswith("· 0 written · 1 removed")
 
-    def test_a_document_the_ledger_still_holds_keeps_its_rows(self, tmp_path: Path):
+    def test_a_document_the_ledger_still_holds_keeps_its_rows(
+        self, workspace: Path, monkeypatch
+    ):
         """Row 4, counter-example — the one whose fetch failed at the last sync (R2.23).
 
-        Its fetch failing left the ledger's row as it was, so it is still
-        handed in, unchanged, and nothing about it is written or removed.
+        Through the ledger: `INC-4822` is owed, its row left as it was, so the
+        index is handed it unchanged and nothing about it is written or removed.
         """
-        embedder, sink = FakeEmbeddingProvider(), FakeIndexSink()
-        embed(tmp_path, held(), embedder, sink)
-        before = dict(sink.documents)
+        index = FakeIndexSink()
+        synced = synced_workspace(
+            workspace, monkeypatch, embedder=FakeEmbeddingProvider(), index=index
+        )
+        assert _cli(synced, monkeypatch, "embed", INDEX).exit_code == 0
+        tracker = Troubled(SYNCED_ISSUES, refuse={"INC-4822"})
+        register_connector(monkeypatch, SOURCE_TYPE, lambda config, *, workspace: tracker)
+        _cli(synced, monkeypatch, "sync", PIPELINE)
 
-        report = embed(tmp_path, held(), embedder, sink)
+        result = _cli(synced, monkeypatch, "embed", INDEX)
 
-        assert (report.written, report.removed) == (0, 0)
-        assert sink.documents == before
+        assert result.exit_code == 0, result.output
+        assert result.output.splitlines()[-1].endswith("· 0 written · 0 removed")
+        assert "incidents-jira:INC-4822" in index.held(INDEX)
 
     def test_an_index_emptied_by_hand_is_rebuilt_from_the_cache(self, tmp_path: Path):
         """Row 5, counter-example — the one whose tables were emptied by hand.
@@ -142,3 +169,52 @@ class TestTheIndexHoldsTheActiveDocuments:
         assert report.written == 4
         assert embedder.calls == asked
         assert len(sink.held_chunks("incidents")) == 4
+
+    def test_a_document_that_fails_to_convert_keeps_its_rows(
+        self, workspace: Path, monkeypatch
+    ):
+        """Row 6, counter-example — the one whose new snapshot cannot be converted (R8.6).
+
+        Removed, one converter's failure would take a held document out of
+        search without a word. Kept, and named.
+        """
+        index = FakeIndexSink()
+        synced = synced_workspace(
+            workspace, monkeypatch, embedder=FakeEmbeddingProvider(), index=index
+        )
+        assert _cli(synced, monkeypatch, "embed", INDEX).exit_code == 0
+        before = index.documents[(INDEX, "incidents-jira:INC-4822")]
+        tracker = Troubled(SYNCED_ISSUES, garble={"INC-4822"})
+        register_connector(monkeypatch, SOURCE_TYPE, lambda config, *, workspace: tracker)
+        assert _cli(synced, monkeypatch, "sync", PIPELINE).exit_code == 0
+
+        result = _cli(synced, monkeypatch, "embed", INDEX)
+
+        assert result.exit_code == 0, result.output
+        lines = result.output.splitlines()
+        assert any(
+            line.startswith("INC-4822: not converted, its rows are kept: ") for line in lines
+        ), result.output
+        assert lines[-1].endswith("· 0 written · 0 removed")
+        assert index.documents[(INDEX, "incidents-jira:INC-4822")] is before
+
+
+class Troubled(IssueTracker):
+    """An issue tracker refusing some fetches, and answering others with bytes no
+    converter can read."""
+
+    def __init__(self, issues, *, refuse=frozenset(), garble=frozenset()) -> None:
+        super().__init__(issues)
+        self.refuse, self.garble = set(refuse), set(garble)
+
+    def fetch(self, key: str) -> RawItem:
+        if key in self.refuse:
+            raise RuntimeError(f"GET {key} answered 503")
+        if key in self.garble:
+            return RawItem(
+                key=key,
+                payload=bytes([0xFF, 0xFE]) + b" not UTF-8",
+                media_type=self.media_type,
+                remote_version=None,
+            )
+        return super().fetch(key)

@@ -9,6 +9,9 @@ the fake counts them.
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 from tests.fakes import FakeEmbeddingProvider, FakeIndexSink
@@ -127,3 +130,60 @@ class TestAChunkIsEmbeddedOnlyOnACacheMiss:
 
         assert embedder.calls == 1
         assert embedder.texts == ["INC-4822\n\nFinance confirmed a total exposure CHF 12'500."]
+
+    def test_a_vectors_key_is_the_same_on_every_machine(self):
+        """No row — the key under which every vector is found again (R0.4).
+
+        Pinned: a change to how it is composed would miss every cached vector,
+        and a first build of an 8 GB model on a CPU would be paid again. Taken
+        in a second interpreter under another hash seed as well, since a key
+        that moved with one would hit on one machine and miss on the next.
+        """
+        from dossier.domain.keys import embedding_key
+
+        text = (
+            "INC-4821 — Card payments declined at checkout > Impact\n\n"
+            "Finance confirmed a total exposure of CHF 48'200 in late-settlement interest."
+        )
+        pinned = "0193b4f3e1dcadd92a723c095450c027bf7f99d6976946f8bf8bdd5a17d3abdc"
+
+        assert embedding_key(MODEL, text) == pinned
+        elsewhere = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; from dossier.domain.keys import embedding_key; "
+                "print(embedding_key(sys.argv[1], sys.argv[2]))",
+                MODEL,
+                text,
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env={**os.environ, "PYTHONHASHSEED": "12345", "PYTHONUTF8": "1"},
+            check=True,
+        )
+        assert elsewhere.stdout.strip() == pinned
+
+    def test_a_cached_vector_that_cannot_be_read_is_asked_for_again(self, tmp_path: Path):
+        """No row — the one whose cached vector was damaged on disk (R5.9).
+
+        The cache is never a source of truth: an entry that cannot be read is a
+        miss, asked for again, not a refusal of the embed.
+        """
+        from dossier.domain.keys import embedding_key
+
+        embedder = FakeEmbeddingProvider()
+        single = "# INC-4822\n\nFinance confirmed a total exposure CHF 12'500.\n"
+        embed(tmp_path, [note("INC-4822", single)], embedder)
+        damaged = embedding_key(
+            MODEL, "INC-4822\n\nFinance confirmed a total exposure CHF 12'500."
+        )
+        ArtifactCache(tmp_path, namespace="embed").put(
+            damaged, b"not a vector", record={"embedding_model": MODEL}
+        )
+
+        report = embed(tmp_path, [note("INC-4822", single)], embedder)
+
+        assert embedder.calls == 2
+        assert (report.embedded, report.cached) == (1, 0)

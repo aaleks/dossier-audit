@@ -35,7 +35,12 @@ from dossier.domain.fields import (
 from dossier.domain.gold import CalibrationCase, GoldDocument
 from dossier.domain.grounding import DESCRIBED, GROUNDED, JUDGED_STATES
 from dossier.domain.hashing import text_hash
-from dossier.domain.index import IndexDeclaration, field_refusals, unreadable
+from dossier.domain.index import (
+    IndexDeclaration,
+    carried_output,
+    field_refusals,
+    unreadable,
+)
 from dossier.domain.model_id import check_pinned, provider_of
 from dossier.domain.pipeline import (
     PipelineConfig,
@@ -344,7 +349,11 @@ INDEXES = "indexes"
 
 
 def load_index(
-    path: Path, *, providers: Collection[str], sources: Sequence[SourceConfig]
+    path: Path,
+    *,
+    providers: Collection[str],
+    sources: Sequence[SourceConfig],
+    embedding_providers: Collection[str] | None = None,
 ) -> IndexDeclaration:
     """Load and check `indexes/<name>.yaml` against the pipeline it reads (R18.10).
 
@@ -353,19 +362,25 @@ def load_index(
     carries are checked against the one output the pipeline declares, now,
     rather than as a column the run never fills. Every source the pipeline
     reads must have declared its readers (R18.6).
+
+    `embedding_providers` is every provider an installed package declares an
+    embedding client for: a chat provider is not one that answers with
+    vectors (R18.10 row 7). `providers` is what the pipeline's own model is
+    checked against.
     """
     document = _read_yaml(path)
     document["name"] = path.stem
     index = _validate(IndexDeclaration, document, path)
     text = path.read_text(encoding="utf-8")
 
+    embedders = providers if embedding_providers is None else embedding_providers
     provider = provider_of(index.embedding_model)
-    if provider not in providers:
-        available = ", ".join(sorted(providers)) or "none"
+    if provider not in embedders:
+        available = ", ".join(sorted(embedders)) or "none"
         raise ConfigError(
             f"{_name(path)}, line {_line_of(text, 'embedding_model')}: embedding_model "
-            f"{index.embedding_model!r} names provider {provider!r}, which no installed "
-            f"package provides. Available: {available}"
+            f"{index.embedding_model!r} names provider {provider!r}, for which no "
+            f"installed package provides embeddings. Available: {available}"
         )
     try:
         check_pinned(index.embedding_model, key="embedding_model")
@@ -382,17 +397,11 @@ def load_index(
             "readers. Add `acl: [<who may read it>]` to it in sources.yaml: nothing "
             "is indexed before someone decides who may search it"
         )
-    if index.fields.filter or index.fields.embed:
-        declaring = [step for step in pipeline.steps if step.output is not None]
-        if len(declaring) != 1:
-            # One output, as `eval` scores one: carried from two, a field could
-            # hold either step's answer, and nothing would say which (R17.6).
-            raise ConfigError(
-                f"{_name(path)}: fields are carried from one output, and "
-                f"{len(declaring)} steps of {index.pipeline} declare an output, "
-                "as eval refuses it"
-            )
-        output = declaring[0].output
+    if index.fields.carried:
+        try:
+            output = carried_output(pipeline.steps, pipeline=index.pipeline).output
+        except ValueError as error:
+            raise ConfigError(f"{_name(path)}: {error}") from error
         refused = field_refusals(
             index.fields, load_fields(pipeline_file.parent / output), declared_in=output
         )

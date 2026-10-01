@@ -44,6 +44,7 @@ TAXONOMY = """\
 fields:
   failure_category: {kind: enum, values: [certificate-expiry, capacity-exhaustion]}
   component:        {kind: enum, values: [checkout, payments-api]}
+  architecture_category: {kind: enum, values: [load-balancer-config, single-region]}
   root_cause:       {kind: free_text, judge: rubrics/root_cause.md}
 """
 ANSWERS = {
@@ -52,6 +53,13 @@ ANSWERS = {
             "INC-4830", "failure_category", "certificate-expiry", "the TLS certificate expired"
         ),
         found("INC-4830", "component", "checkout", "Checkout returned 502"),
+        # Not in the note: ungrounded, and so never a value to filter on (R18.9).
+        found(
+            "INC-4830",
+            "architecture_category",
+            "load-balancer-config",
+            "the load balancer config was stale",
+        ),
         found("INC-4830", "root_cause", ROOT_CAUSE, ROOT_CAUSE),
     ]
 }
@@ -60,7 +68,7 @@ pipeline: {PIPELINE}
 embedding_model: {EMBEDDING_MODEL}
 chunker: {{name: headings, max_chars: 2000}}
 fields:
-  filter: [failure_category, component]
+  filter: [failure_category, component, architecture_category]
   embed: [root_cause]
 target: {{dsn_env: {DSN_ENV}}}
 """
@@ -141,6 +149,8 @@ class TestEmbedCarriesTheRunsRecord:
         }
         assert document.run_id == _latest_run(run_once)
         assert [chunk.text for chunk in _records(index)] == [f"root_cause: {ROOT_CAUSE}"]
+        # Checked as eval checks it, where the index is built (R18.9 row 3).
+        assert "INC-4830: 1 value left out: ungrounded" in result.output.splitlines()
 
     def test_a_record_of_an_earlier_snapshot_is_removed_and_named(
         self, run_once: Path, monkeypatch, issues, embedder, index

@@ -10,12 +10,12 @@ be proved without a database.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from dossier.domain.grounding import FieldVerdict
+from dossier.domain.grounding import FieldVerdict, enum_folded
 from dossier.domain.hashing import content_hash
 from dossier.domain.schemas import FieldRecord
 from dossier.domain.scoring import FieldKind
@@ -40,6 +40,11 @@ class IndexFields(BaseModel):
     filter: tuple[str, ...] = ()
     # Free text, embedded in the document's record chunk.
     embed: tuple[str, ...] = ()
+
+    @property
+    def carried(self) -> bool:
+        """Whether the index carries anything of a run: decided here, once (R18.8)."""
+        return bool(self.filter or self.embed)
 
 
 class IndexTarget(BaseModel):
@@ -269,12 +274,15 @@ def mismatched_length(answered: Sequence[tuple[str, str, int]]) -> str | None:
     """Why the vectors of one `embed` cannot share an index, or `None` (R18.5 row 5).
 
     `answered` is `(document_id, chunk_id, length)` in the order chunks are
-    filed. The first sets the index's length: a vector of another is another
-    model's, and one index holds one model's vectors.
+    filed. A vector of another length than the rest is another model's, and
+    one index holds one model's vectors.
     """
     if not answered:
         return None
-    expected = answered[0][2]
+    # The length most vectors have: one odd vector is the odd one wherever it
+    # sorts, and is the one named. A tie goes to the first chunk filed.
+    lengths = [length for _, _, length in answered]
+    expected = max(dict.fromkeys(lengths), key=lengths.count)
     for document, chunk, length in answered:
         if length != expected:
             return (
@@ -304,7 +312,9 @@ def title_of(text: str, key: str) -> str:
     return key
 
 
-def changes(held: Mapping[str, str], current: Mapping[str, str]) -> tuple[list[str], list[str]]:
+def changes(
+    held: Mapping[str, str], current: Mapping[str, str], *, keep: Collection[str] = ()
+) -> tuple[list[str], list[str]]:
     """What to write and to remove, by document id, to bring the index to `current` (R18.4).
 
     `held` and `current` map each document to the hash of everything written
@@ -315,7 +325,10 @@ def changes(held: Mapping[str, str], current: Mapping[str, str]) -> tuple[list[s
     write = sorted(
         document for document, hashed in current.items() if held.get(document) != hashed
     )
-    remove = sorted(set(held) - set(current))
+    # `keep` is what the ledger holds and this embed could not read: a document
+    # whose conversion failed. Its last rows stay; removing them would take a
+    # held document out of search over one converter's failure (R18.4 row 6).
+    remove = sorted(set(held) - set(current) - set(keep))
     return write, remove
 
 
@@ -381,7 +394,10 @@ class Carried:
 
 
 def carried(
-    fields: IndexFields, checked: Sequence[tuple[FieldRecord, FieldVerdict]]
+    fields: IndexFields,
+    checked: Sequence[tuple[FieldRecord, FieldVerdict]],
+    *,
+    enums: Mapping[str, Sequence[str]] | None = None,
 ) -> Carried:
     """The grounded values of `fields`, from records checked as `eval` checks them (R18.9).
 
@@ -402,7 +418,9 @@ def carried(
             left_out[verdict.value] = left_out.get(verdict.value, 0) + 1
             continue
         if record.field in fields.filter:
-            values.setdefault(record.field, []).append(record.value)
+            values.setdefault(record.field, []).append(
+                _declared(record.value, (enums or {}).get(record.field))
+            )
         else:
             texts.setdefault(record.field, []).append(str(record.value))
     lines = [f"{field}: {text}" for field in fields.embed for text in texts.get(field, [])]
@@ -414,3 +432,32 @@ def carried(
         record_text="\n".join(lines) if lines else None,
         left_out=left_out,
     )
+
+
+def carried_output(steps: Sequence[object], *, pipeline: str) -> object:
+    """The one step whose output an index carries, or `ValueError` saying how many (R18.10).
+
+    Decided here, once, for the loader that refuses and the command that reads
+    the run: one output, as `eval` scores one (R17.6 row 5). Carried from two,
+    a field could hold either step's answer and nothing would say which.
+    """
+    declaring = [step for step in steps if getattr(step, "output", None) is not None]
+    if len(declaring) != 1:
+        raise ValueError(
+            f"fields are carried from one output, and {len(declaring)} steps of "
+            f"{pipeline} declare an output, as eval refuses it"
+        )
+    return declaring[0]
+
+
+def _declared(value: object, declared: Sequence[str] | None) -> object:
+    """An enum's value in the spelling its declaration writes (R18.9 row 5).
+
+    The check let it through folded (R6.26), and eval scores it so. Carried as
+    answered, a filter on the declared value would miss what was scored correct.
+    A value no declared one folds to, or a field with none declared, is as given.
+    """
+    if not declared:
+        return value
+    spelled = {enum_folded(option): option for option in declared}
+    return spelled.get(enum_folded(value), value)

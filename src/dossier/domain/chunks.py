@@ -138,6 +138,25 @@ def _cut(text: str, max_chars: int, breaks: Sequence[tuple[re.Pattern[str], str]
     return [*pieces, piece] if piece else pieces
 
 
+# What renders a record chunk, as a chunker's identity names what cut a body
+# chunk (R18.9): moved whenever the rendering of `field: value` lines changes.
+RECORD_CHUNKER = "record@1"
+
+
+def record_chunk_id(*, document_id: str, embedded: Sequence[str], index: int, text: str) -> str:
+    """A record chunk's id: what rendered it, and the fields it renders (R18.2, R18.9).
+
+    Carrying another field re-files it, as another chunker re-cuts a body.
+    """
+    return chunk_id(
+        document_id=document_id,
+        chunker=RECORD_CHUNKER,
+        settings={"embed": list(embedded)},
+        index=index,
+        text=text,
+    )
+
+
 class HeadingsChunker:
     """The `headings` chunker, as the `Chunker` port asks for one (R18.1, R18.2).
 

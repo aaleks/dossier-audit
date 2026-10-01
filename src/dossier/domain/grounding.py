@@ -408,6 +408,15 @@ def check_field(
     return FieldCheck(FieldVerdict.VALID)
 
 
+def enum_folded(value: object) -> str:
+    """An enum value folded as the check and the scorer compare it (R6.26).
+
+    Public for the index, which carries a value in the spelling the declaration
+    writes, found by this same fold (R18.9 row 5).
+    """
+    return _folded(value)
+
+
 def _folded(value: object) -> str:
     """An enum value as the scorer compares it, `scoring._folded`'s fold (spec 007).
 

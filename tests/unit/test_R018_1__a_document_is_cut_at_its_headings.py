@@ -211,11 +211,15 @@ class TestADocumentIsCutAtItsHeadings:
         Its path is empty, not invented: the document's title is its key, and
         the index carries that apart from the chunk.
         """
+        from dossier.domain.index import title_of
+
         text = "Audit note\n\nThe checkout path was reviewed after the declines of 28 July."
 
         assert heading_chunks(text, max_chars=2000) == [
             Chunk(index=0, heading_path=(), text=text),
         ]
+        assert title_of(text, "audit-note.pdf") == "audit-note.pdf"
+        assert title_of(NOTE, "INC-4821") == "INC-4821 — Card payments declined at checkout"
 
     def test_an_empty_document_is_no_chunk(self):
         """Row 5, counter-example — the one where `handover-note.md` is zero bytes."""
