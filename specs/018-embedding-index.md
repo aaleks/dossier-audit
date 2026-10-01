@@ -159,7 +159,7 @@ keeps its section's heading path.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.chunks.heading_chunks`), behind the `Chunker` port (`dossier.domain.ports`)
 - **Proved by:** `tests/unit/test_R018_1__a_document_is_cut_at_its_headings.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -174,7 +174,7 @@ keeps its section's heading path.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.chunks.chunk_id`)
 - **Proved by:** `tests/unit/test_R018_2__a_chunk_id_is_its_content.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
