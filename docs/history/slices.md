@@ -13,6 +13,28 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`dossier search` (2026-10-01, spec 019, R11.34 and R0.17, #664 to #668). The
+index `embed` writes could be searched only by writing SQL. `dossier search
+INDEX QUERY` asks it twice, by meaning and by words, and fuses the two ranked
+lists by reciprocal rank (k=60), in `domain/`, so the order is provable without
+a database. Discovered with `a.aleks`: native SQL over spec 018's schema rather
+than ParadeDB (AGPL, its own image) or LlamaIndex retrievers; documents by
+default, each at its best chunk, `--chunks` for chunks; a query instruction per
+index, in Qwen3's format; `--as` optional, saying when a search was not filtered;
+one MLflow trace per search, under no run, which needed a tracker that records a
+trace with no run open. R0.17 supersedes R0.16: the index is now read back
+through a port of its own, and keys, the run and eval may import nothing of it.
+- What the live test of the Postgres search found, which the fakes could not:
+  `en_US` collation ignores a hyphen, so ties are ordered under `C` to agree with
+  Python; iterative scan matters only when the planner reads the HNSW index,
+  which on a few thousand chunks under a filter it does not, so the test forces
+  the plan to show it (10 rows with it, 0 without); and `websearch_to_tsquery`
+  wants every word, so a plain question is often ranked by meaning alone (open
+  question 2).
+- R19.1's first example did not add up: two unnamed chunks above `INC-4830` by
+  words would have outranked the one it put second. Fixed in the spec before the
+  test was written.
+
 `embed` reads a run as `eval` does (2026-10-01, spec 018, R18.8 rows 7 and 8).
 The spec 016 /verify found R0.11 and R18.8 disagreeing: R0.11 says the copies
 under `runs/` are never read back, and `embed` read its records from them, so a
