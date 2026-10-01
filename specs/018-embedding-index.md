@@ -193,7 +193,7 @@ under the model and that text, as a stage's answer is cached under its inputs
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.embed`), domain (`dossier.domain.keys.embedding_key`)
 - **Proved by:** `tests/unit/test_R018_3__a_chunk_is_embedded_only_on_a_cache_miss.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -207,7 +207,7 @@ under the model and that text, as a stage's answer is cached under its inputs
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.embed`), domain (`dossier.domain.index.changes`), infrastructure (`dossier.infrastructure.index`)
 - **Proved by:** `tests/unit/test_R018_4__the_index_holds_the_active_documents.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -225,7 +225,7 @@ pgvector indexes a `vector` of up to 2,000 dimensions and a `halfvec` of up to
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.index.vector_column`)
 - **Proved by:** `tests/unit/test_R018_5__the_vector_column_follows_the_model.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

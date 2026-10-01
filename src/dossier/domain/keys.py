@@ -163,7 +163,28 @@ class StageInputs(BaseModel):
         }
 
 
-def canonical(inputs: ConvertInputs | StageInputs | JudgeInputs) -> bytes:
+class EmbeddingInputs(BaseModel):
+    """What a vector is the answer to: a pinned model and the text it embedded (R18.3).
+
+    Not the chunk, its document or its index: one text asked of one model has
+    one answer, whichever index files it (R18.3 row 4). The text is keyed by its
+    hash, so a key holds no document's words.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    model: str
+    text: str
+
+    def keyed(self) -> dict[str, Any]:
+        return {
+            "kind": "embedding",
+            "model": self.model,
+            "text": content_hash(self.text.encode("utf-8")),
+        }
+
+
+def canonical(inputs: ConvertInputs | StageInputs | JudgeInputs | EmbeddingInputs) -> bytes:
     """The exact bytes a key is taken over.
 
     `sort_keys` and a fixed separator rather than whatever `json` feels like:
@@ -175,7 +196,7 @@ def canonical(inputs: ConvertInputs | StageInputs | JudgeInputs) -> bytes:
     ).encode("utf-8")
 
 
-def cache_key(inputs: ConvertInputs | StageInputs | JudgeInputs) -> str:
+def cache_key(inputs: ConvertInputs | StageInputs | JudgeInputs | EmbeddingInputs) -> str:
     """The full 64-character lowercase SHA-256 of the canonical form (R0.7)."""
     return content_hash(canonical(inputs))
 
@@ -208,3 +229,8 @@ def provenance(
         # key on the same terms: the road to an answer, not the answer (R5.11).
         record["tokens"] = {"input": tokens.input, "output": tokens.output}
     return record
+
+
+def embedding_key(model: str, text: str) -> str:
+    """The cache key of the vector `model` answers for `text` (R18.3)."""
+    return cache_key(EmbeddingInputs(model=model, text=text))

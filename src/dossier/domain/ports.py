@@ -13,7 +13,9 @@ from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict
 
+from dossier.domain.chunks import Chunk
 from dossier.domain.datasets import PublishedDataset
+from dossier.domain.index import IndexedChunk, IndexedDocument
 from dossier.domain.prompts import PublishedPrompt
 from dossier.domain.review import Verdict
 from dossier.domain.versions import PublishedVersion, VersionRecord
@@ -612,3 +614,56 @@ class VersionRegistry(Protocol):
         (R13.1 rows 4-5).
         """
         ...
+
+
+class EmbeddingProvider(Protocol):
+    """A model asked for vectors (spec 018). Reached only on a cache miss (R18.3).
+
+    Its implementations live in `dossier.infrastructure.models`, left of the
+    hash boundary with every other model client (R0.16): a vector is a model's
+    answer, cached as a stage's answer is.
+    """
+
+    def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        """One vector per text, in the order given."""
+        ...
+
+
+class Chunker(Protocol):
+    """What cuts a document into the pieces an index searches (R18.1).
+
+    `identity` names the chunker and its version, and `settings` how it was
+    told to cut. Both are part of every chunk's id (R18.2), so a change of
+    either re-chunks rather than mixing two cuts in one index.
+    """
+
+    identity: str
+    settings: Mapping[str, object]
+
+    def chunk(self, text: str) -> list[Chunk]: ...
+
+
+class IndexSink(Protocol):
+    """The embedding index, written by `dossier embed` (spec 018).
+
+    The index is derived data. What it answers is the only thing read back:
+    the ids and content hashes of the documents it holds, so `embed` writes
+    only what changed (R18.4). Nothing it holds enters a key, a manifest or a
+    score (R0.16).
+    """
+
+    def prepare(self, index: str, column: str) -> None:
+        """Create what the index needs, its vectors held as `column` (R18.5)."""
+        ...
+
+    def held(self, index: str) -> Mapping[str, str]:
+        """Each document the index holds, by id, with the content hash it was written at."""
+        ...
+
+    def write(
+        self, index: str, document: IndexedDocument, chunks: Sequence[IndexedChunk]
+    ) -> None:
+        """Replace one document's rows with these, whole or not at all."""
+        ...
+
+    def remove(self, index: str, document_ids: Sequence[str]) -> None: ...

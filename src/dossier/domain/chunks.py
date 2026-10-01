@@ -138,6 +138,22 @@ def _cut(text: str, max_chars: int, breaks: Sequence[tuple[re.Pattern[str], str]
     return [*pieces, piece] if piece else pieces
 
 
+class HeadingsChunker:
+    """The `headings` chunker, as the `Chunker` port asks for one (R18.1, R18.2).
+
+    Its identity and settings travel into every chunk id it cuts, so an index
+    cut under other settings is cut again rather than mixed.
+    """
+
+    def __init__(self, *, max_chars: int) -> None:
+        self.identity = HEADINGS_CHUNKER
+        self.settings = {"max_chars": max_chars}
+        self._max_chars = max_chars
+
+    def chunk(self, text: str) -> list[Chunk]:
+        return heading_chunks(text, max_chars=self._max_chars)
+
+
 def chunk_id(
     *,
     document_id: str,
