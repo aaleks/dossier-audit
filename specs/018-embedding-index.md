@@ -255,7 +255,7 @@ The outer loop of the first slice.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.embed`)
 - **Proved by:** `tests/acceptance/test_R018_7__embed_builds_the_index_from_what_was_synced.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
