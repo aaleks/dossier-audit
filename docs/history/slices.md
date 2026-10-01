@@ -31,6 +31,15 @@ through a port of its own, and keys, the run and eval may import nothing of it.
   the plan to show it (10 rows with it, 0 without); and `websearch_to_tsquery`
   wants every word, so a plain question is often ranked by meaning alone (open
   question 2).
+- The end-to-end check, with `qwen3-embedding:4b-fp16` on Ollama and
+  `dev/index`, over exercise 05's four notes: 21 chunks embedded, then
+  searched by meaning, filtered with a value in another case, by reader, by
+  chunk, as JSON, and after a sync `embed` had not seen. Every R19.8 row held.
+  What it found: a search for `PLAY-1004` listed `PLAY-1004` third. The key
+  is in the note's title heading, which the vector reads and `text_search`
+  did not, so no chunk matched it by words; fixed next. And `--where
+  affected_systems=checkout-api` matched nothing: a `reference` is one string,
+  matched whole, so a field filtered on its parts is declared a `list`.
 - R19.1's first example did not add up: two unnamed chunks above `INC-4830` by
   words would have outranked the one it put second. Fixed in the spec before the
   test was written.

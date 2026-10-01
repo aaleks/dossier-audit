@@ -1,6 +1,6 @@
 # 019 — Searching the index
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R19.1 – R19.8
 
 ## Purpose
@@ -67,6 +67,13 @@ exactly, which fills the list without it. Ties in either list are ordered by
 chunk id under the `C` collation, as Python orders them, whatever the
 database's own collation: `en_US` ignores a hyphen, and would cut a list at a
 different chunk than R19.1 ranks.
+
+**A filter matches a whole value.** A carried value is one string, or a list
+of strings when the run answered several (R18.9). `--where` matches one of
+them whole: `affected_systems`, a `reference`, holds one string per document,
+such as `checkout-api, payments-gateway`, and `--where
+affected_systems=checkout-api` does not match it. A field meant to be filtered
+on each of its parts is declared a `list`.
 
 **Words, all of them.** `websearch_to_tsquery` matches a chunk holding every
 word of the query, as a web search does, and `simple` drops none: `certificate
@@ -276,7 +283,7 @@ index as fakes, as R18.7's are.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.search`)
 - **Proved by:** `tests/acceptance/test_R019_8__search_lists_what_answers_the_query.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

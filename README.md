@@ -182,8 +182,9 @@ chunk found both ways outranks one found only one way, and an incident key,
 which nothing is near in meaning, is still found by its words. Each document is
 listed once, at its best chunk, with the values the run carried; `--chunks`
 lists the chunks instead. `--where severity=major` keeps the documents carrying
-that value, in the spelling the declaration writes, and a field the index does
-not filter on, or a value the field does not declare, is refused before the
+that value, in the spelling the declaration writes, and matched whole: a
+`reference` field is one string, so a field filtered on each of its parts is
+declared a `list`. A field the index does not filter on, or a value the field does not declare, is refused before the
 model is asked. `--as incident-response` keeps what that reader may read;
 without it the first line says the search was not filtered by reader. The query
 is embedded after an instruction, as Qwen3-Embedding is trained to expect, which
