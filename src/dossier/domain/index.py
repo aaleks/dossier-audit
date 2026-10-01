@@ -228,3 +228,80 @@ def indexed(
         for chunk in chunks
     ]
     return document, rows
+
+
+# pgvector indexes a `vector` of up to 2,000 dimensions, and a `halfvec` of up
+# to 4,000 (R18.5).
+VECTOR_LIMIT = 2000
+HALFVEC_LIMIT = 4000
+
+
+def vector_column(dimensions: int) -> str:
+    """The pgvector type an index of `dimensions`-long vectors holds them as (R18.5).
+
+    Full precision where pgvector can index it, half where only that fits.
+    Qwen3-Embedding-4B answers 2,560 values from fp16 weights, so half
+    precision loses nothing it had.
+    """
+    if dimensions <= VECTOR_LIMIT:
+        return f"vector({dimensions})"
+    if dimensions <= HALFVEC_LIMIT:
+        return f"halfvec({dimensions})"
+    raise ValueError(
+        f"a vector of {dimensions} values: pgvector indexes a vector of up to 2,000 "
+        "dimensions and a halfvec of up to 4,000, and no type indexes this"
+    )
+
+
+def mismatched_length(answered: Sequence[tuple[str, str, int]]) -> str | None:
+    """Why the vectors of one `embed` cannot share an index, or `None` (R18.5 row 5).
+
+    `answered` is `(document_id, chunk_id, length)` in the order chunks are
+    filed. The first sets the index's length: a vector of another is another
+    model's, and one index holds one model's vectors.
+    """
+    if not answered:
+        return None
+    expected = answered[0][2]
+    for document, chunk, length in answered:
+        if length != expected:
+            return (
+                f"{document}: chunk {chunk[:12]} was answered {length} values, and the "
+                f"index holds vectors of {expected}. One index holds one model's "
+                "vectors: nothing is written"
+            )
+    return None
+
+
+def embedding_text(heading_path: Sequence[str], text: str) -> str:
+    """What a chunk is embedded as: the headings above it, then its text (R18.3).
+
+    So the chunk holding `CHF 48'200` is found as `INC-4821`'s impact, and not
+    as a sentence about money with nothing to say whose.
+    """
+    if not heading_path:
+        return text
+    return " > ".join(heading_path) + "\n\n" + text
+
+
+def title_of(text: str, key: str) -> str:
+    """A document's title: its first top-level heading, or its key (R18.1 row 4)."""
+    for line in text.splitlines():
+        if line.startswith("# ") and line[2:].strip():
+            return line[2:].strip()
+    return key
+
+
+def changes(held: Mapping[str, str], current: Mapping[str, str]) -> tuple[list[str], list[str]]:
+    """What to write and to remove, by document id, to bring the index to `current` (R18.4).
+
+    `held` and `current` map each document to the hash of everything written
+    for it. A document is written when its hash is new or moved, and removed
+    when the ledger no longer holds it active. Both sorted, so two runs over
+    the same holdings do the same thing in the same order.
+    """
+    write = sorted(
+        document for document, hashed in current.items() if held.get(document) != hashed
+    )
+    remove = sorted(set(held) - set(current))
+    return write, remove
