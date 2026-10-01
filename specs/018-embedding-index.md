@@ -179,6 +179,8 @@ keeps its section's heading path.
 | 3 | *counter-example* — one paragraph of 2,600 characters | cut inside it, at a sentence's end, then at a space; no piece is longer than 2,000 |
 | 4 | *counter-example* — `audit-note.pdf`'s text, with no heading at all | one heading path, `[]`; the document's title is its key |
 | 5 | *counter-example* — `handover-note.md`, zero bytes | no chunk |
+| 6 | two paragraphs of 999 characters in one section, `max_chars: 2000` | one piece of exactly 2,000 characters, the two joined by a blank line: packed to the limit, not short of it |
+| 7 | *counter-example* — paragraphs of 999 and 1,000 characters | two pieces: joined, they would be 2,001 characters, one past the limit |
 
 ### R18.2 — a chunk's id is the hash of its document, its chunker and settings, its position and its text
 
@@ -246,6 +248,8 @@ pgvector indexes a `vector` of up to 2,000 dimensions and a `halfvec` of up to
 | 1 | `qwen3-embedding:4b-fp16`, 2,560 values a vector | `halfvec(2560)`, under an HNSW index by cosine distance |
 | 2 | 2,000 values | `vector(2000)` |
 | 3 | 2,001 values | `halfvec(2001)` |
+| 6 | `bge-m3`, 1,024 values | `vector(1024)`: full precision wherever pgvector can index it |
+| 7 | 4,000 values | `halfvec(4000)`, at `halfvec`'s limit |
 | 4 | *counter-example* — 4,001 values | refused: no pgvector type indexes it |
 | 5 | *counter-example* — one chunk answered with 1,024 values, the others with 2,560 | refused, naming that chunk and both lengths; nothing of that `embed` is written, and none of its vectors cached |
 
@@ -331,6 +335,8 @@ support.
 | 5 | *counter-example* — `indexes/incidents.yaml` as this spec writes it | loads |
 | 6 | `fields` declared over a pipeline in which `extract` and `verify` both declare an output | refused, as `dossier eval` refuses it: an index carries the answers of one output (R17.6 row 5) |
 | 7 | `embedding_model: openai:text-embedding-3-small`, and no installed package embedding for `openai` | refused, naming `openai` and the providers that do embed: a chat provider is not one that answers with vectors |
+| 8 | `fields` declared over a pipeline in which no step declares an output | refused: `0 steps of incident-audit declare an output`, as `eval` refuses it |
+| 9 | `chunker: {name: headings, max_chars: 0}` | refused at load: a piece of at most no characters holds nothing |
 
 ### R18.11 — what `dossier embed` carries of a run is the latest run's grounded record of the snapshot it holds
 

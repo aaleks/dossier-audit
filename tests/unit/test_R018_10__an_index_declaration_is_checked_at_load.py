@@ -78,8 +78,14 @@ class TestAnIndexDeclarationIsCheckedAtLoad:
     """R18.10 — refused at load, naming what is wrong and where."""
 
     def test_a_field_the_output_does_not_declare_is_refused(self, workspace: Path):
-        """Row 1 — the one misspelling `failure_category`."""
-        said = refusal(workspace, declaration(fields="fields:\n  filter: [failure_categroy]\n"))
+        """Row 1 — the one misspelling `failure_category`, after a field that is fine.
+
+        Every field is checked, not the first: one that passes does not let the
+        next through.
+        """
+        said = refusal(
+            workspace, declaration(fields="fields:\n  filter: [severity, failure_categroy]\n")
+        )
 
         assert said == (
             "incidents.yaml, line 5: fields.filter names 'failure_categroy', which "
@@ -163,3 +169,25 @@ class TestAnIndexDeclarationIsCheckedAtLoad:
             "provider 'openai', for which no installed package provides embeddings. "
             "Available: ollama"
         )
+
+    def test_fields_over_no_output_are_refused_as_eval_refuses_them(self, tmp_path: Path):
+        """Row 8 — the one whose pipeline's only step declares no output."""
+        write_pipeline(tmp_path, outputs={"extract": None})
+
+        said = refusal(tmp_path, declaration(fields="fields:\n  filter: [severity]\n"))
+
+        assert said == (
+            "incidents.yaml: fields are carried from one output, and 0 steps of "
+            "incident-audit declare an output, as eval refuses it"
+        )
+
+    def test_a_budget_of_no_characters_is_refused_at_load(self, workspace: Path):
+        """Row 9 — the one whose chunker may cut pieces of at most nothing."""
+        text = declaration().replace("max_chars: 2000", "max_chars: 0")
+
+        assert refusal(workspace, text) == (
+            "incidents.yaml: chunker.max_chars -- Input should be greater than 0"
+        )
+        # One character is a budget, if a small one: the boundary is at zero.
+        one = declaration().replace("max_chars: 2000", "max_chars: 1")
+        assert load(workspace, one).chunker.max_chars == 1

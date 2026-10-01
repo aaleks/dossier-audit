@@ -247,3 +247,29 @@ class TestADocumentIsCutAtItsHeadings:
         """
         with pytest.raises(ValueError, match="max_chars"):
             heading_chunks(NOTE, max_chars=0)
+
+    def test_a_budget_of_one_character_cuts_every_character(self):
+        """No row — the smallest budget allowed is allowed (`max_chars` 1)."""
+        assert [chunk.text for chunk in heading_chunks("ab", max_chars=1)] == ["a", "b"]
+
+    def test_two_paragraphs_are_packed_to_exactly_the_limit(self):
+        """Row 6 — the one whose two paragraphs of 999 fill a piece to the character.
+
+        A third paragraph makes the section too long to be one chunk, so the
+        first two are packed: 999, a blank line, 999, which is 2,000.
+        """
+        first, second, third = "a" * 999, "b" * 999, "c" * 500
+
+        pieces = heading_chunks(f"{first}\n\n{second}\n\n{third}", max_chars=2000)
+
+        assert [piece.text for piece in pieces] == [f"{first}\n\n{second}", third]
+        assert len(pieces[0].text) == 2000
+
+    def test_one_character_past_the_limit_is_two_pieces(self):
+        """Row 7, counter-example — the one of 999 and 1,000: joined, 2,001."""
+        first, second, third = "a" * 999, "b" * 1000, "c" * 500
+
+        pieces = heading_chunks(f"{first}\n\n{second}\n\n{third}", max_chars=2000)
+
+        assert [piece.text for piece in pieces] == [first, f"{second}\n\n{third}"]
+        assert max(len(piece.text) for piece in pieces) <= 2000

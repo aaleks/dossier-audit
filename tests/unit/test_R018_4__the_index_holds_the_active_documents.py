@@ -218,3 +218,14 @@ class Troubled(IssueTracker):
                 remote_version=None,
             )
         return super().fetch(key)
+
+
+def test_a_document_never_held_that_fails_to_convert_removes_nothing():
+    """Row 6, its other side — the one failing to convert before it was ever written.
+
+    Kept is about rows the index holds: a document it never held has none to
+    keep, and none to count as removed.
+    """
+    from dossier.domain.index import changes
+
+    assert changes({}, {}, keep={"incidents-jira:INC-4822"}) == ([], [])

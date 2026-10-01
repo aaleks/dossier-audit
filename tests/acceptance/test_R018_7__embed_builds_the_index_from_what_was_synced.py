@@ -97,9 +97,11 @@ class TestEmbedBuildsTheIndexFromWhatWasSynced:
         result = _cli(synced, monkeypatch, "embed", INDEX)
 
         assert result.exit_code == 0, result.output
-        assert f"{INDEX} · 4 chunks · 4 embedded · 0 cached · 4 written · 0 removed" in (
-            result.output.splitlines()
-        ), result.output
+        # The line and nothing else: an index carrying no field of a run has no
+        # run to name, and no note to make about one (R18.8).
+        assert result.output.splitlines() == [
+            f"{INDEX} · 4 chunks · 4 embedded · 0 cached · 4 written · 0 removed"
+        ], result.output
         assert [document.key for document in index.held_documents(INDEX)] == sorted(ISSUES)
         chunks = index.held_chunks(INDEX)
         assert len(chunks) == 4

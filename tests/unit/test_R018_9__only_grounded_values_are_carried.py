@@ -82,3 +82,23 @@ class TestOnlyGroundedValuesAreCarried:
         )
 
         assert kept.values == {"failure_category": "certificate-expiry"}
+
+    def test_every_record_is_read_and_every_value_left_out_counted(self):
+        """Row 3, counted — two ungrounded values, after a field the index does not carry.
+
+        A record the index does not carry does not stop the ones after it from
+        being read, and two values left out are two.
+        """
+        kept = carried(
+            FIELDS,
+            [
+                (record("loss_amount", 48200.0), VALID),
+                (record("failure_category", "certificate-expiry"), VALID),
+                (record("component", "payments-api"), FieldVerdict.UNGROUNDED),
+                (record("root_cause_category", "process-gap"), FieldVerdict.UNGROUNDED),
+            ],
+        )
+
+        assert kept.values == {"failure_category": "certificate-expiry"}
+        assert kept.left_out == {"ungrounded": 2}
+        assert kept.note("INC-4830") == "INC-4830: 2 values left out: ungrounded"

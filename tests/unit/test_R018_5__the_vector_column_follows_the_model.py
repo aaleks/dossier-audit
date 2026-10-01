@@ -85,3 +85,27 @@ class TestTheVectorColumnFollowsTheModel:
         assert sink.writes == 0
         assert sink.columns == {}
         assert ArtifactCache(tmp_path, namespace="embed").all_keys() == []
+
+    def test_a_longer_vector_than_the_rest_is_refused_too(self):
+        """Row 5, the other side — the one answered 4,096 values among 2,560s."""
+        from dossier.domain.index import mismatched_length
+
+        said = mismatched_length(
+            [
+                ("incidents-jira:INC-4821", "a" * 64, 2560),
+                ("incidents-jira:INC-4822", "b" * 64, 4096),
+                ("incidents-jira:INC-4901", "c" * 64, 2560),
+            ]
+        )
+
+        assert said is not None and said.startswith(
+            "incidents-jira:INC-4822: chunk bbbbbbbbbbbb was answered 4096 values"
+        ), said
+
+    def test_a_vector_under_vectors_limit_is_held_at_full_precision(self):
+        """Row 6 — the one with `bge-m3`'s 1,024 values."""
+        assert vector_column(1024) == "vector(1024)"
+
+    def test_halfvecs_limit_is_still_a_halfvec(self):
+        """Row 7 — the one at 4,000 values, `halfvec`'s limit."""
+        assert vector_column(4000) == "halfvec(4000)"

@@ -38,13 +38,18 @@ class TestARecordComesFromTheRunThatReadTheHeldSnapshot:
         assert record_for("INC-4830", held_snapshot=HELD, run=latest()) == (ANSWER, None)
 
     def test_a_record_of_an_earlier_snapshot_is_stale(self):
-        """Row 2, counter-example — the one re-synced since the run read it."""
-        assert record_for(
-            "INC-4830", held_snapshot=HELD, run=latest(pinned={"INC-4830": EARLIER})
-        ) == (
-            None,
-            f"INC-4830: record stale: {RUN} read an earlier snapshot",
-        )
+        """Row 2, counter-example — the one re-synced since the run read it.
+
+        Asked with an earlier snapshot whose hash sorts before the held one and
+        one whose hash sorts after: a snapshot is another one, not a lesser one.
+        """
+        for earlier in (EARLIER, "f0e1d2c3" * 8):
+            assert record_for(
+                "INC-4830", held_snapshot=HELD, run=latest(pinned={"INC-4830": earlier})
+            ) == (
+                None,
+                f"INC-4830: record stale: {RUN} read an earlier snapshot",
+            )
 
     def test_a_document_the_run_failed_has_no_record(self):
         """Row 3, counter-example — the one `extract` failed (R4.27)."""
