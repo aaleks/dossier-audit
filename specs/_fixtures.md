@@ -554,3 +554,25 @@ finding 2).
 
 `GLOBEX-2023`'s notice is three months, not ninety days, and a run answering
 `90 days` for it is wrong: a month is not a fixed number of days (R7.38).
+
+## The embedding index (spec 018)
+
+| Value | Meaning |
+|---|---|
+| `incidents` | The index `indexes/incidents.yaml` declares, over `incident-audit`'s sources and its latest run |
+| `ollama:qwen3-embedding:4b-fp16@sha256:3c93b6415795f9cc3e16c403a492ce25b1c0e260f2f760acc90e2035de25f9bc` | The embedding model, pinned by the digest the Ollama registry and a local pull both reported on 2026-10-01. 2,560 values a vector |
+| `incident-response` | The readers `incidents-jira` declares (`acl`) |
+| `DOSSIER_INDEX_DSN` | The environment variable holding the index's connection string |
+
+`INC-4830`'s categories, as a run declaring them would answer, each grounded in
+its postmortem except the one marked:
+
+| Field | Kind | Value |
+|---|---|---|
+| `failure_category` | enum | `certificate-expiry` |
+| `component` | enum | `checkout` |
+| `root_cause_category` | enum | `process-gap` |
+| `contributing_factor_category` | enum | `alert-routing`: the 30-day expiry alert went to an archived Slack channel |
+| `architecture_category` | enum | `load-balancer-config` |
+| `root_cause` | free_text | `Certificate renewal and certificate deployment were two separate processes, and only the first was automated.` |
+| `component` | enum | `payments-api`: **ungrounded**, the value R18.9 row 3 leaves out. `INC-4830` never names it |
