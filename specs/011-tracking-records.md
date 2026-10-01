@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.33
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.34
 
 ## Purpose
 
@@ -887,3 +887,20 @@ nothing, as a `gc --apply` that found nothing to delete records nothing.
 | 3 | the same | its last line is `recorded to MLflow: dossier-audit/incident-audit/embed` (R10.4 row 3) |
 | 4 | *counter-example* — R18.7 row 2's second `embed`, nothing changed, tracking on | 0 MLflow runs: nothing was written or removed |
 | 5 | *counter-example* — tracking off | 0 MLflow runs, and no server asked |
+
+### R11.34 — a `dossier search` is one MLflow trace in its pipeline's `search` experiment, with an EMBEDDING and a RETRIEVER span, and no run
+
+A search changes nothing, so it opens no run. Its trace is what MLflow's
+retrieval views read, and what a later retrieval eval would score.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.search.record_search`)
+- **Proved by:** `tests/unit/test_R011_34__a_search_is_one_trace.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | tracking on; `dossier search incidents "certificate expired at checkout"` | one trace, its request the query and its filters, its response the document ids in rank order; an EMBEDDING span naming the model and its tokens; a RETRIEVER span listing each result with its rank and score; no MLflow run |
+| 2 | the same search again | an EMBEDDING span with 0 tokens, marked `cached` |
+| 3 | *counter-example* — a refused search (R19.4 row 5) | no trace |
+| 4 | *counter-example* — tracking off | nothing recorded, and the search prints as before |

@@ -563,6 +563,9 @@ finding 2).
 | `ollama:qwen3-embedding:4b-fp16@sha256:3c93b6415795f9cc3e16c403a492ce25b1c0e260f2f760acc90e2035de25f9bc` | The embedding model, pinned by the digest the Ollama registry and a local pull both reported on 2026-10-01. 2,560 values a vector |
 | `incident-response` | The readers `incidents-jira` declares (`acl`) |
 | `DOSSIER_INDEX_DSN` | The environment variable holding the index's connection string |
+| `sre` | The readers `procedures-confluence` declares (`acl`), beside `incidents-jira`'s `incident-response` (spec 019) |
+| `certificate expired at checkout` | The query spec 019's examples ask of `incidents`. `INC-4830` answers it |
+| `Given a question about incidents, retrieve the passages of incident records and documents that answer it` | The query instruction an index declares by default (spec 019) |
 
 `INC-4830`'s categories, as a run declaring them would answer, each grounded in
 its postmortem except the one marked:
