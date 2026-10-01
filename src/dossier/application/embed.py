@@ -196,8 +196,7 @@ def embed_index(
     held_vectors: dict[str, tuple[float, ...]] = {}
     missing: list[str] = []
     for text in sorted({cut.embedded_as for cut in every}):
-        found = vectors.get(embedding_key(model, text), require_record=True)
-        vector = _read_vector(found)
+        vector = cached_vector(vectors, model, text)
         if vector is None:
             missing.append(text)
         else:
@@ -234,11 +233,7 @@ def embed_index(
     # Kept only once all of them have been checked: a vector of the wrong
     # length, cached, would be served to the next embed as if it were right.
     for text, vector in answered.items():
-        vectors.put(
-            embedding_key(model, text),
-            json.dumps(list(vector)).encode("utf-8"),
-            record={"embedding_model": model, "dimensions": len(vector)},
-        )
+        keep_vector(vectors, model, text, vector)
 
     rows: dict[str, tuple[IndexedDocument, list[IndexedChunk]]] = {}
     for document in ordered:
@@ -453,6 +448,20 @@ def record_embed(
     tracker.describe(report.line)
     tracker.end_run(status="FINISHED")
     return True
+
+
+def cached_vector(vectors: ArtifactStore, model: str, text: str) -> tuple[float, ...] | None:
+    """The vector the cache holds for `text` embedded by `model`, or `None` (R18.3, R19.3)."""
+    return _read_vector(vectors.get(embedding_key(model, text), require_record=True))
+
+
+def keep_vector(vectors: ArtifactStore, model: str, text: str, vector: Sequence[float]) -> None:
+    """Cache `vector` as `model`'s for `text`, keyed by the two (R18.3, R19.3)."""
+    vectors.put(
+        embedding_key(model, text),
+        json.dumps(list(vector)).encode("utf-8"),
+        record={"embedding_model": model, "dimensions": len(vector)},
+    )
 
 
 def _read_vector(found: bytes | None) -> tuple[float, ...] | None:

@@ -55,7 +55,9 @@ class TestSearchListsWhatAnswersTheQuery:
         lines = result.stdout.splitlines()
         assert lines[0] == f"{INDEX} · 1 document · not filtered by reader", lines
         assert lines[1].startswith("1. INC-4830"), lines
-        assert "component: checkout · failure_category: certificate-expiry" in lines, lines
+        # A result's details are indented under it.
+        details = [line.strip() for line in lines[2:]]
+        assert "component: checkout · failure_category: certificate-expiry" in details, lines
         excerpt = lines[3]
         assert len(excerpt.strip()) <= 201 and "\n" not in excerpt, excerpt
 

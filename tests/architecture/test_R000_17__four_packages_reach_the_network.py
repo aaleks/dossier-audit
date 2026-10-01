@@ -1,22 +1,26 @@
-"""R0.16 — exactly four packages may reach the network, and a model is asked only
-on a cache miss.
+"""R0.17 — exactly four packages may reach the network, a model is asked only on
+a cache miss, and what a search reads of the index enters no key, manifest or
+score.
 
 `dossier.infrastructure.connectors` fetches source payloads;
 `dossier.infrastructure.models` asks a model, for an answer or for a vector;
 `dossier.infrastructure.tracking` sends records to MLflow;
-`dossier.infrastructure.index` writes the embedding index (spec 018). Nothing
-else imports a network client, on any code path, including error paths and
-imports made lazily inside a function body.
+`dossier.infrastructure.index` writes the embedding index (spec 018) and
+searches it (spec 019). Nothing else imports a network client, on any code
+path, including error paths and imports made lazily inside a function body.
 
-Supersedes R0.10, which admitted three, and which superseded R0.9's two. Each
-widening counted the new package's client as a network client (`mlflow` then,
-`psycopg` now), so that the exemption has teeth: without that, the check would
-pass green while the client was imported anywhere.
+Supersedes R0.16, which fenced what is read back from the index to ids and
+content hashes before there was a search; R0.10, which admitted three
+packages; and R0.9's two. Each widening counted the new package's client as a
+network client (`mlflow` then, `psycopg` later), so that the exemption has
+teeth: without that, the check would pass green while the client was imported
+anywhere.
 
-The fourth package changes nothing about what the boundary promises. The index
-is derived data, and its port reads back only the ids and content hashes of
-what it holds, to write only what changed (R18.4): nothing it holds can enter a
-key, a manifest or a score.
+The index is still derived data. `IndexSink` reads back only the ids and
+content hashes of what it holds, to write only what changed (R18.4). A search
+reads back chunks through its own port, `IndexSearch`, and what it reads
+reaches the terminal and MLflow: nothing the index holds can enter a key, a
+manifest or a score (rows 11 and 12).
 """
 
 from __future__ import annotations
@@ -54,7 +58,7 @@ def test_no_network_import_outside_the_four_permitted_packages(path):
     assert not offenders, "\n".join(
         f"{i.where}: imports {i.module!r}"
         + (" inside a function body -- a lazy import is still an import" if i.lazy else "")
-        + f"\n  {module_name(path)} may not reach the network (R0.16)."
+        + f"\n  {module_name(path)} may not reach the network (R0.17)."
         f"\n  Fix: move the call into one of {REACH_THE_NETWORK} and pass the "
         "result across."
         for i in offenders
@@ -226,3 +230,63 @@ class TestTheDetectorDetects:
         source = "import json\nfrom pathlib import Path\nfrom dossier.domain import keys\n"
 
         assert self.probe(tmp_path, source) == []
+
+
+# Where keys, manifests and scores are made: nothing a search reads may reach them.
+COMPOSERS = (
+    "dossier/domain/keys.py",
+    "dossier/application/run.py",
+    "dossier/application/eval.py",
+)
+
+
+def _reads_a_search(path: Path) -> list[str]:
+    """Each import in `path` of what a search reads: the search module, or its port."""
+    return [
+        found.where
+        for found in imports_of(path)
+        if found.module.startswith(("dossier.domain.search", "dossier.application.search"))
+        or found.module.endswith(".IndexSearch")
+    ]
+
+
+@pytest.mark.parametrize("composer", COMPOSERS)
+def test_nothing_a_search_reads_enters_a_key_a_manifest_or_a_score(composer: str):
+    """Row 11: keys, the run and eval import neither the search nor its port."""
+    path = Path(__file__).resolve().parents[2] / "src" / composer
+
+    assert path.is_file(), composer
+    assert _reads_a_search(path) == [], f"{composer} imports what a search reads"
+
+
+def test_a_search_is_where_the_index_is_read():
+    """Row 12, counter-example: `application/search.py` imports the port, and may."""
+    path = Path(__file__).resolve().parents[2] / "src" / "dossier" / "application" / "search.py"
+
+    assert _reads_a_search(path), "application/search.py should import IndexSearch"
+
+
+class TestTheSearchDetectorDetects:
+    """Row 11's check has teeth: an import of either kind is seen."""
+
+    def test_an_import_of_the_port_is_seen(self, tmp_path: Path):
+        module = tmp_path / "keys.py"
+        module.write_text("from dossier.domain.ports import IndexSearch\n", encoding="utf-8")
+
+        assert len(_reads_a_search_any(module)) == 1
+
+    def test_an_import_of_the_decisions_is_seen(self, tmp_path: Path):
+        module = tmp_path / "eval.py"
+        module.write_text("def f():\n    from dossier.domain.search import fused\n", "utf-8")
+
+        assert len(_reads_a_search_any(module)) >= 1
+
+
+def _reads_a_search_any(path: Path) -> list[str]:
+    """`_reads_a_search` for a file outside the repository, by module name only."""
+    return [
+        found.module
+        for found in imports_of(path)
+        if found.module.startswith(("dossier.domain.search", "dossier.application.search"))
+        or found.module.endswith(".IndexSearch")
+    ]

@@ -9,6 +9,12 @@ newline, and `Query:<query>`.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from tests.acceptance import test_R019_8__search_lists_what_answers_the_query as searched
+from tests.acceptance.test_R018_7__embed_builds_the_index_from_what_was_synced import _cli
+from tests.acceptance.test_R018_11__embed_carries_the_runs_record import INDEX
+
 from dossier.domain.search import DEFAULT_INSTRUCTION, query_text
 
 QUERY = "certificate expired at checkout"
@@ -38,3 +44,33 @@ class TestTheQueryIsEmbeddedAfterItsInstruction:
     def test_an_empty_instruction_embeds_the_query_as_typed(self):
         """Row 4, counter-example — the one for a model trained without one."""
         assert query_text(QUERY, instruction="") == QUERY
+
+
+# R19.8's workspace, synced, run and embedded, the index a fake; its fixtures
+# shared rather than copied.
+issues, embedder, index, run_once, embedded = (
+    searched.issues,
+    searched.embedder,
+    searched.index,
+    searched.run_once,
+    searched.embedded,
+)
+
+
+def _search(workspace: Path, monkeypatch, *more: str):
+    return _cli(workspace, monkeypatch, "search", INDEX, searched.QUERY, *more)
+
+
+class TestTheQueryIsEmbeddedOnce:
+    """R19.3 rows 1 and 3 — after its instruction, and only on a cache miss."""
+
+    def test_the_same_search_again_asks_no_model(self, embedded: Path, monkeypatch, embedder):
+        """Row 3 — the one asked twice."""
+        before = embedder.calls
+
+        assert _search(embedded, monkeypatch).exit_code == 0
+        assert embedder.calls == before + 1
+        assert embedder.texts[-1] == f"Instruct: {DEFAULT_INSTRUCTION}\nQuery:{searched.QUERY}"
+        assert _search(embedded, monkeypatch).exit_code == 0
+
+        assert embedder.calls == before + 1

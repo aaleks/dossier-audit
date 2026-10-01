@@ -30,7 +30,7 @@ made: a replay and an eval reproduce a run from its manifest and the cache
 
 N is 5, and `--keep-last N` sets it for one invocation. A run's `--label` cannot
 keep it. The label lives only in MLflow (R10.11), and `gc` reads nothing back
-from there (R0.16). So a run is pinned on disk: `dossier gc --keep RUN` writes
+from there (R0.17). So a run is pinned on disk: `dossier gc --keep RUN` writes
 `runs/<RUN>/keep`, and a person deletes that file to unpin it. Decided by
 `a.aleks` on 2026-09-30, with 5, and with tries and replays always deleted.
 

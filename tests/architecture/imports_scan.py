@@ -19,7 +19,7 @@ PACKAGE = SRC / "dossier"
 
 LAYERS = ("domain", "application", "infrastructure", "config", "cli")
 
-# The four packages permitted to reach the network (R0.16). Connectors fetch
+# The four packages permitted to reach the network (R0.17). Connectors fetch
 # source payloads; model clients ask a model, for an answer or a vector; the
 # tracker sends records to MLflow; the index sink writes the embedding index.
 # Everything else is reproducible from frozen content, which is what the hash

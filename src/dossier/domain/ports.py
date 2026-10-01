@@ -621,7 +621,7 @@ class EmbeddingProvider(Protocol):
     """A model asked for vectors (spec 018). Reached only on a cache miss (R18.3).
 
     Its implementations live in `dossier.infrastructure.models`, left of the
-    hash boundary with every other model client (R0.16): a vector is a model's
+    hash boundary with every other model client (R0.17): a vector is a model's
     answer, cached as a stage's answer is.
     """
 
@@ -654,7 +654,7 @@ class IndexSink(Protocol):
     The index is derived data. What it answers is the only thing read back:
     the ids and content hashes of the documents it holds, so `embed` writes
     only what changed (R18.4). Nothing it holds enters a key, a manifest or a
-    score (R0.16).
+    score (R0.17).
     """
 
     def prepare(self, index: str, column: str) -> None:
