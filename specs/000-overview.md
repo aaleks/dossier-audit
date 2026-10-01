@@ -1,6 +1,6 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R0.1 – R0.17
 
 ## Purpose
@@ -111,7 +111,7 @@ imports made lazily inside a function body.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_9__only_two_packages_reach_the_network.py`
-- **Status:** SUPERSEDED by R0.16
+- **Status:** SUPERSEDED by R0.17
 
 | # | Given | Then |
 |---|-------|------|
@@ -309,7 +309,7 @@ during execution and at no other time.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_9__only_two_packages_reach_the_network.py`
-- **Status:** SUPERSEDED by R0.16
+- **Status:** SUPERSEDED by R0.17
 
 | # | Given | Then |
 |---|-------|------|
@@ -344,7 +344,7 @@ is on or off (R10.4).
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_10__three_packages_reach_the_network.py`
-- **Status:** SUPERSEDED by R0.16
+- **Status:** SUPERSEDED by R0.17
 
 | # | Given | Then |
 |---|-------|------|
@@ -523,8 +523,8 @@ answer, asked through `models`, and cached as a stage's answer is (R18.3).
 
 - **Kind:** deterministic
 - **Layer:** architecture
-- **Proved by:** `tests/architecture/test_R000_16__four_packages_reach_the_network.py`
-- **Status:** MET
+- **Proved by:** `tests/architecture/test_R000_17__four_packages_reach_the_network.py`
+- **Status:** SUPERSEDED by R0.17
 
 | # | Given | Then |
 |---|-------|------|
@@ -549,7 +549,7 @@ embedding index (spec 018) and searches it (spec 019). Nothing else imports a
 network client, on any code path, including error paths and imports made lazily
 inside a function body.
 
-It will supersede R0.16 when `dossier search` lands. R0.16 fenced what is read
+It supersedes R0.16, which fenced what is read
 back from the index to the ids and content hashes of its rows, which a search
 cannot keep: a search reads back chunks, their text and their documents' values,
 because that is what the index is for. It does so through its own port,
@@ -560,7 +560,7 @@ still derived data: nothing it holds enters a key, a manifest or a score.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_17__four_packages_reach_the_network.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

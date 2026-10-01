@@ -15,7 +15,7 @@ from dataclasses import dataclass
 KEEP_LAST = 5
 # A run whose directory holds this file is kept by every `gc` (R16.2, R16.6). On
 # disk rather than a `--label`: the label lives only in MLflow (R10.11), and `gc`
-# reads nothing back from there (R0.16).
+# reads nothing back from there (R0.17).
 KEEP_FILE = "keep"
 
 

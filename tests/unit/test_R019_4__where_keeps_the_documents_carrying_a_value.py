@@ -9,7 +9,12 @@ line may ask for is decided here.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+from tests.acceptance import test_R019_8__search_lists_what_answers_the_query as searched
+from tests.acceptance.test_R018_7__embed_builds_the_index_from_what_was_synced import _cli
+from tests.acceptance.test_R018_11__embed_carries_the_runs_record import INDEX
 
 from dossier.domain.search import UnfilterableWhere, wheres
 
@@ -87,3 +92,53 @@ class TestWhereKeepsTheDocumentsCarryingAValue:
     def test_no_where_filters_nothing(self):
         """Row 8, counter-example — the one with no `--where`."""
         assert _wheres() == {}
+
+
+# R19.8's workspace, synced, run and embedded, the index a fake; its fixtures
+# shared rather than copied.
+issues, embedder, index, run_once, embedded = (
+    searched.issues,
+    searched.embedder,
+    searched.index,
+    searched.run_once,
+    searched.embedded,
+)
+
+
+def _search(workspace: Path, monkeypatch, *more: str):
+    return _cli(workspace, monkeypatch, "search", INDEX, searched.QUERY, *more)
+
+
+class TestWhereThroughTheCommand:
+    """R19.4 — what `--where` asks of the index, and what it refuses unasked."""
+
+    def test_the_index_is_asked_for_the_declared_spelling(
+        self, embedded: Path, monkeypatch, index
+    ):
+        """Rows 1 and 2 — the one filtered on the failure, typed in capitals."""
+        result = _search(
+            embedded, monkeypatch, "--where", "failure_category=CERTIFICATE-EXPIRY"
+        )
+
+        assert result.exit_code == 0, result.output
+        assert index.searches[-1]["where"] == {"failure_category": ("certificate-expiry",)}
+        assert result.stdout.splitlines()[1].startswith("1. INC-4830"), result.output
+
+    def test_an_unknown_field_or_value_is_refused_before_the_model_is_asked(
+        self, embedded: Path, monkeypatch, embedder, index
+    ):
+        """Rows 5 and 6 — the one on free text, and the one on a value never declared."""
+        before = embedder.calls
+        for given, said in (
+            ("root_cause=certificate", "root_cause is not a filter of incidents"),
+            (
+                "failure_category=meteor-strike",
+                "meteor-strike is not a value of failure_category",
+            ),
+        ):
+            result = _search(embedded, monkeypatch, "--where", given)
+
+            assert result.exit_code == 2, result.output
+            assert said in result.stderr, result.stderr
+        assert embedder.calls == before
+        assert index.searches == []

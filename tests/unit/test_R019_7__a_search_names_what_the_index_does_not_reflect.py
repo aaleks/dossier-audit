@@ -8,6 +8,12 @@ ranked list says so.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from tests.acceptance import test_R019_8__search_lists_what_answers_the_query as searched
+from tests.acceptance.test_R018_7__embed_builds_the_index_from_what_was_synced import _cli
+from tests.acceptance.test_R018_11__embed_carries_the_runs_record import INDEX, NOTE, PIPELINE
+
 from dossier.domain.search import unreflected, unreflected_line
 
 INDEXED = {
@@ -50,3 +56,40 @@ class TestASearchNamesWhatTheIndexDoesNotReflect:
         """Row 4, counter-example — the one embedded after the last sync."""
         assert unreflected(held=dict(INDEXED), indexed=INDEXED) == 0
         assert unreflected_line("incidents", 0) is None
+
+
+# R19.8's workspace, synced, run and embedded, the index a fake; its fixtures
+# shared rather than copied.
+issues, embedder, index, run_once, embedded = (
+    searched.issues,
+    searched.embedder,
+    searched.index,
+    searched.run_once,
+    searched.embedded,
+)
+
+
+def _search(workspace: Path, monkeypatch, *more: str):
+    return _cli(workspace, monkeypatch, "search", INDEX, searched.QUERY, *more)
+
+
+class TestThroughTheCommand:
+    """R19.7 — after the results, as the last line."""
+
+    def test_a_document_synced_since_is_named(self, embedded: Path, monkeypatch, issues):
+        """Row 1 — the one where INC-4901 arrived after the embed."""
+        issues["INC-4901"] = NOTE.replace("INC-4830", "INC-4901")
+        assert _cli(embedded, monkeypatch, "sync", PIPELINE).exit_code == 0
+
+        result = _search(embedded, monkeypatch)
+
+        assert result.exit_code == 0, result.output
+        assert result.stdout.splitlines()[-1] == (
+            f"1 held document not in {INDEX} as held: run dossier embed {INDEX}"
+        )
+
+    def test_nothing_synced_since_says_nothing(self, embedded: Path, monkeypatch):
+        """Row 4, counter-example — the one embedded after the last sync."""
+        result = _search(embedded, monkeypatch)
+
+        assert "not in incidents as held" not in result.stdout

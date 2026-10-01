@@ -68,6 +68,9 @@ class IndexDeclaration(BaseModel):
     chunker: ChunkerSettings
     fields: IndexFields = IndexFields()
     target: IndexTarget
+    # What a search's query is embedded after; `None` is the default, and an
+    # empty one embeds the query as typed (R19.3).
+    query_instruction: str | None = None
 
 
 def field_refusals(

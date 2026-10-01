@@ -239,3 +239,31 @@ def unreflected_line(index: str, count: int) -> str | None:
         return None
     documents = "document" if count == 1 else "documents"
     return f"{count} held {documents} not in {index} as held: run dossier embed {index}"
+
+
+# How long a result's text is shown, at most, on its one line (R19.8 row 1).
+EXCERPT = 200
+
+
+def excerpt(text: str, *, limit: int = EXCERPT) -> str:
+    """A chunk's text on one line, cut at a word to at most `limit` characters (R19.8).
+
+    Cut with `…`, so a reader knows there is more; a word longer than the
+    whole limit is cut where the limit falls.
+    """
+    line = " ".join(text.split())
+    if len(line) <= limit:
+        return line
+    cut = line[:limit].rsplit(" ", 1)[0] if " " in line[:limit] else line[:limit]
+    return f"{cut.rstrip()}…"
+
+
+def values_line(values: Mapping[str, object]) -> str | None:
+    """A document's carried values, by field name, or `None` when it carries none (R19.8)."""
+    if not values:
+        return None
+    shown = (
+        f"{name}: {', '.join(map(str, value)) if isinstance(value, list | tuple) else value}"
+        for name, value in sorted(values.items())
+    )
+    return " · ".join(shown)

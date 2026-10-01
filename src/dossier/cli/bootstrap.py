@@ -28,6 +28,7 @@ from dossier.domain.ports import (
     DatasetRegistry,
     EmbeddingProvider,
     ImagePart,
+    IndexSearch,
     IndexSink,
     ModelClient,
     PromptRegistry,
@@ -121,6 +122,17 @@ def build_index_sink(dsn: str) -> IndexSink:
     from dossier.infrastructure.index import connect
 
     return connect(dsn)
+
+
+def build_index_search(dsn: str) -> IndexSearch:
+    """The embedding index at `dsn`, to search, reached only when it is first asked (R19.8).
+
+    As `build_index_sink`: the driver is imported then, so a `dossier`
+    installed without the `index` extra is told which extra to install.
+    """
+    from dossier.infrastructure.index import connect_search
+
+    return connect_search(dsn)
 
 
 def build_tracker(settings: TrackingSettings) -> Tracker:

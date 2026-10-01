@@ -121,11 +121,13 @@ Installing, the extras and what each one adds: `README.md`.
    `dossier.infrastructure.tracking` sends records to MLflow, and reads back
    only what spec 012-015 fence: an id a registry hands back, and reviewers'
    verdicts, through `ReviewSource`, for `dossier review pull` alone (R15.5);
-   `dossier.infrastructure.index` writes the embedding index, and reads back
-   only the ids and content hashes of what it holds (spec 018).
+   `dossier.infrastructure.index` writes the embedding index (spec 018) and
+   searches it (spec 019); what a search reads reaches the terminal and MLflow,
+   never a key, a manifest or a score.
    Nothing else may import a network client -- `mlflow` and `psycopg` included
    -- on any code path, including a lazy import inside a function. This is
-   R0.16 -- it supersedes R0.10, which admitted three, R0.9, which admitted
+   R0.17 -- it supersedes R0.16, which fenced the index to ids and hashes
+   before there was a search, R0.10, which admitted three, R0.9, which admitted
    two, and R0.1, which allowed only connectors and was already untrue of a
    tool whose stages ask a model. The
    boundary does not
@@ -153,7 +155,7 @@ Two boundaries, described in `docs/architecture.md` and enforced by
 
 - **The hash boundary** — `infrastructure/connectors/`, `infrastructure/models/`,
   `infrastructure/tracking/` and `infrastructure/index/` are the only packages
-  that may touch the network (R0.16).
+  that may touch the network (R0.17).
 - **The purity boundary** — `domain/` imports the standard library and
   `pydantic`, and nothing else.
 
@@ -162,7 +164,7 @@ src/dossier/
   domain/          decisions: keys, resolution, normalisation, grounding, scoring
   application/     use cases: sync, convert, run, plan, eval
   infrastructure/  converters, store, ledger, model clients, tracking
-    connectors/    left of the hash boundary, with models/, tracking/ and index/ (R0.16)
+    connectors/    left of the hash boundary, with models/, tracking/ and index/ (R0.17)
   config/          sources.yaml, pipeline.yaml, credentials — the only reader of os.environ
   cli/             typer app — the only place sys.exit lives
 ```

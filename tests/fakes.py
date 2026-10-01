@@ -850,7 +850,7 @@ class FakeIndexSink:
     """The embedding index in memory, by index and document (R18.4).
 
     It answers `held` with what it holds, ids and content hashes and nothing
-    else, as the real index's port does (R0.16). A test can empty it by hand,
+    else, as the real index's port does (R0.17). A test can empty it by hand,
     as a person could empty the tables.
     """
 
@@ -860,6 +860,8 @@ class FakeIndexSink:
         self.columns: dict[str, str] = {}
         self.writes = 0
         self.removals = 0
+        # Every search asked, with its filters (spec 019).
+        self.searches: list[dict] = []
 
     def prepare(self, index: str, column: str) -> None:
         self.columns[index] = column
@@ -881,6 +883,94 @@ class FakeIndexSink:
             self.documents.pop((index, document_id), None)
             self.chunks.pop((index, document_id), None)
             self.removals += 1
+
+    # -- IndexSearch (spec 019): the same rows, searched in memory.
+
+    def models(self, index: str) -> frozenset[str]:
+        return frozenset(document.embedding_model for document in self.held_documents(index))
+
+    def snapshots(self, index: str) -> dict[str, str]:
+        return {
+            document.document_id: document.snapshot for document in self.held_documents(index)
+        }
+
+    def search(
+        self,
+        index: str,
+        *,
+        vector: Sequence[float],
+        words: str,
+        where: Mapping[str, Sequence[str]],
+        reader: str | None,
+        candidates: int,
+    ):
+        """Both lists as the real index ranks them, over what `embed` wrote (R19.1).
+
+        By meaning: cosine similarity, nearest first. By words: chunks holding
+        every word of the query, case aside, most occurrences first -- the
+        shape of `websearch_to_tsquery('simple', ...)` without its syntax.
+        Ties by chunk id, as the real index's.
+        """
+        from dossier.domain.search import Candidate, Described, Lists
+
+        self.searches.append({"where": dict(where), "reader": reader, "words": words})
+        documents = {document.document_id: document for document in self.held_documents(index)}
+
+        def carries(document) -> bool:
+            for name, allowed in where.items():
+                held = document.values.get(name)
+                values = held if isinstance(held, list | tuple) else [held]
+                if not set(allowed) & {value for value in values if value is not None}:
+                    return False
+            return True
+
+        kept = [
+            chunk
+            for chunk in self.held_chunks(index)
+            if carries(documents[chunk.document_id]) and (reader is None or reader in chunk.acl)
+        ]
+
+        def cosine(chunk) -> float:
+            dot = sum(a * b for a, b in zip(vector, chunk.embedding, strict=True))
+            norms = (sum(a * a for a in vector) * sum(b * b for b in chunk.embedding)) ** 0.5
+            return dot / norms if norms else 0.0
+
+        terms = [term for term in words.lower().split() if term]
+
+        def hits(chunk) -> int:
+            text = chunk.text.lower()
+            return (
+                sum(text.count(term) for term in terms) if all(t in text for t in terms) else 0
+            )
+
+        meaning = sorted(kept, key=lambda chunk: (-cosine(chunk), chunk.chunk_id))[:candidates]
+        matched = [chunk for chunk in kept if terms and hits(chunk)]
+        by_words = sorted(matched, key=lambda chunk: (-hits(chunk), chunk.chunk_id))[
+            :candidates
+        ]
+
+        def candidate(chunk) -> Candidate:
+            return Candidate(
+                chunk_id=chunk.chunk_id,
+                document_id=chunk.document_id,
+                kind=chunk.kind,
+                heading_path=tuple(chunk.heading_path),
+                text=chunk.text,
+            )
+
+        found = {chunk.document_id for chunk in [*meaning, *by_words]}
+        return Lists(
+            meaning=tuple(candidate(chunk) for chunk in meaning),
+            words=tuple(candidate(chunk) for chunk in by_words),
+            documents={
+                document_id: Described(
+                    document_id=document_id,
+                    title=documents[document_id].title,
+                    values=dict(documents[document_id].values),
+                )
+                for document_id in sorted(found)
+            },
+        )
 
     def held_documents(self, index: str) -> list:
         return [
