@@ -812,3 +812,84 @@ class FakeReviewSource:
     def human_verdicts(self, *, experiment: str) -> list:
         self.asked.append(experiment)
         return list(self.verdicts.get(experiment, []))
+
+
+class FakeEmbeddingProvider:
+    """An embedding model in memory, counting every request it is sent (R18.3).
+
+    Each text gets a vector derived from its hash, so one text always gets the
+    same vector and two texts get different ones, as from a real model. The
+    length is the model's: 2,560 for Qwen3-Embedding-4B (R18.5).
+    """
+
+    def __init__(self, dimensions: int = 2560) -> None:
+        self.dimensions = dimensions
+        self.requests: list[list[str]] = []
+
+    @property
+    def calls(self) -> int:
+        return len(self.requests)
+
+    @property
+    def texts(self) -> list[str]:
+        return [text for request in self.requests for text in request]
+
+    def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        self.requests.append(list(texts))
+        return [self._vector(text) for text in texts]
+
+    def _vector(self, text: str) -> list[float]:
+        seed = sha256(text.encode("utf-8")).digest()
+        return [seed[at % len(seed)] / 255.0 - 0.5 for at in range(self.dimensions)]
+
+
+class FakeIndexSink:
+    """The embedding index in memory, by index and document (R18.4).
+
+    It answers `held` with what it holds, ids and content hashes and nothing
+    else, as the real index's port does (R0.16). A test can empty it by hand,
+    as a person could empty the tables.
+    """
+
+    def __init__(self) -> None:
+        self.documents: dict[tuple[str, str], object] = {}
+        self.chunks: dict[tuple[str, str], list] = {}
+        self.columns: dict[str, str] = {}
+        self.writes = 0
+        self.removals = 0
+
+    def prepare(self, index: str, column: str) -> None:
+        self.columns[index] = column
+
+    def held(self, index: str) -> dict[str, str]:
+        return {
+            document_id: document.content_hash
+            for (held_in, document_id), document in self.documents.items()
+            if held_in == index
+        }
+
+    def write(self, index: str, document, chunks: Sequence[object]) -> None:
+        self.documents[(index, document.document_id)] = document
+        self.chunks[(index, document.document_id)] = list(chunks)
+        self.writes += 1
+
+    def remove(self, index: str, document_ids: Sequence[str]) -> None:
+        for document_id in document_ids:
+            self.documents.pop((index, document_id), None)
+            self.chunks.pop((index, document_id), None)
+            self.removals += 1
+
+    def held_documents(self, index: str) -> list:
+        return [
+            document
+            for (held_in, _), document in sorted(self.documents.items())
+            if held_in == index
+        ]
+
+    def held_chunks(self, index: str) -> list:
+        return [
+            chunk
+            for (held_in, _), chunks in sorted(self.chunks.items())
+            if held_in == index
+            for chunk in chunks
+        ]
