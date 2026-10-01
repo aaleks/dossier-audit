@@ -142,6 +142,14 @@ def run_line(run: HeldRun, *, keep_last: int) -> str:
     return f"  runs/{run.run_id}/  {run.pipeline}, beyond the latest {keep_last}"
 
 
+def unreadable_manifest_line(directory: str, reason: str) -> str:
+    """The line naming a run directory whose manifest cannot be read (R16.11)."""
+    return (
+        f"  left as it is: runs/{directory}/manifest.json cannot be read: "
+        f"{' '.join(reason.split())}"
+    )
+
+
 def untraced_line(run_id: str) -> str:
     """The line saying why no cache entry is deleted (R16.8)."""
     return (

@@ -19,6 +19,7 @@ from dossier.domain.gc import (
     PREVIEWED,
     run_line,
     summary_line,
+    unreadable_manifest_line,
     unreplayable_line,
     untraced_line,
 )
@@ -81,6 +82,8 @@ def gc(
     )
     # Before what is collected, and on stderr: a run that cannot be reproduced
     # is a finding about the workspace, whatever gc does next (R16.7).
+    for directory, reason in plan.unreadable:
+        typer.echo(unreadable_manifest_line(directory, reason), err=True)
     for run_id, reason in plan.unreplayable:
         typer.echo(unreplayable_line(run_id, reason), err=True)
         if run_id in plan.untraced:

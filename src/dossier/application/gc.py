@@ -8,7 +8,6 @@ to a replay: this module constructs none of them.
 from __future__ import annotations
 
 import json
-import shutil
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,7 +32,8 @@ from dossier.domain.gc import (
     kept_runs,
 )
 from dossier.domain.ports import ArtifactStore, CollectableStore, SnapshotReader, Tracker
-from dossier.domain.store import REPLAYS, RUNS_ROOT, TRIES_ROOT
+from dossier.domain.resolution import is_run_id
+from dossier.domain.store import FAILURES_NAME, REPLAYS, RUNS_ROOT, TRIES_ROOT
 from dossier.domain.tracking import gc_description, label_for, run_name
 from dossier.domain.tracking import tags as tracking_tags
 
@@ -55,9 +55,12 @@ class GcPlan:
     unreplayable: tuple[tuple[str, str], ...] = ()
     # Those of them that stopped before their stages, so collect nothing (R16.8).
     untraced: tuple[str, ...] = ()
+    # Directories under `runs/` whose manifest cannot be read, each with why:
+    # left as they are, as one with no manifest is (R16.11).
+    unreadable: tuple[tuple[str, str], ...] = ()
 
 
-def held_runs(runs: Path) -> list[HeldRun]:
+def held_runs(runs: Path, *, unreadable: list[tuple[str, str]] | None = None) -> list[HeldRun]:
     """Every run under `runs`, in run-id order (R16.2).
 
     A run is a directory holding `manifest.json`. Anything else there is not
@@ -71,10 +74,19 @@ def held_runs(runs: Path) -> list[HeldRun]:
         manifest = directory / MANIFEST_NAME
         if not manifest.is_file():
             continue
+        try:
+            pipeline = Manifest.read(manifest).plan.pipeline
+        except ValueError as error:
+            # Cut short by a run killed as it wrote it: it says nothing of the
+            # run, not even its pipeline, so the directory is left as one with
+            # no manifest is, and named rather than stopping gc (R16.11).
+            if unreadable is not None:
+                unreadable.append((directory.name, str(error)))
+            continue
         held.append(
             HeldRun(
                 run_id=directory.name,
-                pipeline=Manifest.read(manifest).plan.pipeline,
+                pipeline=pipeline,
                 pinned=(directory / KEEP_FILE).is_file(),
             )
         )
@@ -95,7 +107,8 @@ def gc_plan(
     ledger holds now.
     """
     runs = workspace / RUNS_ROOT
-    every = held_runs(runs)
+    unreadable: list[tuple[str, str]] = []
+    every = held_runs(runs, unreadable=unreadable)
     kept, deleted = kept_runs(every, keep_last=keep_last)
     needed, unreplayable, untraced = _needed(runs, kept, store=store, caches=caches)
     entries = [
@@ -115,12 +128,13 @@ def gc_plan(
         entries=collectable(entries, needed=needed, held=held, untraced=untraced),
         unreplayable=unreplayable,
         untraced=untraced,
+        unreadable=tuple(unreadable),
         # Every try: none is ever replayed or scored (R4.20), and an answer of
         # one that a run was served is that run's entry (R16.3 row 3).
         tries=tuple(
             f"{TRIES_ROOT}/{path.name}"
             for path in sorted(tries.iterdir() if tries.is_dir() else ())
-            if path.is_dir()
+            if path.is_dir() and is_run_id(path.name)
         ),
         # Every replay under a kept run: byte copies of entries its run
         # reproduces at any time (R0.12, R16.4).
@@ -128,7 +142,7 @@ def gc_plan(
             f"{RUNS_ROOT}/{run}/{REPLAYS}/{path.name}"
             for run in kept
             for path in sorted((runs / run / REPLAYS).glob("*"))
-            if path.is_dir()
+            if path.is_dir() and is_run_id(path.name)
         ),
     )
 
@@ -156,10 +170,12 @@ def _needed(
         try:
             text = replayed_inputs(manifest, store=store, cache=traced[CONVERT])
             parts = replayed_parts(manifest, store=store, cache=traced[CONVERT])
+            failures = _failures(runs / run_id)
         except MissingFromReplay as error:
             # Stopped before any stage key was read: a deleted conversion, which
-            # `dossier convert` makes again (R5.9). Which answers it needs is
-            # unknown, so none may go (R16.8).
+            # `dossier convert` makes again (R5.9), or a record of failures cut
+            # short (R16.11). Which answers it needs is unknown, so none may go
+            # (R16.8).
             unreplayable.append((run_id, str(error)))
             untraced.append(run_id)
             continue
@@ -169,7 +185,7 @@ def _needed(
                 document_text=text,
                 document_parts=parts,
                 cache=traced[STAGE],
-                failures=recorded_failures(runs / run_id),
+                failures=failures,
             )
         except MissingFromReplay as error:
             # Already irreproducible, so `gc` cannot make it so: named, and
@@ -181,6 +197,19 @@ def _needed(
         tuple(unreplayable),
         tuple(untraced),
     )
+
+
+def _failures(run_dir: Path):
+    """What the run recorded as failed, or `MissingFromReplay` naming a record cut short.
+
+    `failures.json` is written once the run ends, not all at once, so a run
+    killed as it wrote it leaves it unreadable. Its replay cannot start, which
+    is R16.8's case: named, and nothing collected (R16.11).
+    """
+    try:
+        return recorded_failures(run_dir)
+    except ValueError as error:
+        raise MissingFromReplay(f"{FAILURES_NAME} cannot be read: {error}") from error
 
 
 class _Traced:
@@ -233,9 +262,31 @@ def apply_plan(
     longer replays.
     """
     for directory in _directories(workspace, plan):
-        shutil.rmtree(directory)
+        _delete_tree(directory)
     for entry in plan.entries:
         caches[entry.namespace].delete(entry.key)
+
+
+def _delete_tree(directory: Path) -> None:
+    """Delete `directory` and all it holds, its `manifest.json` last (R16.10).
+
+    A directory under `runs/` is a run while it holds its manifest (R16.2).
+    Deleted in the order the file system lists it, a `gc` stopped part way
+    could leave the rest with no manifest, which no later `gc` counts as a run
+    or deletes. Manifest last, it stays a run until it is gone, and the next
+    `gc` finishes what this one began. Deepest first, so each directory is
+    empty when it is removed.
+    """
+    manifest = directory / MANIFEST_NAME
+    for path in sorted(directory.rglob("*"), key=lambda held: len(held.parts), reverse=True):
+        if path == manifest:
+            continue
+        if path.is_dir() and not path.is_symlink():
+            path.rmdir()
+        else:
+            path.unlink()
+    manifest.unlink(missing_ok=True)
+    directory.rmdir()
 
 
 def pin_runs(workspace: Path, run_ids: Collection[str]) -> None:
