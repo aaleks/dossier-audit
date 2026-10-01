@@ -42,7 +42,7 @@ pip install dossier[pdf]       # and pdf-markdown, pdf-images, jpeg-pages
 pip install dossier[tracking]  # and MLflow runs, traces and metrics
 pip install dossier[docling]   # and docling-markdown: a PDF with no text layer, read by OCR
 pip install dossier[browser]   # and render: browser, for a website that draws its pages in JavaScript
-pip install dossier[index]     # and dossier embed: a Postgres + pgvector index to search by meaning
+pip install dossier[index]     # and dossier embed and search: a Postgres + pgvector index to search by meaning
 ```
 
 A `web` source that says `render: browser` has each HTML page drawn by a
@@ -104,6 +104,7 @@ dossier review apply <pipeline> --gold … --verified-by …  # their expected v
 dossier gc [--keep-last N] [--apply]  # preview, then delete old runs, tries, replays and unread cache entries
 dossier status [<pipeline> --gold …]  # what each source holds, each latest run, what eval would withhold
 dossier embed <index>                # documents and the latest run's grounded record, into a search index
+dossier search <index> "<query>"    # the documents that answer it, ranked by meaning and words together
 ```
 
 A prompt is iterated on one document at a time. `dossier run <pipeline> --doc
@@ -172,6 +173,25 @@ fields:
   filter: [severity, affected_systems]
 target: {dsn_env: DOSSIER_INDEX_DSN}
 ```
+
+`dossier search <index> "<query>"` asks the index a question in plain words and
+lists the documents that answer it, best first (spec 019). It asks twice: by
+meaning, the chunks nearest the query's vector, and by words, the chunks holding
+every word of the query. The two ranked lists are fused by reciprocal rank, so a
+chunk found both ways outranks one found only one way, and an incident key,
+which nothing is near in meaning, is still found by its words. Each document is
+listed once, at its best chunk, with the values the run carried; `--chunks`
+lists the chunks instead. `--where severity=major` keeps the documents carrying
+that value, in the spelling the declaration writes, and a field the index does
+not filter on, or a value the field does not declare, is refused before the
+model is asked. `--as incident-response` keeps what that reader may read;
+without it the first line says the search was not filtered by reader. The query
+is embedded after an instruction, as Qwen3-Embedding is trained to expect, which
+`query_instruction:` in the index file may change, and its vector is cached, so
+the same search again asks no model. A search of an index embedded with another
+model than its file declares is refused, and one over documents synced since the
+last `embed` says how many. `--json` prints the same results for a script. With
+tracking on, each search is one MLflow trace, under no run.
 
 ## What it reads
 
@@ -326,7 +346,8 @@ load time.
 
 With tracking on (`DOSSIER_MLFLOW_ENABLED=true` and a tracking URI, in the
 environment or `.env`), `sync`, `convert`, `run`, `calibrate` and `eval` each record
-one MLflow run, and each record says what it was made from:
+one MLflow run, and each record says what it was made from. A `dossier search`,
+which changes nothing, records one trace and no run:
 
 | Record | Links |
 |---|---|
