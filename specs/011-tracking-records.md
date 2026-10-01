@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.33
 
 ## Purpose
@@ -878,7 +878,7 @@ nothing, as a `gc --apply` that found nothing to delete records nothing.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.embed`), infrastructure (`dossier.infrastructure.tracking`)
 - **Proved by:** `tests/unit/test_R011_33__embed_records_what_it_changed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

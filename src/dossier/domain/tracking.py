@@ -420,6 +420,8 @@ DEFAULT_NAMES = {
     "calibrate": "{prefix}calibrate {gold} · {judge_model}{label}",
     # No pipeline to name it by: `gc` reclaims space across every one (R11.28).
     "gc": "{prefix}gc {started}{label}",
+    # Named by its index, which says what was written, and when (R11.33).
+    "embed": "{prefix}embed {index} {started}{label}",
 }
 
 # What ` · ` separates. A name is read left to right, and the separator belongs to
@@ -448,6 +450,7 @@ NAME_PLACEHOLDERS = {
     "compare": (*_EVERY_COMMAND, "a", "b", "gold", "gold_hash"),
     "calibrate": (*_EVERY_COMMAND, "gold", "gold_hash", "judge_model"),
     "gc": ("prefix", "label", "kind", "started"),
+    "embed": (*_EVERY_COMMAND, "index"),
 }
 
 

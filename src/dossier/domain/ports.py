@@ -624,6 +624,10 @@ class EmbeddingProvider(Protocol):
     answer, cached as a stage's answer is.
     """
 
+    # The prompt tokens the model counted for the last request, or `None` when
+    # it does not say. Read for that request's trace (R11.33).
+    last_tokens: int | None
+
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
         """One vector per text, in the order given."""
         ...
