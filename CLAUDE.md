@@ -115,16 +115,19 @@ Installing, the extras and what each one adds: `README.md`.
 
 ## Non-negotiable technical constraints
 
-1. **Three packages reach the network, and no others.**
+1. **Four packages reach the network, and no others.**
    `dossier.infrastructure.connectors` fetches source payloads;
-   `dossier.infrastructure.models` asks a model;
+   `dossier.infrastructure.models` asks a model, for an answer or a vector;
    `dossier.infrastructure.tracking` sends records to MLflow, and reads back
    only what spec 012-015 fence: an id a registry hands back, and reviewers'
-   verdicts, through `ReviewSource`, for `dossier review pull` alone (R15.5).
-   Nothing else may import a network client -- `mlflow` included -- on any code
-   path, including a lazy import inside a function. This is R0.10 -- it
-   supersedes R0.9, which admitted two, and R0.1, which allowed only
-   connectors and was already untrue of a tool whose stages ask a model. The
+   verdicts, through `ReviewSource`, for `dossier review pull` alone (R15.5);
+   `dossier.infrastructure.index` writes the embedding index, and reads back
+   only the ids and content hashes of what it holds (spec 018).
+   Nothing else may import a network client -- `mlflow` and `psycopg` included
+   -- on any code path, including a lazy import inside a function. This is
+   R0.16 -- it supersedes R0.10, which admitted three, R0.9, which admitted
+   two, and R0.1, which allowed only connectors and was already untrue of a
+   tool whose stages ask a model. The
    boundary does not
    promise "no network"; it promises that everything right of it is
    reproducible, which is why a model is reached only on a cache miss and never
@@ -148,9 +151,9 @@ Installing, the extras and what each one adds: `README.md`.
 Two boundaries, described in `docs/architecture.md` and enforced by
 `tests/architecture/`:
 
-- **The hash boundary** — `infrastructure/connectors/`, `infrastructure/models/`
-  and `infrastructure/tracking/` are the only packages that may touch the
-  network (R0.10).
+- **The hash boundary** — `infrastructure/connectors/`, `infrastructure/models/`,
+  `infrastructure/tracking/` and `infrastructure/index/` are the only packages
+  that may touch the network (R0.16).
 - **The purity boundary** — `domain/` imports the standard library and
   `pydantic`, and nothing else.
 
@@ -159,7 +162,7 @@ src/dossier/
   domain/          decisions: keys, resolution, normalisation, grounding, scoring
   application/     use cases: sync, convert, run, plan, eval
   infrastructure/  converters, store, ledger, model clients, tracking
-    connectors/    left of the hash boundary, with models/ and tracking/ (R0.10)
+    connectors/    left of the hash boundary, with models/, tracking/ and index/ (R0.16)
   config/          sources.yaml, pipeline.yaml, credentials — the only reader of os.environ
   cli/             typer app — the only place sys.exit lives
 ```

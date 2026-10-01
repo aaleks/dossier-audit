@@ -16,14 +16,17 @@ There are exactly two boundaries. Everything else is ordinary structure.
   not repeatable     ┃
 ```
 
-In the code the boundary is three packages: **`dossier.infrastructure.connectors`
-fetches source payloads, `dossier.infrastructure.models` asks a model, and
-`dossier.infrastructure.tracking` sends records to MLflow.** Nothing else may
-import a network client -- `mlflow` included -- and everything right of the line
-is a pure function of content hashes.
+In the code the boundary is four packages: **`dossier.infrastructure.connectors`
+fetches source payloads, `dossier.infrastructure.models` asks a model, for an
+answer or a vector, `dossier.infrastructure.tracking` sends records to MLflow,
+and `dossier.infrastructure.index` writes the embedding index.** Nothing else
+may import a network client -- `mlflow` and `psycopg` included -- and everything
+right of the line is a pure function of content hashes. The index is derived
+data: its port reads back only the ids and hashes of what it holds (spec 018).
 
-This is R0.10, which supersedes R0.9 (two packages) and R0.1 (connectors only).
-It is checked by `tests/architecture/test_R000_10__three_packages_reach_the_network.py`,
+This is R0.16, which supersedes R0.10 (three packages), R0.9 (two) and R0.1
+(connectors only). It is checked by
+`tests/architecture/test_R000_16__four_packages_reach_the_network.py`,
 which walks every module with `ast` — so a lazy import inside a function body is
 caught as readily as one at module scope.
 

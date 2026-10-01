@@ -1,6 +1,6 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R0.1 – R0.16
 
 ## Purpose
@@ -111,7 +111,7 @@ imports made lazily inside a function body.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_9__only_two_packages_reach_the_network.py`
-- **Status:** SUPERSEDED by R0.10
+- **Status:** SUPERSEDED by R0.16
 
 | # | Given | Then |
 |---|-------|------|
@@ -309,7 +309,7 @@ during execution and at no other time.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_9__only_two_packages_reach_the_network.py`
-- **Status:** SUPERSEDED by R0.10
+- **Status:** SUPERSEDED by R0.16
 
 | # | Given | Then |
 |---|-------|------|
@@ -344,7 +344,7 @@ is on or off (R10.4).
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_10__three_packages_reach_the_network.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R0.16
 
 | # | Given | Then |
 |---|-------|------|
@@ -511,7 +511,7 @@ what specs 012 to 015 fence. `dossier.infrastructure.index` writes the
 embedding index (spec 018). Nothing else imports a network client, on any code
 path, including error paths and imports made lazily inside a function body.
 
-It supersedes R0.10, which admitted three, once it is met. The index is a
+It supersedes R0.10, which admitted three. The index is a
 Postgres server, reached over the network, so the package that writes it is
 left of the line whether or not the rule says so. `psycopg` is counted as a
 network client, as `mlflow` was by R0.10, so the check has teeth. The fourth
@@ -524,7 +524,7 @@ answer, asked through `models`, and cached as a stage's answer is (R18.3).
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_16__four_packages_reach_the_network.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

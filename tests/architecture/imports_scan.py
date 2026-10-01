@@ -19,14 +19,17 @@ PACKAGE = SRC / "dossier"
 
 LAYERS = ("domain", "application", "infrastructure", "config", "cli")
 
-# The three packages permitted to reach the network (R0.10). Connectors fetch
-# source payloads; model clients ask a model; the tracker sends records to MLflow.
+# The four packages permitted to reach the network (R0.16). Connectors fetch
+# source payloads; model clients ask a model, for an answer or a vector; the
+# tracker sends records to MLflow; the index sink writes the embedding index.
 # Everything else is reproducible from frozen content, which is what the hash
-# boundary promises -- and tracking only sends, so it changes none of that.
+# boundary promises -- and neither tracking nor the index feeds anything back
+# into a key, a manifest or a score, so they change none of that.
 CONNECTORS = "dossier.infrastructure.connectors"
 MODELS = "dossier.infrastructure.models"
 TRACKING = "dossier.infrastructure.tracking"
-REACH_THE_NETWORK = (CONNECTORS, MODELS, TRACKING)
+INDEX = "dossier.infrastructure.index"
+REACH_THE_NETWORK = (CONNECTORS, MODELS, TRACKING, INDEX)
 
 NETWORK_MODULES = frozenset(
     {
@@ -56,6 +59,15 @@ NETWORK_MODULES = frozenset(
         "mlflow",
         "ollama",
         "openai",
+        # Postgres clients reach a database server. Counted from R0.16, which
+        # admitted the index sink, so that the exemption has teeth: a psycopg
+        # import anywhere else is a violation. `pgvector` is here because its
+        # adapters exist only to talk to that server.
+        "asyncpg",
+        "pgvector",
+        "psycopg",
+        "psycopg2",
+        "psycopg_pool",
         # A browser asks for whatever the page it draws asks for. Only the web
         # connector may drive one (R1.40, R0.10).
         "playwright",
