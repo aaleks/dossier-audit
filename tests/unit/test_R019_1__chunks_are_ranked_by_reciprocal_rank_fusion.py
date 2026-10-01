@@ -66,3 +66,19 @@ class TestChunksAreRankedByReciprocalRankFusion:
         assert [r.candidate for r in ranked] == [ROOT_CAUSE]
         assert all(r.score > 0 for r in ranked)
         assert fused(meaning=[], words=[]) == ()
+
+    def test_the_same_two_ranks_swapped_tie_past_the_third_place(self):
+        """Row 5 — the one where `warehouse or cost` ranked two chunks 1st and 4th, swapped.
+
+        Ranks of 4 and more, because below 4 `60 + rank` and `60 | rank` are
+        the same number, and a sum that was an OR would pass every row above.
+        """
+        export, warehouse = _chunk("0d67bd5e", "PLAY-1002"), _chunk("72e9006d", "PLAY-1003")
+        near = [_chunk(f"m-{n}", "INC-4977") for n in range(2)]
+        worded = [_chunk(f"w-{n}", "INC-4901") for n in range(2)]
+
+        ranked = fused(meaning=[warehouse, *near, export], words=[export, *worded, warehouse])
+
+        assert [r.candidate for r in ranked[:2]] == [export, warehouse]
+        assert ranked[0].score == ranked[1].score == 1 / 61 + 1 / 64
+        assert (ranked[0].meaning, ranked[0].words) == (4, 1)

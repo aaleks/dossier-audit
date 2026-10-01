@@ -49,6 +49,13 @@ through a port of its own, and keys, the run and eval may import nothing of it.
   so the words list is in chunk id order, and the export incident outranks the
   warehouse incident on a hash. BM25 would weigh rarity and length; whether that
   matters on a real corpus is "Measuring relevance".
+- A mutation pass on `dossier.domain.search`: 155 mutants, 25 survived. 20 were
+  real: no fusion test ranked past third, where `60 + rank` and `60 | rank` part
+  (R19.1 row 5); no test read the empty header (R19.8 row 4); nothing checked
+  the excerpt's cut (rows 5 to 7); and a pair with an empty side was refused
+  for the wrong reason (R19.4 row 9). Three are equivalent: `--limit` is at
+  least 1, and a count is never negative. `CANDIDATES` is left unpinned: 100
+  is open question 1.
 - R19.1's first example did not add up: two unnamed chunks above `INC-4830` by
   words would have outranked the one it put second. Fixed in the spec before the
   test was written.

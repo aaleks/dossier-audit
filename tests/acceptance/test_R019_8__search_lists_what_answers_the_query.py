@@ -92,4 +92,7 @@ class TestSearchListsWhatAnswersTheQuery:
         )
 
         assert result.exit_code == 0, result.output
-        assert "no documents found" in result.stdout.splitlines(), result.output
+        assert result.stdout.splitlines()[:2] == [
+            f"{INDEX} · 0 documents · not filtered by reader",
+            "no documents found",
+        ], result.output
