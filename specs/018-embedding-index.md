@@ -135,7 +135,7 @@ every chunk's identity, so a change of chunker re-chunks rather than mixing
 ## Left out on purpose
 
 - **Search, clustering and chat.** The index is built for them, by other tools
-  first and a later spec for `dossier search`. Qwen3-Embedding expects a query
+  first and `dossier search` (spec 019). Qwen3-Embedding expects a query
   to carry an instruction prefix and a document not to. That is the search
   side's concern; documents are embedded as they are.
 - **Per-item permissions.** Jira security levels and Confluence page

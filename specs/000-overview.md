@@ -1,7 +1,7 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Implemented
-**Rules:** R0.1 – R0.16
+**Status:** Partially implemented
+**Rules:** R0.1 – R0.17
 
 ## Purpose
 
@@ -538,3 +538,41 @@ answer, asked through `models`, and cached as a stage's answer is (R18.3).
 | 8 | `dossier run --plan` over a pipeline where every step would re-run | zero model calls and zero tracking calls (R4.6, R11.1) |
 | 9 | *counter-example* — `dossier/infrastructure/store.py` opens a file on local disk | allowed; local file IO is not network IO |
 | 10 | *counter-example* — a chunk with no vector in the cache, during `dossier embed` | reaches the model, once, through `dossier.infrastructure.models`; R18.3 is the claim that it never happens twice for the same text |
+
+### R0.17 — exactly four packages may reach the network, a model is asked only on a cache miss, and what a search reads of the index enters no key, manifest or score
+
+`dossier.infrastructure.connectors` fetches source payloads.
+`dossier.infrastructure.models` asks a model, for an answer or for a vector.
+`dossier.infrastructure.tracking` sends records to MLflow, and reads back only
+what specs 012 to 015 fence. `dossier.infrastructure.index` writes the
+embedding index (spec 018) and searches it (spec 019). Nothing else imports a
+network client, on any code path, including error paths and imports made lazily
+inside a function body.
+
+It will supersede R0.16 when `dossier search` lands. R0.16 fenced what is read
+back from the index to the ids and content hashes of its rows, which a search
+cannot keep: a search reads back chunks, their text and their documents' values,
+because that is what the index is for. It does so through its own port,
+`IndexSearch`, so `IndexSink` still reads back only ids and hashes, and what a
+search reads reaches the terminal and MLflow and nothing else. The index is
+still derived data: nothing it holds enters a key, a manifest or a score.
+
+- **Kind:** deterministic
+- **Layer:** architecture
+- **Proved by:** `tests/architecture/test_R000_17__four_packages_reach_the_network.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier/application/convert.py` imports `httpx` | violation, naming the file, the line and the import |
+| 2 | `dossier/domain/keys.py` imports `urllib.request` inside a function body | violation; a lazy import is still an import |
+| 3 | `dossier/infrastructure/tracking/mlflow.py` imports `mlflow` | allowed; the SDK is a network client whatever it is named |
+| 4 | `dossier/application/run.py` imports `mlflow` | violation |
+| 5 | `dossier/infrastructure/index/postgres.py` imports `psycopg` | allowed; the fourth package |
+| 6 | `dossier/application/embed.py` imports `psycopg` | violation; `psycopg` counts as a network client |
+| 7 | the `IndexSink` port in `dossier.domain.ports` | declares no method that returns anything read from the index but the ids and content hashes of the rows it holds |
+| 8 | `dossier run --plan` over a pipeline where every step would re-run | zero model calls and zero tracking calls (R4.6, R11.1) |
+| 9 | *counter-example* — `dossier/infrastructure/store.py` opens a file on local disk | allowed; local file IO is not network IO |
+| 10 | *counter-example* — a chunk with no vector in the cache, during `dossier embed` | reaches the model, once, through `dossier.infrastructure.models`; R18.3 is the claim that it never happens twice for the same text |
+| 11 | `dossier/domain/keys.py`, `dossier/application/run.py` or `dossier/application/eval.py` imports `dossier.domain.search` or the `IndexSearch` port | violation: nothing a search reads enters a key, a manifest or a score |
+| 12 | *counter-example* — `dossier/application/search.py` imports the `IndexSearch` port | allowed; a search is where it is read |
