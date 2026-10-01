@@ -1,6 +1,6 @@
 # 016 — Reclaiming space
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R16.1 – R16.9
 
 ## Purpose
@@ -208,7 +208,7 @@ writes the manifest: only a deleted cache or a damaged workspace leaves it.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.gc`), domain (`dossier.domain.gc.collectable`)
 - **Proved by:** `tests/unit/test_R016_8__a_run_that_stops_before_its_stages_keeps_every_entry.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -226,7 +226,7 @@ it, and every run beside it that is not pinned, with one typo.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.gc`)
 - **Proved by:** `tests/unit/test_R016_9__keep_last_below_one_is_refused.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

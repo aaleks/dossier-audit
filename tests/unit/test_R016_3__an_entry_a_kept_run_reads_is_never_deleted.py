@@ -188,18 +188,46 @@ class TestAnEntryAKeptRunReadsIsNeverDeleted:
 
         assert previous <= _deleted(workspace, "convert")
 
-    def test_the_judge_cache_is_never_considered(self, workspace: Path, monkeypatch):
-        """Row 6, counter-example — the one where only stage and convert entries are named."""
-        _workspace(workspace, monkeypatch)
-        _run(workspace, monkeypatch)
-        _run(workspace, monkeypatch)
-        verdict = workspace / ".dossier" / "cache" / "judge" / "ab" / "cd" / ("abcd" + "0" * 60)
-        verdict.parent.mkdir(parents=True)
-        verdict.write_text("{}", encoding="utf-8")
+    def test_the_judge_cache_snapshots_and_ledger_keep_every_byte(
+        self, workspace: Path, monkeypatch
+    ):
+        """Row 6, counter-example — the one where `--apply` deleted, and none of these.
 
-        planned = _plan(workspace).entries
+        Over row 5's workspace, so a superseded snapshot is held beside the
+        current one, and `gc` does delete: the earlier run and its conversion.
+        """
+        tracker = _workspace(workspace, monkeypatch)
+        earlier = _run(workspace, monkeypatch)
+        tracker.issues["INC-4821"] = CHANGED
+        _sync(workspace, monkeypatch)
+        _run(workspace, monkeypatch)
+        _cache_entry(workspace, "judge")
+        untouched = (".dossier/cache/judge", ".dossier/snapshots", ".dossier/ledger.db")
+        before = _bytes(workspace, *untouched)
+        assert len(_bytes(workspace, ".dossier/snapshots")) > len(ISSUES), "one superseded"
 
-        assert {entry.namespace for entry in planned} <= {"stage", "convert"}
+        result = _cli(workspace, monkeypatch, "gc", "--keep-last", "1", "--apply")
+
+        assert result.exit_code == 0, result.output
+        assert not (workspace / "runs" / earlier).exists(), "gc --apply deleted"
+        assert _bytes(workspace, *untouched) == before
+
+    def test_the_embed_cache_keeps_every_byte(self, workspace: Path, monkeypatch):
+        """Row 8, counter-example — the one holding the vectors an index is rebuilt from."""
+        tracker = _workspace(workspace, monkeypatch)
+        earlier = _run(workspace, monkeypatch)
+        tracker.issues["INC-4821"] = CHANGED
+        _sync(workspace, monkeypatch)
+        _run(workspace, monkeypatch)
+        _cache_entry(workspace, "embed")
+        before = _bytes(workspace, ".dossier/cache/embed")
+
+        for more in ((), ("--apply",)):
+            result = _cli(workspace, monkeypatch, "gc", "--keep-last", "1", *more)
+
+            assert result.exit_code == 0, result.output
+            assert _bytes(workspace, ".dossier/cache/embed") == before, more
+        assert not (workspace / "runs" / earlier).exists(), "gc --apply deleted"
 
     def test_a_kept_runs_conversion_is_kept_though_no_longer_held(
         self, workspace: Path, monkeypatch
@@ -225,3 +253,23 @@ def _held_snapshot(workspace: Path, key: str) -> str:
     with Ledger(workspace) as ledger:
         (row,) = [row for row in ledger.rows(SOURCE_ID) if row.key == key]
     return row.content_hash
+
+
+def _cache_entry(workspace: Path, namespace: str) -> None:
+    """One entry, with its provenance record, in a cache `gc` does not collect."""
+    from dossier.infrastructure.cache import ArtifactCache
+
+    key = "abcd" + "0" * 60
+    ArtifactCache(workspace, namespace=namespace).put(key, b"[0.25, 0.5]", record={"key": key})
+
+
+def _bytes(workspace: Path, *paths: str) -> dict[str, bytes]:
+    """Every file under `paths`, by its path in the workspace."""
+    found = {}
+    for top in paths:
+        root = workspace / top
+        for path in sorted([root] if root.is_file() else root.rglob("*")):
+            if path.is_file():
+                found[path.relative_to(workspace).as_posix()] = path.read_bytes()
+    assert found, f"nothing under {paths}"
+    return found

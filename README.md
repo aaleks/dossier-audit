@@ -127,7 +127,11 @@ writes. It deletes every other run, every try and every replay, and the cache
 entries no kept run's replay reads. What a kept run needs is found by tracing
 its own replay, so a kept run replays, and scores, after `gc` exactly as it did
 before (R16.1). Converted documents the ledger holds now are kept too, and the
-judge's verdicts and the snapshots are never touched. Without `--apply` it only
+judge's verdicts, the embedding vectors and the snapshots are never touched.
+When a kept run's conversions are gone, as after deleting
+`.dossier/cache/convert`, its replay cannot be traced, so `gc` deletes no cache
+entry, says which run stopped it, and `dossier convert` makes the run replay
+again (R16.8). Without `--apply` it only
 prints what it would delete and how much space that frees. It takes no lock, so
 it is run when no `dossier run` is. With tracking on, each `--apply` is one
 MLflow run in `dossier-audit/gc`, naming the runs it deleted (R11.28).

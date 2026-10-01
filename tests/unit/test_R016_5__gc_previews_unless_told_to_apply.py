@@ -20,6 +20,9 @@ from tests.acceptance.test_R016_1__a_kept_run_replays_after_gc import (
     _no_model,
     _three_runs_and_a_try,
 )
+from tests.unit.test_R016_8__a_run_that_stops_before_its_stages_keeps_every_entry import (
+    _two_runs,
+)
 
 SUMMARY = r"{verb} (\d+\.\d) MB: 1 run, 1 try, 0 replays, (\d+) cache entries"
 FOOTER = "nothing deleted: run `dossier gc --apply` to delete it"
@@ -53,6 +56,10 @@ class TestGcPreviewsUnlessToldToApply:
         """Row 2 — the one with `--apply`: the same counts, the same size, and gone."""
         _three_runs_and_a_try(workspace, monkeypatch)
         _no_model(monkeypatch)
+        # An entry no run reads, a megabyte of it: the workspace's own files are
+        # a few kilobytes, and a size that left out the cache would still
+        # print `0.0` (R16.5 row 2's size, which only then is measured).
+        _orphan_entry(workspace, size=1_000_000)
         previewed = _gc(workspace, monkeypatch, "--keep-last", "2")
         before = _files(workspace)
 
@@ -77,16 +84,28 @@ class TestGcPreviewsUnlessToldToApply:
             "nothing to collect"
         ]
 
-    def test_a_megabyte_is_a_million_bytes_rounded_to_one_decimal(self):
-        """Row 4: the one where 1.5 MiB is deleted.
+    def test_a_megabyte_is_a_million_bytes_rounded_to_one_decimal(
+        self, workspace: Path, monkeypatch
+    ):
+        """Row 4 — the one where the run deleted holds 1.5 MiB.
 
         The workspace's files are a few kilobytes, so rows 1 and 2 print `0.0`,
         whichever unit and rounding the line used. This row is where they differ.
+        Two runs that read the same entries, so the older goes alone.
         """
-        from dossier.domain.gc import summary_line
+        older, _ = _two_runs(workspace, monkeypatch)
+        run = workspace / "runs" / older
+        held = sum(path.stat().st_size for path in run.rglob("*") if path.is_file())
+        (run / "padding.bin").write_bytes(b"\0" * (1_572_864 - held))
 
-        line = summary_line(
-            applied=False, runs=1, tries=0, replays=0, entries=0, size=1_572_864
-        )
+        lines = _gc(workspace, monkeypatch, "--keep-last", "1")
 
-        assert line == "would free 1.6 MB: 1 run, 0 tries, 0 replays, 0 cache entries"
+        assert lines[0] == "would free 1.6 MB: 1 run, 0 tries, 0 replays, 0 cache entries"
+
+
+def _orphan_entry(workspace: Path, *, size: int) -> None:
+    """A stage entry of `size` bytes, with its record, that no run reads."""
+    from dossier.infrastructure.cache import ArtifactCache
+
+    key = "0" * 64
+    ArtifactCache(workspace, namespace="stage").put(key, b"\0" * size, record={"key": key})
