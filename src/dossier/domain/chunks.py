@@ -23,7 +23,9 @@ HEADINGS = "headings"
 HEADINGS_VERSION = 1
 HEADINGS_CHUNKER = f"{HEADINGS}@{HEADINGS_VERSION}"
 
-_HEADING = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
+# A closing run of `#` is dropped only after a space, as CommonMark reads it:
+# `## Why C#` is a heading about C#, and `## Impact ##` one about the impact.
+_HEADING = re.compile(r"^(#{1,6})[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$")
 _FENCE = "```"
 
 # Coarsest first: a piece is cut at the widest break that brings it under

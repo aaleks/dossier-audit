@@ -221,6 +221,20 @@ class TestADocumentIsCutAtItsHeadings:
         """Row 5, counter-example — the one where `handover-note.md` is zero bytes."""
         assert heading_chunks("", max_chars=2000) == []
 
+    def test_a_hash_in_a_heading_is_its_text_and_a_closing_run_is_not(self):
+        """No row — the one about C#, and the one closed by its own hashes.
+
+        A heading's text is what the heading path carries into every chunk
+        beneath it and into the text embedded (R18.3), so it is read as
+        written: only a run of `#` after a space closes it.
+        """
+        text = "## Why C#\n\nThe batch was ported.\n\n## Impact ##\n\nCHF 48'200.\n"
+
+        assert [chunk.heading_path for chunk in heading_chunks(text, max_chars=2000)] == [
+            ("Why C#",),
+            ("Impact",),
+        ]
+
     def test_max_chars_below_one_is_refused(self):
         """No row — the guard that keeps "no piece longer than `max_chars`" satisfiable.
 
