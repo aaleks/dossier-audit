@@ -26,7 +26,7 @@ spec assumes.
 | `015-review-in-mlflow.md` | Reviewing a run's answers in MLflow, reading reviewers' verdicts back, and turning expected values into gold candidates a maintainer applies | R15.1 – R15.6 | Implemented |
 | `016-reclaiming-space.md` | `dossier gc`: which runs are kept, which cache entries a kept run still needs, and deleting the rest without making a kept run irreproducible | R16.1 – R16.7 | Implemented |
 | `017-workspace-status.md` | `dossier status`: what each source holds and still owes, each pipeline's latest run, and which judged fields `eval` would withhold, changing nothing | R17.1 – R17.7 | Implemented |
-| `018-embedding-index.md` | `dossier embed`: a pipeline's documents and its latest run's grounded record, chunked at their headings, embedded on a cache miss, in a Postgres index that holds exactly the active documents | R18.1 – R18.11 | Proposed |
+| `018-embedding-index.md` | `dossier embed`: a pipeline's documents and its latest run's grounded record, chunked at their headings, embedded on a cache miss, in a Postgres index that holds exactly the active documents | R18.1 – R18.11 | Partially implemented |
 
 Supporting files:
 

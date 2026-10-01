@@ -35,6 +35,7 @@ from dossier.domain.fields import (
 from dossier.domain.gold import CalibrationCase, GoldDocument
 from dossier.domain.grounding import DESCRIBED, GROUNDED, JUDGED_STATES
 from dossier.domain.hashing import text_hash
+from dossier.domain.index import IndexDeclaration, field_refusals
 from dossier.domain.model_id import check_pinned, provider_of
 from dossier.domain.pipeline import (
     PipelineConfig,
@@ -336,6 +337,59 @@ def load_pipeline(path: Path, *, providers: Collection[str]) -> PipelineConfig:
     _validate_gold(pipeline, path)
     _validate_judge_thresholds(pipeline, path)
     return pipeline
+
+
+# Where a workspace declares its indexes, beside `pipelines/` (spec 018).
+INDEXES = "indexes"
+
+
+def load_index(path: Path, *, providers: Collection[str]) -> IndexDeclaration:
+    """Load and check `indexes/<name>.yaml` against the pipeline it reads (R18.10).
+
+    The embedding model is held to what a pipeline's model is held to: an
+    installed provider, and a pin that cannot move (R0.6, R9.3). The fields it
+    carries are checked against the one output the pipeline declares, now,
+    rather than as a column the run never fills.
+    """
+    document = _read_yaml(path)
+    document["name"] = path.stem
+    index = _validate(IndexDeclaration, document, path)
+    text = path.read_text(encoding="utf-8")
+
+    provider = provider_of(index.embedding_model)
+    if provider not in providers:
+        available = ", ".join(sorted(providers)) or "none"
+        raise ConfigError(
+            f"{_name(path)}, line {_line_of(text, 'embedding_model')}: embedding_model "
+            f"{index.embedding_model!r} names provider {provider!r}, which no installed "
+            f"package provides. Available: {available}"
+        )
+    try:
+        check_pinned(index.embedding_model, key="embedding_model")
+    except ValueError as error:
+        line = _line_of(text, "embedding_model")
+        raise ConfigError(f"{_name(path)}, line {line}: {error}") from error
+
+    pipeline_file = path.parent.parent / "pipelines" / index.pipeline / "pipeline.yaml"
+    pipeline = load_pipeline(pipeline_file, providers=providers)
+    if index.fields.filter or index.fields.embed:
+        declaring = [step for step in pipeline.steps if step.output is not None]
+        if len(declaring) != 1:
+            # One output, as `eval` scores one: carried from two, a field could
+            # hold either step's answer, and nothing would say which (R17.6).
+            raise ConfigError(
+                f"{_name(path)}: fields are carried from one output, and "
+                f"{len(declaring)} steps of {index.pipeline} declare an output, "
+                "as eval refuses it"
+            )
+        output = declaring[0].output
+        refused = field_refusals(
+            index.fields, load_fields(pipeline_file.parent / output), declared_in=output
+        )
+        if refused:
+            group, why = refused[0]
+            raise ConfigError(f"{_name(path)}, line {_line_of(text, 'fields', group)}: {why}")
+    return index
 
 
 def _check_step_model(

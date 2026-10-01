@@ -103,35 +103,39 @@ def check_served(model: str, *, served: Collection[str]) -> None:
         )
 
 
-def check_pinned(model: str) -> None:
-    """Raise `ValueError` naming `model` if it is a floating alias."""
+def check_pinned(model: str, *, key: str = "model") -> None:
+    """Raise `ValueError` naming `model` if it is a floating alias.
+
+    `key` is what the file calls it: `model` in a pipeline, `embedding_model` in
+    an index declaration (R18.10), so the message names the key a person wrote.
+    """
     if model in _FIXED:
         return
     provider, _, name = model.partition(":")
     if provider == "anthropic" and not _DATED.search(name):
         raise ValueError(
-            f"model {model!r} is a floating alias; name a dated snapshot such as "
+            f"{key} {model!r} is a floating alias; name a dated snapshot such as "
             "'anthropic:claude-sonnet-4-5-20250929'"
         )
     if provider == "openai" and (name in _OPENAI_ALIASES or _OPENAI_MOVING.search(name)):
         raise ValueError(
-            f"model {model!r} is a name OpenAI moves to each new snapshot; name a "
+            f"{key} {model!r} is a name OpenAI moves to each new snapshot; name a "
             "dated snapshot such as 'openai:gpt-4o-2024-08-06', or a stable code "
             "such as 'openai:gpt-5.4-mini'"
         )
     if provider == "gemini" and _GEMINI_MOVING.search(name):
         raise ValueError(
-            f"model {model!r} is a latest, preview or experimental name, which Google "
+            f"{key} {model!r} is a latest, preview or experimental name, which Google "
             "may re-point or replace; name a stable code such as "
             "'gemini:gemini-3.5-flash-lite'"
         )
     if provider == "ollama" and not _OLLAMA_DIGEST.search(name):
         raise ValueError(
-            f"model {model!r} is an Ollama tag with no digest, and a tag moves when "
+            f"{key} {model!r} is an Ollama tag with no digest, and a tag moves when "
             "the model is re-pulled. Pin it as 'ollama:<name>:<tag>@sha256:<digest>'"
         )
     if provider == "hf" and not _HF_REVISION.match(name):
         raise ValueError(
-            f"model {model!r} names no fixed revision, and a repository or branch "
+            f"{key} {model!r} names no fixed revision, and a repository or branch "
             "moves with every push. Pin it as 'hf:<org>/<repo>@<40-character commit>'"
         )

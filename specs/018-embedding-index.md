@@ -1,6 +1,6 @@
 # 018 — The embedding index
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R18.1 – R18.11
 
 ## Purpose
@@ -303,7 +303,7 @@ support.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load.load_index`)
 - **Proved by:** `tests/unit/test_R018_10__an_index_declaration_is_checked_at_load.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -312,6 +312,7 @@ support.
 | 3 | `embed: [severity]`, an `enum` field | refused: a category is filtered, not embedded |
 | 4 | `embedding_model: ollama:qwen3-embedding:4b-fp16` | refused as R9.3 refuses an Ollama tag with no digest |
 | 5 | *counter-example* — `indexes/incidents.yaml` as this spec writes it | loads |
+| 6 | `fields` declared over a pipeline in which `extract` and `verify` both declare an output | refused, as `dossier eval` refuses it: an index carries the answers of one output (R17.6 row 5) |
 
 ### R18.11 — what `dossier embed` carries of a run is the latest run's grounded record of the snapshot it holds
 
