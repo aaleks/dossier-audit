@@ -240,7 +240,7 @@ pgvector indexes a `vector` of up to 2,000 dimensions and a `halfvec` of up to
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load.load_index`), domain (`dossier.domain.index`)
 - **Proved by:** `tests/unit/test_R018_6__every_row_carries_its_sources_readers.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

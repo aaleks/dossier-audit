@@ -14,6 +14,8 @@ from pathlib import Path
 import pytest
 from tests.pipelines import PROVIDERS, write_pipeline
 
+from dossier.domain.pipeline import SourceConfig
+
 PIPELINE = "incident-audit"
 MODEL = (
     "ollama:qwen3-embedding:4b-fp16"
@@ -28,6 +30,8 @@ fields:
   architecture_category:        {kind: enum, values: [load-balancer-config, single-region]}
   root_cause:                   {kind: free_text, judge: rubrics/root_cause.md}
 """
+# The source `write_pipeline` reads, with its readers declared (R18.6).
+READ = [SourceConfig(id="incidents-manual", type="folder", acl=["incident-response"])]
 SPEC_FIELDS = (
     "fields:\n"
     "  filter: [failure_category, component, root_cause_category,"
@@ -52,7 +56,7 @@ def load(workspace: Path, text: str):
     path = workspace / "indexes" / "incidents.yaml"
     path.parent.mkdir(exist_ok=True)
     path.write_text(text, encoding="utf-8")
-    return load_index(path, providers=PROVIDERS)
+    return load_index(path, providers=PROVIDERS, sources=READ)
 
 
 def refusal(workspace: Path, text: str) -> str:
