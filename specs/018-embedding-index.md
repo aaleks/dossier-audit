@@ -1,6 +1,6 @@
 # 018 — The embedding index
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R18.1 – R18.11
 
 ## Purpose
@@ -303,7 +303,7 @@ support.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load.load_index`)
 - **Proved by:** `tests/unit/test_R018_10__an_index_declaration_is_checked_at_load.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
