@@ -7,6 +7,7 @@ it, and every run beside it that is not pinned, with one typo.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -43,8 +44,11 @@ class TestKeepLastBelowOneIsRefused:
         result = _cli(workspace, monkeypatch, "gc", "--keep-last", value, "--apply")
 
         assert result.exit_code == 2, result.output
-        assert "--keep-last" in result.output, result.output
-        assert "x>=1" in result.output, result.output
+        # Typer colours its usage error where the terminal allows, as CI's does,
+        # with a code between `-` and `-keep`.
+        said = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+        assert "--keep-last" in said, said
+        assert "x>=1" in said, said
         assert _files(workspace) == before
 
     def test_one_keeps_the_latest(self, workspace: Path, monkeypatch):
