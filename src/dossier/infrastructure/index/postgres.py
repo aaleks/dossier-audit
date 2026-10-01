@@ -31,6 +31,7 @@ import psycopg
 from pgvector import HalfVector, Vector
 from pgvector.psycopg import register_vector
 from psycopg import sql
+from psycopg.types.json import Jsonb
 
 from dossier.domain.index import IndexedChunk, IndexedDocument
 from dossier.infrastructure.index import IndexSinkFailed
@@ -188,8 +189,8 @@ class PostgresIndexSink:
                 connection.execute(
                     self._sql(
                         'INSERT INTO {schema}.documents ("index", document_id, source_id, '
-                        "key, title, snapshot, acl, embedding_model, content_hash) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                        "key, title, snapshot, acl, embedding_model, content_hash, run_id, "
+                        "filter_values) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
                     ),
                     (
                         index,
@@ -201,6 +202,10 @@ class PostgresIndexSink:
                         list(document.acl),
                         document.embedding_model,
                         document.content_hash,
+                        # The run whose grounded record the document carries,
+                        # and the values to filter on that it gave (R18.8, R18.9).
+                        document.run_id,
+                        Jsonb(dict(document.values)),
                     ),
                 )
                 with connection.cursor() as cursor:
