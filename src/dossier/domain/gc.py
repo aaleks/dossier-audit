@@ -15,7 +15,7 @@ from dataclasses import dataclass
 KEEP_LAST = 5
 # A run whose directory holds this file is kept by every `gc` (R16.2, R16.6). On
 # disk rather than a `--label`: the label lives only in MLflow (R10.11), and `gc`
-# reads nothing back from there (R0.10).
+# reads nothing back from there (R0.16).
 KEEP_FILE = "keep"
 
 
@@ -35,7 +35,7 @@ def kept_runs(
 
     The latest `keep_last` of each pipeline are kept, and every pinned run. The
     latest are the last by run id, which sorts by the time the run started
-    (R0.8), as `dossier eval` finds the latest run -- so `gc` and `eval` never
+    (R0.15), as `dossier eval` finds the latest run -- so `gc` and `eval` never
     disagree about which run is the latest. Counted per pipeline: one pipeline
     run nightly must not push another's only runs out.
     """
@@ -77,15 +77,23 @@ def collectable(
     *,
     needed: Mapping[str, Collection[str]],
     held: Collection[str],
+    untraced: Collection[str] = (),
 ) -> tuple[CacheEntry, ...]:
-    """The entries `gc` deletes, by cache and key (R16.3).
+    """The entries `gc` deletes, by cache and key (R16.3, R16.8).
 
     `needed` is what the replays of the kept runs read, by cache: what a kept
     run is reproduced from, whichever run first wrote it. `held` is the
     snapshots the ledger holds now, whose conversions the next run reads, and
     re-converting a scanned PDF takes minutes. Anything else nothing will read
     without computing it again.
+
+    `untraced` is the kept runs whose replay stopped before its stages, so
+    `needed` is missing every stage key they read. Then nothing is deleted: a
+    stage entry is a model's answer, which no command remakes without asking
+    the model, and the run may be one `dossier convert` from replaying (R16.8).
     """
+    if untraced:
+        return ()
     return tuple(
         sorted(
             (
@@ -132,6 +140,14 @@ def summary_line(
 def run_line(run: HeldRun, *, keep_last: int) -> str:
     """The line naming a run `gc` deletes, and why (R16.5)."""
     return f"  runs/{run.run_id}/  {run.pipeline}, beyond the latest {keep_last}"
+
+
+def untraced_line(run_id: str) -> str:
+    """The line saying why no cache entry is deleted (R16.8)."""
+    return (
+        f"  no cache entry deleted: runs/{run_id}/ stopped before its stages, "
+        "so the entries it reads cannot be traced"
+    )
 
 
 def unreplayable_line(run_id: str, reason: str) -> str:

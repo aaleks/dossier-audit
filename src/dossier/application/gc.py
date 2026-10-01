@@ -53,6 +53,8 @@ class GcPlan:
     replays: tuple[str, ...] = ()
     # Kept runs whose replay already stops, each with the replay's error (R16.7).
     unreplayable: tuple[tuple[str, str], ...] = ()
+    # Those of them that stopped before their stages, so collect nothing (R16.8).
+    untraced: tuple[str, ...] = ()
 
 
 def held_runs(runs: Path) -> list[HeldRun]:
@@ -95,7 +97,7 @@ def gc_plan(
     runs = workspace / RUNS_ROOT
     every = held_runs(runs)
     kept, deleted = kept_runs(every, keep_last=keep_last)
-    needed, unreplayable = _needed(runs, kept, store=store, caches=caches)
+    needed, unreplayable, untraced = _needed(runs, kept, store=store, caches=caches)
     entries = [
         CacheEntry(
             namespace=namespace,
@@ -110,8 +112,9 @@ def gc_plan(
     tries = workspace / TRIES_ROOT
     return GcPlan(
         runs=tuple(run for run in every if run.run_id in set(deleted)),
-        entries=collectable(entries, needed=needed, held=held),
+        entries=collectable(entries, needed=needed, held=held, untraced=untraced),
         unreplayable=unreplayable,
+        untraced=untraced,
         # Every try: none is ever replayed or scored (R4.20), and an answer of
         # one that a run was served is that run's entry (R16.3 row 3).
         tries=tuple(
@@ -136,7 +139,7 @@ def _needed(
     *,
     store: SnapshotReader,
     caches: Mapping[str, CollectableStore],
-) -> tuple[dict[str, set[str]], tuple[tuple[str, str], ...]]:
+) -> tuple[dict[str, set[str]], tuple[tuple[str, str], ...], tuple[str, ...]]:
     """The keys each kept run's replay reads, by cache, and the runs that stop (R16.3).
 
     Found by running that replay, reading through a cache that notes each key
@@ -147,13 +150,24 @@ def _needed(
     """
     traced = {namespace: _Traced(caches[namespace]) for namespace in COLLECTED_CACHES}
     unreplayable: list[tuple[str, str]] = []
+    untraced: list[str] = []
     for run_id in kept:
         manifest = Manifest.read(runs / run_id / MANIFEST_NAME)
         try:
+            text = replayed_inputs(manifest, store=store, cache=traced[CONVERT])
+            parts = replayed_parts(manifest, store=store, cache=traced[CONVERT])
+        except MissingFromReplay as error:
+            # Stopped before any stage key was read: a deleted conversion, which
+            # `dossier convert` makes again (R5.9). Which answers it needs is
+            # unknown, so none may go (R16.8).
+            unreplayable.append((run_id, str(error)))
+            untraced.append(run_id)
+            continue
+        try:
             replay(
                 manifest=manifest,
-                document_text=replayed_inputs(manifest, store=store, cache=traced[CONVERT]),
-                document_parts=replayed_parts(manifest, store=store, cache=traced[CONVERT]),
+                document_text=text,
+                document_parts=parts,
                 cache=traced[STAGE],
                 failures=recorded_failures(runs / run_id),
             )
@@ -162,7 +176,11 @@ def _needed(
             # what its replay read before it stopped is kept, as traced
             # (R16.7). Stopping here would let one killed run block every gc.
             unreplayable.append((run_id, str(error)))
-    return {namespace: cache.read for namespace, cache in traced.items()}, tuple(unreplayable)
+    return (
+        {namespace: cache.read for namespace, cache in traced.items()},
+        tuple(unreplayable),
+        tuple(untraced),
+    )
 
 
 class _Traced:

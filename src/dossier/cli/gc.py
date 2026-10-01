@@ -20,6 +20,7 @@ from dossier.domain.gc import (
     run_line,
     summary_line,
     unreplayable_line,
+    untraced_line,
 )
 from dossier.domain.sync import State
 from dossier.infrastructure.cache import ArtifactCache
@@ -34,6 +35,9 @@ def gc(
             "--keep-last",
             help="How many runs of each pipeline to keep (R16.2).",
             metavar="N",
+            # Every other command reads a pipeline's latest run, and 0 would
+            # delete it with one typo (R16.9).
+            min=1,
         ),
     ] = KEEP_LAST,
     apply: Annotated[
@@ -79,6 +83,8 @@ def gc(
     # is a finding about the workspace, whatever gc does next (R16.7).
     for run_id, reason in plan.unreplayable:
         typer.echo(unreplayable_line(run_id, reason), err=True)
+        if run_id in plan.untraced:
+            typer.echo(untraced_line(run_id), err=True)
     if not (plan.runs or plan.tries or plan.replays or plan.entries):
         typer.echo(NOTHING)
         return

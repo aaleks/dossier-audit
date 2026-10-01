@@ -13,6 +13,17 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`gc` verified (2026-10-01, spec 016, R16.8 and R16.9). The /verify found that
+deleting `.dossier/cache/convert`, which R5.9 calls safe, made `gc` delete every
+stage entry: a kept run's replay reads its conversions before any stage key,
+so with them gone nothing was traced, and the model's answers went, though one
+`dossier convert` would have made the runs replay again. R16.8 collects nothing
+from either cache until every kept run traces. `--keep-last 0` deleted every
+pipeline's latest run, and is refused (R16.9). Two wipe mutants, of the judge
+and embed caches and of the snapshots, had survived every gc test, and so had
+a size of `0`: each is now killed, R16.3 row 8 saying in the spec that the
+embed cache is never touched.
+
 `dossier embed` (2026-10-01, spec 018, R0.16 and R11.33, #647 to #657). What
 `dossier` held was searchable only by the categories a run extracted. `embed`
 writes a pipeline's documents into a Postgres + pgvector index, both as vectors
