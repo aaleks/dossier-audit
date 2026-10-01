@@ -1,7 +1,7 @@
 # 016 — Reclaiming space
 
-**Status:** Implemented
-**Rules:** R16.1 – R16.7
+**Status:** Partially implemented
+**Rules:** R16.1 – R16.9
 
 ## Purpose
 
@@ -24,12 +24,13 @@ made: a replay and an eval reproduce a run from its manifest and the cache
 | `tries/<id>/` | deleted: a try is never replayed or scored (R4.20) |
 | `.dossier/cache/stage`, `.dossier/cache/convert` | an entry is kept if a kept run's replay reads it; a conversion also if its snapshot is held now |
 | `.dossier/cache/judge` | never touched: no manifest names a verdict, and a judge asked again can move a kept run's score (R7.18) |
+| `.dossier/cache/embed` | never touched: no manifest names a vector, and an index is rebuilt from them without asking the model again (R18.3) |
 | `.dossier/snapshots/`, `.dossier/ledger.db`, `gold/`, `pipelines/` | never touched (R0.2) |
 | a directory under `runs/` with no `manifest.json` | never touched: it is not a run, and `runs/` is edited by people (R0.11) |
 
 N is 5, and `--keep-last N` sets it for one invocation. A run's `--label` cannot
 keep it. The label lives only in MLflow (R10.11), and `gc` reads nothing back
-from there (R0.10). So a run is pinned on disk: `dossier gc --keep RUN` writes
+from there (R0.16). So a run is pinned on disk: `dossier gc --keep RUN` writes
 `runs/<RUN>/keep`, and a person deletes that file to unpin it. Decided by
 `a.aleks` on 2026-09-30, with 5, and with tries and replays always deleted.
 
@@ -77,7 +78,7 @@ longer reproduces, and that is the one thing `gc` must never do.
 
 A run is a directory under `runs/` holding `manifest.json`, and its pipeline is
 the one its manifest names. The latest are the last by run id, which sorts by
-the time the run started (R0.8), as `dossier eval` finds the latest run.
+the time the run started (R0.15), as `dossier eval` finds the latest run.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.gc.kept_runs`)
@@ -117,6 +118,7 @@ it: the next run reads it, and re-converting a scanned PDF takes minutes
 | 5 | *counter-example* — the conversion of `INC-4821`'s previous snapshot, which no kept run read | deleted |
 | 6 | *counter-example* — `.dossier/cache/judge`, `.dossier/snapshots/` and `.dossier/ledger.db` | not a byte changes |
 | 7 | the conversion of `INC-4821`'s previous snapshot, read by `20260806T142203Z-4f1a`, which `--keep-last 2` keeps | kept: the ledger no longer holds that snapshot, and the kept run is reproduced from it |
+| 8 | *counter-example* — `.dossier/cache/embed`, holding the vectors of `INC-4821`'s chunks (R18.3) | not a byte changes, across `--apply` as across the preview |
 
 ### R16.4 — `gc` deletes every try and every replay, under a kept run as well
 
@@ -184,3 +186,50 @@ its replay read before it stopped are kept: what it did resolve.
 | 1 | `20260925T091500Z-5e6f`, the latest run, killed during `verify`, so that no entry holds `verify`'s answer for `INC-4822` | on stderr, `  kept as it is: runs/20260925T091500Z-5e6f/ cannot be replayed: ` and the replay's own error; `gc` goes on, and exits 0 |
 | 2 | the same | the `extract` entries its replay read before it stopped are kept |
 | 3 | *counter-example* — every kept run replays | no `kept as it is` line |
+
+### R16.8 — `gc` deletes no cache entry while a kept run's replay stops before its stages
+
+A replay reads a run's snapshots and conversions before it asks the cache for
+any stage's answer (R4.7). When one of those is missing, the replay stops with
+not one stage key read, and which entries the run needs cannot be traced. A
+conversion is the case that matters: deleting `.dossier/cache/convert` is safe
+for the next run (R5.9), and `dossier convert` makes a held snapshot's
+conversion again, byte for byte, with no model. The stage entries are the one
+part no command remakes without asking the model. Collected then, they would
+turn a run one `dossier convert` away from replaying into one that never
+replays again. So nothing is collected from either cache until every kept run
+traces. Runs, tries and replays are still deleted: no kept run reads them.
+
+A run whose replay stops inside its stages is R16.7's: what it read before it
+stopped is traced and kept, and the rest is collected as usual. A run is never
+left in this state by `dossier run`, which converts every document before it
+writes the manifest: only a deleted cache or a damaged workspace leaves it.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.gc`), domain (`dossier.domain.gc.collectable`)
+- **Proved by:** `tests/unit/test_R016_8__a_run_that_stops_before_its_stages_keeps_every_entry.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | two runs of `incident-audit`, both kept; `.dossier/cache/convert` deleted (R5.9); `dossier gc --apply` | every stage entry either run read is still held; on stderr, for each run, R16.7's `  kept as it is: runs/<run>/ cannot be replayed: ` line, then `  no cache entry deleted: runs/<run>/ stopped before its stages, so the entries it reads cannot be traced`; exit 0 |
+| 2 | the same, then `dossier convert incident-audit` | `dossier run --replay` of the latest run reproduces it with 0 model calls: the run is as `gc` found it, one deterministic command from replaying |
+| 3 | the same, `--keep-last 1 --apply` | `freed … MB: 1 run, 0 tries, 0 replays, 0 cache entries`: the older run is deleted as before, and the entries only it read wait for a `gc` that can trace the latest |
+| 4 | *counter-example* — R16.7 row 1's run, killed during `verify`, and a stage entry no run reads | that entry deleted; no `no cache entry deleted` line: the run's replay reached its stages, and what it read is traced (R16.7) |
+
+### R16.9 — `--keep-last` below 1 is refused before anything is read or deleted
+
+Every other command reads a pipeline's latest run: `eval` scores it, `status`
+names it, and `embed` carries its answers (R18.8). `--keep-last 0` would delete
+it, and every run beside it that is not pinned, with one typo.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.gc`)
+- **Proved by:** `tests/unit/test_R016_9__keep_last_below_one_is_refused.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | two runs of `incident-audit`; `dossier gc --keep-last 0 --apply` | exit 2, naming `--keep-last` and `x>=1`; both runs, and every cache entry, still there |
+| 2 | the same, `--keep-last -1 --apply` | the same refusal: a negative is not "keep none" either |
+| 3 | *counter-example* — the same, `--keep-last 1 --apply` | the latest kept, the older deleted; exit 0 |
