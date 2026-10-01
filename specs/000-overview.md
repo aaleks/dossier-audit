@@ -1,7 +1,7 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Implemented
-**Rules:** R0.1 – R0.15
+**Status:** Partially implemented
+**Rules:** R0.1 – R0.16
 
 ## Purpose
 
@@ -17,7 +17,9 @@ it. A new use case is a folder of prompts plus a configuration block.
 
 - Not a general workflow orchestrator. Stages are a linear sequence over
   documents, not a branching agent graph.
-- Not a search or retrieval-augmented chat system.
+- Not a search engine or a retrieval-augmented chat system. `dossier` builds a
+  search index others query (spec 018); searching it, clustering it and
+  chatting over it are done by what reads it.
 - Not a replacement for the source systems. `dossier` reads; it never writes back.
 
 ## Vocabulary
@@ -499,3 +501,40 @@ the other looks.
 | 7 | `20260806T142203Z-4f1a` and `20260806T142203Z-7c3d` under `runs/`, and a run in their second drawing `5a5a`, which sorts between them | `20260806T142203Z-7c3e`: after the last of the second's runs, not only after the first |
 | 8 | `20260806T142203Z-4f1a` under `runs/`, and a run in its second drawing `4f1a` | `20260806T142203Z-4f1b`. A draw equal to a filed suffix is after nothing, and keeping it would file two runs in one directory |
 | 9 | `20260806T142203Z-mine` under `runs/`, a directory named by hand, and a draw of `0bbb` | `20260806T142203Z-mine0`: a suffix that is not hex has no successor in its own form, so a digit is appended, as after `ffff` |
+
+### R0.16 — exactly four packages may reach the network, and a model is asked only on a cache miss
+
+`dossier.infrastructure.connectors` fetches source payloads.
+`dossier.infrastructure.models` asks a model, for an answer or for a vector.
+`dossier.infrastructure.tracking` sends records to MLflow, and reads back only
+what specs 012 to 015 fence. `dossier.infrastructure.index` writes the
+embedding index (spec 018). Nothing else imports a network client, on any code
+path, including error paths and imports made lazily inside a function body.
+
+It supersedes R0.10, which admitted three, once it is met. The index is a
+Postgres server, reached over the network, so the package that writes it is
+left of the line whether or not the rule says so. `psycopg` is counted as a
+network client, as `mlflow` was by R0.10, so the check has teeth. The fourth
+package changes nothing about what the boundary promises: the index is derived
+data, and the port it is reached through reads back only the ids and content
+hashes of the rows it holds, to write only what changed (R18.4). Nothing the
+index holds enters a key, a manifest or a score. An embedding is a model's
+answer, asked through `models`, and cached as a stage's answer is (R18.3).
+
+- **Kind:** deterministic
+- **Layer:** architecture
+- **Proved by:** `tests/architecture/test_R000_16__four_packages_reach_the_network.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier/application/convert.py` imports `httpx` | violation, naming the file, the line and the import |
+| 2 | `dossier/domain/keys.py` imports `urllib.request` inside a function body | violation; a lazy import is still an import |
+| 3 | `dossier/infrastructure/tracking/mlflow.py` imports `mlflow` | allowed; the SDK is a network client whatever it is named |
+| 4 | `dossier/application/run.py` imports `mlflow` | violation |
+| 5 | `dossier/infrastructure/index/postgres.py` imports `psycopg` | allowed; the fourth package |
+| 6 | `dossier/application/embed.py` imports `psycopg` | violation; `psycopg` counts as a network client |
+| 7 | the `IndexSink` port in `dossier.domain.ports` | declares no method that returns anything read from the index but the ids and content hashes of the rows it holds |
+| 8 | `dossier run --plan` over a pipeline where every step would re-run | zero model calls and zero tracking calls (R4.6, R11.1) |
+| 9 | *counter-example* — `dossier/infrastructure/store.py` opens a file on local disk | allowed; local file IO is not network IO |
+| 10 | *counter-example* — a chunk with no vector in the cache, during `dossier embed` | reaches the model, once, through `dossier.infrastructure.models`; R18.3 is the claim that it never happens twice for the same text |

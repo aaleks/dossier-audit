@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.32
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.33
 
 ## Purpose
 
@@ -861,3 +861,26 @@ be lost, and `status` has none to lose. Decided by `a.aleks` on 2026-09-30.
 | 1 | `dossier status incident-audit --gold gold/incidents`, tracking on | 0 MLflow runs, and no `recorded to MLflow` line |
 | 2 | *counter-example* — tracking enabled and nothing answering at `http://localhost:5000` | exit 0 with the status printed: the unreachable server R10.5 refuses `run` for is not asked (R10.5 row 4) |
 | 3 | *counter-example* — tracking enabled and the `tracking` extra not installed | exit 0 with the status printed, where R10.5 row 3 would refuse a command that records |
+
+### R11.33 — a `dossier embed` that changed the index is one MLflow run in its pipeline's `embed` experiment, with a trace for each request for vectors
+
+As every command that changes something records it (R11.28). The experiment is
+R10.2's default for the index's pipeline, kind `embed`. The run's params are the
+index and the pinned embedding model. Its metrics are the counts the line
+printed. Each request for vectors is a trace, because it is a model call, and a
+model call is what spec 011 traces: its chunks, how many there were, and the
+prompt tokens the model counted. An `embed` that changed nothing records
+nothing, as a `gc --apply` that found nothing to delete records nothing.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.embed`), infrastructure (`dossier.infrastructure.tracking`)
+- **Proved by:** `tests/unit/test_R011_33__embed_records_what_it_changed.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | R18.7 row 1's `dossier embed incidents`, tracking on | 1 MLflow run in `dossier-audit/incident-audit/embed`, tagged `dossier.kind=embed`; params `index` `incidents` and `embedding_model` the pin; metrics `chunks`, `embedded`, `cached`, `written` and `removed` as the line printed them |
+| 2 | the same, its chunks embedded in two requests | 2 traces in that run, each naming its chunk ids and the prompt tokens the model counted |
+| 3 | the same | its last line is `recorded to MLflow: dossier-audit/incident-audit/embed` (R10.4 row 3) |
+| 4 | *counter-example* — R18.7 row 2's second `embed`, nothing changed, tracking on | 0 MLflow runs: nothing was written or removed |
+| 5 | *counter-example* — tracking off | 0 MLflow runs, and no server asked |
