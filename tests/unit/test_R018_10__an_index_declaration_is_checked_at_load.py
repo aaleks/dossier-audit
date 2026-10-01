@@ -188,3 +188,6 @@ class TestAnIndexDeclarationIsCheckedAtLoad:
         assert refusal(workspace, text) == (
             "incidents.yaml: chunker.max_chars -- Input should be greater than 0"
         )
+        # One character is a budget, if a small one: the boundary is at zero.
+        one = declaration().replace("max_chars: 2000", "max_chars: 1")
+        assert load(workspace, one).chunker.max_chars == 1
