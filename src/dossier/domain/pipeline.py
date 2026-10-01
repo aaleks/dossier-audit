@@ -67,6 +67,10 @@ class SourceConfig(BaseModel):
     # type, so the core checks it and no connector has to declare it (R1.10).
     # `None` is "not said", and the default applies.
     watermark_overlap: timedelta | None = None
+    # Who may read what this source holds once it is in an embedding index
+    # (R18.6). `dossier` fetches no permissions, so this is the only decision
+    # about it there is. Absent is "not decided", which an index refuses.
+    acl: tuple[str, ...] | None = None
     # The keys that belong to this source's type -- a folder's `path`, a Jira
     # source's `query` -- as its connector declared and checked them (R1.10).
     # Held here rather than as fields because the core may not name them: every
@@ -113,6 +117,17 @@ class SourceConfig(BaseModel):
                 "an empty list matches nothing. Omit the key entirely to get the "
                 "default: the payload hashed as received, or the default kind for "
                 "the media type."
+            )
+        return value
+
+    @field_validator("acl")
+    @classmethod
+    def _readers_are_a_decision(cls, value: tuple[str, ...] | None) -> tuple[str, ...] | None:
+        """`acl: []` is refused: it names no reader, and decides nothing (R18.6 row 3)."""
+        if value is not None and not value:
+            raise ValueError(
+                "acl: an empty list names no reader, and is not a decision about who "
+                "may read this source. Name who may, as acl: [incident-response]"
             )
         return value
 

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import difflib
 import json
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
 
 import yaml
@@ -35,7 +35,7 @@ from dossier.domain.fields import (
 from dossier.domain.gold import CalibrationCase, GoldDocument
 from dossier.domain.grounding import DESCRIBED, GROUNDED, JUDGED_STATES
 from dossier.domain.hashing import text_hash
-from dossier.domain.index import IndexDeclaration, field_refusals
+from dossier.domain.index import IndexDeclaration, field_refusals, unreadable
 from dossier.domain.model_id import check_pinned, provider_of
 from dossier.domain.pipeline import (
     PipelineConfig,
@@ -343,13 +343,16 @@ def load_pipeline(path: Path, *, providers: Collection[str]) -> PipelineConfig:
 INDEXES = "indexes"
 
 
-def load_index(path: Path, *, providers: Collection[str]) -> IndexDeclaration:
+def load_index(
+    path: Path, *, providers: Collection[str], sources: Sequence[SourceConfig]
+) -> IndexDeclaration:
     """Load and check `indexes/<name>.yaml` against the pipeline it reads (R18.10).
 
     The embedding model is held to what a pipeline's model is held to: an
     installed provider, and a pin that cannot move (R0.6, R9.3). The fields it
     carries are checked against the one output the pipeline declares, now,
-    rather than as a column the run never fills.
+    rather than as a column the run never fills. Every source the pipeline
+    reads must have declared its readers (R18.6).
     """
     document = _read_yaml(path)
     document["name"] = path.stem
@@ -372,6 +375,13 @@ def load_index(path: Path, *, providers: Collection[str]) -> IndexDeclaration:
 
     pipeline_file = path.parent.parent / "pipelines" / index.pipeline / "pipeline.yaml"
     pipeline = load_pipeline(pipeline_file, providers=providers)
+    readers = {source.id: source.acl for source in sources}
+    for source in unreadable(pipeline.sources, readers):
+        raise ConfigError(
+            f"{_name(path)}: {index.pipeline} reads {source!r}, which declares no "
+            "readers. Add `acl: [<who may read it>]` to it in sources.yaml: nothing "
+            "is indexed before someone decides who may search it"
+        )
     if index.fields.filter or index.fields.embed:
         declaring = [step for step in pipeline.steps if step.output is not None]
         if len(declaring) != 1:

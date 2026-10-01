@@ -9,10 +9,13 @@ be proved without a database.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import json
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from dossier.domain.hashing import content_hash
 from dossier.domain.scoring import FieldKind
 
 
@@ -98,3 +101,130 @@ def field_refusals(
 
 def _article(word: str) -> str:
     return "an" if word[0] in "aeiou" else "a"
+
+
+def unreadable(read: Sequence[str], readers: Mapping[str, tuple[str, ...] | None]) -> list[str]:
+    """The sources an index reads that have declared no readers, in the order read (R18.6).
+
+    `dossier` fetches no permissions. A source nobody decided about would be
+    searchable by anyone who can query the index, so it is not indexed at all.
+    """
+    return [source for source in read if not readers.get(source)]
+
+
+def document_id(source_id: str, key: str) -> str:
+    """A document's id in the index: its source and its key, readable in a query.
+
+    A source id holds no colon, so the first one always separates the two,
+    whatever the key holds: a web page's key is its URL.
+    """
+    return f"{source_id}:{key}"
+
+
+@dataclass(frozen=True)
+class Embedded:
+    """A chunk with its id and its vector, ready to be filed (R18.2, R18.3)."""
+
+    chunk_id: str
+    kind: str
+    chunk_index: int
+    heading_path: tuple[str, ...]
+    text: str
+    embedding: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class IndexedChunk:
+    """One row of `chunks`: what is searched, by meaning and by words."""
+
+    chunk_id: str
+    document_id: str
+    kind: str
+    chunk_index: int
+    heading_path: tuple[str, ...]
+    text: str
+    # On the chunk as well as its document, so a search filters what it may
+    # return without a join that a careless query could leave out (R18.6).
+    acl: tuple[str, ...]
+    embedding: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class IndexedDocument:
+    """One row of `documents`, and the hash of everything written for it (R18.4)."""
+
+    document_id: str
+    index: str
+    source_id: str
+    key: str
+    title: str
+    snapshot: str
+    acl: tuple[str, ...]
+    embedding_model: str
+    content_hash: str
+
+
+def indexed(
+    *,
+    index: str,
+    source_id: str,
+    key: str,
+    title: str,
+    snapshot: str,
+    acl: tuple[str, ...],
+    embedding_model: str,
+    chunks: Sequence[Embedded],
+) -> tuple[IndexedDocument, list[IndexedChunk]]:
+    """A document's rows, each carrying its source's readers (R18.6).
+
+    `content_hash` covers everything the rows say except the vectors, which are
+    the pinned model's answer to the chunk texts it already covers. The index
+    is rewritten for a document only when this hash moves (R18.4).
+    """
+    identity = document_id(source_id, key)
+    written = {
+        "acl": list(acl),
+        "chunks": [
+            [
+                chunk.chunk_id,
+                chunk.kind,
+                chunk.chunk_index,
+                list(chunk.heading_path),
+                chunk.text,
+            ]
+            for chunk in chunks
+        ],
+        "embedding_model": embedding_model,
+        "index": index,
+        "key": key,
+        "snapshot": snapshot,
+        "source_id": source_id,
+        "title": title,
+    }
+    document = IndexedDocument(
+        document_id=identity,
+        index=index,
+        source_id=source_id,
+        key=key,
+        title=title,
+        snapshot=snapshot,
+        acl=acl,
+        embedding_model=embedding_model,
+        content_hash=content_hash(
+            json.dumps(written, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        ),
+    )
+    rows = [
+        IndexedChunk(
+            chunk_id=chunk.chunk_id,
+            document_id=identity,
+            kind=chunk.kind,
+            chunk_index=chunk.chunk_index,
+            heading_path=chunk.heading_path,
+            text=chunk.text,
+            acl=acl,
+            embedding=chunk.embedding,
+        )
+        for chunk in chunks
+    ]
+    return document, rows

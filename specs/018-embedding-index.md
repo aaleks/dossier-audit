@@ -65,8 +65,8 @@ Two tables, in a schema `dossier` creates and owns (`dossier_index`):
 
 | Table | Columns |
 |---|---|
-| `documents` | `document_id`, `index`, `source_id`, `container` (the Jira project, the Confluence space, the folder), `key`, `title`, `snapshot`, `synced_at`, `acl`, `run_id`, and the carried filter values, as JSON |
-| `chunks` | `chunk_id`, `document_id`, `kind` (`body` or `record`), `chunk_index`, `heading_path`, `text`, `text_search` (a `tsvector` of `text`, configuration `simple`), `embedding`, `content_hash` |
+| `documents` | `document_id`, `index`, `source_id`, `container` (the Jira project, the Confluence space, the folder), `key`, `title`, `snapshot`, `synced_at`, `acl`, `run_id`, the carried filter values as JSON, and `content_hash`: the hash of everything written for the document, compared to write only what changed (R18.4) |
+| `chunks` | `chunk_id`, `document_id`, `kind` (`body` or `record`), `chunk_index`, `heading_path`, `text`, `text_search` (a `tsvector` of `text`, configuration `simple`), `embedding`, `acl` |
 
 `text_search` uses `simple`: no stemming and no stop words, because incidents
 are written in more than one language and a stemmer for the wrong one mangles
@@ -240,7 +240,7 @@ pgvector indexes a `vector` of up to 2,000 dimensions and a `halfvec` of up to
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load.load_index`), domain (`dossier.domain.index`)
 - **Proved by:** `tests/unit/test_R018_6__every_row_carries_its_sources_readers.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
