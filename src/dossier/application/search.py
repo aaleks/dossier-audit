@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 from dossier.application.embed import cached_vector, keep_vector
 from dossier.domain.index import IndexDeclaration
-from dossier.domain.ports import ArtifactStore, EmbeddingProvider, IndexSearch
+from dossier.domain.ports import ArtifactStore, EmbeddingProvider, IndexSearch, Tracker
 from dossier.domain.search import (
     CANDIDATES,
     Described,
@@ -25,6 +25,8 @@ from dossier.domain.search import (
     query_text,
     unreflected,
 )
+from dossier.domain.tracking import label_for, run_name
+from dossier.domain.tracking import tags as tracking_tags
 
 
 class SearchRefused(ValueError):
@@ -119,3 +121,67 @@ def search_index(
         cached=cached,
         tokens=tokens,
     )
+
+
+def record_search(
+    tracker: Tracker,
+    *,
+    experiment: str,
+    report: SearchReport,
+    where: Mapping[str, Sequence[str]],
+    pipeline: str,
+    environ: Mapping[str, str],
+) -> None:
+    """Record a search as one trace in `experiment`, under no run (R11.34).
+
+    A search changes nothing, so it opens no run, as a `--plan` records
+    nothing. Its trace is what MLflow's retrieval views read: the query and
+    its filters as the request, the documents in rank order as the response,
+    an EMBEDDING span for the query's vector and a RETRIEVER span for what the
+    index answered.
+    """
+    label = label_for(None, environ)
+    tracker.use_experiment(experiment)
+    tracker.start_trace(
+        name=run_name(
+            kind="search", values={"index": report.index, "label": label}, environ=environ
+        ),
+        tags=tracking_tags(kind="search", pipeline=pipeline, label=label, environ=environ),
+        inputs={
+            "query": report.query,
+            "where": {name: list(values) for name, values in where.items()},
+            "reader": report.reader,
+        },
+    )
+    tracker.span(
+        kind="embedding",
+        name=report.model,
+        attributes={
+            "dossier.model": report.model,
+            "dossier.text": report.embedded_as,
+            # A cached vector cost nothing, and says so rather than nothing.
+            "dossier.tokens": report.tokens or 0,
+            "dossier.cached": report.cached,
+        },
+    )
+    tracker.span(
+        kind="retriever",
+        name=f"search {report.index}",
+        attributes={
+            "dossier.results": [
+                {
+                    "rank": found.rank,
+                    "document_id": found.document.document_id,
+                    "chunk_id": found.ranked.candidate.chunk_id,
+                    "score": found.ranked.score,
+                    "meaning_rank": found.ranked.meaning,
+                    "words_rank": found.ranked.words,
+                }
+                for found in report.found
+            ],
+        },
+    )
+    tracker.end_trace(
+        status="OK", outputs=[found.document.document_id for found in report.found]
+    )
+    tracker.end_traces()

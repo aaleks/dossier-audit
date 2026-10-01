@@ -422,6 +422,8 @@ DEFAULT_NAMES = {
     "gc": "{prefix}gc {started}{label}",
     # Named by its index, which says what was written, and when (R11.33).
     "embed": "{prefix}embed {index} {started}{label}",
+    # A search's trace, which belongs to no run (R11.34).
+    "search": "{prefix}search {index}{label}",
 }
 
 # What ` · ` separates. A name is read left to right, and the separator belongs to
@@ -451,6 +453,7 @@ NAME_PLACEHOLDERS = {
     "calibrate": (*_EVERY_COMMAND, "gold", "gold_hash", "judge_model"),
     "gc": ("prefix", "label", "kind", "started"),
     "embed": (*_EVERY_COMMAND, "index"),
+    "search": (*_EVERY_COMMAND, "index"),
 }
 
 

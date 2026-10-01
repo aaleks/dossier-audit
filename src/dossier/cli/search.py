@@ -14,7 +14,12 @@ from typing import Annotated
 
 import typer
 
-from dossier.application.search import SearchRefused, SearchReport, search_index
+from dossier.application.search import (
+    SearchRefused,
+    SearchReport,
+    record_search,
+    search_index,
+)
 from dossier.cli import bootstrap
 from dossier.config.endpoints import index_dsn
 from dossier.config.environment import environment
@@ -110,6 +115,10 @@ def search(
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
 
+    # Before any work, as every command's: a server nobody can reach is refused
+    # now, not after the model has been asked (R10.5, R11.34).
+    tracker, experiment = bootstrap.tracking_for(workspace, declaration.pipeline, kind="search")
+
     try:
         report = search_index(
             declaration=declaration,
@@ -133,9 +142,21 @@ def search(
         raise typer.Exit(code=1) from error
     if as_json:
         typer.echo(json.dumps(as_document(report), ensure_ascii=False, indent=2))
-        return
-    for line in printed(report):
-        typer.echo(line)
+    else:
+        for line in printed(report):
+            typer.echo(line)
+    if tracker is not None:
+        record_search(
+            tracker,
+            experiment=experiment or "",
+            report=report,
+            where=asked,
+            pipeline=declaration.pipeline,
+            environ=environment(workspace),
+        )
+        # On stderr: stdout is the results, and with --json nothing else (R19.8
+        # row 2).
+        typer.echo(f"recorded to MLflow: {experiment}", err=True)
 
 
 def _held(workspace: Path, sources: list[str]) -> dict[str, str]:

@@ -376,6 +376,17 @@ class Tracker(Protocol):
 
     def end_run(self, *, status: str) -> None: ...
 
+    def use_experiment(self, experiment: str) -> None:
+        """Record the traces that follow in `experiment`, under no run (R11.34).
+
+        For a command that changes nothing, and so opens no run: a search.
+        """
+        ...
+
+    def end_traces(self) -> None:
+        """Close what `use_experiment` opened, looking for each trace as `end_run` does."""
+        ...
+
 
 @runtime_checkable
 class Converter(Protocol):

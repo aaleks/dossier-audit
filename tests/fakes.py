@@ -227,10 +227,15 @@ class FakeTracker:
         # (version id, prompt name, prompt version): what a pipeline version is
         # made of, kept on the tracker because MLflow keeps it on the model (R14.12).
         self.version_links: list[tuple[str, str, int]] = []
+        # Traces recorded under no run, the experiment each `use_experiment`
+        # named, and how many times they were closed (R11.34).
+        self.runless_traces: list[FakeTrace] = []
+        self.trace_experiments: list[str] = []
+        self.traces_ended = 0
 
     @property
     def traces(self) -> list[FakeTrace]:
-        return [trace for run in self.runs for trace in run.traces]
+        return [trace for run in self.runs for trace in run.traces] + self.runless_traces
 
     @property
     def spans(self) -> list[dict[str, object]]:
@@ -286,8 +291,17 @@ class FakeTracker:
             name=name, tags=dict(tags), inputs=None if inputs is None else dict(inputs)
         )
         with self._opening:
-            self._run.traces.append(trace)
+            if self.trace_experiments and not self.runs:
+                self.runless_traces.append(trace)
+            else:
+                self._run.traces.append(trace)
         self._open.trace = trace
+
+    def use_experiment(self, experiment: str) -> None:
+        self.trace_experiments.append(experiment)
+
+    def end_traces(self) -> None:
+        self.traces_ended += 1
 
     def span(self, *, kind: str, name: str, attributes: Mapping[str, object]) -> None:
         self._trace.spans.append({"kind": kind, "name": name, **attributes})
@@ -334,6 +348,8 @@ class FakeTracker:
         # thread that opened none, or recorded into a run it was not opened in,
         # is a defect in the caller and said as one.
         trace = getattr(self._open, "trace", None)
+        if trace is not None and any(held is trace for held in self.runless_traces):
+            return trace
         if trace is None or not any(held is trace for held in self._run.traces):
             raise FakeTrackerError("recorded to a trace that was never started")
         return trace

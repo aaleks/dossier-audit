@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.34
 
 ## Purpose
@@ -896,7 +896,7 @@ retrieval views read, and what a later retrieval eval would score.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.search.record_search`)
 - **Proved by:** `tests/unit/test_R011_34__a_search_is_one_trace.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
