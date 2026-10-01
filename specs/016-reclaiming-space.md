@@ -1,7 +1,7 @@
 # 016 — Reclaiming space
 
-**Status:** Implemented
-**Rules:** R16.1 – R16.9
+**Status:** Partially implemented
+**Rules:** R16.1 – R16.11
 
 ## Purpose
 
@@ -136,6 +136,7 @@ run reproduces again at any time (R0.12). What else a kept run holds stays.
 | 1 | `tries/20260929T100000Z-1a2b/` | deleted |
 | 2 | `runs/20260806T142203Z-4f1a/replays/20260918T140000Z-1e2f/`, under `20260806T142203Z-4f1a` pinned with `keep` | deleted; the run is kept |
 | 3 | *counter-example* — that kept run's `manifest.json`, `failures.json`, `keep` and `extract/INC-4821.json` | kept |
+| 4 | *counter-example* — `tries/my-notes/` and `runs/20260806T142203Z-4f1a/replays/my-notes/`, directories not named as a try or a replay is (R0.15) | left as they are: `gc` deletes what it can account for, as under `runs/` (R16.2 row 6) |
 
 ### R16.5 — `dossier gc` without `--apply` deletes nothing, and prints what `--apply` would delete and the space it would free
 
@@ -233,3 +234,42 @@ it, and every run beside it that is not pinned, with one typo.
 | 1 | two runs of `incident-audit`; `dossier gc --keep-last 0 --apply` | exit 2, naming `--keep-last` and `x>=1`; both runs, and every cache entry, still there |
 | 2 | the same, `--keep-last -1 --apply` | the same refusal: a negative is not "keep none" either |
 | 3 | *counter-example* — the same, `--keep-last 1 --apply` | the latest kept, the older deleted; exit 0 |
+
+### R16.10 — a run directory is deleted with its `manifest.json` last, so an interrupted `--apply` leaves a run the next `gc` deletes
+
+A directory under `runs/` is a run while it holds `manifest.json` (R16.2).
+Deleted manifest first, or in whatever order the file system lists it, a `gc`
+stopped part way leaves a directory with no manifest, which no later `gc`
+counts as a run or ever deletes (R16.2 row 6): the space it was asked to free
+is held for good, and nothing names it.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.gc.apply_plan`)
+- **Proved by:** `tests/unit/test_R016_10__an_interrupted_apply_is_finished_by_the_next.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `gc --keep-last 1 --apply`, stopped after the first file of `20260806T142203Z-4f1a` was deleted | `runs/20260806T142203Z-4f1a/manifest.json` still there |
+| 2 | the same, then `dossier gc --keep-last 1 --apply` | `freed … MB: 1 run, …`, and `runs/20260806T142203Z-4f1a/` gone |
+| 3 | *counter-example* — `gc --keep-last 1 --apply` not stopped | `runs/20260806T142203Z-4f1a/` gone, and nothing of it left |
+
+### R16.11 — a run whose `manifest.json` or `failures.json` cannot be read stops no `gc`
+
+Neither file is written all at once (R4.27), so a run killed while writing one
+leaves it cut short. Without this, `gc` would stop with a traceback and delete
+nothing until a person found the file. A manifest that cannot be read says
+nothing of the run, not even its pipeline: the directory is left as one with no
+manifest is (R16.2 row 6), and named. A `failures.json` that cannot be read is
+a replay that stops before its stages, R16.8's case.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.gc`)
+- **Proved by:** `tests/unit/test_R016_11__an_unreadable_run_record_stops_no_gc.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `runs/20260806T142203Z-4f1a/manifest.json` cut short | on stderr, `  left as it is: runs/20260806T142203Z-4f1a/manifest.json cannot be read: ` and the reason; the directory neither kept nor deleted; `gc` goes on, and exits 0 |
+| 2 | the latest run's `failures.json` cut short | R16.7's `  kept as it is: runs/<run>/ cannot be replayed: failures.json cannot be read: ` line, then R16.8's: no cache entry deleted; exit 0 |
+| 3 | *counter-example* — every run's two files readable | neither line |
