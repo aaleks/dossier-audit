@@ -13,6 +13,47 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`dossier embed` (2026-10-01, spec 018, R0.16 and R11.33, #647 to #657). What
+`dossier` held was searchable only by the categories a run extracted. `embed`
+writes a pipeline's documents into a Postgres + pgvector index, both as vectors
+and as words, with the latest run's grounded record carried along: categories
+as values to filter on, free text as one more chunk. Spec 000's non-goal now
+says `dossier` builds a search index others query; searching it is a later
+spec. Discovered with `a.aleks`:
+- A thin, `dossier`-owned layer behind `EmbeddingProvider`, `Chunker` and
+  `IndexSink` ports, rather than LlamaIndex or Haystack. Their schema is one
+  table of metadata JSON, and their clients would sit outside the cache keys
+  and the network boundary. pgai has not released for a year.
+- Ollama first, `qwen3-embedding:4b-fp16`. Its 2,560 values are past
+  `vector`'s indexable 2,000, so the column is `halfvec(2560)`.
+- Readers (`acl`) declared per source, because `dossier` fetches no
+  permissions. Only grounded values carried. Full text in the `simple`
+  configuration, for a corpus in more than one language. Chunks of at most
+  2,000 characters, cut at headings.
+
+The index is derived data. A vector is cached under the model and the text it
+embeds, so a second `embed` asks nothing, and an index emptied by hand is
+rebuilt with no model call. R0.16 admits `infrastructure/index` as the fourth
+package to reach the network, and counts `psycopg` as a network client, as
+R0.10 counted `mlflow`. Docling's chunkers take only a `DoclingDocument`, and
+Chonkie returns no heading path, so the `headings` chunker is a pure decision in
+`domain/`.
+
+Two subagents built parts in parallel worktrees: the chunker, and the Ollama
+embedding client with the Postgres sink. A third wrote exercise 20. Three things
+were found only live:
+- **The sink wrote no record.** The fake index stored the whole row object, so
+  R18.11 passed while the real one held `run_id` NULL and `filter_values` `{}`.
+- **Ports.** 5433 and 5434 were already taken on this machine, so `dev/index`
+  is on 5435.
+- **Timings.** The first build of the four playground notes, 21 chunks on a CPU
+  with the 8 GB model loading, took 76 s. The second took 1 s: 0 embedded, 21
+  cached. One edited note re-embeds one chunk and prints its record as stale.
+  The MLflow record shows the EMBEDDING span with Ollama's own count of 60
+  tokens.
+
+---
+
 R7.56 (2026-09-30). A gold file that does not read stopped `dossier eval`, and
 `dossier status --gold`, on a traceback naming neither the file nor the field:
 the JSON parser's for a file cut short, pydantic's for an amount written as

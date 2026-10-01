@@ -42,6 +42,7 @@ pip install dossier[pdf]       # and pdf-markdown, pdf-images, jpeg-pages
 pip install dossier[tracking]  # and MLflow runs, traces and metrics
 pip install dossier[docling]   # and docling-markdown: a PDF with no text layer, read by OCR
 pip install dossier[browser]   # and render: browser, for a website that draws its pages in JavaScript
+pip install dossier[index]     # and dossier embed: a Postgres + pgvector index to search by meaning
 ```
 
 A `web` source that says `render: browser` has each HTML page drawn by a
@@ -102,6 +103,7 @@ dossier review pull <pipeline>       # reviewers' verdicts from MLflow, into rev
 dossier review apply <pipeline> --gold … --verified-by …  # their expected values, into gold
 dossier gc [--keep-last N] [--apply]  # preview, then delete old runs, tries, replays and unread cache entries
 dossier status [<pipeline> --gold …]  # what each source holds, each latest run, what eval would withhold
+dossier embed <index>                # documents and the latest run's grounded record, into a search index
 ```
 
 A prompt is iterated on one document at a time. `dossier run <pipeline> --doc
@@ -139,6 +141,31 @@ before it ended. With a pipeline and `--gold`, it names each judged field
 own gate, and a pipeline or gold set `eval` would refuse to score is refused as
 `eval` refuses it. It changes no file, records nothing to MLflow, needs no server, and
 exits 0 whatever it finds.
+
+`dossier embed <index>` makes what the workspace holds searchable by meaning
+and by words (spec 018). `indexes/<index>.yaml` names a pipeline, a pinned
+embedding model and a chunker. Each document its sources hold active is cut at
+its headings into chunks of at most `max_chars`, each carrying the headings above
+it. Each chunk is embedded only when no vector is cached for that model and text,
+and written to a Postgres + pgvector index that `dossier` owns. Fields the index
+names are carried from the pipeline's latest run, but only when that run read the
+snapshot held now, and only the values it grounded in the document:
+categories as values to filter on, free text as a `record` chunk to search. A
+second `embed` with nothing changed asks no model and writes nothing, because the
+index is derived data, rebuilt from the workspace. Every source an index reads
+declares who may read it (`acl:`), and is refused until it does. The connection
+string is read from the environment variable the index names, never from the
+file. Install the `index` extra; `dev/index` has a container to write to.
+
+```yaml
+# indexes/incidents.yaml
+pipeline: incident-audit
+embedding_model: ollama:qwen3-embedding:4b-fp16@sha256:3c93b6415795f9cc3e16c403a492ce25b1c0e260f2f760acc90e2035de25f9bc
+chunker: {name: headings, max_chars: 2000}
+fields:
+  filter: [severity, affected_systems]
+target: {dsn_env: DOSSIER_INDEX_DSN}
+```
 
 ## What it reads
 
