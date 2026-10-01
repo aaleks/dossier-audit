@@ -142,7 +142,7 @@ $ Q "select text_search from dossier_index.chunks
      and chunk_index = 3"
                                                                                         text_search
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- '18':17 '214':3 '400':18 'a':12 'abandoned':4 'baskets':5 'chf':16 'finance':1 'gateway':8 'loss':14 'of':15 'own':10 'reconciled':2 'recorded':13 'records':11 's':9 'the':7
+ '-1001':2 '18':27 '214':13 '400':28 'a':22 'abandoned':14 'after':5 'against':16 'baskets':15 'checkout':3 'chf':26 'finance':11 'gateway':8,18 'impact':10 'loss':24 'of':25 'own':20 'payment':7 'play':1 'reconciled':12 'recorded':23 'records':21 's':19 'the':6,17 'timeouts':4 'upgrade':9
 (1 row)
 ```
 
@@ -175,10 +175,14 @@ system reading it, through a view or a query like task 3's, is the one that
 must filter on `acl` (R18.6, "Decisions"). It is on every chunk row because a
 search returns chunks, and so it can filter them without a join.
 
-**The words.** `simple` splits at anything that is not a letter or a digit and
-lowercases. So `CHF 18'400` is the words `chf`, `18` and `400`, and `gateway's`
-is `gateway` and `s`. It does not stem, and it drops no stop word: `reconciled`,
-`a`, `of` and `the` are all kept. `english`, on the same chunk:
+**The words.** The first ten are the heading path's, `PLAY-1001 — Checkout
+timeouts after the payment gateway upgrade > Impact`: the words are of the text
+the vector was made from, headings and all (R19.9). `simple` splits at anything
+that is not a letter or a digit and lowercases. So `PLAY-1001` is `play` and
+`-1001`, a hyphen before digits read as a sign, `CHF 18'400` is `chf`, `18` and
+`400`, and `gateway's` is `gateway` and `s`. It does not stem, and it drops no
+stop word: `reconciled`, `a`, `of` and `the` are all kept. `english`, on the
+same chunk's text:
 
 ```console
 $ Q "select to_tsvector('english', text) from dossier_index.chunks
@@ -200,12 +204,17 @@ mangles a German word ("What it writes").
 
 ```console
 $ Q "… plainto_tsquery('simple', 'warehouse') …"
-     key      |  section
---------------+------------
+     key      |                               section
+--------------+----------------------------------------------------------------------
  PLAY-1002.md | Timeline
  PLAY-1002.md | Root cause
  PLAY-1002.md | Follow-up
-(3 rows)
+ PLAY-1003.md | PLAY-1003 — Warehouse terminals offline after a firewall rule change
+ PLAY-1003.md | Timeline
+ PLAY-1003.md | Root cause
+ PLAY-1003.md | Impact
+ PLAY-1003.md | Follow-up
+(8 rows)
 
 $ Q "… plainto_tsquery('simple', 'timeout') …"
      key      |  section
@@ -215,10 +224,14 @@ $ Q "… plainto_tsquery('simple', 'timeout') …"
 (2 rows)
 
 $ Q "… plainto_tsquery('simple', 'timeouts') …"
-     key      |  section
---------------+-----------
+     key      |                             section
+--------------+-----------------------------------------------------------------
+ PLAY-1001.md | PLAY-1001 — Checkout timeouts after the payment gateway upgrade
+ PLAY-1001.md | Timeline
+ PLAY-1001.md | Root cause
+ PLAY-1001.md | Impact
  PLAY-1001.md | Follow-up
-(1 row)
+(5 rows)
 
 $ Q "… plainto_tsquery('simple', 'autoscaler') …"
      key      | section
@@ -253,15 +266,18 @@ $ $P search.py "Which incident was caused by a misconfigured autoscaler?"
 
 Each search by meaning took about two seconds, with the model in memory.
 
-**Missing the warehouse incident.** Two causes. `PLAY-1003`'s text says
-`warehouses`, and `simple` does not stem, so `warehouse` is another word. That is
-`simple`'s. Its title says `Warehouse`, but a title is a heading, and
-`text_search` is a tsvector of the chunk's `text` alone. That is what
-`text_search` is made of. The heading path is embedded, so a search by meaning
-sees it (R18.3), and a search by words never does. `PLAY-1002` says `warehouse
-load` three times, and has nothing to do with warehouses. `timeouts` is the
-same story: `PLAY-1001`'s title is not in any `text`, its follow-up says
-`timeouts`, and its timeline and root cause say `timeout`.
+**Found by its title.** Every chunk of `PLAY-1003` matched on `warehouse` in
+its title, `Warehouse terminals offline`, which is the first heading of every
+chunk's heading path. `text_search` is the words of what the vector was made
+from, the heading path and then the text (R19.9). That is what `text_search` is
+made of. None would match by its text alone: the text says `warehouses`, and
+`simple` does not stem, so `warehouse` is another word. That is `simple`'s.
+Before R19.9 the words were of the text alone, and `warehouse` found no chunk
+of `PLAY-1003` at all: the live check of spec 019 found it, when a search for
+`PLAY-1004` by its key ranked it third. `PLAY-1002` says `warehouse load` three
+times, and has nothing to do with warehouses. `timeouts` is the same story the
+other way round: `PLAY-1001`'s title says `timeouts`, so every chunk has it,
+and only its timeline and root cause say `timeout`.
 
 **The other way round.** `PLAY-1004`'s `Notes` says the autoscaler "reacted as
 configured; nothing in this incident points to a misconfigured autoscaler". It

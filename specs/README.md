@@ -27,7 +27,7 @@ spec assumes.
 | `016-reclaiming-space.md` | `dossier gc`: which runs are kept, which cache entries a kept run still needs, and deleting the rest without making a kept run irreproducible | R16.1 – R16.11 | Implemented |
 | `017-workspace-status.md` | `dossier status`: what each source holds and still owes, each pipeline's latest run, and which judged fields `eval` would withhold, changing nothing | R17.1 – R17.7 | Implemented |
 | `018-embedding-index.md` | `dossier embed`: a pipeline's documents and its latest run's grounded record, chunked at their headings, embedded on a cache miss, in a Postgres index that holds exactly the active documents | R18.1 – R18.11 | Implemented |
-| `019-search.md` | `dossier search`: the documents of an index that answer a query, ranked by meaning and words together, filtered by what a run grounded and who may read it | R19.1 – R19.9 | Partially implemented |
+| `019-search.md` | `dossier search`: the documents of an index that answer a query, ranked by meaning and words together, filtered by what a run grounded and who may read it | R19.1 – R19.9 | Implemented |
 
 Supporting files:
 

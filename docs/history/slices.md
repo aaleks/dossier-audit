@@ -37,7 +37,10 @@ through a port of its own, and keys, the run and eval may import nothing of it.
   chunk, as JSON, and after a sync `embed` had not seen. Every R19.8 row held.
   What it found: a search for `PLAY-1004` listed `PLAY-1004` third. The key
   is in the note's title heading, which the vector reads and `text_search`
-  did not, so no chunk matched it by words; fixed next. And `--where
+  did not, so no chunk matched it by words. R19.9 writes the words of what
+  the vector reads, and rebuilds an older index's on its next `embed`, from
+  the rows it holds: `dev/index` was rebuilt with 0 chunks embedded and 0
+  written, and `PLAY-1004` came first. And `--where
   affected_systems=checkout-api` matched nothing: a `reference` is one string,
   matched whole, so a field filtered on its parts is declared a `list`.
 - R19.1's first example did not add up: two unnamed chunks above `INC-4830` by
