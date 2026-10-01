@@ -26,7 +26,9 @@ from dossier.domain.conversion import NoConverter, answering
 from dossier.domain.model_id import provider_of
 from dossier.domain.ports import (
     DatasetRegistry,
+    EmbeddingProvider,
     ImagePart,
+    IndexSink,
     ModelClient,
     PromptRegistry,
     Tracker,
@@ -37,7 +39,7 @@ from dossier.domain.tracking import capture as capture_setting
 from dossier.domain.tracking import settings as tracking_settings
 from dossier.infrastructure.converters.registry import installed_converters
 from dossier.infrastructure.models.openai_compatible import ModelRequestFailed
-from dossier.infrastructure.models.registry import UnknownProvider
+from dossier.infrastructure.models.registry import UnknownProvider, embedding_provider
 from dossier.infrastructure.models.registry import provider as model_provider
 from dossier.infrastructure.tracking.best_effort import (
     BestEffortTracker,
@@ -88,6 +90,37 @@ def build_model_client(model_id: str) -> ModelClient:
         environ=environment(Path.cwd()),
     )
     return factory(model_id, url=endpoint.url, api_key=endpoint.api_key)
+
+
+def build_embedding_provider(model_id: str) -> EmbeddingProvider:
+    """Resolve a pinned embedding model to a client, reached where this machine says (R18.3).
+
+    Built as a model client is: the provider is the installed package the
+    identifier names, from the `dossier.embeddings` entry points, and its
+    endpoint the one `DOSSIER_<PROVIDER>_URL` names, shared with that
+    provider's chat client (R9.2). The seam a test replaces with a fake that
+    counts what it is asked.
+    """
+    provider = provider_of(model_id)
+    factory = embedding_provider(provider)
+    endpoint = endpoint_for(
+        provider,
+        default_url=getattr(factory, "default_url", None),
+        environ=environment(Path.cwd()),
+    )
+    return factory(model_id, url=endpoint.url, api_key=endpoint.api_key)
+
+
+def build_index_sink(dsn: str) -> IndexSink:
+    """The embedding index at `dsn`, reached only when it is first asked (R18.4).
+
+    The driver is imported then, so a `dossier` installed without the `index`
+    extra still runs every other command, and is told which extra to install
+    when it is asked to write an index.
+    """
+    from dossier.infrastructure.index import connect
+
+    return connect(dsn)
 
 
 def build_tracker(settings: TrackingSettings) -> Tracker:

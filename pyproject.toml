@@ -164,6 +164,12 @@ openai = "dossier.infrastructure.models.openai_compatible:openai"
 [project.entry-points."dossier.embeddings"]
 ollama = "dossier.infrastructure.models.ollama_embed:ollama_embeddings"
 
+# A chunker cuts a document into the pieces an embedding index searches
+# (spec 018). Registered as converters are, so another cut -- semchunk's, or
+# LlamaIndex's MarkdownNodeParser -- is a package, not an edit here.
+[project.entry-points."dossier.chunkers"]
+headings = "dossier.domain.chunks:HeadingsChunker"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

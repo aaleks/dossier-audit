@@ -142,7 +142,7 @@ every chunk's identity, so a change of chunker re-chunks rather than mixing
 
 | # | Question | Resolution |
 |---|----------|------------|
-| 1 | How long does the first build of the playground corpus take with `qwen3-embedding:4b-fp16` on this machine's CPU? | OPEN: measured at the live check that closes slice 1. It informs the exercise's instructions, not a rule |
+| 1 | How long does the first build of the playground corpus take with `qwen3-embedding:4b-fp16` on this machine's CPU? | RESOLVED on 2026-10-01: 76 s for the four playground notes, 21 chunks, the model's load included, with 7.7 GB of RAM free and no GPU. The second `embed` took 1 s: 0 embedded, 21 cached, 0 written |
 
 ## Must hold
 
@@ -255,7 +255,7 @@ The outer loop of the first slice.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.embed`)
 - **Proved by:** `tests/acceptance/test_R018_7__embed_builds_the_index_from_what_was_synced.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

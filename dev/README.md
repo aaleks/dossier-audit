@@ -100,9 +100,9 @@ DOSSIER_INDEX_DSN=postgresql://dossier:dossier@127.0.0.1:5435/dossier
 ```
 
 Port 5435, because the machine this was first run on already had PostgreSQLs
-on 5432, 5433 and 5434. RAM is capped at 512 MB. The image,
-`pgvector/pgvector:pg17`, is a floating tag, unlike the two above: it served
-PostgreSQL 17.10 with pgvector 0.8.6 at the first live check.
+on 5432, 5433 and 5434. RAM is capped at 512 MB. The image is pinned as the two above are,
+`pgvector/pgvector:0.8.6-pg17`: PostgreSQL 17.10 with pgvector 0.8.6, as at the
+first live check.
 
 The driver is the `index` extra: `uv sync --extra index`, or `--all-extras`.
 
