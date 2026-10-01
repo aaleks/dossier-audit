@@ -20,8 +20,6 @@ from tests.fakes import FakeEmbeddingProvider, FakeIndexSink, register_connector
 from tests.pipelines import write_pipeline
 from tests.scoring_example import ISSUES, PIPELINE, SOURCE_ID, SOURCE_TYPE, IssueTracker
 
-pytestmark = pytest.mark.outer_loop
-
 INDEX = "incidents"
 EMBEDDING_MODEL = (
     "ollama:qwen3-embedding:4b-fp16"

@@ -61,3 +61,25 @@ def endpoint_for(
 
 def _variable(provider: str, suffix: str) -> str:
     return f"DOSSIER_{provider.upper()}_{suffix}"
+
+
+class IndexDsnUnset(ConfigError):
+    """An index is to be written and nothing says where (R18.7)."""
+
+
+def index_dsn(variable: str, *, index: str, environ: Mapping[str, str] | None = None) -> str:
+    """The connection string of the index `index` writes to, from `variable` (spec 018).
+
+    Read here, from the environment, and never written in `indexes/<name>.yaml`:
+    it carries a password, and that file is committed (R1.8). An empty variable
+    counts as unset, as a blank model URL does. The value is returned to be
+    used, and is never put in a message.
+    """
+    environ = os.environ if environ is None else environ
+    if not environ.get(variable):
+        raise IndexDsnUnset(
+            f"{variable} is not set: it holds the connection string of the index "
+            f"{index} is written to. Set it on this machine, in the shell or in .env, "
+            "such as postgresql://dossier:<password>@127.0.0.1:5435/dossier"
+        )
+    return environ[variable]

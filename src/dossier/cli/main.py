@@ -13,6 +13,7 @@ import typer
 from dossier.cli.calibrate import calibrate
 from dossier.cli.convert import convert
 from dossier.cli.dataset import dataset_app
+from dossier.cli.embed import embed
 from dossier.cli.eval import eval_
 from dossier.cli.gc import gc
 from dossier.cli.prompts import prompts_app
@@ -42,6 +43,7 @@ app.command()(calibrate)
 app.command("eval")(eval_)
 app.command()(gc)
 app.command()(status)
+app.command()(embed)
 app.add_typer(dataset_app, name="dataset")
 app.add_typer(review_app, name="review")
 app.add_typer(prompts_app, name="prompts")
