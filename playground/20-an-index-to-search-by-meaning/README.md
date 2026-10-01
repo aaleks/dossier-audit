@@ -156,9 +156,11 @@ is of kind `body`. The column is `halfvec(2560)`, under an `hnsw` index with
 - **The readers.** `acl` is on every chunk row, not only on the document row.
   Who reads it? `dossier` never searches this index, so who must put
   `'incident-response' = any(acl)` into a query (R18.6, "Decisions")?
-- **The words.** `text_search` holds `'18':17 '400':18` and `'s':9`. What did
-  the `simple` configuration do to `CHF 18'400` and to `gateway's`, and what did
-  it not do that `english` would have ("What it writes")?
+- **The words.** `text_search` holds `'play':1 '-1001':2`, `'18':27 '400':28`
+  and `'s':19`. Where do its first ten words come from, when the chunk's text
+  starts with `Finance` (R19.9)? What did the `simple` configuration do to
+  `PLAY-1001`, `CHF 18'400` and `gateway's`, and what did it not do that
+  `english` would have ("What it writes")?
 
 ## Task 3 — search it two ways
 
@@ -219,18 +221,19 @@ $P search.py "Which incident was caused by a misconfigured autoscaler?"
 `<=>` is pgvector's cosine distance: 0 is the same direction, and smaller is
 nearer.
 
-**Checkpoint.** By words, `warehouse` finds three chunks of `PLAY-1002` and none
-of `PLAY-1003`, and `warehouse outage cost` finds nothing. By meaning, the cost
+**Checkpoint.** By words, `warehouse` finds three chunks of `PLAY-1002` and all
+five of `PLAY-1003`'s, `timeouts` all five of `PLAY-1001`'s and `timeout` two,
+and `warehouse outage cost` finds nothing. By meaning, the cost
 question's first answer is `PLAY-1003`'s `Impact`, all three answers to the
 slowness question are `PLAY-1004`'s, and the autoscaler question's first answer
 is `PLAY-1004`'s `Notes`.
 
-- **Missing the warehouse incident.** `PLAY-1003` is titled "Warehouse terminals
-  offline". Why does a search for `warehouse` not find it, and find the export
-  incident instead? Why does `timeouts` miss `PLAY-1001`'s title, while
-  `timeout` finds two of its sections? Which of the two causes is a property of
-  `simple`, and which of what `text_search` is made of (R18.3, "What it
-  writes")?
+- **Found by its title.** `warehouse` finds every chunk of `PLAY-1003`, which
+  is titled "Warehouse terminals offline". Which word of which chunk matched,
+  and would any of them match by its text alone? Why does it find the export
+  incident too? Why does `timeouts` find all five of `PLAY-1001`'s chunks, and
+  `timeout` only two? Which causes are properties of `simple`, and which of
+  what `text_search` is made of (R18.3, R19.9)?
 - **The other way round.** Read `PLAY-1004`'s `Notes`. Does it answer the
   autoscaler question? What does a distance measure, and what can it not tell
   apart? What would a reader of this index need on top of `<=>` before showing

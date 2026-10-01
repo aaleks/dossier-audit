@@ -1,6 +1,6 @@
 # 019 — Searching the index
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R19.1 – R19.9
 
 ## Purpose
@@ -307,7 +307,7 @@ prepares it; nothing is embedded again.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.index.postgres.PostgresIndexSink`), domain (`dossier.domain.index.embedding_text`)
 - **Proved by:** `tests/integration/test_R019_9__a_chunks_words_are_its_heading_path_and_text.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

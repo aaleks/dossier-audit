@@ -923,10 +923,12 @@ class FakeIndexSink:
         """Both lists as the real index ranks them, over what `embed` wrote (R19.1).
 
         By meaning: cosine similarity, nearest first. By words: chunks holding
-        every word of the query, case aside, most occurrences first -- the
-        shape of `websearch_to_tsquery('simple', ...)` without its syntax.
-        Ties by chunk id, as the real index's.
+        every word of the query in their heading path or text (R19.9), case
+        aside, most occurrences first -- the shape of
+        `websearch_to_tsquery('simple', ...)` without its syntax. Ties by
+        chunk id, as the real index's.
         """
+        from dossier.domain.index import embedding_text
         from dossier.domain.search import Candidate, Described, Lists
 
         self.searches.append({"where": dict(where), "reader": reader, "words": words})
@@ -954,7 +956,7 @@ class FakeIndexSink:
         terms = [term for term in words.lower().split() if term]
 
         def hits(chunk) -> int:
-            text = chunk.text.lower()
+            text = embedding_text(chunk.heading_path, chunk.text).lower()
             return (
                 sum(text.count(term) for term in terms) if all(t in text for t in terms) else 0
             )

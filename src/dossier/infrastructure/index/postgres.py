@@ -40,7 +40,7 @@ from pgvector.psycopg import register_vector
 from psycopg import sql
 from psycopg.types.json import Jsonb
 
-from dossier.domain.index import IndexedChunk, IndexedDocument
+from dossier.domain.index import IndexedChunk, IndexedDocument, embedding_text
 from dossier.domain.search import Candidate, Described, Lists
 from dossier.infrastructure.index import IndexSearchFailed, IndexSinkFailed
 
@@ -79,6 +79,12 @@ CREATE TABLE IF NOT EXISTS {schema}.documents (
 
 # `simple`: no stemming and no stop words, because incidents are written in
 # more than one language, and a stemmer for the wrong one mangles words.
+#
+# `text_search` holds the words of what the vector was made from, the heading
+# path and then the text (R19.9), and is written beside it. A note's key and
+# title are in its first heading, which no chunk holds in its text: generated
+# from `text` alone, the words missed what the vector read. Written rather than
+# generated, so the text is composed once, by `embedding_text`, for both.
 _CHUNKS = """
 CREATE TABLE IF NOT EXISTS {schema}.chunks (
     "index" text NOT NULL,
@@ -90,7 +96,7 @@ CREATE TABLE IF NOT EXISTS {schema}.chunks (
     text text NOT NULL,
     acl text[] NOT NULL,
     embedding {column} NOT NULL,
-    text_search tsvector GENERATED ALWAYS AS (to_tsvector('simple', text)) STORED,
+    text_search tsvector NOT NULL,
     PRIMARY KEY ("index", chunk_id),
     FOREIGN KEY ("index", document_id)
         REFERENCES {schema}.documents ("index", document_id) ON DELETE CASCADE
@@ -204,6 +210,8 @@ class PostgresIndexSink(_PostgresIndex):
                 connection.execute(self._sql("CREATE SCHEMA IF NOT EXISTS {schema}"))
                 connection.execute(self._sql(_DOCUMENTS))
                 connection.execute(self._sql(_CHUNKS, column=sql.SQL(column)))
+                if self._words_generated(connection):
+                    self._rebuild_words(connection)
                 held = self._embedding_column(connection)
                 if held != column:
                     raise IndexSinkFailed(
@@ -216,6 +224,42 @@ class PostgresIndexSink(_PostgresIndex):
                 for statement in _CHUNK_INDEXES:
                     connection.execute(self._sql(statement, cosine=cosine))
             self._register(connection)
+
+    def _words_generated(self, connection: psycopg.Connection) -> bool:
+        """Whether `chunks.text_search` is generated from `text` alone, as before R19.9."""
+        found = connection.execute(
+            "SELECT attgenerated FROM pg_attribute WHERE attrelid = to_regclass(%s) "
+            "AND attname = 'text_search' AND NOT attisdropped",
+            (f"{self._name}.chunks",),
+        ).fetchone()
+        return found is not None and found[0] == "s"
+
+    def _rebuild_words(self, connection: psycopg.Connection) -> None:
+        """Write every chunk's words from its heading path and text, as `write` does (R19.9).
+
+        From what the index holds: a chunk's heading path and text are its
+        words, and its vector is not asked for again.
+        """
+        connection.execute(
+            self._sql("ALTER TABLE {schema}.chunks ALTER COLUMN text_search DROP EXPRESSION")
+        )
+        rows = connection.execute(
+            self._sql('SELECT "index", chunk_id, heading_path, text FROM {schema}.chunks')
+        ).fetchall()
+        with connection.cursor() as cursor:
+            cursor.executemany(
+                self._sql(
+                    "UPDATE {schema}.chunks SET text_search = to_tsvector('simple', %s) "
+                    'WHERE "index" = %s AND chunk_id = %s'
+                ),
+                [
+                    (embedding_text(heading_path, text), index, chunk_id)
+                    for index, chunk_id, heading_path, text in rows
+                ],
+            )
+        connection.execute(
+            self._sql("ALTER TABLE {schema}.chunks ALTER COLUMN text_search SET NOT NULL")
+        )
 
     def held(self, index: str) -> Mapping[str, str]:
         """`document_id -> content_hash` for every document `index` holds.
@@ -289,8 +333,9 @@ class PostgresIndexSink(_PostgresIndex):
                     cursor.executemany(
                         self._sql(
                             'INSERT INTO {schema}.chunks ("index", chunk_id, document_id, '
-                            "kind, chunk_index, heading_path, text, acl, embedding) "
-                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                            "kind, chunk_index, heading_path, text, acl, embedding, "
+                            "text_search) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, "
+                            "to_tsvector('simple', %s))"
                         ),
                         [
                             (
@@ -303,6 +348,7 @@ class PostgresIndexSink(_PostgresIndex):
                                 chunk.text,
                                 list(chunk.acl),
                                 as_vector(list(chunk.embedding)),
+                                embedding_text(chunk.heading_path, chunk.text),
                             )
                             for chunk in chunks
                         ],

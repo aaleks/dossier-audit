@@ -312,9 +312,11 @@ class TestPostgresIndexSink:
         assert "vector(1024)" in str(refused.value)
 
     def test_a_chunk_is_found_by_its_words_with_no_stemming(self, sink, schema, query):
-        """No row — `text_search` is `simple`: `payments` is found, and `payment` is not.
+        """No row — `text_search` is `simple`: `rolled` is found, and `roll` is not.
 
         No stemming: incidents are written in more than one language (spec 018).
+        Words of the title would find both chunks, which carry it in their
+        heading paths (R19.9); these are words of one chunk's text.
         """
         sink.prepare(INDEX, COLUMN)
         sink.write(INDEX, *document(IMPACT, COMMENTS))
@@ -324,8 +326,8 @@ class TestPostgresIndexSink:
         )
 
         assert query(words, "gateway") == [("c-comments",)]
-        assert query(words, "payments") == [("c-impact",)]
-        assert query(words, "payment") == []
+        assert query(words, "rolled") == [("c-comments",)]
+        assert query(words, "roll") == []
 
     def test_the_nearest_chunk_by_cosine_comes_first(self, sink, schema, query):
         """No row — by cosine distance, the chunk nearer the question comes first."""
