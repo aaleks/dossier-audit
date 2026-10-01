@@ -39,7 +39,7 @@ from dossier.domain.search import (
 from dossier.domain.sync import State
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.connectors.registry import declared_keys
-from dossier.infrastructure.index import IndexSinkFailed
+from dossier.infrastructure.index import IndexSearchFailed
 from dossier.infrastructure.ledger import Ledger
 from dossier.infrastructure.models.openai_compatible import ModelRequestFailed
 from dossier.infrastructure.models.registry import (
@@ -104,7 +104,9 @@ def search(
         dsn = index_dsn(declaration.target.dsn_env, index=index, environ=environment(workspace))
         embedder = bootstrap.build_embedding_provider(declaration.embedding_model)
         searched = bootstrap.build_index_search(dsn)
-    except (ConfigError, UnfilterableWhere, UnknownProvider, IndexSinkFailed) as error:
+    except (ConfigError, UnfilterableWhere, UnknownProvider, IndexSearchFailed) as error:
+        # Refused before anything was asked: the driver missing is an install
+        # to fix, named, as a declaration to fix is (R18.7 row 3).
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
 
@@ -124,7 +126,9 @@ def search(
     except SearchRefused as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
-    except (ModelRequestFailed, IndexSinkFailed) as error:
+    except (ModelRequestFailed, IndexSearchFailed) as error:
+        # Reached and failed: the model or the index answered with an error, or
+        # did not answer. A query vector already asked for stays cached.
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from error
     if as_json:

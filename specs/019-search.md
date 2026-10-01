@@ -60,7 +60,20 @@ documents are the default (R19.2).
 Without more, a filter matching one chunk in ten returns about four of the
 forty the scan reads. Searches set `hnsw.iterative_scan = relaxed_order`
 (pgvector 0.8.0 and later; `dev/index` runs 0.8.6), so the scan goes on until
-the list is full or the index is exhausted (R19.4 row 7).
+the list is full or the index is exhausted (R19.4 row 7). It matters only when
+the planner reads the HNSW index: under a selective filter, or on an index of a
+few thousand chunks, Postgres reads every chunk the filter keeps and sorts them
+exactly, which fills the list without it. Ties in either list are ordered by
+chunk id under the `C` collation, as Python orders them, whatever the
+database's own collation: `en_US` ignores a hyphen, and would cut a list at a
+different chunk than R19.1 ranks.
+
+**Words, all of them.** `websearch_to_tsquery` matches a chunk holding every
+word of the query, as a web search does, and `simple` drops none: `certificate
+expired at checkout` matches only a chunk holding `at` too. A question in plain
+words often matches no chunk by words, and is ranked by meaning alone (R19.8
+row 3). `or` between words widens it, as its syntax allows. Whether any word
+should do is open question 2.
 
 ## The query instruction
 
@@ -136,6 +149,7 @@ decisions it adds, fusion and grouping, are pure and belong in `domain/`.
 | # | Question | Resolution |
 |---|----------|------------|
 | 1 | Is 100 candidates per list enough, on a real corpus, for `--limit 10` documents? | OPEN: needs the user's incident corpus indexed, and the recall of 100 against an exhaustive scan measured once |
+| 2 | Should the words list match a chunk holding any word of the query, rather than all? | OPEN: any word finds more, and ranks the noise of short words with it; needs queries a person asked of a real corpus, judged both ways |
 
 ## Must hold
 
@@ -176,7 +190,7 @@ chunk id, so a search lists the same order on every machine.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.search.query_text`), application (`dossier.application.search`)
 - **Proved by:** `tests/unit/test_R019_3__the_query_is_embedded_after_its_instruction.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -193,7 +207,7 @@ carried (R18.9 row 5). A refusal comes before the model is asked.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.search.wheres`), infrastructure (`dossier.infrastructure.index.postgres`)
 - **Proved by:** `tests/unit/test_R019_4__where_keeps_the_documents_carrying_a_value.py`, `tests/integration/test_R019_4__postgres_search_filters.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -203,15 +217,15 @@ carried (R18.9 row 5). A refusal comes before the model is asked.
 | 4 | `--where component=checkout --where component=payments-api` | the documents carrying either: one field given twice is one choice of values |
 | 5 | `--where root_cause=certificate` | exit 2, `root_cause is not a filter of incidents; its filters are architecture_category, component, contributing_factor_category, failure_category, root_cause_category`; 0 embedding calls |
 | 6 | `--where failure_category=meteor-strike` | exit 2, naming the field and its declared values; 0 embedding calls |
-| 7 | a live index of 400 documents, 10 carrying `failure_category=certificate-expiry`, `--limit 10` | 10 documents: the HNSW scan goes on past its first 40 chunks until the list is full |
+| 7 | a live index of 400 documents, 10 carrying `failure_category=certificate-expiry` and farthest from the query; the planner reading the HNSW index; `--limit 10` | 10 documents: the scan goes on past its first 40 chunks until the list is full. With `hnsw.iterative_scan = off`, fewer |
 | 8 | *counter-example* — no `--where` | every document the reader may read is considered |
 
 ### R19.5 — `--as READER` keeps only the chunks that reader may read, and a search without it says it is not filtered
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.search.reader_refusal`), infrastructure (`dossier.infrastructure.index.postgres`)
-- **Proved by:** `tests/unit/test_R019_5__as_reader_keeps_what_the_reader_may_read.py`
-- **Status:** NOT MET
+- **Proved by:** `tests/unit/test_R019_5__as_reader_keeps_what_the_reader_may_read.py`, `tests/integration/test_R019_4__postgres_search_filters.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -228,7 +242,7 @@ lengths need not even agree.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.search.model_refusal`)
 - **Proved by:** `tests/unit/test_R019_6__a_search_refuses_an_index_of_another_model.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -245,7 +259,7 @@ ranked list says so.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.search.unreflected`)
 - **Proved by:** `tests/unit/test_R019_7__a_search_names_what_the_index_does_not_reflect.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

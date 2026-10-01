@@ -1,6 +1,6 @@
 """Writing and searching the embedding index (specs 018 and 019).
 
-The fourth package left of the hash boundary (R0.16): the index is a Postgres
+The fourth package left of the hash boundary (R0.17): the index is a Postgres
 server, reached over the network. The `IndexSink` port it implements reads back
 only the ids and content hashes of the documents an index holds, to write only
 what changed (R18.4), so nothing the index holds enters a key, a manifest or a
