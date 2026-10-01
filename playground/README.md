@@ -19,12 +19,15 @@ model bill, no network. A stub model server in `toolkit/` answers the same
 OpenAI-compatible route a real endpoint would, from a file of rules you can read
 and edit — so the code path is the real one and the answers are yours to control.
 
-**Exercises 11, 15 and 18 are the exceptions, deliberately.** Exercise 11 brings up
+**Exercises 11, 15, 18 and 20 are the exceptions, deliberately.** Exercise 11 brings up
 a Jira Data Center in Docker, which costs an evaluation licence, about 4 GB of
 RAM and an interactive setup wizard. Exercise 15 needs network access instead:
 it reads two public Confluence servers anonymously, and asks them for three
 pages, because the servers belong to someone else. Exercise 18 reads three public
-websites the same way, and runs no model at all. In 11 and 15 the model is still
+websites the same way, and runs no model at all. Exercise 20 writes an index
+to the Postgres in `dev/index`, in Docker, and embeds with a local Ollama's
+`qwen3-embedding:4b-fp16`: about 10 GB of RAM between them, and no stub can
+stand in, because a vector is only worth what the model meant. In 11 and 15 the model is still
 the stub; only the source is real. They come late because everything they
 teach — a named credential, someone else's version marker, a listing that
 cannot report a deletion, a payload that is mostly machinery — only exists once
@@ -76,6 +79,7 @@ when you want the reasoning behind what you just saw.
 | 17 | [Procedures as context](17-procedures-as-context/) | `reference:` sources that are read and never audited, what `{{reference}}` holds in every call, a manifest that pins context apart, a tightened procedure that re-runs only the step shown it, a replay that reads the old procedure, citing only what a call was shown, and reading context nobody declared | R3.17, R3.18, R4.9, R4.16, R4.17, R5.15, R6.23, R6.3, R7.34 |
 | 18 | [A website, read as documents](18-a-website-read-as-documents/) | a sitemap and its `<lastmod>`, a key for every page of a site, a note that is the page's `<main>`, a site with no sitemap listed by crawling, a crawl that fails rather than lists a part, a source that cannot be listed beside ones that can, a page drawn by a headless browser and what it may ask for, and a held source drawn once more | R1.29, R1.30, R1.31, R1.33, R1.36, R1.37, R1.38, R1.39, R1.40, R1.41, R1.43, R2.26, R2.27, R8.33 |
 | 19 | [Answers that are not text](19-answers-that-are-not-text/) | a `boolean`, a `duration` and a `list`, a prompt that says how each is answered, `false` against `null`, why three months is not ninety days, one record per item scored as a set, item precision and recall, gold refused before scoring, a kind that is not there, and one question answered twice | R7.36, R7.37, R7.38, R7.40, R7.41, R7.43, R7.44, R6.24, R6.2, R7.3, R7.2 |
+| 20 | [An index to search by meaning](20-an-index-to-search-by-meaning/) | an index declared apart from its pipeline, who may read a source, chunks cut at their headings and embedded with them, a vector cache that makes a second `embed` free, a search by words and a search by meaning and what each one misses, a run's categories carried only where grounded and only while the note is the one the run read, declarations refused before any work, an `embed` recorded in MLflow, and an index rebuilt from the workspace | R18.1 – R18.11, R11.33 |
 
 ## How an exercise folder is laid out
 
