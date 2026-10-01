@@ -68,3 +68,17 @@ class TestOnlyGroundedValuesAreCarried:
         assert kept.values == {}
         assert kept.left_out == {}
         assert kept.note("INC-4830") is None
+
+    def test_an_enum_is_carried_in_its_declared_spelling(self):
+        """Row 5 — the one answered `Certificate-Expiry` where `certificate-expiry` is declared.
+
+        The check let it through folded (R6.26), as eval scores it. Carried as
+        answered, a filter on the declared value would miss it.
+        """
+        kept = carried(
+            FIELDS,
+            [(record("failure_category", "Certificate-Expiry"), VALID)],
+            enums={"failure_category": ("certificate-expiry", "capacity-exhaustion")},
+        )
+
+        assert kept.values == {"failure_category": "certificate-expiry"}

@@ -8,6 +8,9 @@ the run read what the index is about to hold, and every other case is named.
 
 from __future__ import annotations
 
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
 from dossier.domain.index import LatestRun, record_for
 from dossier.domain.schemas import FieldRecord
 
@@ -55,11 +58,47 @@ class TestARecordComesFromTheRunThatReadTheHeldSnapshot:
 
         The one line saying so is the command's, once, not one per document.
         """
+        from tests.fakes import FakeEmbeddingProvider, FakeIndexSink
+        from tests.unit.test_R018_3__a_chunk_is_embedded_only_on_a_cache_miss import (
+            declaration,
+        )
+
+        from dossier.application.embed import ToIndex, embed_index
+        from dossier.domain.chunks import HeadingsChunker
+        from dossier.domain.index import IndexFields
+        from dossier.infrastructure.cache import ArtifactCache
+
         assert record_for("INC-4830", held_snapshot=HELD, run=None) == (None, None)
+        with TemporaryDirectory() as cache:
+            report = embed_index(
+                declaration=declaration().model_copy(
+                    update={"fields": IndexFields(filter=("failure_category",))}
+                ),
+                documents=[
+                    ToIndex("incidents-jira", key, HELD, f"# {key}\n\nText.\n")
+                    for key in ("INC-4830", "INC-4822")
+                ],
+                readers={"incidents-jira": ("incident-response",)},
+                chunker=HeadingsChunker(max_chars=2000),
+                embedder=FakeEmbeddingProvider(),
+                vectors=ArtifactCache(Path(cache), namespace="embed"),
+                sink=FakeIndexSink(),
+                run=None,
+            )
+        assert report.notes == ("no run of incident-audit yet",)
 
     def test_a_document_synced_after_the_run_has_no_record_of_it(self):
         """Row 5, counter-example — the one where `INC-4901` arrived after the run."""
         assert record_for("INC-4901", held_snapshot=HELD, run=latest()) == (
             None,
             f"INC-4901: no record: {RUN} did not read it",
+        )
+
+    def test_a_run_that_filed_no_answer_says_so(self):
+        """Row 6, counter-example — the one the run read and answered nothing about."""
+        run = latest(pinned={"INC-4901": HELD}, failed={}, records={})
+
+        assert record_for("INC-4901", held_snapshot=HELD, run=run) == (
+            None,
+            f"INC-4901: no record: {RUN} filed no answer for it",
         )

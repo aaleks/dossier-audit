@@ -19,11 +19,11 @@ from dossier.domain.index import vector_column
 
 
 class ShortForOne(FakeEmbeddingProvider):
-    """A model answering 1,024 values for `INC-4822`'s text, as another model would."""
+    """A model answering 1,024 values for `INC-4821`'s text, as another model would."""
 
     def _vector(self, text: str) -> list[float]:
         vector = super()._vector(text)
-        return vector[:1024] if "12'500" in text else vector
+        return vector[:1024] if "48'200" in text else vector
 
 
 class TestTheVectorColumnFollowsTheModel:
@@ -52,18 +52,36 @@ class TestTheVectorColumnFollowsTheModel:
         )
 
     def test_a_vector_of_another_length_is_refused_and_nothing_written(self, tmp_path: Path):
-        """Row 5, counter-example — the one answered 1,024 values in an index of 2,560."""
+        """Row 5, counter-example — the one answered 1,024 values, the others 2,560.
+
+        The odd vector sorts first, and is still the one named: the others'
+        length is the index's, whichever chunk comes first.
+        """
+        from dossier.domain.chunks import HEADINGS_CHUNKER, chunk_id
+        from dossier.infrastructure.cache import ArtifactCache
+
         sink = FakeIndexSink()
         documents = [
             note("INC-4821", "# INC-4821\n\nFinance confirmed CHF 48'200.\n"),
             note("INC-4822", "# INC-4822\n\nFinance confirmed CHF 12'500.\n"),
+            note("INC-4901", "# INC-4901\n\nFinance confirmed CHF 0.00.\n"),
         ]
+        odd = chunk_id(
+            document_id="incidents-jira:INC-4821",
+            chunker=HEADINGS_CHUNKER,
+            settings={"max_chars": 2000},
+            index=0,
+            text="Finance confirmed CHF 48'200.",
+        )
 
         with pytest.raises(ValueError) as refused:
             embed(tmp_path, documents, ShortForOne(), sink=sink)
 
-        said = str(refused.value)
-        assert "incidents-jira:INC-4822" in said
-        assert "1024 values" in said and "2560" in said
+        assert str(refused.value) == (
+            f"incidents-jira:INC-4821: chunk {odd[:12]} was answered 1024 values, and "
+            "the index holds vectors of 2560. One index holds one model's vectors: "
+            "nothing is written"
+        )
         assert sink.writes == 0
         assert sink.columns == {}
+        assert ArtifactCache(tmp_path, namespace="embed").all_keys() == []

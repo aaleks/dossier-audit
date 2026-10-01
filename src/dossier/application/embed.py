@@ -19,7 +19,7 @@ from pathlib import Path
 
 from dossier.application.plan import latest_manifest
 from dossier.application.run import recorded_failures
-from dossier.domain.chunks import chunk_id
+from dossier.domain.chunks import chunk_id, record_chunk_id
 from dossier.domain.grounding import check_field
 from dossier.domain.index import (
     Carried,
@@ -57,9 +57,6 @@ from dossier.domain.tracking import tags as tracking_tags
 BATCH = 32
 BODY = "body"
 RECORD = "record"
-# What renders a record chunk, as a chunker's identity names what cut a body
-# chunk: moved whenever the rendering of `field: value` lines changes.
-RECORD_CHUNKER = "record@1"
 
 
 @dataclass(frozen=True)
@@ -70,6 +67,15 @@ class ToIndex:
     key: str
     snapshot: str
     text: str
+
+
+@dataclass(frozen=True)
+class Unconverted:
+    """A document the ledger holds active whose conversion failed at this embed (R18.4)."""
+
+    source_id: str
+    key: str
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -128,6 +134,7 @@ def embed_index(
     sink: IndexSink,
     run: LatestRun | None = None,
     enums: Mapping[str, Sequence[str]] | None = None,
+    unconverted: Sequence[Unconverted] = (),
 ) -> EmbedReport:
     """Bring `declaration`'s index to exactly `documents`, asking only for missing vectors.
 
@@ -138,7 +145,7 @@ def embed_index(
     """
     model = declaration.embedding_model
     ordered = sorted(documents, key=lambda document: (document.source_id, document.key))
-    asks = bool(declaration.fields.filter or declaration.fields.embed)
+    asks = declaration.fields.carried
     notes: list[str] = []
     if asks and run is None:
         notes.append(f"no run of {declaration.pipeline} yet")
@@ -163,7 +170,7 @@ def embed_index(
             )
             for record in answered
         ]
-        records[identity] = carried(declaration.fields, checked)
+        records[identity] = carried(declaration.fields, checked, enums=enums)
         if (left_out := records[identity].note(document.key)) is not None:
             notes.append(left_out)
         if records[identity].record_text is not None:
@@ -181,10 +188,11 @@ def embed_index(
     missing: list[str] = []
     for text in sorted({cut.embedded_as for cut in every}):
         found = vectors.get(embedding_key(model, text), require_record=True)
-        if found is None:
+        vector = _read_vector(found)
+        if vector is None:
             missing.append(text)
         else:
-            held_vectors[text] = tuple(json.loads(found))
+            held_vectors[text] = vector
     cached = sum(1 for cut in every if cut.embedded_as in held_vectors)
 
     answered: dict[str, tuple[float, ...]] = {}
@@ -251,9 +259,14 @@ def embed_index(
 
     if column is not None:
         sink.prepare(declaration.name, column)
+    # What the ledger holds and this embed could not read keeps its last rows,
+    # and is named (R18.4 row 6).
+    for failed in unconverted:
+        notes.append(f"{failed.key}: not converted, its rows are kept: {failed.reason}")
     write, remove = changes(
         sink.held(declaration.name),
         {identity: written[0].content_hash for identity, written in rows.items()},
+        keep={document_id(failed.source_id, failed.key) for failed in unconverted},
     )
     for identity in write:
         document, chunks = rows[identity]
@@ -264,7 +277,9 @@ def embed_index(
     return EmbedReport(
         index=declaration.name,
         chunks=len(every),
-        embedded=len(missing),
+        # Chunks, as `chunks` and `cached` are: two chunks of one text are two
+        # chunks embedded by one answer (R18.7 row 1).
+        embedded=sum(1 for cut in every if cut.embedded_as in answered),
         cached=cached,
         written=len(write),
         removed=len(remove),
@@ -276,18 +291,11 @@ def embed_index(
 def _record_cut(identity: str, text: str, *, at: int, embedded: Sequence[str]) -> _Cut:
     """The record chunk: the run's grounded free text, filed after the body (R18.9).
 
-    Its id names what made it, as a body chunk's names its chunker (R18.2): the
-    fields it renders, so carrying another field re-files it.
+    Its id is the domain's: what rendered it and the fields it renders.
     """
     return _Cut(
         document=identity,
-        chunk_id=chunk_id(
-            document_id=identity,
-            chunker=RECORD_CHUNKER,
-            settings={"embed": list(embedded)},
-            index=at,
-            text=text,
-        ),
+        chunk_id=record_chunk_id(document_id=identity, embedded=embedded, index=at, text=text),
         chunk_index=at,
         heading_path=(),
         text=text,
@@ -420,3 +428,20 @@ def record_embed(
     tracker.describe(report.line)
     tracker.end_run(status="FINISHED")
     return True
+
+
+def _read_vector(found: bytes | None) -> tuple[float, ...] | None:
+    """A cached vector, or `None` for one missing or unreadable (R18.3).
+
+    The cache is never a source of truth (R5.9): an entry that cannot be read
+    is a miss, asked for again, not a refusal of the whole embed.
+    """
+    if found is None:
+        return None
+    try:
+        read = json.loads(found)
+    except ValueError:
+        return None
+    if not isinstance(read, list) or not all(isinstance(value, int | float) for value in read):
+        return None
+    return tuple(float(value) for value in read)

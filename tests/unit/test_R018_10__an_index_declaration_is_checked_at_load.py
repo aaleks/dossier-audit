@@ -146,3 +146,20 @@ class TestAnIndexDeclarationIsCheckedAtLoad:
             "incidents.yaml: fields are carried from one output, and 2 steps of "
             "incident-audit declare an output, as eval refuses it"
         )
+
+    def test_a_provider_that_embeds_nothing_is_refused(self, workspace: Path):
+        """Row 7 — the one pinning an OpenAI model where only Ollama embeds."""
+        from dossier.config.load import ConfigError, load_index
+
+        path = workspace / "indexes" / "incidents.yaml"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(declaration(model="openai:text-embedding-3-small"), encoding="utf-8")
+
+        with pytest.raises(ConfigError) as refused:
+            load_index(path, providers=PROVIDERS, sources=READ, embedding_providers={"ollama"})
+
+        assert str(refused.value) == (
+            "incidents.yaml, line 2: embedding_model 'openai:text-embedding-3-small' names "
+            "provider 'openai', for which no installed package provides embeddings. "
+            "Available: ollama"
+        )

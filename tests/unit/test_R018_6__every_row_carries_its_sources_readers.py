@@ -84,10 +84,73 @@ class TestEveryRowCarriesItsSourcesReaders:
             "sources.yaml: nothing is indexed before someone decides who may search it"
         )
 
-    def test_an_empty_list_of_readers_is_refused(self):
-        """Row 3, counter-example — the one declaring `acl: []`."""
-        with pytest.raises(ValueError, match="names no reader"):
-            SourceConfig(id="incidents-manual", type="folder", acl=[])
+    def test_an_empty_list_of_readers_is_refused(self, tmp_path: Path):
+        """Row 3, counter-example — the one declaring `acl: []`.
+
+        Refused when `sources.yaml` loads, whether or not an index reads it.
+        """
+        from dossier.config.load import ConfigError, load_sources
+        from dossier.infrastructure.connectors.folder import FolderKeys
+
+        path = tmp_path / "sources.yaml"
+        path.write_text(
+            "sources:\n  - id: incidents-manual\n    type: folder\n"
+            "    path: inbox/incidents/\n    acl: []\n",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ConfigError) as refused:
+            load_sources(path, connectors={"folder": FolderKeys})
+
+        assert str(refused.value) == (
+            "sources.yaml, line 5: in 'incidents-manual', 'acl' -- Value error, acl: an "
+            "empty list names no reader, and is not a decision about who may read this "
+            "source. Name who may, as acl: [incident-response]"
+        )
+
+    def test_each_source_s_readers_reach_its_own_rows(self, tmp_path: Path):
+        """Row 1, through `embed`: two sources, two sets of readers, never mixed.
+
+        A restricted source's readers on another source's rows would expose
+        them, so every document and every chunk is checked against its own.
+        """
+        from tests.fakes import FakeEmbeddingProvider, FakeIndexSink
+        from tests.unit.test_R018_3__a_chunk_is_embedded_only_on_a_cache_miss import (
+            declaration,
+        )
+
+        from dossier.application.embed import ToIndex, embed_index
+        from dossier.domain.chunks import HeadingsChunker
+        from dossier.infrastructure.cache import ArtifactCache
+
+        readers = {
+            "incidents-jira": ("incident-response",),
+            "procedures-confluence": ("operations", "incident-response"),
+        }
+        sink = FakeIndexSink()
+        embed_index(
+            declaration=declaration(),
+            documents=[
+                ToIndex(
+                    "incidents-jira", "INC-4821", "a3f9c1e2", "# INC-4821\n\nCHF 48'200.\n"
+                ),
+                ToIndex(
+                    "procedures-confluence", "OPS-114", "77c1b40a", "# OPS-114\n\nEscalate.\n"
+                ),
+            ],
+            readers=readers,
+            chunker=HeadingsChunker(max_chars=2000),
+            embedder=FakeEmbeddingProvider(),
+            vectors=ArtifactCache(tmp_path, namespace="embed"),
+            sink=sink,
+        )
+
+        for document in sink.held_documents("incidents"):
+            assert document.acl == readers[document.source_id]
+        for chunk in sink.held_chunks("incidents"):
+            source = chunk.document_id.partition(":")[0]
+            assert chunk.acl == readers[source]
+        assert {chunk.acl for chunk in sink.held_chunks("incidents")} == set(readers.values())
 
     def test_a_source_declaring_readers_loads(self, tmp_path: Path):
         """Row 1's source, at load: it declares readers, so the index loads."""

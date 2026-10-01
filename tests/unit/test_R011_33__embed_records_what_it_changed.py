@@ -24,6 +24,8 @@ from tests.acceptance.test_R018_7__embed_builds_the_index_from_what_was_synced i
 )
 from tests.fakes import FakeEmbeddingProvider, FakeIndexSink, FakeTracker
 
+from dossier.domain.index import embedding_text
+
 EXPERIMENT = "dossier-audit/incident-audit/embed"
 
 
@@ -33,8 +35,13 @@ def embedder() -> FakeEmbeddingProvider:
 
 
 @pytest.fixture
-def synced(workspace: Path, monkeypatch, embedder) -> Path:
-    return synced_workspace(workspace, monkeypatch, embedder=embedder, index=FakeIndexSink())
+def index() -> FakeIndexSink:
+    return FakeIndexSink()
+
+
+@pytest.fixture
+def synced(workspace: Path, monkeypatch, embedder, index) -> Path:
+    return synced_workspace(workspace, monkeypatch, embedder=embedder, index=index)
 
 
 def _tracked(monkeypatch) -> FakeTracker:
@@ -72,7 +79,9 @@ class TestEmbedRecordsWhatItChanged:
         }
         assert run.status == "FINISHED"
 
-    def test_each_request_for_vectors_is_a_trace(self, synced: Path, monkeypatch, embedder):
+    def test_each_request_for_vectors_is_a_trace(
+        self, synced: Path, monkeypatch, embedder, index
+    ):
         """Row 2 — the one whose four chunks are asked for in two requests."""
         import dossier.application.embed as embed
 
@@ -84,11 +93,16 @@ class TestEmbedRecordsWhatItChanged:
         (run,) = tracker.runs
         assert embedder.calls == 2
         assert len(run.traces) == 2
+        # Which chunk each text sent was: the request names those chunks, and no others.
+        chunk_of = {
+            embedding_text(chunk.heading_path, chunk.text): chunk.chunk_id
+            for chunk in index.held_chunks(INDEX)
+        }
         for trace, asked in zip(run.traces, embedder.requests, strict=True):
             (span,) = trace.spans
             assert span["kind"] == "embedding"
             assert span["name"] == EMBEDDING_MODEL
-            assert len(span["dossier.chunks"]) == len(asked) == 2
+            assert sorted(span["dossier.chunks"]) == sorted(chunk_of[text] for text in asked)
             assert span["dossier.tokens"] == sum(len(text.split()) for text in asked)
 
     def test_the_record_is_said_where_it_was_made(self, synced: Path, monkeypatch):

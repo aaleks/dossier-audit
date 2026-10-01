@@ -16,7 +16,13 @@ from typing import Annotated
 import typer
 
 from dossier.application.convert import convert_source
-from dossier.application.embed import ToIndex, embed_index, read_latest_run, record_embed
+from dossier.application.embed import (
+    ToIndex,
+    Unconverted,
+    embed_index,
+    read_latest_run,
+    record_embed,
+)
 from dossier.cli import bootstrap
 from dossier.cli.convert import exit_if_unconvertible, read_holdings
 from dossier.config.endpoints import index_dsn
@@ -30,13 +36,18 @@ from dossier.config.load import (
     load_sources,
 )
 from dossier.domain.conversion import NoConverter
+from dossier.domain.index import carried_output
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.chunkers.registry import UnknownChunker, chunker_for
 from dossier.infrastructure.connectors.registry import declared_keys
 from dossier.infrastructure.index import IndexSinkFailed
 from dossier.infrastructure.ledger import Ledger
 from dossier.infrastructure.models.openai_compatible import ModelRequestFailed
-from dossier.infrastructure.models.registry import UnknownProvider, available_providers
+from dossier.infrastructure.models.registry import (
+    UnknownProvider,
+    available_embedding_providers,
+    available_providers,
+)
 from dossier.infrastructure.store import SnapshotStore
 
 
@@ -52,6 +63,7 @@ def embed(
             workspace / INDEXES / f"{index}.yaml",
             providers=available_providers(),
             sources=sources,
+            embedding_providers=available_embedding_providers(),
         )
         # Before anything is converted or embedded: an index nobody can write
         # to is found now, not after the model has been asked (R18.7 row 3).
@@ -60,10 +72,9 @@ def embed(
         path = bootstrap.pipeline_path(workspace, declaration.pipeline)
         pipeline = load_pipeline(path, providers=available_providers())
         run, enums = None, None
-        if declaration.fields.filter or declaration.fields.embed:
-            # The one step declaring an output: `load_index` refused any other
-            # number, as `eval` does (R18.10 row 6).
-            step = next(step for step in pipeline.steps if step.output is not None)
+        if declaration.fields.carried:
+            # `load_index` has refused any number but one (R18.10 row 6).
+            step = carried_output(pipeline.steps, pipeline=declaration.pipeline)
             enums = load_enum_values(path.parent / step.output)
             run = read_latest_run(workspace, declaration.pipeline, step.id)
         embedder = bootstrap.build_embedding_provider(declaration.embedding_model)
@@ -80,6 +91,7 @@ def embed(
     store = SnapshotStore(workspace)
     cache = ArtifactCache(workspace, namespace="convert")
     documents: list[ToIndex] = []
+    unconverted: list[Unconverted] = []
     with Ledger(workspace) as ledger:
         holdings = read_holdings(ledger, pipeline.sources, declared)
         exit_if_unconvertible(holdings, converters)
@@ -100,6 +112,11 @@ def embed(
                 ToIndex(source_id=name, key=key, snapshot=held[key].snapshot, text=text)
                 for key, text in sorted(report.text.items())
             )
+            # Held, and unreadable this time: kept, and named (R18.4 row 6).
+            unconverted.extend(
+                Unconverted(source_id=name, key=failed.document, reason=failed.error or "")
+                for failed in report.failed
+            )
 
     try:
         report = embed_index(
@@ -112,6 +129,7 @@ def embed(
             sink=sink,
             run=run,
             enums=enums,
+            unconverted=unconverted,
         )
     except ValueError as error:
         typer.echo(str(error), err=True)
