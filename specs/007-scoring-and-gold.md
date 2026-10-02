@@ -351,7 +351,7 @@ the grounding check decorative.
 | # | Given | Then |
 |---|-------|------|
 | 1 | `loss_amount` `48200.00`, span not locatable, gold `48200.00` | incorrect |
-| 2 | the same | its detail says it was ungrounded, not that its value mismatched -- what a review listing would show a person ("The review loop", not built) |
+| 2 | the same | its detail says it was ungrounded, not that its value mismatched -- what a review listing would show a person ("The review loop", built in MLflow by spec 015) |
 | 3 | `loss_amount` `48200.00`, span locatable, gold `48200.00` | correct |
 | 4 | *counter-example* — an abstaining field, which carries no span | not ungrounded and not incorrect on those grounds; it is scored against gold by R7.3 |
 

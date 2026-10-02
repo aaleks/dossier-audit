@@ -31,9 +31,9 @@ app = typer.Typer(add_completion=False)
 def main() -> None:
     """Collect documents, audit them, and prove the result.
 
-    A callback is declared so that `sync` stays a sub-command. Typer collapses
-    a single-command app into a bare invocation, and `dossier <pipeline>` is
-    not the interface the specs describe -- `run` and `eval` join it later.
+    Sync documents, freeze them as snapshots, convert them, run a pipeline's
+    steps over them, score the answers against a gold set, and search what was
+    found. `dossier COMMAND --help` says what each command does.
 
     Every command first checks that it is installed from its own source: an
     install older than an entry point fails confusingly on whatever needed it
