@@ -40,7 +40,7 @@ from dossier.domain.ports import (
     VersionRegistry,
 )
 from dossier.domain.resolution import ResolvedPlan
-from dossier.domain.store import RUNS_ROOT, passed_over_line
+from dossier.domain.store import RUNS_ROOT, passed_over_line, stopped_line
 from dossier.domain.tracking import TrackingSettings, experiment_name, name_template, namespace
 from dossier.domain.tracking import capture as capture_setting
 from dossier.domain.tracking import settings as tracking_settings
@@ -356,11 +356,23 @@ def say_passed_over(unreadable: Sequence[tuple[str, str]]) -> None:
         typer.echo(passed_over_line(run_id, reason), err=True)
 
 
-def latest_run(workspace: Path, pipeline: str) -> tuple[ResolvedPlan | None, str | None]:
-    """The pipeline's latest run, naming each manifest passed over on the way (R4.30)."""
+def latest_run(
+    workspace: Path, pipeline: str, *, finished: bool = False
+) -> tuple[ResolvedPlan | None, str | None]:
+    """The pipeline's latest run, naming each manifest passed over on the way (R4.30).
+
+    `finished` passes over, and names, a newer run that stopped before it
+    ended: a plan's `cached` is a promise only a run that finished can back
+    (R4.31).
+    """
     unreadable: list[tuple[str, str]] = []
-    found = latest_manifest(workspace / RUNS_ROOT, pipeline, unreadable=unreadable)
+    stopped: list[str] | None = [] if finished else None
+    found = latest_manifest(
+        workspace / RUNS_ROOT, pipeline, unreadable=unreadable, stopped=stopped
+    )
     say_passed_over(unreadable)
+    for run_id in stopped or ():
+        typer.echo(stopped_line(run_id), err=True)
     return found
 
 

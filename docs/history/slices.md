@@ -13,6 +13,22 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A plan compares against the latest run that finished (2026-10-02, R4.31,
+#702 and this). Exercise 24's live pass found it: a run killed after one of
+four notes, then `--plan` printed `extract: cached` and `0 of 2 step(s) would
+run`, and the next run asked three of the four. A run writes its manifest
+before it asks anything, and the plan compared against the latest manifest.
+A finished run writes `failures.json` (R4.27), so the plan now passes over a
+newer run without one and names it on standard error, as R4.30 names a
+manifest it cannot read. The line says only what the plan can see: the file is
+missing because the run stopped, or because it has not ended yet. The first
+wording, "stopped before it ended", was untrue of a run still going beside the
+plan, and was changed before the rule landed. R4.5's test recorded a run
+through `Manifest` "as a real run would", and now writes its `failures.json`
+too. Still open, and reported: after a finished run that failed documents, the
+plan also says `cached`, and a later run asks those documents again (R4.28
+row 6).
+
 The version says which commit wrote a record (2026-10-02, R20.2, #700 and
 this). `dossier_version` is in every manifest and record, and `pyproject.toml`
 had said `0.1.0` for every commit since the first, so two scores of one run

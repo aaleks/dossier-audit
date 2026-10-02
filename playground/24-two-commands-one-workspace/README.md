@@ -106,6 +106,7 @@ kill -9 <pid>
 ls .dossier/
 cat .dossier/lock.json
 $D status
+$D run incident-review --plan
 $D sync incident-review; echo $?
 ```
 
@@ -118,6 +119,8 @@ $D sync incident-review; echo $?
   considered" says why it was rejected.
 - What does `status` say about the killed run's failures, and why does it not
   say "0 failed"?
+- Which run does the plan compare against, and why not the latest? What would
+  `cached` have promised, compared against the killed run's manifest?
 
 ## Task 4 — one after another
 

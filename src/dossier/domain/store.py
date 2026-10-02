@@ -150,6 +150,18 @@ def try_path(try_id: str) -> str:
     return f"{TRIES_ROOT}/{try_id}"
 
 
+def stopped_line(run_id: str) -> str:
+    """The line a plan prints for a newer run it passed over, unfinished (R4.31).
+
+    It says what the plan can see, a missing file, and both things that can
+    mean: nothing on disk tells a killed run from one still going beside it.
+    """
+    return (
+        f"  passed over: {RUNS_ROOT}/{run_id}/ has no {FAILURES_NAME}: "
+        "it stopped before it ended, or has not ended yet"
+    )
+
+
 def passed_over_line(run_id: str, reason: str) -> str:
     """The line a command prints for a run whose manifest it cannot read (R4.30)."""
     return (
