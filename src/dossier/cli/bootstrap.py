@@ -363,7 +363,7 @@ def latest_run(
 
     `finished` passes over, and names, a newer run that stopped before it
     ended: a plan's `cached` is a promise only a run that finished can back
-    (R4.31).
+    (R4.31), and `eval` cannot reproduce what such a run never asked (R4.33).
     """
     unreadable: list[tuple[str, str]] = []
     stopped: list[str] | None = [] if finished else None
@@ -371,9 +371,14 @@ def latest_run(
         workspace / RUNS_ROOT, pipeline, unreadable=unreadable, stopped=stopped
     )
     say_passed_over(unreadable)
-    for run_id in stopped or ():
-        typer.echo(stopped_line(run_id), err=True)
+    say_stopped(stopped or ())
     return found
+
+
+def say_stopped(stopped: Sequence[str]) -> None:
+    """Name on stderr each newer run passed over because it did not finish (R4.31, R4.33)."""
+    for run_id in stopped:
+        typer.echo(stopped_line(run_id), err=True)
 
 
 def declared_entry_points() -> dict[str, dict[str, str]] | None:

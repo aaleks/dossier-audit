@@ -6,8 +6,8 @@ against the latest manifest. A run killed after one of four notes then printed
 `extract: cached` for a step the next run asked three times (R4.12), found live
 in exercise 24. Here a run is stopped the way a kill leaves one on disk: its
 manifest written, the first document's records written, no `failures.json`.
-Run ids made within one second sort by their suffix, so the suffixes are pinned
-in increasing order and "the latest" is the last one made.
+The suffixes are pinned so the ids in a failure read in order; a run made in
+the same second as another is filed after it anyway (R0.15).
 """
 
 from __future__ import annotations

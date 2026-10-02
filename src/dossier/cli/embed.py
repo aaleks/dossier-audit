@@ -128,6 +128,7 @@ def embed(
     # `eval` reads them (R18.8 row 8), and a conversion the cache had lost is
     # made again above before the replay needs it.
     passed_over: list[tuple[str, str]] = []
+    stopped: list[str] = []
     run = (
         None
         if step is None
@@ -139,9 +140,11 @@ def embed(
             converted=cache,
             stage=ArtifactCache(workspace, namespace="stage"),
             unreadable=passed_over,
+            stopped=stopped,
         )
     )
     bootstrap.say_passed_over(passed_over)
+    bootstrap.say_stopped(stopped)
 
     try:
         report = embed_index(
