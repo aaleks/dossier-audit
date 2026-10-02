@@ -125,7 +125,7 @@ def build_index_sink(dsn: str) -> IndexSink:
 
 
 def build_index_search(dsn: str) -> IndexSearch:
-    """The embedding index at `dsn`, to search, reached only when it is first asked (R19.8).
+    """The embedding index at `dsn`, to search, reached only when it is first asked (R19.12).
 
     As `build_index_sink`: the driver is imported then, so a `dossier`
     installed without the `index` extra is told which extra to install.

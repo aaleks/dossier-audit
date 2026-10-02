@@ -10,7 +10,7 @@ it alone or among several (rows 1, 3, 4 and 8), in both of a search's lists,
 and that a filtered list the HNSW scan would leave short is filled (row 7).
 
 Beside them, what the same search does that spec 019's other rules rely on:
-`--as` keeps the chunks a reader may read (R19.5); the words list is
+`--as` keeps the chunks a reader named may read (R19.10); the words list is
 `websearch_to_tsquery('simple', ...)`, best first by `ts_rank_cd` ("How a
 search ranks"); a chunk id breaks a tie (R19.1); and `models` and `snapshots`
 read what R19.6 and R19.7 compare.
@@ -124,7 +124,7 @@ def ask(
     query: str,
     *,
     where: dict[str, list[str]] | None = None,
-    reader: str | None = None,
+    readers: list[str] | None = None,
     candidates: int = 100,
     vector: tuple[float, ...] | None = None,
 ) -> Lists:
@@ -133,7 +133,7 @@ def ask(
         vector=vector or meaning(query),
         words=query,
         where=where or {},
-        reader=reader,
+        readers=readers,
         candidates=candidates,
     )
 
@@ -344,7 +344,7 @@ class TestAFilteredListIsFilled:
 
 
 class TestReader:
-    """R19.5 -- `--as READER` keeps the chunks that reader may read, in both lists."""
+    """R19.10 -- `--as READER`, repeatable, keeps what a reader named may read, both lists."""
 
     @pytest.fixture
     def sources(self, sink: PostgresIndexSink) -> None:
@@ -368,15 +368,24 @@ class TestReader:
         """
         query = "certificate"
 
-        assert by_meaning_and_by_words(ask(search, query, reader="incident-response")) == (
+        assert by_meaning_and_by_words(ask(search, query, readers=["incident-response"])) == (
             {"INC-4830"},
             {"INC-4830"},
         )
-        assert by_meaning_and_by_words(ask(search, query, reader="sre")) == (
+        assert by_meaning_and_by_words(ask(search, query, readers=["sre"])) == (
             {"OPS-114"},
             {"OPS-114"},
         )
         assert by_meaning_and_by_words(ask(search, query)) == (
+            {"INC-4830", "OPS-114"},
+            {"INC-4830", "OPS-114"},
+        )
+
+    def test_two_readers_are_handed_what_either_may_read(self, sources, search):
+        """Row 2 -- the one as `incident-response` and `sre`, in one search."""
+        found = ask(search, "certificate", readers=["incident-response", "sre"])
+
+        assert by_meaning_and_by_words(found) == (
             {"INC-4830", "OPS-114"},
             {"INC-4830", "OPS-114"},
         )
@@ -387,9 +396,11 @@ class TestReader:
             sink, "INC-4830", "The certificate expired at checkout.", values=CARRIED["INC-4830"]
         )
 
-        assert keys(ask(search, "certificate", where=EXPIRING, reader="sre").meaning) == set()
+        assert (
+            keys(ask(search, "certificate", where=EXPIRING, readers=["sre"]).meaning) == set()
+        )
         assert keys(
-            ask(search, "certificate", where=EXPIRING, reader="incident-response").meaning
+            ask(search, "certificate", where=EXPIRING, readers=["incident-response"]).meaning
         ) == {"INC-4830"}
 
 

@@ -1,6 +1,6 @@
 # 019 — Searching the index
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R19.1 – R19.12
 
 ## Purpose
@@ -80,7 +80,7 @@ on each of its parts is declared a `list`.
 **Words, all of them.** `websearch_to_tsquery` matches a chunk holding every
 word of the query, as a web search does, and `simple` drops none: `certificate
 expired at checkout` matches only a chunk holding `at` too. A question in plain
-words often matches no chunk by words, and is ranked by meaning alone (R19.8
+words often matches no chunk by words, and is ranked by meaning alone (R19.12
 row 3). `or` between words widens it, as its syntax allows. Whether any word
 should do is open question 2.
 
@@ -115,7 +115,7 @@ Decided by `a.aleks` on 2026-10-01:
   filtered by reader: whoever holds the DSN can read every row anyway.
   Enforcement in the database is a later spec.
 - One MLflow trace per search, with an EMBEDDING span and a RETRIEVER span, and
-  no MLflow run (R11.34, in spec 011).
+  no MLflow run (R11.35, in spec 011).
 - Documents by default, each at its best chunk; `--chunks` for chunks.
 - `query_instruction:` declared per index, with the default above.
 - Text, and `--json`.
@@ -254,7 +254,7 @@ carried (R18.9 row 5). A refusal comes before the model is asked.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.search.reader_refusal`), infrastructure (`dossier.infrastructure.index.postgres`)
 - **Proved by:** `tests/unit/test_R019_5__as_reader_keeps_what_the_reader_may_read.py`, `tests/integration/test_R019_4__postgres_search_filters.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R19.10
 
 | # | Given | Then |
 |---|-------|------|
@@ -305,7 +305,7 @@ index as fakes, as R18.7's are.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.search`), domain (`dossier.domain.search.excerpt`)
 - **Proved by:** `tests/acceptance/test_R019_8__search_lists_what_answers_the_query.py`, `tests/unit/test_R019_8__a_result_shows_its_text_on_one_line.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R19.12
 
 | # | Given | Then |
 |---|-------|------|
@@ -322,13 +322,13 @@ index as fakes, as R18.7's are.
 A person often reads as more than one reader, and an agent searching for them
 asks as all of theirs at once: `--as incident-response --as sre` lists what
 either may read, in one ranked list. Each reader must be declared by a source
-of the pipeline. When it lands, it supersedes R19.5, whose search without
-`--as` is R19.11's.
+of the pipeline. It supersedes R19.5, whose search without `--as` is
+R19.11's.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.search.readers_for`), infrastructure (`dossier.infrastructure.index.postgres`)
 - **Proved by:** `tests/unit/test_R019_10__as_keeps_what_a_named_reader_may_read.py`, `tests/integration/test_R019_4__postgres_search_filters.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -347,7 +347,7 @@ someone everything. Asking for everything is a choice, and says so.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.search.readers_for`), cli (`dossier.cli.search`)
 - **Proved by:** `tests/unit/test_R019_11__a_search_names_its_readers.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -358,13 +358,13 @@ someone everything. Asking for everything is a choice, and says so.
 ### R19.12 — `dossier search INDEX QUERY --as READER` prints the documents that answer it, best first
 
 The slice's acceptance rule, through the CLI, with the embedding model and the
-index as fakes, as R18.7's are. When R19.10 and R19.11 land, it supersedes
-R19.8, whose searches name no reader.
+index as fakes, as R18.7's are. It supersedes R19.8, whose searches named no
+reader.
 
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.search`), domain (`dossier.domain.search.excerpt`)
-- **Proved by:** `tests/acceptance/test_R019_12__search_lists_what_answers_the_query_for_its_readers.py`
-- **Status:** IN PROGRESS
+- **Proved by:** `tests/acceptance/test_R019_12__search_lists_what_answers_the_query_for_its_readers.py`, `tests/unit/test_R019_12__a_result_shows_its_text_on_one_line.py`
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

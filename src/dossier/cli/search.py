@@ -2,8 +2,9 @@
 
 Everything a person can get wrong is refused before the model is asked: the
 declaration (R18.10), a `--where` the index does not carry (R19.4), a reader
-no source declares (R19.5), the connection string. Then the index is asked
-which model it holds (R19.6), and only then is the query embedded.
+no source declares or no reader at all (R19.10, R19.11), the connection
+string. Then the index is asked which model it holds (R19.6), and only then is
+the query embedded.
 """
 
 from __future__ import annotations
@@ -33,10 +34,11 @@ from dossier.config.load import (
 )
 from dossier.domain.index import carried_output, document_id
 from dossier.domain.search import (
+    ReadersRefused,
     UnfilterableWhere,
     excerpt,
     header,
-    reader_refusal,
+    readers_for,
     unreflected_line,
     values_line,
     wheres,
@@ -69,15 +71,23 @@ def search(
             metavar="FIELD=VALUE",
         ),
     ] = None,
-    reader: Annotated[
-        str | None,
-        typer.Option("--as", help="Keep what READER may read (R19.5).", metavar="READER"),
+    named: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--as",
+            help="Keep what READER may read; repeatable, for any of them (R19.10).",
+            metavar="READER",
+        ),
     ] = None,
+    all_readers: Annotated[
+        bool,
+        typer.Option("--all-readers", help="Search every chunk, whoever may read it (R19.11)."),
+    ] = False,
     chunks: Annotated[
         bool, typer.Option("--chunks", help="List chunks rather than documents (R19.2).")
     ] = False,
     as_json: Annotated[
-        bool, typer.Option("--json", help="Print the results as JSON (R19.8).")
+        bool, typer.Option("--json", help="Print the results as JSON (R19.12).")
     ] = False,
 ) -> None:
     """List the documents of an index that answer a query, best first."""
@@ -103,20 +113,29 @@ def search(
             if source.id in pipeline.sources
             for name in (source.acl or ())
         }
-        refused = reader_refusal(reader, declared=read_by, pipeline=declaration.pipeline)
-        if refused is not None:
-            raise UnfilterableWhere(refused)
+        readers = readers_for(
+            named or [],
+            all_readers=all_readers,
+            declared=read_by,
+            pipeline=declaration.pipeline,
+        )
         dsn = index_dsn(declaration.target.dsn_env, index=index, environ=environment(workspace))
         embedder = bootstrap.build_embedding_provider(declaration.embedding_model)
         searched = bootstrap.build_index_search(dsn)
-    except (ConfigError, UnfilterableWhere, UnknownProvider, IndexSearchFailed) as error:
+    except (
+        ConfigError,
+        UnfilterableWhere,
+        ReadersRefused,
+        UnknownProvider,
+        IndexSearchFailed,
+    ) as error:
         # Refused before anything was asked: the driver missing is an install
         # to fix, named, as a declaration to fix is (R18.7 row 3).
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
 
     # Before any work, as every command's: a server nobody can reach is refused
-    # now, not after the model has been asked (R10.5, R11.34).
+    # now, not after the model has been asked (R10.5, R11.35).
     tracker, experiment = bootstrap.tracking_for(workspace, declaration.pipeline, kind="search")
 
     try:
@@ -124,7 +143,7 @@ def search(
             declaration=declaration,
             query=query,
             where=asked,
-            reader=reader,
+            readers=readers,
             limit=limit,
             chunks=chunks,
             embedder=embedder,
@@ -154,7 +173,7 @@ def search(
             pipeline=declaration.pipeline,
             environ=environment(workspace),
         )
-        # On stderr: stdout is the results, and with --json nothing else (R19.8
+        # On stderr: stdout is the results, and with --json nothing else (R19.12
         # row 2).
         typer.echo(f"recorded to MLflow: {experiment}", err=True)
 
@@ -172,10 +191,10 @@ def _held(workspace: Path, sources: list[str]) -> dict[str, str]:
 
 def printed(report: SearchReport) -> list[str]:
     """The lines a search prints: what was found and as whom, each result, then what the
-    index does not reflect (R19.5, R19.7, R19.8)."""
+    index does not reflect (R19.7, R19.10, R19.12)."""
     lines = [
         header(
-            report.index, found=len(report.found), reader=report.reader, chunks=report.chunks
+            report.index, found=len(report.found), readers=report.readers, chunks=report.chunks
         )
     ]
     if not report.found:
@@ -197,11 +216,11 @@ def printed(report: SearchReport) -> list[str]:
 
 
 def as_document(report: SearchReport) -> dict[str, object]:
-    """The same results as JSON, for a script (R19.8 row 2)."""
+    """The same results as JSON, for a script or an agent (R19.12 row 2)."""
     return {
         "index": report.index,
         "query": report.query,
-        "reader": report.reader,
+        "readers": None if report.readers is None else list(report.readers),
         "results": [
             {
                 "rank": found.rank,

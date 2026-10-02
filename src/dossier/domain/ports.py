@@ -377,7 +377,7 @@ class Tracker(Protocol):
     def end_run(self, *, status: str) -> None: ...
 
     def use_experiment(self, experiment: str) -> None:
-        """Record the traces that follow in `experiment`, under no run (R11.34).
+        """Record the traces that follow in `experiment`, under no run (R11.35).
 
         For a command that changes nothing, and so opens no run: a search.
         """
@@ -713,7 +713,7 @@ class IndexSearch(Protocol):
         vector: Sequence[float],
         words: str,
         where: Mapping[str, Sequence[str]],
-        reader: str | None,
+        readers: Sequence[str] | None,
         candidates: int,
     ) -> Lists:
         """The chunks nearest `vector`, and the chunks `words` match, each best first.
@@ -721,7 +721,8 @@ class IndexSearch(Protocol):
         Both lists are filtered alike before they are cut at `candidates`:
         every field of `where` must hold one of its values, a field's value
         being a document's carried value or any of its values when it holds a
-        list (R19.4); and with a `reader`, a chunk's readers must name it
-        (R19.5). `words` is asked as `websearch_to_tsquery('simple', words)`.
+        list (R19.4); and with `readers`, a chunk's readers must name one of
+        them (R19.10); `None` is every chunk (R19.11). `words` is asked as
+        `websearch_to_tsquery('simple', words)`.
         """
         ...

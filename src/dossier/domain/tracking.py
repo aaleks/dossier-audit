@@ -422,7 +422,7 @@ DEFAULT_NAMES = {
     "gc": "{prefix}gc {started}{label}",
     # Named by its index, which says what was written, and when (R11.33).
     "embed": "{prefix}embed {index} {started}{label}",
-    # A search's trace, which belongs to no run (R11.34).
+    # A search's trace, which belongs to no run (R11.35).
     "search": "{prefix}search {index}{label}",
 }
 

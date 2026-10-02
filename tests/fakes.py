@@ -917,7 +917,7 @@ class FakeIndexSink:
         vector: Sequence[float],
         words: str,
         where: Mapping[str, Sequence[str]],
-        reader: str | None,
+        readers: Sequence[str] | None,
         candidates: int,
     ):
         """Both lists as the real index ranks them, over what `embed` wrote (R19.1).
@@ -931,7 +931,13 @@ class FakeIndexSink:
         from dossier.domain.index import embedding_text
         from dossier.domain.search import Candidate, Described, Lists
 
-        self.searches.append({"where": dict(where), "reader": reader, "words": words})
+        self.searches.append(
+            {
+                "where": dict(where),
+                "readers": None if readers is None else tuple(readers),
+                "words": words,
+            }
+        )
         documents = {document.document_id: document for document in self.held_documents(index)}
 
         def carries(document) -> bool:
@@ -945,7 +951,8 @@ class FakeIndexSink:
         kept = [
             chunk
             for chunk in self.held_chunks(index)
-            if carries(documents[chunk.document_id]) and (reader is None or reader in chunk.acl)
+            if carries(documents[chunk.document_id])
+            and (readers is None or set(readers) & set(chunk.acl))
         ]
 
         def cosine(chunk) -> float:

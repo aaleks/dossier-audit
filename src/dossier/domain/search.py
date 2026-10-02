@@ -180,27 +180,47 @@ def wheres(
     return chosen
 
 
-def reader_refusal(
-    reader: str | None, *, declared: Collection[str], pipeline: str
-) -> str | None:
-    """Why `--as reader` is refused, or `None` (R19.5).
+class ReadersRefused(ValueError):
+    """`--as` and `--all-readers` that name no search: neither, both, or a reader no
+    source declares (R19.10, R19.11). Refused before the model is asked."""
 
-    A reader no source of the pipeline declares would find nothing, and an
-    empty list looks like an answer.
+
+def readers_for(
+    named: Sequence[str], *, all_readers: bool, declared: Collection[str], pipeline: str
+) -> tuple[str, ...] | None:
+    """The readers a search is for, each once and in order, or `None` for every chunk.
+
+    The connection reads every row, so the application holding it keeps readers
+    apart: a search names the readers it is for, or asks for every chunk, and
+    one that does neither is refused rather than listing every chunk for an
+    agent that forgot `--as` (R19.11). A reader no source of the pipeline
+    declares would narrow the search silently, and is refused (R19.10).
     """
-    if reader is None or reader in declared:
+    known = ", ".join(sorted(declared))
+    if named and all_readers:
+        raise ReadersRefused(
+            "--as and --all-readers contradict: name the readers, or ask for every chunk"
+        )
+    if all_readers:
         return None
-    return (
-        f"no source of {pipeline} declares {reader} as a reader; "
-        f"they declare {', '.join(sorted(declared))}"
-    )
+    if not named:
+        raise ReadersRefused(
+            f"name the readers this search is for with --as READER ({known}), "
+            "or search every chunk with --all-readers"
+        )
+    for reader in named:
+        if reader not in declared:
+            raise ReadersRefused(
+                f"no source of {pipeline} declares {reader} as a reader; they declare {known}"
+            )
+    return tuple(sorted(set(named)))
 
 
-def header(index: str, *, found: int, reader: str | None, chunks: bool) -> str:
-    """The line a search opens with: what was found, and as whom (R19.5, R19.8)."""
+def header(index: str, *, found: int, readers: Sequence[str] | None, chunks: bool) -> str:
+    """The line a search opens with: what was found, and for whom (R19.10 - R19.12)."""
     unit = "chunk" if chunks else "document"
     counted = f"{found} {unit}{'' if found == 1 else 's'}"
-    who = "not filtered by reader" if reader is None else f"as {reader}"
+    who = "not filtered by reader" if readers is None else f"as {', '.join(readers)}"
     return f"{index} · {counted} · {who}"
 
 
@@ -241,12 +261,12 @@ def unreflected_line(index: str, count: int) -> str | None:
     return f"{count} held {documents} not in {index} as held: run dossier embed {index}"
 
 
-# How long a result's text is shown, at most, on its one line (R19.8 row 1).
+# How long a result's text is shown, at most, on its one line (R19.12 row 1).
 EXCERPT = 200
 
 
 def excerpt(text: str, *, limit: int = EXCERPT) -> str:
-    """A chunk's text on one line, cut at a word to at most `limit` characters (R19.8).
+    """A chunk's text on one line, cut at a word to at most `limit` characters (R19.12).
 
     Cut with `…`, so a reader knows there is more; a word longer than the
     whole limit is cut where the limit falls.
@@ -259,7 +279,7 @@ def excerpt(text: str, *, limit: int = EXCERPT) -> str:
 
 
 def values_line(values: Mapping[str, object]) -> str | None:
-    """A document's carried values, by field name, or `None` when it carries none (R19.8)."""
+    """A document's carried values, by field name, or `None` when it carries none (R19.12)."""
     if not values:
         return None
     shown = (

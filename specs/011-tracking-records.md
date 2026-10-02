@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.35
 
 ## Purpose
@@ -896,7 +896,7 @@ retrieval views read, and what a later retrieval eval would score.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.search.record_search`)
 - **Proved by:** `tests/unit/test_R011_34__a_search_is_one_trace.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R11.35
 
 | # | Given | Then |
 |---|-------|------|
@@ -910,12 +910,12 @@ retrieval views read, and what a later retrieval eval would score.
 A search changes nothing, so it opens no run. Its trace is what MLflow's
 retrieval views read, and what a later retrieval eval would score. Its request
 names the readers it was for, so the trace says whose search it was. When
-R19.11 lands, it supersedes R11.34, whose search names no reader.
+It supersedes R11.34, whose search named no reader.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.search.record_search`)
 - **Proved by:** `tests/unit/test_R011_35__a_search_is_one_trace.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

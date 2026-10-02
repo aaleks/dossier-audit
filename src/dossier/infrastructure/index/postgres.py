@@ -465,7 +465,7 @@ class PostgresIndexSearch(_PostgresIndex):
         vector: Sequence[float],
         words: str,
         where: Mapping[str, Sequence[str]],
-        reader: str | None,
+        readers: Sequence[str] | None,
         candidates: int,
     ) -> Lists:
         """The chunks nearest `vector` and the chunks `words` match, filtered alike.
@@ -483,7 +483,7 @@ class PostgresIndexSearch(_PostgresIndex):
                 return Lists()
             self._register(connection)
             as_vector = HalfVector if column.startswith("halfvec") else Vector
-            filters, values = _filters(where, reader)
+            filters, values = _filters(where, readers)
             params = {
                 "index": index,
                 "vector": as_vector(list(vector)),
@@ -509,7 +509,7 @@ class PostgresIndexSearch(_PostgresIndex):
 
 
 def _filters(
-    where: Mapping[str, Sequence[str]], reader: str | None
+    where: Mapping[str, Sequence[str]], readers: Sequence[str] | None
 ) -> tuple[sql.Composable, dict[str, object]]:
     """The conditions both lists are filtered by, and the parameters they are bound to.
 
@@ -528,10 +528,11 @@ def _filters(
         )
         values[f"field_{at}"] = field
         values[f"wanted_{at}"] = list(wanted)
-    if reader is not None:
-        # The chunk's own readers, put there so no join can lose them (R18.6).
-        conditions.append(sql.SQL(" AND %(reader)s = ANY(c.acl)"))
-        values["reader"] = reader
+    if readers is not None:
+        # The chunk's own readers, put there so no join can lose them (R18.6):
+        # it is kept when they share one with the readers named (R19.10).
+        conditions.append(sql.SQL(" AND c.acl && %(readers)s::text[]"))
+        values["readers"] = list(readers)
     return sql.SQL("").join(conditions), values
 
 

@@ -13,6 +13,24 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A search names its readers (2026-10-02, R19.10 to R19.12 and R11.35, #675,
+#677 and this). An agent will search on people's behalf, and a search without
+`--as` listed every chunk with only a line saying so. Discovered with
+`a.aleks`: readers are kept apart by the application holding the connection,
+never by Postgres, since roles per reader cannot be managed where `dossier`
+runs. A session setting the policies read would be set by whoever holds the
+connection, so it would enforce nothing. Now `--as` is repeatable, keeping what
+any reader named may read, and a search naming no reader is refused before the
+model is asked, unless it says `--all-readers`. R19.5, R19.8 and R11.34 are
+superseded, since their searches named no reader.
+- Row-level security was measured on `dev/index` before it was turned down:
+  under a policy, the vector index still served the list by meaning, and the
+  words list lost its GIN index, because `@@` is not leakproof and Postgres
+  will not apply it before the policy. Every search by words read every row.
+- `gh pr checks --watch`, run just after a push, printed "no checks reported"
+  and exited 0, so #677 was merged before its gate ran. The gate passed, and a
+  merge now waits for a registered check.
+
 `dossier search` (2026-10-01, spec 019, R11.34 and R0.17, #664 to #668). The
 index `embed` writes could be searched only by writing SQL. `dossier search
 INDEX QUERY` asks it twice, by meaning and by words, and fuses the two ranked

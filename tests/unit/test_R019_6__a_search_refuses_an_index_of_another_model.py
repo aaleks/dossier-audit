@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.acceptance import test_R019_8__search_lists_what_answers_the_query as searched
+from tests.acceptance import (
+    test_R019_12__search_lists_what_answers_the_query_for_its_readers as searched,
+)
 from tests.acceptance.test_R018_7__embed_builds_the_index_from_what_was_synced import _cli
 from tests.acceptance.test_R018_11__embed_carries_the_runs_record import INDEX
 
@@ -53,7 +55,7 @@ class TestASearchRefusesAnIndexOfAnotherModel:
         assert model_refusal("incidents", held=frozenset({DECLARED}), declared=DECLARED) is None
 
 
-# R19.8's workspace, synced, run and embedded, the index a fake; its fixtures
+# R19.12's workspace, synced, run and embedded, the index a fake; its fixtures
 # shared rather than copied.
 issues, embedder, index, run_once, embedded = (
     searched.issues,
@@ -65,7 +67,9 @@ issues, embedder, index, run_once, embedded = (
 
 
 def _search(workspace: Path, monkeypatch, *more: str):
-    return _cli(workspace, monkeypatch, "search", INDEX, searched.QUERY, *more)
+    return _cli(
+        workspace, monkeypatch, "search", INDEX, searched.QUERY, "--as", searched.READER, *more
+    )
 
 
 class TestThroughTheCommand:

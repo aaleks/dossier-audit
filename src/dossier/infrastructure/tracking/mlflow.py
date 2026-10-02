@@ -493,7 +493,7 @@ class MlflowTracker:
         self._this.pending = []
 
     def use_experiment(self, experiment: str) -> None:
-        """Send the traces that follow to `experiment`, under no run (R11.34)."""
+        """Send the traces that follow to `experiment`, under no run (R11.35)."""
         found = self._client.get_experiment_by_name(experiment)
         self._experiment_id = (
             found.experiment_id
