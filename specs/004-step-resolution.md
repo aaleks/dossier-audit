@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.31
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.32
 
 ## Purpose
 
@@ -861,3 +861,33 @@ with `failures not recorded`, because that is what happened to it.
 | 2 | the same, with `prompts/01_extract.md` edited before the second run | the same line; `extract: prompt changed`, compared against the first run's prompt, which is what the next run asks about every document the second did not answer |
 | 3 | only one run, and it stopped before it ended | the same line; `extract: new`, with nothing to compare against |
 | 4 | *counter-example* — the second run finished, failing nothing | no such line; compared against `20260907T090000Z-bbbb` |
+
+### R4.32 — `--plan` reports a step whose last run failed documents as asking them again, naming them
+
+An answer that did not validate, or never came, is never cached (R6.1, R9.23),
+so the next run asks about that document again, and R4.28 row 6 is that run.
+The plan compared what a person edits and what was synced, found nothing
+moved, and printed `cached` for the step. That was R4.12's failure once more:
+the promise said no call, and the run made one per failed document.
+
+The run a plan compares against finished (R4.31), so its `failures.json` names
+every unit it failed, with the step (R4.27). A step that would otherwise be
+`cached` is `failed last run`, and its failed documents are named as moved
+documents are, `<key> failed`, because a person checks them against the
+reasons the run printed. Steps reading it are `upstream changed`, as they are
+for any step that re-runs. A step whose prompt, model or documents also moved
+is reported for that change, which moves every key and asks the failed
+document with the rest.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.plan.diff`), application (`dossier.application.plan.build_plan`), cli
+- **Proved by:** `tests/acceptance/test_R004_32__a_plan_asks_again_what_the_last_run_failed.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the scoring example's last run finished with `INC-4822` failed at `extract` after its retry, nothing changed since; `dossier run incident-audit --plan` | `! extract: failed last run`, then `      moved: [INC-4822 failed]`; `1 of 1 step(s) would run` |
+| 2 | the same, with `verify` reading `extract` | `! verify: upstream changed`, as for any step reading one that re-runs |
+| 3 | *counter-example* — the last run failed nothing | `  extract: cached`, as before |
+| 4 | *counter-example* — the same failure, and `prompts/extract.md` edited since | `! extract: prompt changed`: the change that moves every key is named, and `INC-4822` is asked with the rest |
+| 5 | *counter-example* — the same failure, and `INC-4822` tombstoned since | `  extract: cached`: a document that has left the source is not asked again, as a departure is less work (R4.12 row 8) |
