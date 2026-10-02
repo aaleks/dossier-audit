@@ -1,6 +1,6 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R0.1 – R0.18
 
 ## Purpose
@@ -596,7 +596,7 @@ it, a wheel, has nothing to compare and is not checked.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.install.stale_entry_points`), cli (`dossier.cli.main`), tests (`tests/conftest.py`)
 - **Proved by:** `tests/unit/test_R000_18__a_stale_install_is_refused.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
