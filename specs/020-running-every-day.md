@@ -39,6 +39,12 @@ in `.dossier/lock.json` beside it, written once the lock is held: on Windows a
 locked byte cannot be read by another process, so the details cannot sit in
 the locked file.
 
+The details follow the lock, so for a moment a writer holds the workspace and
+`lock.json` does not yet name it: the file is missing on a workspace's first
+lock, and names the writer before otherwise. A command refused in that moment
+is refused all the same, and a missing or unreadable `lock.json` refuses it
+without the details (row 6). The lock is what refuses; the file only says who.
+
 ## Existing options considered
 
 | Option | Covers | Decision |
@@ -62,3 +68,4 @@ the locked file.
 | 3 | *counter-example* — the same, `dossier status`, `dossier run incident-audit --plan` or `dossier gc` without `--apply` | each runs as before: none of them writes the workspace |
 | 4 | *counter-example* — the run killed, its process gone | the next writer takes the lock: the system released it with the process |
 | 5 | *counter-example* — `dossier sync incident-audit`, then `dossier run incident-audit`, one after the other | both run: a command lets the lock go when it ends |
+| 6 | the lock held and `.dossier/lock.json` missing, or not the details a writer leaves | refused the same way, exit 2, without them: `another dossier command is writing this workspace. Try again when it has finished` |
