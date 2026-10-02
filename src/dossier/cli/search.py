@@ -89,6 +89,12 @@ def search(
     as_json: Annotated[
         bool, typer.Option("--json", help="Print the results as JSON (R19.12).")
     ] = False,
+    label: Annotated[
+        str,
+        typer.Option(
+            "--label", help="A name for this record, in MLflow (R10.11).", metavar="NAME"
+        ),
+    ] = "",
 ) -> None:
     """List the documents of an index that answer a query, best first."""
     workspace = Path.cwd()
@@ -172,6 +178,7 @@ def search(
             where=asked,
             pipeline=declaration.pipeline,
             environ=environment(workspace),
+            label=label,
         )
         # On stderr: stdout is the results, and with --json nothing else (R19.12
         # row 2).

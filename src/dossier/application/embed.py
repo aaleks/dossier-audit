@@ -417,6 +417,7 @@ def record_embed(
     started: str,
     environ: Mapping[str, str],
     dossier_version: str,
+    label: str = "",
 ) -> bool:
     """Record an `embed` that changed the index as one MLflow run, or nothing (R11.33).
 
@@ -428,7 +429,7 @@ def record_embed(
     """
     if not (report.written or report.removed):
         return False
-    label = label_for(None, environ)
+    label = label_for(label, environ)
     tracker.start_run(
         experiment=experiment,
         name=run_name(

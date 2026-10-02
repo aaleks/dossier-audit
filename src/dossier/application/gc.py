@@ -322,6 +322,7 @@ def record_gc(
     started: str,
     environ: Mapping[str, str],
     dossier_version: str,
+    label: str = "",
 ) -> None:
     """Record a `gc --apply` as one MLflow run of what it deleted (R11.28).
 
@@ -331,7 +332,7 @@ def record_gc(
     record is still in MLflow can be traced to the `gc` that removed its files.
     No traces: `gc` asks no model.
     """
-    label = label_for(None, environ)
+    label = label_for(label, environ)
     tracker.start_run(
         experiment=experiment,
         name=run_name(kind="gc", values={"started": started, "label": label}, environ=environ),

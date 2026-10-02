@@ -54,6 +54,12 @@ def gc(
             metavar="RUN",
         ),
     ] = None,
+    label: Annotated[
+        str,
+        typer.Option(
+            "--label", help="A name for this record, in MLflow (R10.11).", metavar="NAME"
+        ),
+    ] = "",
 ) -> None:
     """Delete old runs, tries, replays and the cache entries no kept run reads.
 
@@ -129,6 +135,7 @@ def gc(
             started=started,
             environ=environment(workspace),
             dossier_version=version("dossier"),
+            label=label,
         )
         # Said where it was made, as `eval` and `calibrate` say theirs: without
         # it, only MLflow knows that `gc` recorded anything (R11.28 row 6).

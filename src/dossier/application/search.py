@@ -132,6 +132,7 @@ def record_search(
     where: Mapping[str, Sequence[str]],
     pipeline: str,
     environ: Mapping[str, str],
+    label: str = "",
 ) -> None:
     """Record a search as one trace in `experiment`, under no run (R11.35).
 
@@ -141,7 +142,7 @@ def record_search(
     an EMBEDDING span for the query's vector and a RETRIEVER span for what the
     index answered.
     """
-    label = label_for(None, environ)
+    label = label_for(label, environ)
     tracker.use_experiment(experiment)
     tracker.start_trace(
         name=run_name(

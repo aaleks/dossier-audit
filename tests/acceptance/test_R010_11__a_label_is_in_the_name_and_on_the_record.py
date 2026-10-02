@@ -15,6 +15,13 @@ import re
 from pathlib import Path
 
 import pytest
+from tests.acceptance import (
+    test_R019_12__search_lists_what_answers_the_query_for_its_readers as searched,
+)
+from tests.acceptance.test_R016_1__a_kept_run_replays_after_gc import (
+    _no_model,
+    _three_runs_and_a_try,
+)
 from tests.fakes import FakeTracker, register_connector
 from tests.pipelines import write_pipeline
 from tests.scoring_example import (
@@ -28,6 +35,16 @@ from tests.scoring_example import (
 )
 
 URI = "http://localhost:5000"
+
+# R18.11's workspace, run and embedded, as R19.12 searches it: its fixtures
+# shared rather than copied.
+issues, embedder, index, run_once, embedded = (
+    searched.issues,
+    searched.embedder,
+    searched.index,
+    searched.run_once,
+    searched.embedded,
+)
 
 
 def _cli(workspace: Path, monkeypatch, *args: str):
@@ -136,3 +153,60 @@ class TestALabelIsInTheNameAndOnTheRecord:
         assert result.exit_code == 0, result.output
         assert "dossier.label" not in tracker.runs[0].tags
         assert not tracker.runs[0].name.endswith(" · ")
+
+
+def _labelled(records, kind: str):
+    """The one record of `kind` the command opened."""
+    (record,) = [record for record in records if record.tags.get("dossier.kind") == kind]
+    return record
+
+
+class TestEveryCommandThatRecordsTakesALabel:
+    """R10.11 row 3 — every command that opens a record takes `--label`.
+
+    `gc`, `embed` and `search` read `DOSSIER_MLFLOW_RUN_LABEL` and took no flag
+    (reported by #696). `tracker` comes last in each signature, so the runs and
+    the embed a fixture makes are not on the record the test reads.
+    """
+
+    def test_a_gc_that_deleted_is_labelled(self, workspace: Path, monkeypatch, tracker):
+        """Row 3 — the one that labels a `gc --apply`."""
+        _three_runs_and_a_try(workspace, monkeypatch)
+        _no_model(monkeypatch)
+
+        result = _cli(
+            workspace, monkeypatch, "gc", "--keep-last", "2", "--apply", "--label", "v2"
+        )
+
+        assert result.exit_code == 0, result.output
+        record = _labelled(tracker.runs, "gc")
+        assert record.tags["dossier.label"] == "v2"
+        assert record.name.endswith("v2")
+
+    def test_an_embed_that_wrote_is_labelled(self, run_once: Path, monkeypatch, tracker):
+        """Row 3 — the one that labels an `embed`."""
+        result = _cli(run_once, monkeypatch, "embed", searched.INDEX, "--label", "v2")
+
+        assert result.exit_code == 0, result.output
+        record = _labelled(tracker.runs, "embed")
+        assert record.tags["dossier.label"] == "v2"
+        assert record.name.endswith("v2")
+
+    def test_a_search_is_labelled(self, embedded: Path, monkeypatch, tracker):
+        """Row 3 — the one that labels a `search`, whose record is a trace."""
+        result = _cli(
+            embedded,
+            monkeypatch,
+            "search",
+            searched.INDEX,
+            searched.QUERY,
+            "--as",
+            searched.READER,
+            "--label",
+            "v2",
+        )
+
+        assert result.exit_code == 0, result.output
+        trace = _labelled(tracker.traces, "search")
+        assert trace.tags["dossier.label"] == "v2"
+        assert trace.name.endswith("v2")
