@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.32
 
 ## Purpose
@@ -39,11 +39,11 @@ Written to `runs/<run_id>/manifest.json` before the first stage executes:
 ## Plan diffing
 
 `dossier run <pipeline> --plan` resolves the pipeline, compares it against the
-most recent manifest for that pipeline, and prints per step: `cached`,
-`prompt changed`, `declaration changed`, `inputs changed`, `model changed`,
-`converters changed`, `documents changed`, `upstream changed`, or `new`. It
-executes nothing, and it is keyed exactly as a run is, so `cached` is a promise
-the run keeps (R4.12).
+most recent run of that pipeline that finished (R4.31), and prints per step:
+`cached`, `prompt changed`, `declaration changed`, `inputs changed`, `model
+changed`, `converters changed`, `documents changed`, `upstream changed`,
+`failed last run` (R4.32), or `new`. It executes nothing, and it is keyed
+exactly as a run is, so `cached` is a promise the run keeps (R4.12).
 
 A stage key covers the step's inputs, its prompt, its declaration, the pinned
 model identifier and the hash of every input it reads (spec 005). The last three
@@ -882,7 +882,7 @@ document with the rest.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.plan.diff`), application (`dossier.application.plan.build_plan`), cli
 - **Proved by:** `tests/acceptance/test_R004_32__a_plan_asks_again_what_the_last_run_failed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

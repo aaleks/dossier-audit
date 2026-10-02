@@ -204,6 +204,12 @@ def run(
         schemas=load_output_schemas(config, path),
     )
 
+    # What the run compared against failed: never cached, so asked again (R4.32).
+    failed: dict[str, list[str]] = {}
+    if previous_id is not None:
+        for entry in recorded_failures(workspace / RUNS_ROOT / previous_id) or ():
+            failed.setdefault(str(entry["step"]), []).append(str(entry["document"]))
+
     try:
         report = build_plan(
             pipeline=config,
@@ -214,6 +220,7 @@ def run(
             previous_id=previous_id,
             prompt_hashes=prompt_hashes,
             schema_hashes=schema_hashes,
+            failed=failed,
             # Read here, as the run reads them, because a raised converter
             # version changes the text every step reads and therefore every key
             # above it (R5.4). Listing entry points opens no file a plan may not

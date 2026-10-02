@@ -13,6 +13,18 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A plan names what the last run failed as asked again (2026-10-02, R4.32,
+#704 and this). An answer that did not validate, or never came, is never
+cached, so the next run asks that document again; the plan found nothing
+edited or synced and printed `cached`, R4.12's failure once more. The run a
+plan compares against now always finished (R4.31), so its `failures.json`
+names every unit it failed. A step that would otherwise be `cached` is now
+`failed last run`, naming each document `<key> failed` as moved documents are
+named, and the steps reading it are `upstream changed`. Any other change
+outranks it, since it moves every key. Writing the code found one more case,
+added as row 5 before it landed: a failed document tombstoned since is not
+asked again, so it is not named.
+
 A plan compares against the latest run that finished (2026-10-02, R4.31,
 #702 and this). Exercise 24's live pass found it: a run killed after one of
 four notes, then `--plan` printed `extract: cached` and `0 of 2 step(s) would
@@ -25,9 +37,9 @@ missing because the run stopped, or because it has not ended yet. The first
 wording, "stopped before it ended", was untrue of a run still going beside the
 plan, and was changed before the rule landed. R4.5's test recorded a run
 through `Manifest` "as a real run would", and now writes its `failures.json`
-too. Still open, and reported: after a finished run that failed documents, the
-plan also says `cached`, and a later run asks those documents again (R4.28
-row 6).
+too. After a finished run that failed documents, the plan still said
+`cached`, and a later run asked those documents again (R4.28 row 6): R4.32,
+next.
 
 The version says which commit wrote a record (2026-10-02, R20.2, #700 and
 this). `dossier_version` is in every manifest and record, and `pyproject.toml`
