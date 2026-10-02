@@ -1,0 +1,22 @@
+# Two steps, asked of two models. `extract` reads each note and is asked by the
+# pipeline's model, the cheap one. `summary` reads every extraction at once and
+# names a model of its own (R3.14), the one you would pay more for.
+#
+# Each step's key holds the model its step is asked with (R5.13), so changing
+# one model moves the keys of the steps it asks and no others.
+sources: [incidents]
+
+model: openai:gpt-5.4-mini
+
+steps:
+  - id: extract
+    prompt: prompts/01_extract.md
+    input: documents
+    mode: per_file
+    output: schemas/incident.yaml
+
+  - id: summary
+    prompt: prompts/02_summary.md
+    input: extract
+    mode: aggregate
+    model: openai:gpt-5.4

@@ -1,0 +1,12 @@
+# One folder of scans: a weekly review photocopied whole, and the same review
+# with only its first page photocopied.
+#
+# `converters:` names the converter that answers a PDF's `markdown`. Without
+# it, `pdf-markdown` answers, which reads a text layer and nothing else (R8.13).
+# `docling-markdown` is opt-in: it answers only a workspace that names it.
+converters: [docling-markdown]
+
+sources:
+  - id: scans
+    type: folder
+    path: inbox/scans/

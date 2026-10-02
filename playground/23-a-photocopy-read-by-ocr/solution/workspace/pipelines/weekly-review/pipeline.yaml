@@ -1,0 +1,12 @@
+# One step over each scan's text. Which converter made that text is the
+# workspace's choice, in `sources.yaml`, and it is in every key (R8.13, R5.4).
+sources: [scans]
+
+model: openai:gpt-5.4-mini
+
+steps:
+  - id: extract
+    prompt: prompts/01_extract.md
+    input: documents
+    mode: per_file
+    output: schemas/review.yaml

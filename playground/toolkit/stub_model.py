@@ -43,6 +43,18 @@ there is none -- silence would look like a model bug rather than a missing rule.
 Every request is appended to the log as one JSON line, so an exercise can ask how
 many calls a command made, which is the claim several rules are about (R5.5,
 R7.18, R11.2).
+
+Two switches make it behave more like a paid endpoint, and both are off unless
+asked for, so every exercise written before them reads as it did:
+
+    --usage       answer with `usage`, as an OpenAI-compatible server does: one
+                  token per four characters of prompt and of reply, rounded up.
+                  Made up, and the same on every machine, which is what lets a
+                  solution print a count. Without it the stub reports nothing,
+                  the way a passthrough that strips `usage` does (R9.18 row 4).
+    --delay S     take S seconds over each answer, as a model takes time. The
+                  server answers several requests at once, so this is what
+                  shows what `dossier run --concurrency` buys (R9.19).
 """
 
 from __future__ import annotations
@@ -51,8 +63,10 @@ import argparse
 import base64
 import hashlib
 import json
+import math
 import re
 import sys
+import time
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -143,6 +157,16 @@ def _asked(messages: Sequence[dict]) -> tuple[str, list[str]]:
     return "\n".join(text), images
 
 
+def _tokens(text: str) -> int:
+    """A made-up token count: one per four characters, rounded up.
+
+    Not any tokenizer's. A real one would make the count depend on which
+    library is installed; this depends on the text alone, so the numbers an
+    exercise prints are the numbers you get.
+    """
+    return math.ceil(len(text) / 4)
+
+
 def _as_text(reply: object) -> str:
     """A rule's reply as the model would have returned it.
 
@@ -161,6 +185,8 @@ class Handler(BaseHTTPRequestHandler):
     replies: Replies
     log_path: Path | None
     served_model: str = "stub"
+    report_usage: bool = False
+    delay: float = 0.0
     protocol_version = "HTTP/1.1"
 
     def do_GET(self) -> None:  # noqa: N802 - the name http.server requires
@@ -185,6 +211,10 @@ class Handler(BaseHTTPRequestHandler):
         prompt, images = _asked(body.get("messages", []))
         reply = self.replies.reply_to(prompt, images)
         self._record(body, prompt, reply, images)
+        if self.delay:
+            # Slept in this request's own thread, so requests sent together are
+            # slept through together, as a real endpoint serves them.
+            time.sleep(self.delay)
 
         if reply is None:
             # Named, not answered. A stub that invented something here would send
@@ -196,7 +226,13 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
-        self._json(200, {"choices": [{"message": {"role": "assistant", "content": reply}}]})
+        answer: dict = {"choices": [{"message": {"role": "assistant", "content": reply}}]}
+        if self.report_usage:
+            answer["usage"] = {
+                "prompt_tokens": _tokens(prompt),
+                "completion_tokens": _tokens(reply),
+            }
+        self._json(200, answer)
 
     def _record(
         self, body: dict, prompt: str, reply: str | None, images: Sequence[str]
@@ -264,6 +300,17 @@ def main(argv: list[str] | None = None) -> int:
         default="stub",
         help="what GET /models reports, for a provider that checks (R9.6)",
     )
+    parser.add_argument(
+        "--usage",
+        action="store_true",
+        help="report token counts with each answer (one per four characters)",
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=0.0,
+        help="seconds to take over each answer",
+    )
     arguments = parser.parse_args(argv)
 
     missing = [path for path in arguments.replies if not path.is_file()]
@@ -274,12 +321,16 @@ def main(argv: list[str] | None = None) -> int:
     Handler.replies = Replies(arguments.replies)
     Handler.log_path = arguments.log
     Handler.served_model = arguments.served_model
+    Handler.report_usage = arguments.usage
+    Handler.delay = arguments.delay
 
     server = ThreadingHTTPServer((arguments.host, arguments.port), Handler)
     print(
         f"stub model on http://{arguments.host}:{arguments.port} "
         f"· rules {', '.join(str(path) for path in arguments.replies)} "
-        f"· log {arguments.log or 'off'}",
+        f"· log {arguments.log or 'off'}"
+        + (" · usage reported" if arguments.usage else "")
+        + (f" · {arguments.delay:g} s an answer" if arguments.delay else ""),
         flush=True,
     )
     try:

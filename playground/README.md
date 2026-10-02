@@ -12,13 +12,21 @@ to someone else without leaning on it, asking one question of a contract that
 is several files, checking incidents against the procedures that apply to
 them without auditing the procedures, reading three public websites as
 documents, one of them drawn by a browser, scoring answers that are not text:
-a yes or no, a length of time, and a list, and finally indexing the notes to
-search them by meaning, and asking that index questions.
+a yes or no, a length of time, and a list, indexing the notes to search them by
+meaning, and asking that index questions, and finally saying what a run cost and
+making it faster, and reading a photocopy back into text.
 
-**Exercises 01 to 10, 16, 17 and 19 run offline, in seconds, at zero cost.** No API key, no
-model bill, no network. A stub model server in `toolkit/` answers the same
-OpenAI-compatible route a real endpoint would, from a file of rules you can read
-and edit — so the code path is the real one and the answers are yours to control.
+**Exercises 01 to 10, 12 to 14, 16, 17, 19 and 22 run offline, in seconds, at zero cost.**
+No API key, no model bill, no network. A stub model server in `toolkit/` answers
+the same OpenAI-compatible route a real endpoint would, from a file of rules you
+can read and edit — so the code path is the real one and the answers are yours
+to control. Exercises 08, 12, 13 and 14, and task 7 of 22, also start a local
+MLflow server; it is still your machine and nothing else.
+
+**Exercise 23 needs Docling.** The `docling` extra brings torch, and Docling's
+model weights are downloaded once, at the commits `dossier` pins. After that it
+runs offline, against the stub, and its first conversion takes between half a
+minute and a few minutes on a CPU.
 
 **Exercises 11, 15, 18, 20 and 21 are the exceptions, deliberately.** Exercise 11 brings up
 a Jira Data Center in Docker, which costs an evaluation licence, about 4 GB of
@@ -46,7 +54,7 @@ others promise.
 
 ```bash
 uv sync --all-extras          # or: pip install -e ".[tracking]" and the dev group
-.venv/bin/dossier --help      # sync · run · convert · calibrate · eval
+.venv/bin/dossier --help      # sync · run · convert · eval · calibrate · status · gc · embed · search, and more
 ```
 
 Every exercise assumes you run `dossier` from a **workspace**: a directory
@@ -83,6 +91,8 @@ when you want the reasoning behind what you just saw.
 | 19 | [Answers that are not text](19-answers-that-are-not-text/) | a `boolean`, a `duration` and a `list`, a prompt that says how each is answered, `false` against `null`, why three months is not ninety days, one record per item scored as a set, item precision and recall, gold refused before scoring, a kind that is not there, and one question answered twice | R7.36, R7.37, R7.38, R7.40, R7.41, R7.43, R7.44, R6.24, R6.2, R7.3, R7.2 |
 | 20 | [An index to search by meaning](20-an-index-to-search-by-meaning/) | an index declared apart from its pipeline, who may read a source, chunks cut at their headings and embedded with them, a vector cache that makes a second `embed` free, a search by words and a search by meaning and what each one misses, a run's categories carried only where grounded and only while the note is the one the run read, declarations refused before any work, an `embed` recorded in MLflow, and an index rebuilt from the workspace | R18.1 – R18.11, R11.33 |
 | 21 | [Asking the index a question](21-asking-the-index-a-question/) | `dossier search`, the readers a search names and the one refused for naming none, a note listed once at its best chunk, a ranking by meaning and a ranking by words fused by reciprocal rank, what decides a tie, a key found by its words and a question found by meaning alone, chunks against documents, filters on a run's values and the spelling they are read in, readers, refusals before the model is asked, notes the index has not seen, the question's instruction and its cached vector, and a search recorded as one trace with no run | R19.1 – R19.4, R19.6, R19.7, R19.9 – R19.12, R11.35 |
+| 22 | [What a run costs, and how fast it goes](22-what-a-run-costs-and-how-fast-it-goes/) | a step that names its own model, a model name refused because it moves, which keys a model moves and what the plan cannot know, tokens per step and per record, a retry that is paid for, "not reported" against nothing asked, `--concurrency` and `DOSSIER_CONCURRENCY` writing the same bytes faster, and a label, tokens and models in MLflow | R3.14, R3.4, R9.14, R5.13, R5.2, R5.11, R5.12, R9.18, R9.19, R9.17, R10.11, R11.20, R11.21, R11.22 |
+| 23 | [A photocopy, read by OCR](23-a-photocopy-read-by-ocr/) | a PDF with no text layer, a workspace naming the converter that answers a pair, weights that are pinned and never fetched, OCR only where a page has no text layer, what OCR writes down and what it misses, a span that quotes the converted text and one that quotes the paper, and a converter name nothing answers | R8.1, R8.13, R8.14, R8.15, R8.2, R8.6, R8.9, R5.4, R6.4, R6.17 – R6.19 |
 
 ## How an exercise folder is laid out
 
@@ -112,7 +122,9 @@ corpus/incidents/      four markdown incident notes (PLAY-1001 … PLAY-1004)
 corpus/exports/        three HTML wiki exports and a CSV register (PLAY-4001 … PLAY-4004)
 corpus/scans/          two small PDFs and a PNG, from toolkit/make_sample_pdfs.py
 corpus/observability/  five PDFs and a screenshot, from toolkit/make_observability_docs.py
-toolkit/               the stub model server, and the two document generators
+toolkit/               the stub model server, the two document generators, and
+                       make_photocopies.py, which photocopies PLAY-3005 on demand
+                       for exercise 23 rather than keeping 800 KB of pictures here
 ```
 
 `corpus/incidents/` is used twice over, which is the point of using it twice.
@@ -182,6 +194,12 @@ that differs between two of its calls — which is exactly what the stage key
 says, holding the part by content hash and nothing else about it (R3.12). The
 log records how many images each call carried and which, because "the pages
 reached the model" is not something the text of a prompt can show.
+
+Two switches, both off unless given, make it more like a paid endpoint (exercise
+22). `--usage` reports what each answer cost, at a made-up but fixed one token
+per four characters; without it the stub reports nothing, and a run says
+`tokens not reported` (R9.18). `--delay S` takes S seconds over each answer, so
+`--concurrency` has something to win (R9.19).
 
 It is an **endpoint**, never a provider. A provider is a package that declares a
 `dossier.models` entry point (R9.1, R9.7); this is a few hundred lines of the

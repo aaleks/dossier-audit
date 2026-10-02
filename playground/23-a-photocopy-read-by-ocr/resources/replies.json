@@ -1,0 +1,147 @@
+{
+  "_comment": [
+    "What the stub answers in exercise 23. First match wins.",
+    "A model quotes what it was shown. So each rule needs the words it quotes to be",
+    "in the prompt: the half-photocopy's first page as its text layer has it, and",
+    "the photocopy's as OCR read it -- `Severity:critical`, with no space, because",
+    "that is what Docling's OCR wrote. Shown no text at all, it says so."
+  ],
+  "rules": [
+    {
+      "match": [
+        "PLAY-3007-weekly-review-photocopied.pdf",
+        "Severity:critical"
+      ],
+      "reply": {
+        "document": "PLAY-3007-weekly-review-photocopied.pdf",
+        "fields": [
+          {
+            "field": "resolution_date",
+            "value": "2026-09-08",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3007-weekly-review-photocopied.pdf",
+              "page": 1,
+              "span": "Resolved:2026-09-08"
+            }
+          },
+          {
+            "field": "severity",
+            "value": "critical",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3007-weekly-review-photocopied.pdf",
+              "page": 1,
+              "span": "Severity:critical"
+            }
+          },
+          {
+            "field": "affected_systems",
+            "value": "checkout-service, payments-api, edge-gateway",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3007-weekly-review-photocopied.pdf",
+              "page": 1,
+              "span": "Affected systems: checkout-service, payments-api, edge-gateway"
+            }
+          },
+          {
+            "field": "root_cause",
+            "value": "the three incidents of the week share one cause -- a retry budget that is configured per service and enforced nowhere, so each component amplified the failure of the one beneath it",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3007-weekly-review-photocopied.pdf",
+              "page": 1,
+              "span": "Root cause: the three incidents of the week share one cause -- a retry budget that is configured per service and enforced nowhere, so each component amplified the failure of the one beneath it"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": [
+        "PLAY-3007-weekly-review-photocopied.pdf"
+      ],
+      "reply": {
+        "document": "PLAY-3007-weekly-review-photocopied.pdf",
+        "fields": [
+          {
+            "field": "resolution_date",
+            "value": null,
+            "reason": "The review holds no text: four page markers and nothing between them.",
+            "confidence": "high"
+          },
+          {
+            "field": "severity",
+            "value": null,
+            "reason": "The review holds no text: four page markers and nothing between them.",
+            "confidence": "high"
+          },
+          {
+            "field": "affected_systems",
+            "value": null,
+            "reason": "The review holds no text: four page markers and nothing between them.",
+            "confidence": "high"
+          },
+          {
+            "field": "root_cause",
+            "value": null,
+            "reason": "The review holds no text: four page markers and nothing between them.",
+            "confidence": "high"
+          }
+        ]
+      }
+    },
+    {
+      "match": [
+        "PLAY-3008-weekly-review-half-photocopied.pdf",
+        "Severity: critical"
+      ],
+      "reply": {
+        "document": "PLAY-3008-weekly-review-half-photocopied.pdf",
+        "fields": [
+          {
+            "field": "resolution_date",
+            "value": "2026-09-08",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3008-weekly-review-half-photocopied.pdf",
+              "page": 1,
+              "span": "Resolved: 2026-09-08"
+            }
+          },
+          {
+            "field": "severity",
+            "value": "critical",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3008-weekly-review-half-photocopied.pdf",
+              "page": 1,
+              "span": "Severity: critical"
+            }
+          },
+          {
+            "field": "affected_systems",
+            "value": "checkout-service, payments-api, edge-gateway",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3008-weekly-review-half-photocopied.pdf",
+              "page": 1,
+              "span": "Affected systems: checkout-service, payments-api, edge-gateway"
+            }
+          },
+          {
+            "field": "root_cause",
+            "value": "the three incidents of the week share one cause -- a retry budget that is configured per service and enforced nowhere, so each component amplified the failure of the one beneath it",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3008-weekly-review-half-photocopied.pdf",
+              "page": 1,
+              "span": "Root cause: the three incidents of the week share one cause -- a retry budget that is configured per service and enforced nowhere, so each component amplified the failure of the one beneath it"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

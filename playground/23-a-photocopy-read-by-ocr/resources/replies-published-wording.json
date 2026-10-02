@@ -1,0 +1,60 @@
+{
+  "_comment": [
+    "Layered in front of replies.json: the photocopy answered as a model that knows",
+    "how a heading is usually written would answer it, with a space after each colon.",
+    "The words are right. They are not what the document, as converted, says."
+  ],
+  "rules": [
+    {
+      "match": [
+        "PLAY-3007-weekly-review-photocopied.pdf",
+        "Severity:critical"
+      ],
+      "reply": {
+        "document": "PLAY-3007-weekly-review-photocopied.pdf",
+        "fields": [
+          {
+            "field": "resolution_date",
+            "value": "2026-09-08",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3007-weekly-review-photocopied.pdf",
+              "page": 1,
+              "span": "Resolved: 2026-09-08"
+            }
+          },
+          {
+            "field": "severity",
+            "value": "critical",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3007-weekly-review-photocopied.pdf",
+              "page": 1,
+              "span": "Severity: critical"
+            }
+          },
+          {
+            "field": "affected_systems",
+            "value": "checkout-service, payments-api, edge-gateway",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3007-weekly-review-photocopied.pdf",
+              "page": 1,
+              "span": "Affected systems: checkout-service, payments-api, edge-gateway"
+            }
+          },
+          {
+            "field": "root_cause",
+            "value": "the three incidents of the week share one cause -- a retry budget that is configured per service and enforced nowhere, so each component amplified the failure of the one beneath it",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-3007-weekly-review-photocopied.pdf",
+              "page": 1,
+              "span": "Root cause: the three incidents of the week share one cause -- a retry budget that is configured per service and enforced nowhere, so each component amplified the failure of the one beneath it"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

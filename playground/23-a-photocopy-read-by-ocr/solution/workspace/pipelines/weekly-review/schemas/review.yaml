@@ -1,0 +1,7 @@
+# What a weekly review states on its first page, in sentences: everything here
+# can be grounded, once there is text to ground it in (R6.4).
+fields:
+  resolution_date:  {kind: date}
+  severity:         {kind: enum, values: [minor, major, critical]}
+  affected_systems: {kind: reference}
+  root_cause:       {kind: free_text, judge: rubrics/root_cause.md}
