@@ -1,7 +1,7 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Implemented
-**Rules:** R0.1 – R0.17
+**Status:** Partially implemented
+**Rules:** R0.1 – R0.18
 
 ## Purpose
 
@@ -576,3 +576,32 @@ still derived data: nothing it holds enters a key, a manifest or a score.
 | 10 | *counter-example* — a chunk with no vector in the cache, during `dossier embed` | reaches the model, once, through `dossier.infrastructure.models`; R18.3 is the claim that it never happens twice for the same text |
 | 11 | `dossier/domain/keys.py`, `dossier/application/run.py` or `dossier/application/eval.py` imports `dossier.domain.search` or the `IndexSearch` port | violation: nothing a search reads enters a key, a manifest or a score |
 | 12 | *counter-example* — `dossier/application/search.py` imports the `IndexSearch` port | allowed; a search is where it is read |
+
+### R0.18 — a `dossier` whose installed entry points are not the ones its source declares stops before any work, saying to reinstall
+
+Connectors, converters, model providers, embedding providers, chunkers and
+MLflow's credential provider are all found by entry point (R1.7, R8.7, R9.1,
+R18.3, R10.17). Those come from the metadata written when `dossier` was
+installed, not from `pyproject.toml`, so an install made before an entry point
+was added cannot find it. It then fails on whatever needed it, saying a
+provider, a type or a converter is not installed, while the source plainly
+holds it. Run for analysis_v2 from a shared `.venv`, the suite failed R18.11
+with `no installed provider for ollama` on a commit CI passed. This project
+has fallen into that trap more than once. R10.17 row 8 already refuses one
+such install, for MLflow's provider alone. Now every command, and the test
+suite, compares what the source declares with what is installed, and names
+the difference with the one fix: reinstall. An install with no source beside
+it, a wheel, has nothing to compare and is not checked.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.install.stale_entry_points`), cli (`dossier.cli.main`), tests (`tests/conftest.py`)
+- **Proved by:** `tests/unit/test_R000_18__a_stale_install_is_refused.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | an editable install made before `pyproject.toml` declared `dossier.embeddings` `ollama`; `dossier status` | exit 2, before any work: `dossier is installed from older metadata than its source: dossier.embeddings ollama is declared and not installed. Reinstall it: uv sync` |
+| 2 | the same, `pytest` | the session stops with that line, before any test runs |
+| 3 | an entry point installed and no longer declared, or declared with another target | refused the same way, naming it: `installed and no longer declared`, or `declared as <target>, installed as <target>` |
+| 4 | *counter-example* — an install with no `pyproject.toml` of `dossier` beside its source | no check |
+| 5 | *counter-example* — the installed entry points the same as the declared ones | nothing said |
