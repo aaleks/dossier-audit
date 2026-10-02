@@ -175,7 +175,7 @@ embedding model and a chunker. Each document its sources hold active is cut at
 its headings into chunks of at most `max_chars`, each carrying the headings above
 it. Each chunk is embedded only when no vector is cached for that model and text,
 and written to a Postgres + pgvector index that `dossier` owns. Fields the index
-names are carried from the pipeline's latest run, reproduced from the cache as
+names are carried from the pipeline's latest run that finished (R4.33), reproduced from the cache as
 `dossier eval` reads it (never from the copies under `runs/`, which are yours to
 edit), but only when that run read the
 snapshot held now, and only the values it grounded in the document:

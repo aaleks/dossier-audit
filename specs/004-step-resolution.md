@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.33
 
 ## Purpose
@@ -914,7 +914,7 @@ given.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.plan.latest_manifest`, `dossier.application.embed.read_latest_run`), cli
 - **Proved by:** `tests/acceptance/test_R004_33__eval_and_embed_pass_over_a_run_that_stopped.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

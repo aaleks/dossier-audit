@@ -13,6 +13,22 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`eval` and `embed` read the latest run that finished (2026-10-03, R4.33,
+#710 and this). Decided by a.aleks on 2026-10-02, on a wrong premise: the
+question put to them said `eval` scored a stopped run's partial answers.
+Measured before the rule was written, it did not. A run that died after one document made `eval`
+stop, exit 2, on "this run cannot be reproduced", and nothing could be
+scored until another run finished, though the run before it was whole;
+`embed` carried no fields. The premise was corrected in the spec PR, and the
+decision, against refusing, still held. Both now pass over a run with no
+`failures.json`, name it with R4.31's line, and read the latest that finished.
+The first probe was not faithful either: deleting a finished run's
+`failures.json` leaves every answer cached, so `eval` scored it whole. The
+test stops a run for real, with a model that dies partway. Writing it also
+showed that pinning run-id suffixes, as the R4.31 and R16.1 tests do, is not
+what orders them: R0.15 files a run made in the same second after the one
+before it.
+
 The read-back half of the hash boundary is written whole (2026-10-03, R0.19,
 #708 and this). R0.17 said tracking reads back only what specs 012 to 015
 fence, while spec 010 has it read a credential check, an OIDC token and

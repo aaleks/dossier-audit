@@ -254,7 +254,9 @@ def eval_(
     # A version is part of the record, so it rides on the same switch (R10.1).
     versions = bootstrap.versions_for(workspace) if tracker is not None else None
 
-    _, run_dir = bootstrap.latest_run(workspace, pipeline)
+    # The latest run that finished: one that stopped never asked about some
+    # documents, so it cannot be reproduced and scored (R4.33).
+    _, run_dir = bootstrap.latest_run(workspace, pipeline, finished=True)
     if run_dir is None:
         typer.echo(
             f"{pipeline}: no run to score. Run `dossier run {pipeline}` first.", err=True
