@@ -141,7 +141,7 @@ back what the index is for: chunks, their text, their documents' titles and
 values, and their ranks. It does so through its own port, `IndexSearch`, so
 `IndexSink` still reads back only ids and hashes. Nothing a search reads
 enters a key, a manifest or a score. It reaches the terminal and MLflow, and
-nothing else. R0.17 says so, superseding R0.16.
+nothing else. R0.17 said so, superseding R0.16, and R0.19 says so now.
 
 ## Existing options considered
 

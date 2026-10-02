@@ -377,7 +377,7 @@ credible if the command says so.
 
 A snapshot's media type is whatever its connector said it was, recorded when the
 payload was fetched. Nothing downstream re-derives it: a name on disk is not
-evidence about content (R8.3), and conversion may not re-fetch to ask (R0.17).
+evidence about content (R8.3), and conversion may not re-fetch to ask (R0.19).
 
 The connector may have had to guess — a folder source has only the filename to go
 on — and that is fine. What matters is that the guess is made once, by the only

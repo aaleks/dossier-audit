@@ -237,7 +237,7 @@ a definition of correct nobody agreed to.
 MLflow has been something `dossier` writes to and never an input (R0.10, R12.4,
 R13.4, R14.5). Review makes one exception, and fences it the way each of those
 did. Verdicts are read through a port of their own, `ReviewSource`, which only
-`dossier review pull` builds; the `Tracker` still returns nothing (R0.10 row 5).
+`dossier review pull` builds; the `Tracker` still returns nothing (R0.19 row 13).
 What it reads lands in `review/<pipeline>/`, which no command reads but `review
 apply`, and reaches the gold set only through a file a maintainer applied with a
 reviewer's name on every line (R7.7). No run, plan, replay, eval or calibration
@@ -252,7 +252,7 @@ artifact or score.
 | # | Given | Then |
 |---|-------|------|
 | 1 | every module of `dossier.cli` | `build_review_source` called from `review pull` and from no other command |
-| 2 | the `Tracker` port | still declares no method returning anything read from the server (R0.10 row 5) |
+| 2 | the `Tracker` port | still declares no method returning anything read from the server (R0.19 row 13) |
 | 3 | a run of `incident-audit` after reviewers left verdicts on the last one | the same keys, manifest and artifacts as with none; nothing was read |
 | 4 | *counter-example* — `dossier eval` after a pull, with `candidates.jsonl` unapplied | scores against the gold set as it is; a candidate is not gold until applied |
 
