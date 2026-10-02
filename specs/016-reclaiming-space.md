@@ -45,9 +45,9 @@ delete and how much space that frees: the first command that deletes cannot do
 so by accident (decided by `a.aleks` on 2026-09-30). Space is the bytes of every
 file deleted, printed in MB of 10^6 bytes to one decimal.
 
-`gc` takes no lock. Run beside a `dossier run`, it can delete entries that run
-is writing and no manifest names yet. A lock between commands is its own
-feature, and until one exists, `gc` is run when nothing else is.
+`gc --apply` takes the workspace's lock, as every command that writes does
+(R20.1). Before the lock, run beside a `dossier run`, it could delete entries
+that run was writing and no manifest named yet.
 
 ## Existing options considered
 
