@@ -7,7 +7,7 @@ inspect. `mlflow` is imported only when tracking is on, so a machine without the
 extra loses nothing it did not ask for.
 
 `MlflowTracker` implements the `Tracker` port with `MlflowClient`. Every method
-sends and returns nothing (R0.10); the ids MLflow assigns stay inside it.
+sends and returns nothing (R15.5 row 2); the ids MLflow assigns stay inside it.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ from dossier.infrastructure.tracking.auth import PROVIDER, configure, configured
 from dossier.infrastructure.tracking.oidc import TokenRefused, TokenSource, unverified
 
 # How the startup check reaches the server. `None` is a real connection; a test
-# answers with an `httpx.MockTransport`, so no socket is opened (R0.10).
+# answers with an `httpx.MockTransport`, so no socket is opened (R0.17).
 HEALTH_TRANSPORT: httpx.BaseTransport | None = None
 
 # Long enough for a server under load to answer a health check, short enough
@@ -220,7 +220,7 @@ class MlflowTracker:
 
     MLflow's own run, trace and span ids are kept here and never handed back:
     the port returns nothing, which is what keeps a record from becoming an
-    input to a run (R0.10, R10.4).
+    input to a run (R15.5 row 2, R10.4).
     """
 
     def __init__(self, uri: str) -> None:
@@ -254,7 +254,7 @@ class MlflowTracker:
         self._opened: list[str | None] = []
         # The places, among `_opened`, of the traces the server turned out not to
         # hold. Places rather than ids: the port reads no id back from a server,
-        # so nothing MLflow holds can become an input (R0.10). Read by
+        # so nothing MLflow holds can become an input (R0.17, R10.24). Read by
         # `BestEffortTracker`, which does the counting.
         self.unrecorded_traces: frozenset[int] = frozenset()
 
@@ -478,7 +478,7 @@ class MlflowTracker:
             for verdict in pending:
                 # The returned `Assessment` is dropped: the port sends and
                 # returns nothing, and an id read back from a server is the first
-                # way for a record to become an input (R0.10).
+                # way for a record to become an input (R15.5 row 2).
                 mlflow.log_feedback(
                     trace_id=trace_id,
                     name=str(verdict["name"]),

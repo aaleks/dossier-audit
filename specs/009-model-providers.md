@@ -106,7 +106,7 @@ first cache miss an hour into a run.
 ### R9.4 — a run stops before its first model call if the server's digest for the tag is not the pinned one
 
 Checked on the first cache miss, because that is the first moment a model is
-reached at all (R0.10).
+reached at all (R0.17).
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.model_id.check_served`)
@@ -328,7 +328,7 @@ same prompt asks for the same answer; Anthropic's current generation refuses
 sampling parameters outright, and dossier's reproducibility was never the
 model's to provide -- a model is reached only on a cache miss, and every answer
 it gives is cached under a key that names the prompt, the schema and the pinned
-model (R0.10, spec 005). `max_tokens` is required by the API and is a fixed
+model (R0.17, spec 005). `max_tokens` is required by the API and is a fixed
 ceiling, 16000, sized for a request that is not streamed.
 
 A reply is a list of content blocks, and the answer is the first of type `text`:

@@ -68,7 +68,7 @@ def provider_of(model: str) -> str:
 def check_served(model: str, *, served: Collection[str]) -> None:
     """Raise `ValueError` naming both if the server is not serving what `model` pins.
 
-    A stage key holds the identifier, not the endpoint (R5.3 row 4), so a server
+    A stage key holds the identifier, not the endpoint (R5.13 row 5), so a server
     started with another model would answer under an unchanged key, and the
     cache would keep those answers as the pinned model's. `served` is every name
     the server reports, passed in: asking it is infrastructure's job, and this

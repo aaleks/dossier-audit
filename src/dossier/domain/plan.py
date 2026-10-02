@@ -9,7 +9,7 @@ over exactly what enters a stage key (spec 005) and over nothing else (R4.12):
   person edits under `pipelines/`;
 - the model each step is asked with, its own or the pipeline's (R5.13);
 - the converted text of every document the step reads, which moves when a
-  snapshot moves or when the converter that reads it does (R5.4, R5.7).
+  snapshot moves or when the converter that reads it does (R5.4, R5.10).
 
 The last three were missing until R4.12's status list grew to hold them, and
 their absence was the rule's own failure one level out: changing `model:`

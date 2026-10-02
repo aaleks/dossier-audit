@@ -130,7 +130,7 @@ class Ledger:
         so a column added later has to be added explicitly. Worth the six lines:
         `.dossier/` is regenerable in principle, but re-syncing a corpus to gain
         a column that is empty for every existing row is an afternoon of
-        downloads (R2.5's whole point).
+        downloads (R2.15's whole point).
         """
         held = {row["name"] for row in self._connection.execute("PRAGMA table_info(items)")}
         if "item_key" not in held:
@@ -246,7 +246,7 @@ class Ledger:
     def touch(self, source_id: str, key: str, *, seen_at: datetime) -> None:
         """Record that an unchanged item was observed again.
 
-        The one write an unchanged item causes. R2.5 counts snapshots written,
+        The one write an unchanged item causes. R2.14 counts snapshots written,
         not ledger touches -- an item can be seen without anything being stored.
         """
         self._connection.execute(

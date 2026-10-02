@@ -4,7 +4,7 @@ Pure. The environment arrives as a mapping that `dossier.config` reads and hands
 in -- this layer reads nothing itself -- which is what lets every decision here
 be tested with a dict.
 
-Tracking observes a run and is never an input to one (R0.10): nothing decided
+Tracking observes a run and is never an input to one (R0.17): nothing decided
 here enters a key, a manifest or a score.
 """
 
@@ -577,7 +577,7 @@ def tags(
     label: str = "",
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
-    """The tags every record carries, whichever experiment it lands in (R10.3).
+    """The tags every record carries, whichever experiment it lands in (R10.12).
 
     They keep a shared experiment filterable: with every command recording to
     one `dossier-audit`, a run and an eval are told apart by `dossier.kind`, and

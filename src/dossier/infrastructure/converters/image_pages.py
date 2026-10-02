@@ -17,7 +17,7 @@ registration is what makes that claim. They share their body, not their identity
 and their versions move independently (R5.4).
 
 **No model is reached here**, as in every converter: this sits right of the hash
-boundary (R0.10) and is a pure function of bytes and options (R8.1).
+boundary (R0.17) and is a pure function of bytes and options (R8.1).
 """
 
 from __future__ import annotations

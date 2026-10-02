@@ -11,9 +11,9 @@ against branch `jira-dotenv-cloud-basic` (R1.8 rows 5-6, R1.12, R1.13).
   group as `jira = "...jira:JiraConnector.from_config"`. `sources.yaml` says
   `type: jira` and the registry (`connectors/registry.py`) resolves that name
   to the factory. Nothing in `dossier` dispatches on the string `"jira"` (R1.7).
-- It is left of the hash boundary: one of the three packages allowed to touch
-  the network (R0.10). `httpx` is imported lazily inside `_get`, so a command
-  that never builds the connector never pays for it.
+- It is left of the hash boundary, in one of the four packages allowed to
+  touch the network (R0.17). `httpx` is imported lazily inside `_get`, so a
+  command that never builds the connector never pays for it.
 
 ## What you write
 

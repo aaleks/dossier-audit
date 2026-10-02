@@ -321,7 +321,7 @@ class ConfluenceConnector:
     def fetch(self, key: str) -> RawItem:
         """The payload at `key`: a page, or a file one of them carries.
 
-        Returned byte for byte, as received (R1.2). A page is its JSON rendered
+        Returned byte for byte, as received (R1.43). A page is its JSON rendered
         for export, table of contents and all, labelled a Confluence page so
         the converter reading it claims nothing else (R1.17). A file is
         labelled with what Confluence records it as, over what the transport
@@ -384,7 +384,7 @@ class ConfluenceConnector:
         """Page `page` as sent, and with `comments: true` its comments beside it (R1.23).
 
         Each answer is written into the payload as Confluence sent it, byte for
-        byte, rather than parsed and written out again (R1.2): the payload is
+        byte, rather than parsed and written out again (R1.43): the payload is
         `{"page":<the page>,"comments":[<each answer>]}`.
         """
         if not self._comments:

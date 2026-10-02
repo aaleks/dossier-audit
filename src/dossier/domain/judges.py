@@ -183,7 +183,7 @@ def withholding(
     than all four reading as "no score", because they want four different
     fixes: never measured wants a `dossier calibrate`; a stale calibration
     wants a re-measure, and says which of the judge, the rubric or the prompt
-    moved; no bar wants a line in the gold set's threshold file (R7.13); and
+    moved; no bar wants a line in the gold set's threshold file (R7.20); and
     one below the bar wants a better judge or a figure somebody agrees to
     lower. Stale is checked before the bar, because a figure measured against
     something else is not a figure to compare with anything.

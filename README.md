@@ -367,10 +367,17 @@ so a prompt edited since cannot attach its words to a run that never saw them
 (R14.7). That is what lets a regression in a comparison be followed, link by
 link, to the prompt text that caused it — `playground/13-*` walks exactly that.
 
-MLflow is a place to **read** these, not a place `dossier` reads from. No
+MLflow is a place to **read** these, not a source `dossier` reads from. No
 prompt, dataset or score is ever loaded back into a run: the files in the
 workspace are the only source, which is what keeps a run reproducible from a
-checkout (R14.5, R12.4). The one exception is below, and it is fenced.
+checkout (R14.5, R12.4). What `dossier` does ask MLflow is fenced, spec by spec:
+a run, an eval and a calibration look up the prompt or rubric version they
+rendered, by its hash; a run and an eval are handed the id of the pipeline
+version they built or scored; an eval looks up its gold set's dataset. Each
+answer reaches a link, a tag or the terminal, and never a key, a manifest or a
+score (R0.17, R12.4, R13.4, R14.5).
+Reviewers' verdicts are the one thing a person wrote that comes back, below,
+and they are fenced too.
 
 ## Review in MLflow
 
@@ -382,8 +389,8 @@ Reviewers leave a thumbs-down with a reason, or the value that should have been
 there. `dossier review pull` brings those back as a report by step and field --
 where prompt work starts -- and as gold candidates (R15.3), which a maintainer
 applies with `dossier review apply --verified-by <name>` as a signed, reviewable
-change to the gold set (R15.4, R7.7). It is the only command that reads MLflow
-back, and nothing it reads reaches a key, a manifest or a score (R15.5).
+change to the gold set (R15.4, R7.7). It is the only command that reads a
+verdict back, and nothing it reads reaches a key, a manifest or a score (R15.5).
 `docs/review-in-mlflow.md` is the tour, for reviewers and maintainers both, and
 `playground/14-*` walks it.
 
@@ -423,12 +430,13 @@ uv sync --all-extras    # extras and the dev group; `pip install -e ".[pdf,track
 
 pytest                  # the default suite: offline, seconds, zero cost
 pytest -m outer_loop    # the open slice, when there is one. Red until it lands
-pytest -m live          # the evaluated rules, and Docling's models. Run deliberately
+pytest -m live          # the evaluated rules, Docling's models, Chromium and the
+                        # Postgres index. Run deliberately
 ```
 
 The default suite blocks network access outright — an autouse fixture refuses
 socket creation for any test not marked `live`. That is not test hygiene, it is
-R0.10: exactly three packages may reach the network, and everything right of that
+R0.17: exactly four packages may reach the network, and everything right of that
 line is a pure function of content hashes, which is what makes a run from six
 months ago reproducible.
 

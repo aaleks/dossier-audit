@@ -11,7 +11,7 @@ separately -- leaving a document with nineteen old pages and twenty-one new ones
 which no rule anywhere describes.
 
 **No model is reached here.** A converter is a pure function of bytes and options
-(R8.1) and sits right of the hash boundary (R0.10). Rendering a page is
+(R8.1) and sits right of the hash boundary (R0.17). Rendering a page is
 arithmetic; *interpreting* what is on it is a model call, and that belongs to a
 step whose key holds a model id and a prompt (spec 005, spec 009).
 """

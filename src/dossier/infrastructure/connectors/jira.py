@@ -188,7 +188,7 @@ class JiraConnector:
 
         Returned byte for byte, as received. Jira's JSON is stored as Jira sent
         it -- re-serialising it here would change the content hash of every issue
-        for no reason anyone could see afterwards (R1.2). An issue is labelled a
+        for no reason anyone could see afterwards (R1.43). An issue is labelled a
         Jira issue rather than JSON, so the converter that reads it claims Jira
         issues and nothing else (R1.14). It is asked for with its field names
         and types, so its note can say what each custom field is (R1.28).

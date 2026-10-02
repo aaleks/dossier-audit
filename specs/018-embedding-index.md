@@ -16,9 +16,9 @@ filter on, and its free-text answers as one more chunk to search.
 The index is derived data. Everything in it is rebuilt from the workspace: the
 snapshots, their conversions, the runs and a cache of vectors. Postgres is
 never the source of truth, and a second `dossier embed` with nothing changed
-asks no model and writes nothing. Search, clustering and chat read the index;
-they are not part of `dossier` (spec 000's non-goals). `dossier search` is a
-later spec.
+asks no model and writes nothing. `dossier search` reads the index (spec 019).
+Clustering, chat and search served to other systems read it too, and are not
+part of `dossier` (spec 000's non-goals).
 
 ## The declaration
 
@@ -104,7 +104,8 @@ Decided by `a.aleks` on 2026-10-01:
 - Full text with the `simple` configuration.
 - A chunk is at most 2,000 characters, about 400 to 500 tokens. Characters, so
   no tokenizer is a dependency.
-- The index only. `dossier search` and clustering are later specs.
+- The index only. `dossier search` and clustering are later specs. Search
+  became spec 019.
 
 ## Existing options considered
 

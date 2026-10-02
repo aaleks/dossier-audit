@@ -36,8 +36,12 @@ The line is not "no network right of it". A stage asks a model, and asking is th
 point; R0.1 said otherwise and was true only while no model client existed. What
 makes a run from six months ago reproducible is that the answer was keyed, cached
 with its provenance record, and never asked again -- a judge's verdict included
-(R7.18). Tracking only *sends*: its port returns nothing read from the server, so
-nothing MLflow holds can enter a key, a manifest or a score (R10.4).
+(R7.18). Tracking sends records. What it hands back to the rest of `dossier` is
+only what specs 012 to 015 fence, each through a port of its own: what a
+registry says about a dataset, a pipeline version or a prompt version it
+published or found, and reviewers' verdicts, for `dossier review pull` alone
+(R15.5). The `Tracker` port itself returns nothing read from the server, so
+nothing MLflow holds can enter a key, a manifest or a score through it (R10.4).
 
 ## Boundary 2 — the purity boundary
 
@@ -62,19 +66,21 @@ with a standard tool.
 | Package | Holds | Rule |
 |---|---|---|
 | `dossier.domain` | Decisions: key composition, reference resolution, the normalisation projection, span checking and its three grounding states, scoring, model-id validation, and the container format a multi-page conversion is packed into. Protocols and value objects in `domain/ports.py`. | Imports stdlib and pydantic only. Deterministic: no clock, no randomness, no IO. |
-| `dossier.application` | Use cases: `sync`, `convert`, `run`, `plan`, `eval`. Orchestrates domain decisions over ports. | Takes the connector, the store and the model client as arguments. Never constructs one. |
-| `dossier.infrastructure` | Connectors, converters, the snapshot store, the ledger, model clients, MLflow tracking. | Wiring, not judgement. A heavy SDK (`mlflow`) is imported inside the function that uses it; `httpx` is imported at module scope by the packages left of the boundary, which is where it belongs. |
-| `dossier.config` | Loading and validating `sources.yaml` and `pipeline.yaml`; reading credentials. | The only package that reads `os.environ`. |
-| `dossier.cli` | The typer app: flags, output, exit codes. One module per command (`sync`, `run`, `convert`, `calibrate`, `eval`, `dataset`, `review`, `prompts`); `main` registers them and is the entry point; `bootstrap` builds the model client, the tracker and the registries they are handed. | The only package that calls `sys.exit`. |
+| `dossier.application` | Use cases: `sync`, `convert`, `run`, `plan`, `eval`, `datasets`, `prompts`, `review`, `gc`, `status`, `embed`, `search`. Orchestrates domain decisions over ports. | Takes the connector, the store and the model client as arguments. Never constructs one. |
+| `dossier.infrastructure` | Connectors, converters, chunkers, the snapshot store, the cache, the ledger, model clients, MLflow tracking, the embedding index. | Wiring, not judgement. A heavy SDK (`mlflow`, `playwright`) is imported inside the function that uses it, and the connectors import `httpx` the same way. The model clients and tracking import `httpx` at module scope, and the index imports `psycopg` at module scope. |
+| `dossier.config` | Loading and validating `sources.yaml`, `pipeline.yaml` and an index's declaration; reading credentials. | The only package that reads `os.environ`. |
+| `dossier.cli` | The typer app: flags, output, exit codes. One module per command (`sync`, `run`, `convert`, `calibrate`, `eval`, `gc`, `status`, `embed`, `search`, `dataset`, `review`, `prompts`); `main` registers them and is the entry point; `bootstrap` builds the model client, the tracker and the registries they are handed. | The only package that calls `sys.exit`. |
 
 Dependencies point one way:
 
 ```
-cli ──▶ config ──▶ application ──▶ domain
-                          │            ▲
-                          └──▶ infrastructure ──┘   (via domain.ports only)
+        ┌──▶ config ──────────┐
+cli ────┼──▶ application ─────┼──▶ domain
+        └──▶ infrastructure ──┘   (infrastructure via domain.ports only)
 ```
 
+`cli` may import every layer; `config`, `application` and `infrastructure` may
+import `domain` and nothing else (`tests/architecture/test_layer_contracts.py`).
 `infrastructure` implements protocols declared in `domain.ports`. It is never
 imported by `domain` and never by `application` — the composition happens in
 `cli`, which is the only place that knows which concrete implementation is in
@@ -115,5 +121,5 @@ rather than carried over, and both are worth stating once:
 2. **No `langchain`, and therefore no `FakeListChatModel`.** `dossier` calls
    models through its own `ModelClient` protocol in `domain/ports.py`, and the
    test suite uses `FakeModelClient`, which returns canned responses and counts
-   calls. Counting calls is not a nicety here: R2.5, R4.6, R5.5 and R5.7 are all
-   claims about how many calls happened.
+   calls. Counting calls is not a nicety here: R2.15, R4.6, R5.5 and R5.10 are
+   all claims about how many calls happened.

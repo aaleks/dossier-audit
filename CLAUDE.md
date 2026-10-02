@@ -72,7 +72,8 @@ stands, counted from `specs/`, so nothing here has to be kept in step with it.
 ```bash
 pytest                  # the default suite: offline, seconds, zero cost
 pytest -m outer_loop    # the open slice. Red until it lands
-pytest -m live          # the evaluated rules, and Docling's models. Run deliberately
+pytest -m live          # the evaluated rules, Docling's models, Chromium and the
+                        # Postgres index. Run deliberately
 ```
 
 CI runs the first on every pull request, after the architecture tests and ruff,
@@ -138,8 +139,10 @@ Installing, the extras and what each one adds: `README.md`.
 2. **No live model calls in the default test suite.** Tests use
    `FakeModelClient`, which returns canned responses and **counts calls** —
    several rules are claims about how many calls happened. An autouse fixture
-   blocks sockets. The exceptions are marked `live`: `tests/evals/`, and the
-   tests that run Docling's models for real (spec 008, R8.14 and R8.15).
+   blocks sockets. The exceptions are marked `live`: `tests/evals/`, the
+   tests that run Docling's models for real (spec 008, R8.14, R8.15 and R8.28),
+   the ones that drive a real Chromium (R1.40 to R1.42), and the ones that write
+   and search the Postgres index in `dev/index` (R18.4, R19.4, R19.9).
 3. **Snapshots are immutable.** Never overwrite or delete a file under the
    snapshot store. New content means a new content-addressed path (R0.2).
 4. **Determinism is testable.** Given the same snapshots, prompts, schemas and

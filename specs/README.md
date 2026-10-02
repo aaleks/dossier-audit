@@ -3,7 +3,7 @@
 The specs here are the source of truth. The code is an implementation of them.
 
 Read `000-overview.md` first: it holds the vocabulary, the hash boundary, the
-hash algorithm, the workspace layout, and the eight global invariants every other
+hash algorithm, the workspace layout, and the global invariants every other
 spec assumes.
 
 | Spec | Covers | Rules | Status |

@@ -111,7 +111,7 @@ def calibrate(
     Writes what it measured to `<gold>/calibrations/<field>.json`. It never
     touches `<gold>/judge.yaml`: the bar is agreed by a person, and a run able to
     move the bar it is judged against would be a judge grading its own paper
-    (R7.13).
+    (R7.20).
     """
     workspace = Path.cwd()
 

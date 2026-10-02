@@ -76,7 +76,7 @@ class FolderConnector:
 
         No decoding, no line-ending translation, no BOM stripping. Anything of
         that kind would change the content hash of every file it touched, and the
-        stored snapshot must be what was actually there (R1.2).
+        stored snapshot must be what was actually there (R1.43).
         """
         path = self._resolve(key)
         return RawItem(

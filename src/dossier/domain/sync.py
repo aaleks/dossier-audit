@@ -284,7 +284,7 @@ def needs_fetch(*, recorded_version: str | None, listed_version: str | None) -> 
 class Change(Enum):
     """What a sync decided about one item (R2.2).
 
-    `writes_snapshot` lives on the outcome rather than at the call site. R2.5
+    `writes_snapshot` lives on the outcome rather than at the call site. R2.14
     counts snapshots written, and a caller deciding for itself which outcomes
     write would be a second implementation of this rule -- one that can disagree
     with this one.

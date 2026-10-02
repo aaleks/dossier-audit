@@ -54,7 +54,8 @@ others promise.
 
 ```bash
 uv sync --all-extras          # or: pip install -e ".[tracking]" and the dev group
-.venv/bin/dossier --help      # sync · run · convert · eval · calibrate · status · gc · embed · search, and more
+.venv/bin/dossier --help      # sync · run · convert · calibrate · eval · gc · status · embed ·
+                              # search · dataset · review · prompts
 ```
 
 Every exercise assumes you run `dossier` from a **workspace**: a directory

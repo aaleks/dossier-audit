@@ -17,9 +17,10 @@ it. A new use case is a folder of prompts plus a configuration block.
 
 - Not a general workflow orchestrator. Stages are a linear sequence over
   documents, not a branching agent graph.
-- Not a search engine or a retrieval-augmented chat system. `dossier` builds a
-  search index others query (spec 018); searching it, clustering it and
-  chatting over it are done by what reads it.
+- Not a search service or a retrieval-augmented chat system. `dossier` builds a
+  search index (spec 018) and searches it from its own command line (spec 019);
+  serving search to other systems, clustering the index and chatting over it
+  are done by what reads it.
 - Not a replacement for the source systems. `dossier` reads; it never writes back.
 
 ## Vocabulary
@@ -54,9 +55,14 @@ results on different days. Everything right of it is a pure function of content
 hashes. This separation is the reason a run from six months ago can be
 reproduced exactly.
 
-In the code the boundary is a package boundary:
-`dossier.infrastructure.connectors` is the only place a network client may be
-imported. Everything else is right of the line. See `docs/architecture.md`.
+In the code the boundary is a package boundary. Four packages may import a
+network client: `dossier.infrastructure.connectors` fetches source payloads,
+`dossier.infrastructure.models` asks a model, `dossier.infrastructure.tracking`
+records to MLflow and `dossier.infrastructure.index` writes and searches the
+embedding index (R0.17). Everything else is right of the line. A model sits on
+the far side of it and the boundary still holds, because a model is asked only
+on a cache miss and its answer is kept under a key (R0.17, spec 005). See
+`docs/architecture.md`.
 
 ## Hashing
 
@@ -82,25 +88,32 @@ current working directory as the workspace root.
 ```
 sources.yaml                     configuration, committed
 pipelines/<name>/pipeline.yaml   configuration, committed
+indexes/<name>.yaml              an embedding index's declaration, committed (spec 018)
 gold/<name>/                     verified answers, committed
 runs/<run_id>/                   run outputs and manifest, reviewable
+tries/<try_id>/                  what a try, `dossier run --doc`, was answered (R4.22)
+review/<pipeline>/               reviewers' verdicts and gold candidates, pulled from MLflow (spec 015)
 .dossier/                        machine-local state, never committed
   snapshots/ab/cd/<hash>         the immutable store
   ledger.db                      what is held, at which version and hash
-  cache/                         stage and convert artifacts
+  cache/convert/                 conversions (spec 008)
+  cache/stage/                   stage artifacts (spec 005)
+  cache/judge/                   a judge's verdicts (R7.18)
+  cache/embed/                   vectors, for a chunk and for a query (R18.3)
 ```
 
 The split is between what a human reads or reviews and what the machine
 regenerates. `runs/` holds the report and the manifest someone will open, so it
-sits in the open; `.dossier/` holds state that is derived, large, and meaningless
-without the tool.
+sits in the open, and so do `tries/` and `review/`; `.dossier/` holds state that
+is derived, large, and meaningless without the tool.
 
 ## Must hold
 
-These six are global: every other spec assumes them, and a violation anywhere
-breaks reproducibility everywhere. They were numbered `G1`–`G6` in the first
-draft of this spec and are now `R0.1`–`R0.6`, so that one identifier scheme
-covers every rule in the repository.
+The rules here are global: every other spec assumes them. The first six were
+the whole list once -- numbered `G1`–`G6` in the first draft of this spec, and
+now `R0.1`–`R0.6`, so that one identifier scheme covers every rule in the
+repository -- and a violation of one of those anywhere breaks reproducibility
+everywhere.
 
 ### R0.1 — nothing right of the hash boundary performs network I/O
 
@@ -265,8 +278,10 @@ level exists: the document becomes a directory and each part is a file in it,
 named as the container names it.
 
 R0.11 is not superseded. It still describes every `per_file` and `aggregate`
-step, which is every step that existed when it was written; this says what the
-third mode does, and the two together cover all of them.
+step, which is every step that existed when it was written, and every
+`per_group` step since, whose artifact is filed under its group's name as a
+`per_file` step's is under its document's (R3.15 row 1). This says what
+`per_part` does, and the two together cover all four modes.
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.store.output_path`)

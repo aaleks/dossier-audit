@@ -3,7 +3,7 @@
 Per machine, read from the environment, and part of no key. `model:` says what
 answers and is committed; where it is served differs between a laptop and a GPU
 server, so it is read here and never from `pipeline.yaml` -- and because it is in
-no key, the two machines share one cache (R5.3 row 4).
+no key, the two machines share one cache (R5.13 row 5).
 
 This package is the only one that reads the environment (R1.8). A provider's
 default endpoint is the provider's own to state, as its entry point does: a

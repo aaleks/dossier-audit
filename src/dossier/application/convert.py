@@ -17,7 +17,7 @@ an installation problem into nine mysterious per-document errors; the other way
 turns one corrupt PDF into a run that produced nothing.
 
 Nothing here reaches the network: conversion is right of the hash boundary
-(R0.1). Nothing here reads a clock either -- an artifact is a pure function of
+(R0.17). Nothing here reads a clock either -- an artifact is a pure function of
 the snapshot bytes and the declared options (R8.1).
 """
 

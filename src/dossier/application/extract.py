@@ -57,7 +57,7 @@ class DocumentResult:
     error: str | None = None
     # The artifact this result *is*, verbatim, where that is not derivable from
     # `records`. Two cases: a step with no output schema, which spec 003 allows an
-    # `aggregate` step to be (R3.5 example 4) and whose answer is prose; and a
+    # `aggregate` step to be (R3.10 row 5) and whose answer is prose; and a
     # cache hit, which carries the stored bytes forward rather than re-deriving
     # them.
     text: str | None = None

@@ -10,8 +10,9 @@ retried document or a regressed field can be inspected after the fact rather
 than reconstructed from a terminal that has since scrolled away.
 
 Tracking **observes** a run; it is never an input to one. Turning it on or off
-changes no output, and nothing read back from MLflow ever enters a key, a
-manifest or a score (R0.10). Without that, a run's result would depend on
+changes no output (R10.4), and nothing read back from MLflow ever enters a key,
+a manifest or a score (R0.17, and R12.4, R13.4, R14.5 and R15.5 for each thing
+read). Without that, a run's result would depend on
 whether a server happened to be up, and R0.5's promise -- a cache hit means
 nothing relevant changed -- would quietly acquire an exception.
 
@@ -29,9 +30,9 @@ records its runs is not a property of the pipeline.
 | `DOSSIER_MLFLOW_ENABLED` | `true` / `false` | `false` |
 | `DOSSIER_MLFLOW_TRACKING_URI` | a URL | none; `.env.example` says `http://localhost:5000` |
 | `DOSSIER_MLFLOW_EXPERIMENT` | a template | `dossier-audit/{pipeline}/{kind}` |
-| `DOSSIER_MLFLOW_EXPERIMENT_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE`, `_COMPARE` | a template | falls back to `DOSSIER_MLFLOW_EXPERIMENT` |
+| `DOSSIER_MLFLOW_EXPERIMENT_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE`, `_COMPARE`, `_GC`, `_EMBED`, `_SEARCH` | a template | falls back to `DOSSIER_MLFLOW_EXPERIMENT` |
 | `DOSSIER_MLFLOW_CAPTURE` | `full` / `hashes` | `full` |
-| `DOSSIER_MLFLOW_RUN_NAME_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE`, `_COMPARE` | a template | the default for that kind (R10.10) |
+| `DOSSIER_MLFLOW_RUN_NAME_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE`, `_COMPARE`, `_GC`, `_EMBED`, `_SEARCH` | a template | the default for that kind (R10.10) |
 | `DOSSIER_MLFLOW_RUN_PREFIX` | a name | none; `{prefix}` renders empty |
 | `DOSSIER_MLFLOW_NAMESPACE` | a name | none; every prompt and dataset name is exactly what R14.1, R14.2 and R12.1 compose (R10.13) |
 | `DOSSIER_MLFLOW_RUN_LABEL` | a name | none; `--label` wins over it (R10.11) |
@@ -104,8 +105,8 @@ Neither is a secret. Both are written by `dossier.infrastructure.tracking`, and
 only when tracking is on. `dossier.config` still reads the environment and never
 writes it (R9.11).
 
-The token exchange reads a response, which a package that "only sends" (R0.10)
-might seem to forbid. It does not. The token is held inside
+The token exchange reads a response, which R0.17's fence on what tracking reads
+back might seem to forbid. It does not. The token is held inside
 `dossier.infrastructure.tracking` and handed to nothing outside it. The `Tracker`
 port still declares no method that returns anything read from a server, so no key,
 manifest or score can depend on it.
@@ -136,8 +137,8 @@ from a template per command kind:
 
 | Placeholder | Holds | Available to |
 |---|---|---|
-| `{pipeline}` | the pipeline name, `incident-audit` | every command |
-| `{kind}` | `sync`, `convert`, `run`, `eval`, `calibrate` or `compare` | every command |
+| `{pipeline}` | the pipeline name, `incident-audit`; for `embed` and `search`, the index's pipeline | every command but `gc`, which belongs to no pipeline (R11.28) |
+| `{kind}` | `sync`, `convert`, `run`, `eval`, `calibrate`, `compare`, `gc`, `embed` or `search` | every command |
 | `{gold}` | the gold directory's name: `gold/incidents` gives `incidents` | `eval`, `calibrate` and `compare`, the commands that read one |
 
 The default lays one pipeline out as:
@@ -149,13 +150,18 @@ dossier-audit/incident-audit/run       one MLflow run per dossier run; traces li
 dossier-audit/incident-audit/eval      per-field metrics, gold set by name and hash
 dossier-audit/incident-audit/calibrate one MLflow run per measurement; a trace per sample case (R11.5)
 dossier-audit/incident-audit/compare   per-field deltas between two runs (R11.8)
+dossier-audit/incident-audit/embed     one MLflow run per embed that changed the index (R11.33)
+dossier-audit/incident-audit/search    one trace per search, under no run (R11.35)
 ```
 
+and `gc`, which belongs to no pipeline, as `dossier-audit/gc` (R11.28).
+
 A template with no placeholder -- `dossier-audit` -- puts everything in one
-experiment, and every record is still tagged with its kind and pipeline (R10.3),
+experiment, and every record is still tagged with its kind and pipeline (R10.12),
 so that layout remains filterable. A `{gold}` in the shared template needs an
 override for every other kind, because sync, convert and run read no gold set;
-that is what the per-kind variables are for. A calibration is the fifth kind
+that is what the per-kind variables are for, and `gc` needs one for a
+`{pipeline}` (R11.28). A calibration is the fifth kind
 (R11.5): it reads a gold set as an eval does, so `{gold}` renders for it, and
 R10.5 refuses it before its first judge call when the server is unreachable, as
 it refuses a run before its first model call.
@@ -175,9 +181,10 @@ experiment is (R10.2), from values the command already holds:
 |---|---|---|
 | `{prefix}` | `DOSSIER_MLFLOW_RUN_PREFIX` and a separator, or empty | every command |
 | `{label}` | a separator and the label, or empty (R10.11) | every command |
-| `{pipeline}` | the pipeline name, `incident-audit` | every command |
-| `{kind}` | `sync`, `convert`, `run`, `eval`, `calibrate` or `compare` | every command |
+| `{pipeline}` | the pipeline name, `incident-audit` | every command but `gc` |
+| `{kind}` | `sync`, `convert`, `run`, `eval`, `calibrate`, `compare`, `gc`, `embed` or `search` | every command |
 | `{started}` | when the command started, `20260806T142203Z` | every command |
+| `{index}` | the index's name, `incidents` | `embed`, `search` |
 | `{run_id}` | the run recorded, or the run scored | `run`, `eval` |
 | `{model}` | that run's pinned model identifier | `run`, `eval` |
 | `{pipeline_hash}` | that run's pipeline hash, eight characters | `run`, `eval` |
@@ -200,6 +207,9 @@ The defaults:
 | `eval` | `{prefix}eval {run_id} · {model}{label}` | `eval 20260806T142203Z-4f1a · anthropic:claude-sonnet-4-5-20250929` |
 | `compare` | `{prefix}compare {a} -> {b}{label}` | `compare 20260806T142203Z-4f1a -> 20260907T090000Z-bbbb` |
 | `calibrate` | `{prefix}calibrate {gold} · {judge_model}{label}` | `calibrate incidents · anthropic:claude-sonnet-4-5-20250929` |
+| `gc` | `{prefix}gc {started}{label}` | `gc 20260930T090000Z` (R11.28) |
+| `embed` | `{prefix}embed {index} {started}{label}` | `embed incidents 20261001T090000Z` (R11.33) |
+| `search` | `{prefix}search {index}{label}` | `search incidents`, the trace's name: a search opens no run (R11.35) |
 
 Nothing is abbreviated. A model identifier is written as `model:` pins it and as
 every param records it, because a shortened one is a second spelling of a value
@@ -253,7 +263,8 @@ holds -- are pure, and live in `dossier.domain.tracking`. `application/` records
 through a `Tracker` port in `domain/ports.py` and never imports MLflow; the test
 suite hands it a `FakeTracker` that counts runs, traces and spans, as
 `FakeModelClient` counts calls. Only `dossier.infrastructure.tracking` imports
-`mlflow`, which makes it the third package permitted to reach the network (R0.10).
+`mlflow`, which makes it one of the four packages permitted to reach the network
+(R0.17).
 
 ## Must hold
 
@@ -664,7 +675,7 @@ exchange is the client-credentials grant, with the secret in the form body.
 
 A refresh that fails after the startup check loses a record and not the run
 (R10.6). The token never leaves `dossier.infrastructure.tracking`, and nothing
-read from the token endpoint reaches a key, a manifest or a score (R0.10).
+read from the token endpoint reaches a key, a manifest or a score (R0.17).
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.token_due`)

@@ -19,7 +19,7 @@ Center servers (`cwiki.apache.org`, 9.2.21, and `confluence.atlassian.com`).
   `src/dossier/infrastructure/converters/confluence_page_markdown.py`. The note
   it writes is decided in `domain/confluence_page.py`. Both ship in the core
   install, like the connector.
-- Left of the hash boundary, like Jira (R0.10). `httpx` is imported lazily.
+- Left of the hash boundary, like Jira (R0.17). `httpx` is imported lazily.
 
 ## What you write
 
