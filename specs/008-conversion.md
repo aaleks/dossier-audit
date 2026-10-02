@@ -1,6 +1,6 @@
 # 008 — Conversion
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R8.1 – R8.34
 
 ## Purpose
@@ -1160,7 +1160,7 @@ a replay tell the two apart the old way still, a later rule's to change.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.conversion.is_container`), cli (`dossier.cli.run`)
 - **Proved by:** `tests/acceptance/test_R008_34__a_damaged_parts_container_is_a_document_that_did_not_convert.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

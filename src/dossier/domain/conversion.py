@@ -162,6 +162,15 @@ def pack_parts(parts: Iterable[bytes], *, suffix: str) -> bytes:
     return b"".join(packed)
 
 
+def is_container(payload: bytes) -> bool:
+    """Whether an artifact is a parts container: it begins as one (R8.11, R8.34).
+
+    Decided by its first bytes, never by whether it unpacks. A container cut
+    short would not unpack either, and would be passed over as text.
+    """
+    return payload.startswith(_CONTAINER_MAGIC)
+
+
 def unpack_parts(container: bytes) -> list[bytes]:
     """The parts a container holds, in part order (R8.11).
 
