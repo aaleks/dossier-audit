@@ -890,3 +890,4 @@ document with the rest.
 | 2 | the same, with `verify` reading `extract` | `! verify: upstream changed`, as for any step reading one that re-runs |
 | 3 | *counter-example* — the last run failed nothing | `  extract: cached`, as before |
 | 4 | *counter-example* — the same failure, and `prompts/extract.md` edited since | `! extract: prompt changed`: the change that moves every key is named, and `INC-4822` is asked with the rest |
+| 5 | *counter-example* — the same failure, and `INC-4822` tombstoned since | `  extract: cached`: a document that has left the source is not asked again, as a departure is less work (R4.12 row 8) |
