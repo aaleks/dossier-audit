@@ -1,7 +1,7 @@
 # 009 — Model providers
 
-**Status:** Implemented
-**Rules:** R9.1 – R9.22
+**Status:** Partially implemented
+**Rules:** R9.1 – R9.25
 
 ## Purpose
 
@@ -621,3 +621,82 @@ reason and is left out, as it always was. The key is sent only in a header
 | 6 | `DOSSIER_OPENAI_API_KEY=sk-4f1a-do-not-print` and a `401` whose message quotes it | the reason with `***` where the key was; the key is in no part of the line (R9.8 row 1) |
 | 7 | *counter-example* — a `502` whose body is a proxy's HTML page | `… answered 502 Bad Gateway (after 3 attempts)`, and nothing after it: a `502` is retried (R9.17), and the page is no reason |
 | 8 | *counter-example* — a `401` whose JSON names no reason, `{"code": 401}` | `… answered 401 Unauthorized`, and nothing after it |
+
+### R9.23 — a stage's request refused as sent, `400`, `413` or `422`, fails the document it asked about, and the run goes on
+
+A refusal about the request is not one about the endpoint. A prompt past the
+model's context window is answered `400` by OpenAI and Anthropic, and by an
+OpenWebUI in front of either. Before this rule, any refusal stopped the run
+(R9.20). Document 3,000 of a corpus stopped it, and every rerun served the
+first 2,999 from the cache and stopped at the same document, so the corpus
+could not get past it without editing the source (analysis_v2, §3.2 row 1).
+Now the document fails, as one that never answered valid JSON fails (R6.9).
+It is recorded with the provider's reason (R4.27, R9.22), printed on one line
+(R6.31), and cached nowhere, so the next run asks again. A refusal that no
+request can avoid still stops the run: a key, a model, or an endpoint (R9.25).
+A judge's request is not a stage's, and a refused one still stops `eval` and
+`calibrate`, before a score is written without it.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.refusals.about_the_request`), infrastructure (`dossier.infrastructure.models._http.request`), application (`dossier.application.extract.run_stage`)
+- **Proved by:** `tests/acceptance/test_R009_23__a_request_refused_as_sent_fails_its_document.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier run incident-audit` over the scoring example's four incidents, `INC-4822`'s request answered `400 Bad Request` with `This model's maximum context length is 128000 tokens` | the other three are answered and cached; `    extract failed on INC-4822: POST <url> answered 400 Bad Request: This model's maximum context length is 128000 tokens` on standard error; `failures.json` holds that entry; exit 1 |
+| 2 | the same run again | the three served from the cache, and one request, for `INC-4822`, asked again |
+| 3 | `413 Payload Too Large`, or `422 Unprocessable Entity` | as row 1, with its own status and reason |
+| 4 | *counter-example* — `INC-4822`'s request answered `401 Unauthorized` | the run stops in one line, exit 2 (R9.25): no other request would be answered |
+| 5 | *counter-example* — `404 Not Found`, or `429` after R9.17's retries | the run stops in one line, exit 2: the model is not there, or the endpoint cannot take the run now |
+
+### R9.24 — a reply that stopped at the model's output limit is no answer: its request fails as sent, and nothing is cached
+
+No provider was asked why a reply stopped. A step with no schema, an
+`aggregate` report over a few hundred documents above all, took a reply cut
+off for length as its answer and cached it, and every later run was served it
+(analysis_v2, §3.5 row 2). A step with a schema spent its one retry (R6.2) on a
+correction about the wrong problem. Each provider says when it stopped at its
+limit: OpenAI-compatible endpoints with `finish_reason: "length"`, Ollama with
+`done_reason: "length"`, Anthropic with `stop_reason: "max_tokens"`. Such a
+reply is refused as sent, as R9.23 refuses a request, so a stage's document
+fails and is not cached.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.refusals.cut_off`), infrastructure (`dossier.infrastructure.models`)
+- **Proved by:** `tests/unit/test_R009_24__a_reply_cut_off_at_its_limit_is_no_answer.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | an OpenAI-compatible reply with `finish_reason: "length"` | refused as sent: `<model> cut its reply off at its output limit (finish_reason "length")`, and no text returned |
+| 2 | an Ollama reply with `done_reason: "length"` | the same, naming `done_reason` |
+| 3 | an Anthropic reply holding text, with `stop_reason: "max_tokens"` | the same, naming `stop_reason` |
+| 4 | `aggregate`'s report, cut off, in `dossier run` | the unit fails with that reason, as R9.23 row 1, and nothing is cached |
+| 5 | *counter-example* — `finish_reason: "stop"`, `done_reason: "stop"`, `stop_reason: "end_turn"` | the reply is the answer, as before |
+
+### R9.25 — a model that cannot be reached, or refuses for a reason no other request would avoid, stops any command asking it in one line naming the pipeline, never a traceback
+
+R9.20, narrowed by R9.23. A stage's request refused as sent fails its
+document, and the run goes on. Everything else R9.20 stops still stops: no
+endpoint set, nothing listening, a refusal of the key, the model or the
+endpoint, a judge's request in `eval` or `calibrate`. It stops in R9.20's one
+line. When it lands, it supersedes R9.20, whose title says any refusal stops
+the command.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.bootstrap.MODEL_FAILURES`)
+- **Proved by:** `tests/acceptance/test_R009_25__a_model_that_fails_stops_a_command_in_one_line.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier calibrate incident-audit --gold gold/incidents`, the judge at `http://localhost:8080/api` with nothing listening | `incident-audit: POST http://localhost:8080/api/chat/completions failed: ... (after 3 attempts)` on standard error, exit 2, and no traceback; no file under `calibrations/` |
+| 2 | `dossier eval incident-audit --gold gold/incidents`, a `root_cause` verdict not in the cache, and the judge answering `401` | `incident-audit: POST http://localhost:8080/api/chat/completions answered 401 Unauthorized`, and exit 2; the key is not in it (R9.8 row 1) |
+| 3 | `dossier eval incident-audit --gold gold/incidents --compare 20260806T142203Z-4f1a 20260907T090000Z-bbbb`, nothing listening | the line of row 1, and exit 2 |
+| 4 | `dossier calibrate` of a pipeline whose `model:` is `hf:Qwen/Qwen2.5-7B-Instruct@1c0f8e6b`, with `DOSSIER_HF_URL` unset | `incident-audit: DOSSIER_HF_URL is not set, ...`, naming the variable, and exit 2 |
+| 5 | `dossier run incident-audit`, nothing listening | the line of row 1, and exit 2 |
+| 6 | `dossier eval`, a `root_cause` verdict not in the cache, and the judge answering `400` | stops in one line, exit 2: a judge's request is not a stage's (R9.23) |
+| 7 | *counter-example* — `dossier eval`, every verdict served from the cache, nothing listening | completes, exit 0: no judge is asked (R7.18), so no model can fail it |
+| 8 | *counter-example* — `dossier run`, `INC-4822`'s request answered `400` | not a stop: that document fails, and the run goes on (R9.23) |
+| 9 | *counter-example* — an exception that is not a model's, raised while the judge is asked | its traceback, as before: only a failure a person can act on from the line is turned into one |
