@@ -1,4 +1,4 @@
-"""Model clients: one of the four packages that may reach the network (R0.17).
+"""Model clients: one of the four packages that may reach the network (R0.19).
 
 The one that asks a model, for an answer or for a vector, and only on a cache
 miss. A provider is a package declaring a `dossier.models` entry point (spec

@@ -4,7 +4,7 @@ Pure. The environment arrives as a mapping that `dossier.config` reads and hands
 in -- this layer reads nothing itself -- which is what lets every decision here
 be tested with a dict.
 
-Tracking observes a run and is never an input to one (R0.17): nothing decided
+Tracking observes a run and is never an input to one (R0.19): nothing decided
 here enters a key, a manifest or a score.
 """
 

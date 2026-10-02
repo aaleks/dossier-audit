@@ -29,7 +29,7 @@ class PublishedDataset:
 
     One of the things in `dossier` that come *back* from a tracking server, which
     is why publishing has a port of its own rather than a method on `Tracker`,
-    which returns nothing (R15.5 row 2): R0.17 lets tracking read back only what
+    which returns nothing (R15.5 row 2): R0.19 lets tracking read back only what
     a spec fences, and spec 012 fences this. Every field here may reach an MLflow
     tag and a line in the terminal, and none of it may reach a key, a manifest, a
     score or any file on disk (R12.4 row 3).

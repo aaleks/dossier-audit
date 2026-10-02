@@ -26,9 +26,10 @@ data: the port that writes it reads back only the ids and hashes of what it
 holds (spec 018), and the port a search reads it through hands what it reads
 to the terminal and MLflow, never to a key, a manifest or a score (spec 019).
 
-This is R0.17, which supersedes R0.16 (the index before search), R0.10 (three
+This is R0.19, which supersedes R0.19 (the same line, with half of what
+tracking reads back unwritten), R0.16 (the index before search), R0.10 (three
 packages), R0.9 (two) and R0.1 (connectors only). It is checked by
-`tests/architecture/test_R000_17__four_packages_reach_the_network.py`,
+`tests/architecture/test_R000_19__four_packages_reach_the_network_and_what_they_read_back.py`,
 which walks every module with `ast` — so a lazy import inside a function body is
 caught as readily as one at module scope.
 

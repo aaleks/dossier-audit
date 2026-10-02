@@ -13,6 +13,22 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+The read-back half of the hash boundary is written whole (2026-10-03, R0.19,
+#708 and this). R0.17 said tracking reads back only what specs 012 to 015
+fence, while spec 010 has it read a credential check, an OIDC token and
+whether each trace was kept; and R15.5 row 2, "the `Tracker` port returns
+nothing", rested on a row R0.16 had dropped (both reported by #696). R0.19 is
+R0.17's boundary and rows unchanged, plus a table of everything tracking reads
+back and where each may go, and four rows the architecture test now checks:
+the `Tracker` port returns nothing; `oidc` and `auth` are imported by nothing
+outside tracking; each registry and `ReviewSource` returns only what the table
+names; and keys, scoring and the manifest writer import none of it. R0.17's
+test was reclaimed, renamed and extended, and 85 citations of R0.17 across
+specs, source comments and docs moved to R0.19; dated documents and the
+history keep theirs. Decided by a.aleks on 2026-10-02, with `--label` for
+`gc`, `embed` and `search` (#707), which R10.11 row 3 already asked of every
+command that records.
+
 A plan names what the last run failed as asked again (2026-10-02, R4.32,
 #704 and this). An answer that did not validate, or never came, is never
 cached, so the next run asks that document again; the plan found nothing

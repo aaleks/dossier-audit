@@ -1,7 +1,7 @@
 """A tracker whose failures, once a command is under way, cost the record only (R10.6).
 
 An adapter on the `Tracker` port, left of the hash boundary with the tracker it
-wraps (R0.17). It reaches no network itself; it decides what a failure to
+wraps (R0.19). It reaches no network itself; it decides what a failure to
 reach one means, which is the one decision spec 010 leaves to this side of the
 port: after the startup check, a record lost is never a run lost.
 """

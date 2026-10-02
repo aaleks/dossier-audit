@@ -57,7 +57,7 @@ Independent of each other, so issue both `Agent` calls **in one message**.
 **Step 1 — `spec-compliance`.** Audit `specs/` against `src/dossier/` and `tests/`,
 both directions. Ask for a verdict per rule as `COVERED` / `PARTIAL` / `MISSING`, each
 with the file and line that justifies it, and ask it to weight the reproducibility rules
-(R0.2–R0.6, R0.17, R4.7, R5.6) above the rest.
+(R0.2–R0.6, R0.19, R4.7, R5.6) above the rest.
 
 **Step 2 — `architecture-guardian`.** Audit the whole of `src/dossier/`. Ask for
 `VIOLATION` / `WARNING` / `NOTE`, and specifically for what the `ast` checks cannot see:

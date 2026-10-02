@@ -866,7 +866,7 @@ class FakeIndexSink:
     """The embedding index in memory, by index and document (R18.4).
 
     It answers `held` with what it holds, ids and content hashes and nothing
-    else, as the real index's port does (R0.17). A test can empty it by hand,
+    else, as the real index's port does (R0.19). A test can empty it by hand,
     as a person could empty the tables.
     """
 

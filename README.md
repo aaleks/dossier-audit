@@ -397,7 +397,7 @@ a run, an eval and a calibration look up the prompt or rubric version they
 rendered, by its hash; a run and an eval are handed the id of the pipeline
 version they built or scored; an eval looks up its gold set's dataset. Each
 answer reaches a link, a tag or the terminal, and never a key, a manifest or a
-score (R0.17, R12.4, R13.4, R14.5).
+score (R0.19, R12.4, R13.4, R14.5).
 Reviewers' verdicts are the one thing a person wrote that comes back, below,
 and they are fenced too.
 
@@ -458,7 +458,7 @@ pytest -m live          # the evaluated rules, Docling's models, Chromium and th
 
 The default suite blocks network access outright — an autouse fixture refuses
 socket creation for any test not marked `live`. That is not test hygiene, it is
-R0.17: exactly four packages may reach the network, and everything right of that
+R0.19: exactly four packages may reach the network, and everything right of that
 line is a pure function of content hashes, which is what makes a run from six
 months ago reproducible.
 

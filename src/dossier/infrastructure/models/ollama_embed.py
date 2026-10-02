@@ -1,7 +1,7 @@
 """The Ollama embedding client (spec 018, R18.3).
 
 A vector is a model's answer, asked through this package as a completion is
-(R0.17). It is reached the way the chat client reaches Ollama: the same
+(R0.19). It is reached the way the chat client reaches Ollama: the same
 endpoint, the same tag with the digest removed, the same digest check before
 the first request (R9.4), and `_http`'s request and error reporting. Only the
 route and the body differ.

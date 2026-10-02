@@ -1,6 +1,5 @@
-"""R0.17 — exactly four packages may reach the network, a model is asked only on
-a cache miss, and what a search reads of the index enters no key, manifest or
-score.
+"""R0.19 — exactly four packages may reach the network, and what each reads
+back reaches only the places the rule names.
 
 `dossier.infrastructure.connectors` fetches source payloads;
 `dossier.infrastructure.models` asks a model, for an answer or for a vector;
@@ -9,8 +8,12 @@ score.
 searches it (spec 019). Nothing else imports a network client, on any code
 path, including error paths and imports made lazily inside a function body.
 
-Supersedes R0.16, which fenced what is read back from the index to ids and
-content hashes before there was a search; R0.10, which admitted three
+R0.19 is R0.17 written whole: R0.17 left half of what tracking reads back
+unwritten -- the credential check, the OIDC token and the trace lookups of
+spec 010 -- and R15.5 row 2 rested on a row R0.16 had dropped. Rows 1 to 12
+are R0.17's; rows 13 to 16 are what tracking reads back, and where it may go.
+R0.17 superseded R0.16, which fenced what is read back from the index to ids
+and content hashes before there was a search; R0.10, which admitted three
 packages; and R0.9's two. Each widening counted the new package's client as a
 network client (`mlflow` then, `psycopg` later), so that the exemption has
 teeth: without that, the check would pass green while the client was imported
@@ -58,7 +61,7 @@ def test_no_network_import_outside_the_four_permitted_packages(path):
     assert not offenders, "\n".join(
         f"{i.where}: imports {i.module!r}"
         + (" inside a function body -- a lazy import is still an import" if i.lazy else "")
-        + f"\n  {module_name(path)} may not reach the network (R0.17)."
+        + f"\n  {module_name(path)} may not reach the network (R0.19)."
         f"\n  Fix: move the call into one of {REACH_THE_NETWORK} and pass the "
         "result across."
         for i in offenders
@@ -96,7 +99,7 @@ def test_the_clients_of_the_exempt_packages_count_as_network_clients():
 
 
 def test_the_tracker_port_reads_nothing_back_from_the_server():
-    """Row 3's promise: the `Tracker` port declares no method that returns anything.
+    """Row 13: the `Tracker` port declares no method that returns anything.
 
     Tracking only sends. A method that returned something read from the server
     would be the first way for MLflow to become an input to a run (R10.4).
@@ -290,3 +293,114 @@ def _reads_a_search_any(path: Path) -> list[str]:
         if found.module.startswith(("dossier.domain.search", "dossier.application.search"))
         or found.module.endswith(".IndexSearch")
     ]
+
+
+SRC = Path(__file__).resolve().parents[2] / "src"
+TRACKING_PACKAGE = "dossier.infrastructure.tracking"
+# Where the tracking package fetches a token and presents the credential: what
+# they learn stays inside the package (R10.18, R10.19).
+CREDENTIALS = (f"{TRACKING_PACKAGE}.oidc", f"{TRACKING_PACKAGE}.auth")
+
+
+def _imports_credentials(path: Path) -> list[str]:
+    return [
+        found.module
+        for found in imports_of(path)
+        if found.module.startswith(CREDENTIALS)
+        or found.module in {f"{TRACKING_PACKAGE}.{name}" for name in ("oidc", "auth")}
+    ]
+
+
+@pytest.mark.parametrize("path", MODULES, ids=module_name)
+def test_the_credential_and_the_token_stay_inside_tracking(path: Path):
+    """Row 14: `oidc` and `auth` are imported by nothing outside the tracking package."""
+    if module_name(path).startswith(TRACKING_PACKAGE):
+        return
+
+    assert _imports_credentials(path) == [], (
+        f"{module_name(path)} imports how tracking authenticates (R0.19 row 14)"
+    )
+
+
+# Row 15: what each port that reads back returns, and nothing more.
+READ_BACK = {
+    ("VersionRegistry", "register"): "PublishedVersion",
+    ("DatasetRegistry", "find"): "PublishedDataset | None",
+    ("DatasetRegistry", "publish"): "PublishedDataset",
+    ("PromptRegistry", "find"): "PublishedPrompt | None",
+    ("PromptRegistry", "latest"): "PublishedPrompt | None",
+    ("PromptRegistry", "publish"): "PublishedPrompt",
+    ("ReviewSource", "human_verdicts"): "list[Verdict]",
+}
+
+
+def test_each_port_that_reads_back_returns_only_what_the_rule_names():
+    """Row 15: each registry, and `ReviewSource`, returns only what the table names."""
+    import dossier.domain.ports as ports
+
+    found = {
+        (port, name): str(inspect.signature(member).return_annotation)
+        for port in sorted({port for port, _ in READ_BACK})
+        for name, member in vars(getattr(ports, port)).items()
+        if callable(member) and not name.startswith("_")
+    }
+
+    assert found == READ_BACK
+
+
+# What MLflow can hand back, by the names a module would import it under.
+FROM_MLFLOW = (
+    "VersionRegistry",
+    "DatasetRegistry",
+    "PromptRegistry",
+    "ReviewSource",
+    "PublishedVersion",
+    "PublishedDataset",
+    "PublishedPrompt",
+    "Verdict",
+)
+# The modules that make a key, a score and a manifest.
+NOTHING_FROM_MLFLOW = (
+    "dossier/domain/keys.py",
+    "dossier/domain/scoring.py",
+    "dossier/application/manifest.py",
+)
+
+
+def _reads_mlflow(path: Path) -> list[str]:
+    return [
+        found.module
+        for found in imports_of(path)
+        if found.module.rsplit(".", 1)[-1] in FROM_MLFLOW
+        or found.module.startswith(TRACKING_PACKAGE)
+    ]
+
+
+@pytest.mark.parametrize("composer", NOTHING_FROM_MLFLOW)
+def test_nothing_mlflow_holds_enters_a_key_a_manifest_or_a_score(composer: str):
+    """Row 16, counter-example: keys, scoring and the manifest import none of it."""
+    path = SRC / composer
+
+    assert path.is_file(), composer
+    assert _reads_mlflow(path) == [], f"{composer} imports what MLflow hands back"
+
+
+class TestTheReadBackDetectorsDetect:
+    """Rows 14 and 16 have teeth: a planted import of each kind is seen."""
+
+    def test_an_import_of_the_token_source_is_seen(self, tmp_path: Path):
+        module = tmp_path / "run.py"
+        module.write_text(
+            "from dossier.infrastructure.tracking.oidc import TokenSource\n", encoding="utf-8"
+        )
+
+        assert f"{TRACKING_PACKAGE}.oidc.TokenSource" in _imports_credentials(module)
+
+    def test_an_import_of_a_registry_answer_is_seen(self, tmp_path: Path):
+        module = tmp_path / "keys.py"
+        module.write_text(
+            "def f():\n    from dossier.domain.ports import PublishedDataset\n",
+            encoding="utf-8",
+        )
+
+        assert _reads_mlflow(module) == ["dossier.domain.ports.PublishedDataset"]
