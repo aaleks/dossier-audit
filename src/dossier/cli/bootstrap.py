@@ -24,6 +24,7 @@ from dossier.config.endpoints import EndpointUnset, endpoint_for
 from dossier.config.environment import environment
 from dossier.config.load import ConfigError, load_converter_names
 from dossier.domain.conversion import NoConverter, answering
+from dossier.domain.install import stale_entry_points, stale_install_line
 from dossier.domain.model_id import provider_of
 from dossier.domain.ports import (
     DatasetRegistry,
@@ -355,3 +356,47 @@ def latest_run(workspace: Path, pipeline: str) -> tuple[ResolvedPlan | None, str
     found = latest_manifest(workspace / RUNS_ROOT, pipeline, unreadable=unreadable)
     say_passed_over(unreadable)
     return found
+
+
+def declared_entry_points() -> dict[str, dict[str, str]] | None:
+    """The entry points `dossier`'s own `pyproject.toml` declares, or `None` without one.
+
+    An editable install runs from its source, which sits two levels above the
+    package. A wheel has no source beside it, and nothing to compare (R0.18
+    row 4). `[project.scripts]` is installed as `console_scripts`.
+    """
+    import tomllib
+
+    import dossier
+
+    source = Path(dossier.__file__).resolve().parents[2] / "pyproject.toml"
+    if not source.is_file():
+        return None
+    project = tomllib.loads(source.read_text(encoding="utf-8")).get("project", {})
+    if project.get("name") != "dossier":
+        return None
+    declared = {
+        group: dict(points) for group, points in project.get("entry-points", {}).items()
+    }
+    if project.get("scripts"):
+        declared["console_scripts"] = dict(project["scripts"])
+    return declared
+
+
+def installed_entry_points() -> dict[str, dict[str, str]]:
+    """The entry points the installed `dossier`'s metadata holds, by group and name."""
+    from importlib.metadata import distribution
+
+    found: dict[str, dict[str, str]] = {}
+    for point in distribution("dossier").entry_points:
+        found.setdefault(point.group, {})[point.name] = point.value
+    return found
+
+
+def stale_install() -> str | None:
+    """The line refusing an install made from other source than this, or `None` (R0.18)."""
+    declared = declared_entry_points()
+    if declared is None:
+        return None
+    differences = stale_entry_points(declared=declared, installed=installed_entry_points())
+    return stale_install_line(differences) if differences else None

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import typer
 
+from dossier.cli import bootstrap
 from dossier.cli.calibrate import calibrate
 from dossier.cli.convert import convert
 from dossier.cli.dataset import dataset_app
@@ -33,7 +34,15 @@ def main() -> None:
     A callback is declared so that `sync` stays a sub-command. Typer collapses
     a single-command app into a bare invocation, and `dossier <pipeline>` is
     not the interface the specs describe -- `run` and `eval` join it later.
+
+    Every command first checks that it is installed from its own source: an
+    install older than an entry point fails confusingly on whatever needed it
+    (R0.18).
     """
+    stale = bootstrap.stale_install()
+    if stale is not None:
+        typer.echo(stale, err=True)
+        raise typer.Exit(code=2)
 
 
 # In the order `dossier --help` lists them.

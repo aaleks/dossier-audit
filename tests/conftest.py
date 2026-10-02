@@ -15,6 +15,20 @@ import pytest
 
 from .fakes import FakeModelClient, NoModelClient
 
+
+def pytest_sessionstart(session) -> None:
+    """Stop before any test when this install predates its source (R0.18).
+
+    A stale install fails the tests that need a newer entry point, each with a
+    message about a missing provider or type, on a commit CI passes.
+    """
+    from dossier.cli.bootstrap import stale_install
+
+    stale = stale_install()
+    if stale is not None:
+        pytest.exit(stale, returncode=2)
+
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 

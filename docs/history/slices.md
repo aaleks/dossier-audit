@@ -13,6 +13,16 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A stale install is refused, saying to reinstall (2026-10-02, R0.18, #693 and
+this). Entry points come from the metadata written at install time, so an
+install older than `pyproject.toml` failed on whatever needed a newer entry
+point, naming a provider or type as missing. analysis_v2's own run failed
+R18.11 that way. Now every command, in `main`'s callback, and the test
+suite, in `pytest_sessionstart`, compare the entry points the source
+declares, `[project.scripts]` included, with the installed ones. On any
+difference they stop with one line and the one fix, `uv sync`. A wheel, with
+no `pyproject.toml` of `dossier` beside it, is not checked.
+
 An `embed` stopped by a failed request keeps what was answered (2026-10-02,
 R18.12, #691 and this). The vectors were cached only once every request had
 answered and every length agreed, so a timeout late in a long `embed` on a
