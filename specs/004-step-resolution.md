@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.28
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.30
 
 ## Purpose
 
@@ -779,3 +779,48 @@ the cache before its record passed every other row.
 | 4 | *counter-example* — `INC-4901`'s cache entry deleted since the run, and nothing recorded for it | the replay stops, naming `INC-4901`, as R4.7 row 4 says |
 | 5 | *counter-example* — a run from before R4.27, with no `failures.json`, in which `INC-4822` failed | the replay stops on `INC-4822`, as it did before: nothing says it failed |
 | 6 | a second run of the same pipeline since, in which `INC-4822` was answered and cached under the key the first run would have used; a replay of the first | `INC-4822` fails with the first run's recorded reason, and the second run's answer is not served (R4.7) |
+
+### R4.29 — a run's `manifest.json` and `failures.json` are each written whole, or not at all
+
+Both were written in place, with one `write_text`. A process killed while
+writing one left it cut short, and that is the case R16.11 had to tolerate in
+`gc`. Now each is written beside itself under a temporary name and renamed
+over the real one, as the cache writes an entry (R5.8). A rename is all or
+nothing, so a run directory holds a whole file or none: a run killed while
+writing its manifest is a directory with no manifest, which is not a run
+(R16.2 row 6).
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.manifest.Manifest.write`, `dossier.application.run`)
+- **Proved by:** `tests/unit/test_R004_29__a_run_record_is_written_whole_or_not_at_all.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `20260806T142203Z-4f1a`'s manifest, the process stopped after the temporary file is written and before the rename | no `manifest.json` in the directory: the run is not one, and nothing reads half of it |
+| 2 | its `failures.json`, stopped the same way | no `failures.json`: the run reads as one that stopped, as R4.27 says a run with no record does |
+| 3 | *counter-example* — both written to the end | each file whole, and no temporary file left beside it |
+
+### R4.30 — a command looking for a past run passes over a manifest it cannot read, and names it
+
+One manifest cut short, or edited by a person into something that is not one
+(R0.11), stopped `run`, `run --plan`, `eval`, `embed` and `status` with a
+traceback. Each read every newer manifest, of any pipeline, before it asked
+which pipeline a run was. Only `gc` passed over it (R16.11), so a person could
+clean up but not work. Now every command lists runs the way `gc` does: a
+manifest that cannot be read says nothing of its run, not even its pipeline,
+so it is passed over, and named on standard error, and the command goes on
+with the runs it can read.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.manifest.run_manifests`), cli
+- **Proved by:** `tests/acceptance/test_R004_30__a_damaged_manifest_is_passed_over_and_named.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the scoring example run twice, `20260907T090000Z-bbbb`'s manifest then cut short; `dossier run incident-audit --plan` | on standard error, `  passed over: runs/20260907T090000Z-bbbb/manifest.json cannot be read: ` and the reason; the plan is compared with `20260806T142203Z-4f1a`'s, the newest it can read; exit 0 |
+| 2 | the same, `dossier eval incident-audit --gold gold/incidents` | the same line; `20260806T142203Z-4f1a` is the run scored |
+| 3 | the same, `dossier status` | the same line; `20260806T142203Z-4f1a` is the pipeline's last run |
+| 4 | the same, `dossier run incident-audit` | the same line, and the run goes on |
+| 5 | *counter-example* — no manifest cut short | no such line |
