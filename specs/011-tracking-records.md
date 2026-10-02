@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.35
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.36
 
 ## Purpose
 
@@ -923,3 +923,21 @@ It supersedes R11.34, whose search named no reader.
 | 2 | the same search again | an EMBEDDING span with 0 tokens, marked `cached` |
 | 3 | *counter-example* — a search refused for naming no reader (R19.11 row 1) | no trace |
 | 4 | *counter-example* — tracking off | nothing recorded, and the search prints as before |
+
+### R11.36 — a judge's trace that ended in an error closes as ERROR, naming it
+
+A stage's trace that failed closes as ERROR, naming the error (R11.1 row 4). A
+judge's trace closed as OK whatever happened in it, because the `finally` that
+closed it did not ask (analysis_v2, §3.5 row 5). The eval stopped on the error
+in one line (R9.25) and closed its run as FAILED (R11.23), and the one trace
+that saw the error said all was well.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval`)
+- **Proved by:** `tests/acceptance/test_R011_36__a_judge_trace_that_failed_closes_as_error.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier eval incident-audit --gold gold/incidents` with tracking on, a `root_cause` verdict not in the cache, and the judge's request refused | the judge's trace closes as ERROR, its error the client's line; the eval stops in one line, exit 2 (R9.25) |
+| 2 | *counter-example* — the judge answered | its trace closes as OK, as before |
