@@ -640,13 +640,13 @@ A judge's request is not a stage's, and a refused one still stops `eval` and
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.refusals.about_the_request`), infrastructure (`dossier.infrastructure.models._http.request`), application (`dossier.application.extract.run_stage`)
 - **Proved by:** `tests/acceptance/test_R009_23__a_request_refused_as_sent_fails_its_document.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
 | 1 | `dossier run incident-audit` over the scoring example's four incidents, `INC-4822`'s request answered `400 Bad Request` with `This model's maximum context length is 128000 tokens` | the other three are answered and cached; `    extract failed on INC-4822: POST <url> answered 400 Bad Request: This model's maximum context length is 128000 tokens` on standard error; `failures.json` holds that entry; exit 1 |
 | 2 | the same run again | the three served from the cache, and one request, for `INC-4822`, asked again |
-| 3 | `413 Payload Too Large`, or `422 Unprocessable Entity` | as row 1, with its own status and reason |
+| 3 | `413 Request Entity Too Large`, or `422 Unprocessable Entity` | as row 1, with its own status and reason |
 | 4 | *counter-example* — `INC-4822`'s request answered `401 Unauthorized` | the run stops in one line, exit 2 (R9.25): no other request would be answered |
 | 5 | *counter-example* — `404 Not Found`, or `429` after R9.17's retries | the run stops in one line, exit 2: the model is not there, or the endpoint cannot take the run now |
 
