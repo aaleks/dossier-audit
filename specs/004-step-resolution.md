@@ -815,7 +815,7 @@ with the runs it can read.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.manifest.run_manifests`), cli
 - **Proved by:** `tests/acceptance/test_R004_30__a_damaged_manifest_is_passed_over_and_named.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
