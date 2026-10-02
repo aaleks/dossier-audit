@@ -17,13 +17,13 @@ from dossier.domain.gc import (
     KEEP_LAST,
     NOTHING,
     PREVIEWED,
+    held_snapshots,
     run_line,
     summary_line,
     unreadable_manifest_line,
     unreplayable_line,
     untraced_line,
 )
-from dossier.domain.sync import State
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.ledger import Ledger
 from dossier.infrastructure.store import SnapshotStore
@@ -133,9 +133,4 @@ def gc(
 def _held_snapshots(workspace: Path) -> set[str]:
     """The snapshots the ledger holds now, whose conversions the next run reads (R16.3)."""
     with Ledger(workspace) as ledger:
-        return {
-            row.content_hash
-            for source in ledger.sources()
-            for row in ledger.rows(source)
-            if row.state == State.ACTIVE
-        }
+        return held_snapshots(row for source in ledger.sources() for row in ledger.rows(source))

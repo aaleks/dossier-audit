@@ -34,9 +34,12 @@ from tests.scoring_example import (
     IssueTracker,
     RoutedModel,
 )
+from tests.unit import test_R002_17__a_held_document_is_its_raw_snapshot as projected
 
 from dossier.application.gc import gc_plan
 from dossier.application.manifest import MANIFEST_NAME, Manifest
+from dossier.domain.ledger import LedgerRow
+from dossier.domain.sync import State
 
 CHANGED = ISSUES["INC-4821"] + "Reopened on 2026-08-09 for a follow-up.\n"
 
@@ -252,7 +255,7 @@ def _held_snapshot(workspace: Path, key: str) -> str:
 
     with Ledger(workspace) as ledger:
         (row,) = [row for row in ledger.rows(SOURCE_ID) if row.key == key]
-    return row.content_hash
+    return row.snapshot
 
 
 def _cache_entry(workspace: Path, namespace: str) -> None:
@@ -273,3 +276,60 @@ def _bytes(workspace: Path, *paths: str) -> dict[str, bytes]:
                 found[path.relative_to(workspace).as_posix()] = path.read_bytes()
     assert found, f"nothing under {paths}"
     return found
+
+
+# R2.17's workspace: a tracker whose source declares `fields`, synced once, so
+# its row's `content_hash` is the projection's and its snapshot the raw payload's.
+tracker = projected.tracker
+
+
+def _row(**fields) -> LedgerRow:
+    when = "2026-08-06T09:00:00Z"
+    return LedgerRow(
+        source_id="incidents-jira",
+        key="INC-4821",
+        remote_version="v37",
+        media_type="text/markdown",
+        first_seen=when,
+        last_seen=when,
+        **fields,
+    )
+
+
+class TestWhatIsHeldIsTheRawSnapshot:
+    """R16.3 row 7 — a held document is the payload its row addresses (R2.17)."""
+
+    def test_the_held_snapshot_is_the_one_the_row_addresses(self):
+        """Row 7 — the one whose `content_hash` is a projection's, and not its snapshot."""
+        from dossier.domain.gc import held_snapshots
+        from dossier.domain.store import snapshot_path
+
+        raw = "a3f9c1e2" * 8
+        row = _row(content_hash="b7d0" * 16, snapshot_path=snapshot_path(raw))
+
+        assert held_snapshots([row]) == {raw}
+
+    def test_a_tombstoned_row_holds_nothing(self):
+        """Row 5, counter-example — the one that left scope, whose conversion is not read."""
+        from dossier.domain.gc import held_snapshots
+        from dossier.domain.store import snapshot_path
+
+        raw = "a3f9c1e2" * 8
+        row = _row(content_hash=raw, snapshot_path=snapshot_path(raw), state=State.TOMBSTONED)
+
+        assert held_snapshots([row]) == set()
+
+    def test_gc_keeps_the_conversion_of_a_held_projected_document(
+        self, workspace: Path, monkeypatch, tracker
+    ):
+        """Row 7 — the one synced from a source declaring `fields`, then `gc --apply`."""
+        (row,) = projected._rows(workspace, "incidents-jira")
+        assert row.content_hash != row.snapshot, "the projection's hash is not the payload's"
+        assert _cli(workspace, monkeypatch, "convert", projected.PIPELINE).exit_code == 0
+        converted = _conversions(workspace, row.snapshot)
+        assert converted, "`dossier convert` wrote the held snapshot's conversion"
+
+        result = _cli(workspace, monkeypatch, "gc", "--apply")
+
+        assert result.exit_code == 0, result.output
+        assert converted <= _conversions(workspace, row.snapshot), result.output
