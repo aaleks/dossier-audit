@@ -17,13 +17,13 @@ bound to a query.
 
 The index is derived data, rebuilt from the workspace (R18.4). What `held`
 reads back is the ids and content hashes of an index's documents, and nothing
-else (R0.17 row 7).
+else (R0.19 row 7).
 
 `PostgresIndexSearch` reads back what the index is for: chunks, their text, and
 their documents' titles and values (spec 019, "Reading back from the index").
 It is its own class, behind its own port, so the sink still reads back ids and
 hashes alone, and what a search reads reaches the terminal and MLflow and
-nothing else (R0.17).
+nothing else (R0.19).
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """Sending a command's record to MLflow (spec 010).
 
-One of the four packages left of the hash boundary (R0.17). It sends records.
+One of the four packages left of the hash boundary (R0.19). It sends records.
 What it hands back to the rest of `dossier` is only what specs 012 to 015
 fence, each through a port of its own: what a registry says about what it
 published or found (`DatasetRegistry`, `VersionRegistry`, `PromptRegistry`),

@@ -71,7 +71,7 @@ class PublishedVersion:
 
     The second thing in `dossier` that came *back* from a tracking server, and
     the reason `VersionRegistry` is a port of its own rather than a method on
-    `Tracker`, which returns nothing (R15.5 row 2): R0.17 lets tracking read
+    `Tracker`, which returns nothing (R15.5 row 2): R0.19 lets tracking read
     back only what a spec fences, and spec 013 fences this. Every field here may
     reach an MLflow tag, the link `Tracker` records and a line in the terminal,
     and none of it may reach a cache key, a manifest, a score or any file on disk

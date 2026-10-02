@@ -169,7 +169,7 @@ $ ls -A no-models
 $
 ```
 
-- **Never fetched.** Conversion is right of the hash boundary (R0.17). An
+- **Never fetched.** Conversion is right of the hash boundary (R0.19). An
   artifact must be a function of the snapshot and the converter's version, and
   nothing else (R8.1). A model pulled from the Hub on first use is whatever
   `main` pointed at that day. Two machines would then write two artifacts under

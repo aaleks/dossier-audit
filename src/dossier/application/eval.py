@@ -705,7 +705,7 @@ def judged_cached(
 ) -> tuple[bool, str]:
     """One judge verdict, served from the cache or asked of the judge on a miss (R7.18).
 
-    A judge is a model, and R0.17 says a model is asked only on a cache miss.
+    A judge is a model, and R0.19 says a model is asked only on a cache miss.
     The verdict is an artifact like any stage's: content-addressed by
     `JudgeInputs` and written with a provenance record, so a second eval of the
     same run asks nothing and a run that changed one document's answer asks
@@ -972,7 +972,7 @@ def calibrate_field(
     documents' text are all this function's arguments rather than things it goes
     and finds, which is what lets it be measured against a fake that counts calls
     and what keeps the question of *where* text comes from in the composition
-    root (R0.17's shape).
+    root (R0.19's shape).
 
     Refused below the minimum before a single call is made. A sample too small
     cannot produce a figure that means anything (R7.11 row 3), and judging it

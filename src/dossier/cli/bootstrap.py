@@ -262,7 +262,7 @@ class BuiltOnFirstCall:
     """A model client that is not built until a stage first asks it something.
 
     A run served entirely from cache reaches no model, so it needs no endpoint
-    and no client (R9.2 row 5, R0.17). Building one up front made a fully cached
+    and no client (R9.2 row 5, R0.19). Building one up front made a fully cached
     run fail on a machine that could have completed it. `model_id` is known
     without building anything: it is part of every key, and the keys are what
     decide whether a call happens at all.
@@ -312,7 +312,7 @@ def build_dataset_registry(settings: TrackingSettings) -> DatasetRegistry:
     composition root hands to a use case, and a test replaces it with a
     `FakeDatasetRegistry`. Separate from `build_tracker` because the two are
     different ports -- this one returns what it published, which a `Tracker`
-    never does (R15.5 row 2), and which R0.17 lets tracking read back because
+    never does (R15.5 row 2), and which R0.19 lets tracking read back because
     spec 012 fences it.
     """
     return connect_datasets(settings.uri, auth=settings.auth, ca_bundle=settings.ca_bundle)
@@ -342,7 +342,7 @@ def build_prompt_registry(settings: TrackingSettings, *, verify: bool = True) ->
 
     The seam `build_dataset_registry` is, for the port beside it: this one also
     returns what it wrote, which a `Tracker` never does (R15.5 row 2), and
-    which R0.17 lets tracking read back because spec 014 fences it. A
+    which R0.19 lets tracking read back because spec 014 fences it. A
     test replaces it with a `FakePromptRegistry`.
     """
     return connect_prompts(

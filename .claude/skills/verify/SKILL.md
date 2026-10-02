@@ -24,7 +24,7 @@ That covers several things, and each fails the build:
 
 | Check | Catches |
 |---|---|
-| The hash boundary (R0.17) | A network import right of the line — reproducibility broken |
+| The hash boundary (R0.19) | A network import right of the line — reproducibility broken |
 | Layer contracts | A boundary crossed, or `domain/` losing its purity |
 | Rule shape | A rule with no Kind, Layer, Proved by, Status, examples or counter-example |
 | Rule/test link | A rule that is not `NOT MET` naming a test that does not exist |

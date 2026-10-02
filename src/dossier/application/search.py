@@ -4,7 +4,7 @@ The index and the embedding model are handed in, as a run's model client is;
 this module constructs neither. The model is asked only for the query's
 vector, and only when the cache has none (R19.3). What the index answers is
 ranked by `dossier.domain.search`, and reaches the terminal and MLflow and
-nothing else: no key, manifest or score (R0.17).
+nothing else: no key, manifest or score (R0.19).
 """
 
 from __future__ import annotations

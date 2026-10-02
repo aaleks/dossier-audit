@@ -42,7 +42,7 @@ from dossier.infrastructure.tracking.auth import PROVIDER, configure, configured
 from dossier.infrastructure.tracking.oidc import TokenRefused, TokenSource, unverified
 
 # How the startup check reaches the server. `None` is a real connection; a test
-# answers with an `httpx.MockTransport`, so no socket is opened (R0.17).
+# answers with an `httpx.MockTransport`, so no socket is opened (R0.19).
 HEALTH_TRANSPORT: httpx.BaseTransport | None = None
 
 # Long enough for a server under load to answer a health check, short enough
@@ -254,7 +254,7 @@ class MlflowTracker:
         self._opened: list[str | None] = []
         # The places, among `_opened`, of the traces the server turned out not to
         # hold. Places rather than ids: the port reads no id back from a server,
-        # so nothing MLflow holds can become an input (R0.17, R10.24). Read by
+        # so nothing MLflow holds can become an input (R0.19, R10.24). Read by
         # `BestEffortTracker`, which does the counting.
         self.unrecorded_traces: frozenset[int] = frozenset()
 

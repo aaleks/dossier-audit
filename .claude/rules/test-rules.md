@@ -12,7 +12,7 @@ You are editing tests. Tests are executable specifications.
   the rules there are `evaluated` and cannot be checked any other way.
 - **No network, and the suite enforces it.** The autouse `no_network` fixture blocks
   socket creation for every test that is not marked `live`. If a test fails with
-  `NetworkAccessDuringTest`, do not work around it — that is R0.17 catching something.
+  `NetworkAccessDuringTest`, do not work around it — that is R0.19 catching something.
 - **Assert counts, not just values.** R2.14, R2.15, R4.6, R5.5 and R5.10 are claims
   about how many fetches, writes or model calls happened. `fake_model.call_count == 0` is the
   assertion; a canned response proves nothing about them.

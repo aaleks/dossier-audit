@@ -1,7 +1,7 @@
 """The Anthropic model client (spec 009, R9.15).
 
 Anthropic is reached through its own Messages API, which R9.12 and R9.13 each
-left to this rule. Left of the hash boundary (R0.17): what it sends is a pure
+left to this rule. Left of the hash boundary (R0.19): what it sends is a pure
 function of the stage's prompt and schema and the pinned identifier; where it
 sends it is per machine and in no key (R9.2). How a request is made and how a
 failure is reported is `_http`'s, shared with the other clients.
@@ -85,7 +85,7 @@ class AnthropicClient:
         `temperature`, `top_p` and `top_k` outright, and dossier's
         reproducibility was never the model's to provide: a model is reached
         only on a cache miss, and every answer is cached under a key naming the
-        prompt, the schema and the pinned model (R0.17, spec 005).
+        prompt, the schema and the pinned model (R0.19, spec 005).
         """
         body: dict = {
             "model": self._name,

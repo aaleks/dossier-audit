@@ -340,7 +340,7 @@ def execute(
     records nothing either. Tracking observes: what it reads back -- the id of
     the version this run built, the prompt versions it rendered -- reaches a
     link and the terminal, and never a key, a manifest or an artifact of this
-    run (R0.17, R13.4, R14.5).
+    run (R0.19, R13.4, R14.5).
     """
     pipeline, pipeline_hash = inputs.pipeline, inputs.pipeline_hash
     schemas, prompts = inputs.schemas, inputs.prompts

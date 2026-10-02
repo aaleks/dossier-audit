@@ -1,6 +1,6 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R0.1 – R0.19
 
 ## Purpose
@@ -656,7 +656,7 @@ None of it enters a key, a manifest, a cache entry or a score.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_19__four_packages_reach_the_network_and_what_they_read_back.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -5,7 +5,7 @@ paths:
 
 You are editing a connector. This is one of the **four** packages left of the hash
 boundary -- with `infrastructure/models`, `infrastructure/tracking` and
-`infrastructure/index` -- and the only one that fetches a source (R0.17).
+`infrastructure/index` -- and the only one that fetches a source (R0.19).
 
 Everything downstream assumes that once a payload has been stored, it is frozen and
 repeatable. That assumption is only as good as this package.

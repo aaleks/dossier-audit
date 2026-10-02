@@ -318,7 +318,7 @@ class PublishedPrompt:
 
     Comes *back* from a tracking server, which is why publishing prompts has a
     port of its own rather than a method on `Tracker`, whose every method sends
-    and returns nothing (R15.5 row 2): R0.17 lets tracking read back only what a
+    and returns nothing (R15.5 row 2): R0.19 lets tracking read back only what a
     spec fences, and spec 014 fences this. Every field here may reach a tag, a
     link and the terminal line, and nothing else: no key, no manifest, no file
     under `runs/`, `gold/` or the pipeline's own directory (R14.5).

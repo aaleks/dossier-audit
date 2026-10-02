@@ -58,7 +58,7 @@ class Connector(Protocol):
     """The three questions every source type answers.
 
     Implementations live in `dossier.infrastructure.connectors`, the package
-    left of the hash boundary that fetches a source (R0.17), and are discovered
+    left of the hash boundary that fetches a source (R0.19), and are discovered
     through the `dossier.connectors` entry point group rather than named
     anywhere in the core package (R1.7).
     """
@@ -182,7 +182,7 @@ class DatasetRegistry(Protocol):
     A second port beside `Tracker`, and the reason is the one thing it does that
     `Tracker` does not: it **returns**. A dataset id, a digest and a record count
     come back from a server, which is exactly what `Tracker`'s contract forbids
-    (R15.5 row 2). R0.17 lets tracking read back only what a spec fences, and
+    (R15.5 row 2). R0.19 lets tracking read back only what a spec fences, and
     this port is where spec 012 fences it. Splitting them keeps the stronger
     promise intact where it matters.
 
@@ -243,7 +243,7 @@ class ReviewSource(Protocol):
 class Tracker(Protocol):
     """Where a command's record is sent (spec 010, spec 011).
 
-    Every method **sends and returns nothing** (R15.5 row 2). R0.17 lets
+    Every method **sends and returns nothing** (R15.5 row 2). R0.19 lets
     tracking read back only what specs 012 to 015 fence, and each of those reads
     has a port of its own: `DatasetRegistry`, `VersionRegistry`,
     `PromptRegistry` and `ReviewSource`. This one only reports, so nothing
@@ -329,7 +329,7 @@ class Tracker(Protocol):
         prompt version found by the hash the run rendered -- so the link is a
         statement about what the version is made of. Sends and returns nothing,
         like `log_version_metrics`: the id arrives from `VersionRegistry`, the
-        port allowed to return one (R0.17, R13.4).
+        port allowed to return one (R0.19, R13.4).
         """
         ...
 
@@ -416,7 +416,7 @@ class Converter(Protocol):
         """The artifact, as a pure function of `payload` and `options` (R8.1).
 
         Reads nothing else: no clock, no locale, no environment variable, no file
-        outside its input, and no network (R0.17). `K_convert` claims the artifact
+        outside its input, and no network (R0.19). `K_convert` claims the artifact
         is determined by the snapshot hash, this converter's id and version, and
         these options; a converter consulting anything else makes that key a lie
         and the cache serves text nothing can detect as stale.
@@ -558,7 +558,7 @@ class PromptRegistry(Protocol):
     dossier declines that half of it: a prompt fetched at run time would be an
     input to a cache key that no checkout can reproduce (R0.4), a route into a
     run that no review passed through, and a network read on the replay path
-    (R0.17). The prompt files in the pipeline's own directory stay the only
+    (R0.19). The prompt files in the pipeline's own directory stay the only
     source (R14.5).
     """
 
@@ -605,7 +605,7 @@ class VersionRegistry(Protocol):
 
     A third port, beside `Tracker` and `DatasetRegistry`, and for
     `DatasetRegistry`'s reason: registering a version **returns** an id, which
-    `Tracker`'s contract forbids (R15.5 row 2) and R0.17 lets tracking read back
+    `Tracker`'s contract forbids (R15.5 row 2) and R0.19 lets tracking read back
     only because spec 013 fences it.
 
     It matters more here than it did for datasets. A dataset is published by a
@@ -637,7 +637,7 @@ class EmbeddingProvider(Protocol):
     """A model asked for vectors (spec 018). Reached only on a cache miss (R18.3).
 
     Its implementations live in `dossier.infrastructure.models`, left of the
-    hash boundary with every other model client (R0.17): a vector is a model's
+    hash boundary with every other model client (R0.19): a vector is a model's
     answer, cached as a stage's answer is.
     """
 
@@ -670,7 +670,7 @@ class IndexSink(Protocol):
     The index is derived data. What it answers is the only thing read back:
     the ids and content hashes of the documents it holds, so `embed` writes
     only what changed (R18.4). Nothing it holds enters a key, a manifest or a
-    score (R0.17).
+    score (R0.19).
     """
 
     def prepare(self, index: str, column: str) -> None:
@@ -697,7 +697,7 @@ class IndexSearch(Protocol):
     for -- chunks, their text, their documents' titles and values -- where
     `IndexSink` reads back only ids and content hashes (R18.4). What it reads
     reaches the terminal and MLflow, and nothing else: no key, manifest or
-    score (R0.17).
+    score (R0.19).
     """
 
     def models(self, index: str) -> frozenset[str]:

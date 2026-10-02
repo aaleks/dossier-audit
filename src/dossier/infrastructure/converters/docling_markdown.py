@@ -9,7 +9,7 @@ from it, a page with none read by OCR -- and is opt-in, because it claims the pa
 **Its models are part of it.** Docling reads a layout model and a table model
 from Hugging Face, and by default downloads them the first time it needs them, at
 revision `main`. That is the network on the path every artifact is made on
-(R0.17), and a floating name deciding what an artifact says. Here the weights are
+(R0.19), and a floating name deciding what an artifact says. Here the weights are
 read from Docling's model folder at the commits pinned below, and every file read
 is checked against the SHA-256 recorded for its commit before a page is converted
 (R8.15). Where the folder is differs between machines; which bytes it holds does

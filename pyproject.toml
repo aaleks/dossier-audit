@@ -21,7 +21,7 @@ dependencies = [
     "pyyaml>=6.0",
     # The model clients (spec 009, R9.12), and the connectors and tracking
     # besides. Imported only by dossier.infrastructure.models, .connectors and
-    # .tracking, three of the four packages that may reach the network (R0.17).
+    # .tracking, three of the four packages that may reach the network (R0.19).
     # Its MockTransport answers a request with no socket, which is what lets the
     # default suite test a client offline.
     "httpx>=0.28.1",
@@ -93,7 +93,7 @@ docling = [
 # on it, is 86 more. The Chromium it drives is a second step, `playwright
 # install chromium-headless-shell`, which dossier never runs itself (R1.42).
 # Only `dossier.infrastructure.connectors` imports it, one of the four packages
-# that may reach the network (R0.17).
+# that may reach the network (R0.19).
 browser = ["playwright>=1.49"]
 # The embedding index (spec 018): psycopg 3, the PostgreSQL driver, and
 # pgvector-python, which hands it pgvector's `vector` and `halfvec` types.
@@ -102,7 +102,7 @@ browser = ["playwright>=1.49"]
 # options considered"). LGPL-3.0 (psycopg, imported and not modified) and MIT
 # (pgvector); `[binary]` carries libpq in its wheel, so no PostgreSQL client has
 # to be installed. Optional, because only `dossier.infrastructure.index` imports
-# them (R0.17) and only `dossier embed` and `dossier search` reach it: a
+# them (R0.19) and only `dossier embed` and `dossier search` reach it: a
 # workspace that builds no index installs no database driver.
 index = ["psycopg[binary]>=3.3", "pgvector>=0.5"]
 

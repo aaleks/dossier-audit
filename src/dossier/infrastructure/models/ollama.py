@@ -61,7 +61,7 @@ class OllamaClient:
         # How a refused request waits before it is sent again (R9.17).
         self._sleep = sleep
         # The digest is checked once, before the first completion -- the first
-        # moment a model is reached at all (R9.4, R0.17). A client that is never
+        # moment a model is reached at all (R9.4, R0.19). A client that is never
         # asked anything, as in a run served from cache, asks the server nothing.
         # Once however many workers ask at once (R9.19): the rest wait for it.
         self._unchecked = True
