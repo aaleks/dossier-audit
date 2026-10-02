@@ -62,7 +62,7 @@ line that justifies it. Do not list every `COVERED` rule — count them. A repor
 lists all 71 buries the four that matter.
 
 Rank findings by consequence: an unproved rule guarding a real failure first,
-cosmetic mismatches last. Reproducibility rules (R0.1–R0.6, R4.7, R5.6) outrank
+cosmetic mismatches last. Reproducibility rules (R0.2–R0.6, R0.17, R4.7, R5.6) outrank
 everything, because a violation there is invisible until someone tries to defend an
 audit and cannot.
 

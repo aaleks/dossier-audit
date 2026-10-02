@@ -27,7 +27,7 @@ would be:
   that keys are byte-identical across machines given the same prompts;
 - a route into a run's behaviour that no pull request passed through, which is
   the working agreement's first rule;
-- a network read on the replay path, which R0.10 forbids outright -- and a key
+- a network read on the replay path, which R0.17 forbids outright -- and a key
   cannot be recomputed without the prompt's bytes, so `--replay` would have to
   fetch.
 

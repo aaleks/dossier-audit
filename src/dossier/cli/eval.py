@@ -166,7 +166,7 @@ def judge_gate(
 
     # Absent is its own answer: a gold set with no judge.yaml has declared no
     # bar, and a field with no bar cannot be gated. Present and malformed still
-    # raises, because that is a mistake somebody has to be told about (R7.13).
+    # raises, because that is a mistake somebody has to be told about (R7.20).
     declared = (directory / JUDGE_FILE).is_file()
     thresholds = load_judge_thresholds(directory) if declared else {}
     # The unsupported half's bar, where the gold set declares one (R7.30, R7.31).

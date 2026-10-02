@@ -12,7 +12,7 @@ stage then reads. Written against spec 001 R1.29 – R1.43.
   `src/dossier/domain/web.py`.
 - Registered in `pyproject.toml` under `dossier.connectors` as
   `web = "...web:WebConnector.from_config"`. `sources.yaml` says `type: web`.
-- Left of the hash boundary, like Jira and Confluence (R0.10). `httpx` and
+- Left of the hash boundary, like Jira and Confluence (R0.17). `httpx` and
   `protego` are imported lazily.
 - A page drawn by a browser: `src/dossier/infrastructure/connectors/browser.py`
   (`Chromium`), which imports Playwright only when a browser is opened. What a

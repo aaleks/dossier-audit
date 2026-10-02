@@ -337,8 +337,10 @@ def execute(
     asked only about those (R4.18); `None` is a full run.
 
     Recording starts only after resolution, so a run that resolution refused
-    records nothing either. Tracking observes; nothing it holds is read back
-    into this run (R0.10).
+    records nothing either. Tracking observes: what it reads back -- the id of
+    the version this run built, the prompt versions it rendered -- reaches a
+    link and the terminal, and never a key, a manifest or an artifact of this
+    run (R0.17, R13.4, R14.5).
     """
     pipeline, pipeline_hash = inputs.pipeline, inputs.pipeline_hash
     schemas, prompts = inputs.schemas, inputs.prompts
@@ -1143,10 +1145,10 @@ def _from_cache(
         checks=checks,
         attempts=0,
         # The stored bytes travel on rather than being re-derived from the
-        # records. They are the same bytes for every document that shares this
-        # key, and two documents with identical content do share one -- so
-        # re-serialising under *this* document's name would hand the next step
-        # something the cache never held, and change its key (R5.5, R5.7 row 4).
+        # records. Re-serialising them would hand the next step something the
+        # cache never held -- an entry written before R0.14 is on one line --
+        # and change its key (R5.5, R0.14 row 6). They already name this
+        # document: no two documents share a stage key (R5.10).
         text=payload.decode(),
     )
 

@@ -242,12 +242,18 @@ is scored as an abstention in every mode, was decided by `a.aleks` on 2026-09-28
 
 ## The review loop
 
-**Not built.** What follows is the design, kept because three rules are shaped
-by it; no rule claims the file or the command, and `dossier` writes neither. The
-part of it that needs no file *is* built: `dossier run` names every field finding
-it produced (R6.16) and `dossier eval` names the document behind every verdict it
-scored incorrect (R7.25), both with the detail described below. What is missing
-is the file, and the reviewer's answers coming back.
+**Built in MLflow, not as the file designed here (spec 015).** A reviewer reads
+each answer on the trace a run already records, beside the document it was
+given (R15.1), and leaves a verdict or the value that should have been there.
+`dossier review pull` brings those answers back as files under
+`review/<pipeline>/` (R15.3), and `dossier review apply` merges the expected
+values a maintainer kept into the gold set, under that maintainer's name (R15.4,
+R7.7). The part that needs no reviewer is built too: `dossier run` names every
+field finding it produced (R6.16) and `dossier eval` names the document behind
+every verdict it scored incorrect (R7.25), both with the detail described below.
+
+What follows is the design as first written, kept because three rules are
+shaped by it. No rule claims its file, and `dossier` does not write one.
 
 A run would emit `review.jsonl`: one record per field that is empty,
 ungrounded, low confidence, or disagrees with the gold set. A reviewer would
@@ -255,15 +261,14 @@ mark each `correct`, `incorrect`, or supply the right value, and accepted
 corrections would be merged into the gold set -- reviewing being how the gold
 set grows, with no separate labelling exercise.
 
-What exists today is the material the file would hold, and two commands that
+What exists of the file is the material it would hold, and two commands that
 print it: every `FieldScore` carries a `detail` saying *why* it came out as it
 did -- abstained, ungrounded, a value mismatch, a judge's evidence (R6.5 row 2,
 R7.4 row 2, R7.17 row 2) -- and `apply_correction` in `dossier.domain.gold` is
-the decision a correction would pass through (R7.7). Those details reached
-nobody until R6.16 and R7.25: `field_failures` was correct, had no caller
-anywhere in `src/`, and a run over sixteen invalid fields printed `0 failed`.
-The command that writes the file and reads the reviewer's answers back is a
-feature to scope with `/discover`, not a fix.
+the decision every correction passes through (R7.7), called by `dossier review
+apply`. Those details reached nobody until R6.16 and R7.25: `field_failures`
+was correct, had no caller anywhere in `src/`, and a run over sixteen invalid
+fields printed `0 failed`.
 
 ## The change gate
 
@@ -448,7 +453,7 @@ Following this rule to R11.3 alone would turn up nothing about either.
 
 ### R7.10 — scoring performs no network I/O for non-judge field types
 
-The direct consequence of R0.1 for this spec, and the reason most of an audit can
+The direct consequence of R0.17 for this spec, and the reason most of an audit can
 be re-scored offline in seconds.
 
 - **Kind:** deterministic
@@ -687,7 +692,7 @@ of abstention verdicts and judged ones is the silent subset this rule replaces.
 
 ### R7.18 — a judge verdict is cached under the judge model, the rubric hash, the judge prompt hash, the document's text hash and the candidate answer, and the judge is asked only on a miss
 
-R0.10's promise: a model is asked only on a cache miss, and everything right of
+R0.17's promise: a model is asked only on a cache miss, and everything right of
 the boundary reproduces without one. A judge is a model. Its verdict is an
 artifact like any stage's -- a content-addressed file with a provenance record
 (R0.3), in its own namespace beside `stage` and `convert` -- so a second eval
@@ -846,7 +851,7 @@ Withheld whole, not by state. A field reported as "0.82, of which the described
 verdicts are ungated" is a number every reader will quote without the clause.
 
 - **Kind:** deterministic
-- **Layer:** cli (`dossier.cli.eval._judge_gate`)
+- **Layer:** cli (`dossier.cli.eval.judge_gate`)
 - **Proved by:** `tests/unit/test_R007_23__a_field_is_reported_only_when_every_state_clears.py`
 - **Status:** MET
 
@@ -898,7 +903,8 @@ what the work *is*, and the material to say it has been carried since scoring wa
 written: every `FieldScore` holds a `detail` distinguishing an ungrounded field
 from a value that disagreed from a malformed one (R7.4 row 2), and "The review
 loop" above describes the file those details would one day fill. The file is
-still not built. This rule is the part of it that needs no file: the details are
+still not built; reviewers' answers came back through MLflow instead (spec
+015). This rule is the part of it that needs no file: the details are
 printed, under the field whose percentage they explain, as each eval runs.
 
 The distinction R7.4 row 2 exists for is the whole point. A field at 0.0% is three

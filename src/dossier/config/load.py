@@ -597,7 +597,7 @@ def load_calibration_sample(directory: Path, field: str) -> tuple[CalibrationCas
 # The agreed bar for each judged field, kept with the gold set the judge is
 # measured against. YAML rather than JSON so it is not one of the
 # `<document>.json` files a gold set is made of, which `_validate_gold` above
-# would otherwise try to read as a verified answer (R7.13).
+# would otherwise try to read as a verified answer (R7.13, where R7.20 keeps it).
 JUDGE_FILE = "judge.yaml"
 
 
@@ -710,7 +710,7 @@ def _state_bars(value: object, *, field: str, state: str) -> tuple[float, float 
 
 
 def _threshold(value: object, *, field: str, state: str, bar: str = "agreement") -> float:
-    """One declared figure, checked as R7.13 row 3 checked it.
+    """One declared figure, checked as R7.13 row 3 checked it and R7.20 row 5 does.
 
     The shape moved a level deeper and the checks moved with it. A shape change
     that quietly stopped checking the numbers would be a worse regression than

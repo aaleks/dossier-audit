@@ -33,7 +33,7 @@ class ItemRef(BaseModel):
 
 
 class RawItem(BaseModel):
-    """One item's payload, exactly as received (R1.2)."""
+    """One item's payload, exactly as received (R1.43)."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -57,10 +57,10 @@ class AttachmentRef(BaseModel):
 class Connector(Protocol):
     """The three questions every source type answers.
 
-    Implementations live in `dossier.infrastructure.connectors`, the only package
-    permitted to touch the network (R0.1), and are discovered through the
-    `dossier.connectors` entry point group rather than named anywhere in the core
-    package (R1.7).
+    Implementations live in `dossier.infrastructure.connectors`, the package
+    left of the hash boundary that fetches a source (R0.17), and are discovered
+    through the `dossier.connectors` entry point group rather than named
+    anywhere in the core package (R1.7).
     """
 
     # Whether `list` ignores `since` and returns everything on every call. Sync
@@ -87,7 +87,7 @@ class Connector(Protocol):
         ...
 
     def fetch(self, key: str) -> RawItem:
-        """The full payload of one item, byte-for-byte as received (R1.2)."""
+        """The full payload of one item, byte-for-byte as received (R1.43)."""
         ...
 
     def attachments(self, key: str) -> Iterator[AttachmentRef]:
@@ -146,11 +146,11 @@ class ModelClient(Protocol):
 
     Declared here so that `application/` can run a stage without importing any
     vendor SDK, and so the default test suite can hand it a fake that counts
-    calls -- R4.6, R5.5 and R5.7 are all claims about how many calls happened.
+    calls -- R4.6, R5.5 and R5.10 are all claims about how many calls happened.
 
     `model_id` is on the client rather than passed per call because it is part of
-    every cache key (R5.3) and part of every provenance record (R0.3): a score
-    without the model that produced it is not reproducible.
+    the key of every stage it answers (R5.13) and part of every provenance record
+    (R0.3): a score without the model that produced it is not reproducible.
     """
 
     model_id: str
@@ -180,15 +180,17 @@ class DatasetRegistry(Protocol):
     """Where a gold set is published as an MLflow evaluation dataset (spec 012).
 
     A second port beside `Tracker`, and the reason is the one thing it does that
-    `Tracker` may not: it **returns**. A dataset id, a digest and a record count
-    come back from a server, which is exactly what `Tracker`'s contract forbids,
-    and that contract is how R0.10 justifies letting tracking near the network at
-    all. Splitting them keeps the stronger promise intact where it matters.
+    `Tracker` does not: it **returns**. A dataset id, a digest and a record count
+    come back from a server, which is exactly what `Tracker`'s contract forbids
+    (R15.5 row 2). R0.17 lets tracking read back only what a spec fences, and
+    this port is where spec 012 fences it. Splitting them keeps the stronger
+    promise intact where it matters.
 
     What comes back may reach an MLflow tag and a line in the terminal, and
     nothing else: no cache key, no manifest, no score, no file under `runs/` or
     `.dossier/` (R12.4 row 3). A dataset is a projection of `gold/`, read by a
-    person and never by `dossier`.
+    person; `dossier` only asks whether it still matches what was scored
+    (R11.7).
     """
 
     def publish(
@@ -224,7 +226,7 @@ class ReviewSource(Protocol):
 
     The one port through which `dossier` reads what a person said in MLflow, and
     a port of its own for the reason `DatasetRegistry` is: it **returns** what it
-    read, which a `Tracker` may never do (R0.10 row 5). Only `dossier review
+    read, which a `Tracker` never does (R15.5 row 2). Only `dossier review
     pull` builds one, and what it returns reaches the files under `review/` and
     nothing else -- no key, manifest, artifact or score (R15.5).
     """
@@ -241,11 +243,13 @@ class ReviewSource(Protocol):
 class Tracker(Protocol):
     """Where a command's record is sent (spec 010, spec 011).
 
-    Every method **sends and returns nothing**. That is the whole of R0.10's
-    third package: tracking only reports, so nothing MLflow holds can enter a
-    key, a manifest or a score, and a run is reproducible whether tracking is on
-    or off (R10.4). A method that returned something read from the server would
-    be the first way for it to become an input.
+    Every method **sends and returns nothing** (R15.5 row 2). R0.17 lets
+    tracking read back only what specs 012 to 015 fence, and each of those reads
+    has a port of its own: `DatasetRegistry`, `VersionRegistry`,
+    `PromptRegistry` and `ReviewSource`. This one only reports, so nothing
+    MLflow holds can enter a key, a manifest or a score through it, and a run is
+    reproducible whether tracking is on or off (R10.4). A method that returned
+    something read from the server would be a way in that no spec fences.
 
     Declared here so that `application/` records without importing MLflow, and
     so the default suite can hand it a `FakeTracker` that counts runs, traces and
@@ -325,7 +329,7 @@ class Tracker(Protocol):
         prompt version found by the hash the run rendered -- so the link is a
         statement about what the version is made of. Sends and returns nothing,
         like `log_version_metrics`: the id arrives from `VersionRegistry`, the
-        port allowed to return one (R0.10).
+        port allowed to return one (R0.17, R13.4).
         """
         ...
 
@@ -412,7 +416,7 @@ class Converter(Protocol):
         """The artifact, as a pure function of `payload` and `options` (R8.1).
 
         Reads nothing else: no clock, no locale, no environment variable, no file
-        outside its input, and no network (R0.1). `K_convert` claims the artifact
+        outside its input, and no network (R0.17). `K_convert` claims the artifact
         is determined by the snapshot hash, this converter's id and version, and
         these options; a converter consulting anything else makes that key a lie
         and the cache serves text nothing can detect as stale.
@@ -554,7 +558,7 @@ class PromptRegistry(Protocol):
     dossier declines that half of it: a prompt fetched at run time would be an
     input to a cache key that no checkout can reproduce (R0.4), a route into a
     run that no review passed through, and a network read on the replay path
-    (R0.10). The prompt files in the pipeline's own directory stay the only
+    (R0.17). The prompt files in the pipeline's own directory stay the only
     source (R14.5).
     """
 
@@ -577,8 +581,8 @@ class PromptRegistry(Protocol):
     def latest(self, name: str) -> PublishedPrompt | None:
         """The newest version of `name`, or `None` if there is no such prompt.
 
-        The one read the one-way promise permits, because it decides a **write**
-        and reaches no output (R14.5 row 4).
+        A read the one-way promise permits, because it decides a **write** and
+        reaches no output (R14.5 row 4). `find` is the other.
         """
         ...
 
@@ -601,7 +605,8 @@ class VersionRegistry(Protocol):
 
     A third port, beside `Tracker` and `DatasetRegistry`, and for
     `DatasetRegistry`'s reason: registering a version **returns** an id, which
-    `Tracker`'s contract forbids and R0.10 leans on.
+    `Tracker`'s contract forbids (R15.5 row 2) and R0.17 lets tracking read back
+    only because spec 013 fences it.
 
     It matters more here than it did for datasets. A dataset is published by a
     command whose only output is the record; a version is registered during

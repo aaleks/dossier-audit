@@ -156,11 +156,12 @@ def prompt_name(pipeline: str, step: str, *, prefix: str = "") -> str:
     would be unreachable; a pipeline's name is its directory under `pipelines/`
     and nothing constrains it at all (R14.1 row 5).
 
-    `prefix` is the namespace the name was missing (R14.8). A name that carries
-    its pipeline is unique within one workspace and no further, so two checkouts
-    holding `incident-audit` would publish into one history. Empty, it is
-    nothing, and the name is exactly what it was before the prefix existed --
-    which is what lets a person who never sets it see no change at all.
+    `prefix` is the namespace the name was missing (R10.13, which replaced
+    R14.8's prefix for prompts alone). A name that carries its pipeline is
+    unique within one workspace and no further, so two checkouts holding
+    `incident-audit` would publish into one history. Empty, it is nothing, and
+    the name is exactly what it was before the prefix existed -- which is what
+    lets a person who never sets it see no change at all.
     """
     for character in _REJECTED_BY_MLFLOW:
         if character in pipeline:
@@ -316,10 +317,11 @@ class PublishedPrompt:
     """What a registry says about a prompt version it created or found (R14.3).
 
     Comes *back* from a tracking server, which is why publishing prompts has a
-    port of its own rather than a method on `Tracker`, whose contract is that
-    every method sends and returns nothing (R0.10). Every field here may reach
-    the terminal line and nothing else: no key, no manifest, no file under
-    `runs/`, `gold/` or the pipeline's own directory (R14.5 row 3).
+    port of its own rather than a method on `Tracker`, whose every method sends
+    and returns nothing (R15.5 row 2): R0.17 lets tracking read back only what a
+    spec fences, and spec 014 fences this. Every field here may reach a tag, a
+    link and the terminal line, and nothing else: no key, no manifest, no file
+    under `runs/`, `gold/` or the pipeline's own directory (R14.5).
     """
 
     name: str

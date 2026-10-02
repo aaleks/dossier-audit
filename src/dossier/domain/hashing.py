@@ -89,7 +89,7 @@ def text_hash(path) -> str:
     counter-example asks for.
 
     Deliberately not used for payloads. A fetched snapshot is hashed exactly as
-    received (R1.2, R2.10); translating newlines there would change the content
+    received (R1.43, R2.10); translating newlines there would change the content
     hash of every file it touched and make the store lie about what it holds.
     """
     return content_hash(normalised_text(path.read_text(encoding="utf-8")).encode("utf-8"))

@@ -164,9 +164,13 @@ for good, delete the expectation in MLflow, where it was left.
 
 ## What never happens
 
-`dossier review pull` is the only command that reads anything back from MLflow
+`dossier review pull` is the only command that reads a verdict back from MLflow
 (R15.5). A run, `--plan`, `--replay`, `dossier eval` and `dossier calibrate` read
 no verdict, so a verdict left on the server changes no cache key, manifest,
-artifact or score. A reviewer's value reaches a score only after a maintainer
+artifact or score. They do ask MLflow other things, each fenced by its own
+spec: a run, an eval and a calibration look up the prompt or rubric version
+they rendered, by its hash, to link it (R14.7, R14.9), and an eval looks up its
+gold set's dataset (R11.7). None of that reaches a key, a manifest or a score
+either (R14.5, R12.4). A reviewer's value reaches a score only after a maintainer
 applied it to the gold set, under their own name, as a change you can review in
 git.

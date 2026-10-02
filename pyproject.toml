@@ -16,10 +16,11 @@ dependencies = [
     "typer>=0.12",
     # sources.yaml and pipeline.yaml (spec 003).
     "pyyaml>=6.0",
-    # The OpenAI-compatible model client (spec 009, R9.12). Imported only by
-    # dossier.infrastructure.models, one of the two packages that may reach the
-    # network (R0.9). Its MockTransport answers a request with no socket, which
-    # is what lets the default suite test the client offline.
+    # The model clients (spec 009, R9.12), and the connectors and tracking
+    # besides. Imported only by dossier.infrastructure.models, .connectors and
+    # .tracking, three of the four packages that may reach the network (R0.17).
+    # Its MockTransport answers a request with no socket, which is what lets the
+    # default suite test a client offline.
     "httpx>=0.28.1",
     # Jira wiki markup to markdown, for an issue's description and comments
     # (spec 008, R8.17). A dependency of dossier itself rather than an extra,
@@ -88,7 +89,8 @@ docling = [
 # R1.40 - R1.42). Apache-2.0, Microsoft's; three packages, where crawl4ai, built
 # on it, is 86 more. The Chromium it drives is a second step, `playwright
 # install chromium-headless-shell`, which dossier never runs itself (R1.42).
-# Only `dossier.infrastructure.connectors` may import it (R0.10).
+# Only `dossier.infrastructure.connectors` imports it, one of the four packages
+# that may reach the network (R0.17).
 browser = ["playwright>=1.49"]
 # The embedding index (spec 018): psycopg 3, the PostgreSQL driver, and
 # pgvector-python, which hands it pgvector's `vector` and `halfvec` types.
@@ -97,8 +99,8 @@ browser = ["playwright>=1.49"]
 # options considered"). LGPL-3.0 (psycopg, imported and not modified) and MIT
 # (pgvector); `[binary]` carries libpq in its wheel, so no PostgreSQL client has
 # to be installed. Optional, because only `dossier.infrastructure.index` imports
-# them (R0.16) and only `dossier embed` reaches it: a workspace that builds no
-# index installs no database driver.
+# them (R0.17) and only `dossier embed` and `dossier search` reach it: a
+# workspace that builds no index installs no database driver.
 index = ["psycopg[binary]>=3.3", "pgvector>=0.5"]
 
 [dependency-groups]
@@ -185,8 +187,9 @@ markers = [
     # excluded from the default run, and tests/architecture asserts that at most
     # one exists at a time. See CLAUDE.md, "The two loops".
     "outer_loop: the open outer-loop acceptance test; red until its slice lands",
-    # The only place a real model call is permitted, for `evaluated` rules that
-    # cannot be checked any other way. Never part of the default suite.
+    # Where a real model, browser or server is permitted: the `evaluated` rules,
+    # which cannot be checked any other way, Docling's models, Chromium and the
+    # Postgres index. Never part of the default suite.
     "live: needs a real model or a real service; excluded from the default run",
 ]
 # The default suite is what a contributor and CI run: offline, in seconds, at

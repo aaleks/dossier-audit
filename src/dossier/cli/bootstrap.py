@@ -176,9 +176,10 @@ def tracking_for(
         # placeholder this command cannot fill is refused here -- before any work
         # (R10.10 row 4), as the experiment's is.
         name_template(kind=kind, environ=environ)
-        # With the rest of this machine's tracking settings, before any work: a
-        # prefix composed into a name only once a command was at work reached
-        # `eval` and `calibrate` as a traceback, with their run open (R14.10).
+        # With the rest of this machine's tracking settings, before any work
+        # (R10.14): a prefix composed into a name only once a command was at
+        # work reached `eval` and `calibrate` as a traceback, with their run
+        # open (R14.10).
         namespace(environ)
         # A loss is said in the command's own terminal, once, as its record closes
         # (R10.21), and the first refusal as it happens, naming the credential's
@@ -258,7 +259,7 @@ class BuiltOnFirstCall:
     """A model client that is not built until a stage first asks it something.
 
     A run served entirely from cache reaches no model, so it needs no endpoint
-    and no client (R9.2 row 5, R0.9). Building one up front made a fully cached
+    and no client (R9.2 row 5, R0.17). Building one up front made a fully cached
     run fail on a machine that could have completed it. `model_id` is known
     without building anything: it is part of every key, and the keys are what
     decide whether a call happens at all.
@@ -307,8 +308,9 @@ def build_dataset_registry(settings: TrackingSettings) -> DatasetRegistry:
     A named function for the reason `build_tracker` is one: it is the seam the
     composition root hands to a use case, and a test replaces it with a
     `FakeDatasetRegistry`. Separate from `build_tracker` because the two are
-    different ports -- this one returns what it published, which a `Tracker` may
-    never do (R0.10, spec 012).
+    different ports -- this one returns what it published, which a `Tracker`
+    never does (R15.5 row 2), and which R0.17 lets tracking read back because
+    spec 012 fences it.
     """
     return connect_datasets(settings.uri, auth=settings.auth, ca_bundle=settings.ca_bundle)
 
@@ -336,7 +338,8 @@ def build_prompt_registry(settings: TrackingSettings, *, verify: bool = True) ->
     """The registry a pipeline's prompts are published through.
 
     The seam `build_dataset_registry` is, for the port beside it: this one also
-    returns what it wrote, which a `Tracker` may never do (R0.10, spec 014). A
+    returns what it wrote, which a `Tracker` never does (R15.5 row 2), and
+    which R0.17 lets tracking read back because spec 014 fences it. A
     test replaces it with a `FakePromptRegistry`.
     """
     return connect_prompts(

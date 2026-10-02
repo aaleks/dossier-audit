@@ -25,8 +25,11 @@ that could disagree with the terminal would leave nobody sure which to believe.
 | `dossier calibrate` | one, per gold set | one per sample case | `judge/<field>/agreement`, `judge/<field>/cases` |
 | `dossier eval --compare a b` | one | none | `a/<field>`, `b/<field>`, `delta/<field>`, and the same three for the overall (R11.8); `a/failed`, `b/failed` when a run failed a document (R11.27); the documents `b` lost tagged `dossier.lost` (R11.29) |
 | `dossier gc --apply` | one, in `dossier-audit/gc` (R11.28) | none | `runs`, `tries`, `replays`, `entries`, `megabytes`; `collected.json` attached |
-| `dossier run --plan`, `--replay`, `dossier gc` without `--apply` | none | none | none |
-| `dossier dataset publish` | none | none | none; it publishes a dataset rather than recording a run (spec 012) |
+| `dossier embed` that changed the index | one, in the index's pipeline's `embed` experiment (R11.33) | one per request for vectors | `chunks`, `embedded`, `cached`, `written`, `removed` |
+| `dossier search` | none | one, in the index's pipeline's `search` experiment, with an EMBEDDING and a RETRIEVER span (R11.35) | none |
+| `dossier run --plan`, `--replay`, `dossier gc` without `--apply`, an `embed` that changed nothing, `dossier status` | none | none | none (R11.28, R11.33, R11.32) |
+| `dossier dataset publish`, `dossier prompts publish` | none | none | none; each publishes to a registry rather than recording a run (specs 012, 014) |
+| `dossier review pull`, `dossier review apply` | none | none | none; `pull` reads reviewers' verdicts back into files and `apply` writes the gold set (spec 015) |
 
 Metric names use `/` so MLflow's UI groups them: every field's accuracy under
 `accuracy/`, every count of one source under its id. Accuracy is recorded as the
@@ -243,7 +246,7 @@ the difference between "which change broke `affected_systems`" being a query and
 being an archaeology exercise.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.scoring.regressed`)
+- **Layer:** domain (`dossier.domain.scoring.regressed_fields`)
 - **Proved by:** `tests/unit/test_R011_9__a_comparison_names_the_fields_that_regressed.py`
 - **Status:** MET
 
@@ -563,9 +566,9 @@ held back and replayed: each trace reaches MLflow while its document is worked
 on, and is timed by MLflow, exactly as at `N = 1`.
 
 Traces reach the server in the order their documents finish. Nothing reads that
-order: MLflow lists traces by the start time it measured, and `dossier` reads
-nothing back (R0.10). A trace lost on one thread is counted once, as on one
-(R10.24).
+order: MLflow lists traces by the start time it measured, and all `dossier`
+reads back of its traces is whether the server holds them, not the order they
+came in (R10.24). A trace lost on one thread is counted once, as on one.
 
 The run records `concurrency` as a param, so two runs' durations are compared
 knowing that one asked four documents at a time. It is a param of the record and
@@ -909,8 +912,8 @@ retrieval views read, and what a later retrieval eval would score.
 
 A search changes nothing, so it opens no run. Its trace is what MLflow's
 retrieval views read, and what a later retrieval eval would score. Its request
-names the readers it was for, so the trace says whose search it was. When
-It supersedes R11.34, whose search named no reader.
+names the readers it was for, so the trace says whose search it was. It
+supersedes R11.34, whose search named no reader.
 
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.search.record_search`)

@@ -32,7 +32,7 @@ def available_providers() -> list[str]:
     """Every provider an installed package declares, sorted.
 
     Names only: nothing is imported and no client is built. Loading a pipeline
-    asks this, and loading reaches no network and no model (R3.8, R0.9).
+    asks this, and loading reaches no network and no model (R3.8, R0.17).
     """
     return sorted(point.name for point in entry_points(group=ENTRY_POINT_GROUP))
 

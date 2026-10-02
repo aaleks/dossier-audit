@@ -10,7 +10,7 @@ sends and fetched again once no more than the refresh margin remains
 (`client_secret_post`).
 
 What the endpoint answers is read here and handed to nothing but the
-`Authorization` header. No key, manifest or score can depend on it (R0.10).
+`Authorization` header. No key, manifest or score can depend on it (R0.17).
 
 MLflow's trace exporter sends from a thread of its own, so the token is held
 under a lock: two requests due at once make one exchange, not two.
@@ -36,7 +36,7 @@ from dossier.domain.tracking import (
 )
 
 # How the exchange reaches the identity provider. `None` is a real connection; a
-# test answers with an `httpx.MockTransport`, so no socket is opened (R0.10).
+# test answers with an `httpx.MockTransport`, so no socket is opened (R0.17).
 TOKEN_TRANSPORT: httpx.BaseTransport | None = None
 
 # An identity provider answers a token request in milliseconds; ten seconds is

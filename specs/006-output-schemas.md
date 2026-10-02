@@ -121,7 +121,7 @@ A citation to a document the stage never read is worse than no citation, because
 it looks checkable.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.grounding.check_source`)
+- **Layer:** domain (`dossier.domain.grounding.check_field`)
 - **Proved by:** `tests/unit/test_R006_3__source_must_name_an_input_document.py`
 - **Status:** MET
 
@@ -683,7 +683,7 @@ never read is (R6.3): there is no text in which a span could be found or not.
 
 ### R6.23 — a field cites a document its call was shown: the call's own document, its group or its corpus, and every reference document when its step reads `reference`
 
-R6.3 says a field cites an input of its stage, and `check_source` enforces that
+R6.3 says a field cites an input of its stage, and `check_field` enforces that
 when it is handed the right documents. The run handed a `per_file` call's check
 every document in the corpus. So an answer about `INC-4821` that cited `INC-4822`,
 with a span really in `INC-4822`, was grounded. That is the failure R6.3 names: a
