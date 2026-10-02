@@ -26,6 +26,7 @@ from dossier.infrastructure.store import SnapshotStore
 
 
 def sync(
+    ctx: typer.Context,
     pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
     full: bool = typer.Option(
         False,
@@ -43,6 +44,7 @@ def sync(
     happens on the first sync and on a `fields` change alone.
     """
     workspace = Path.cwd()
+    bootstrap.hold_workspace(ctx, workspace, "sync")
     started_at = datetime.now(UTC)
 
     try:

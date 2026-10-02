@@ -133,8 +133,9 @@ When a kept run's conversions are gone, as after deleting
 `.dossier/cache/convert`, its replay cannot be traced, so `gc` deletes no cache
 entry, says which run stopped it, and `dossier convert` makes the run replay
 again (R16.8). Without `--apply` it only
-prints what it would delete and how much space that frees. It takes no lock, so
-it is run when no `dossier run` is. With tracking on, each `--apply` is one
+prints what it would delete and how much space that frees. With `--apply` it
+holds the workspace's lock, so one started beside a `dossier run` is refused
+rather than deleting what the run is writing (R20.1). With tracking on, each `--apply` is one
 MLflow run in `dossier-audit/gc`, naming the runs it deleted (R11.28).
 
 `dossier status` says what the workspace holds before anything is spent (spec
@@ -146,6 +147,18 @@ before it ended. With a pipeline and `--gold`, it names each judged field
 own gate, and a pipeline or gold set `eval` would refuse to score is refused as
 `eval` refuses it. It changes no file, records nothing to MLflow, needs no server, and
 exits 0 whatever it finds.
+
+Every command that writes the workspace holds its lock, from before it reads
+anything to its end: `sync`, `convert`, `run` (a try and a replay too), `embed`,
+`gc --apply` and `review apply` (spec 020). A second one started beside it is
+refused at once, exit 2, naming the first: `another dossier command is writing
+this workspace: run, pid 4120, since 2026-10-02T07:30:12Z. Try again when it has
+finished`. It never waits, so a daily job that finds yesterday's run still going
+fails plainly rather than queueing behind it. The commands that only read --
+`status`, `search`, `run --plan`, a `gc` preview, `eval` -- run beside a writer,
+and see the workspace as it has left it so far. The lock is the operating
+system's own, on `.dossier/lock`, and is let go when the process ends however it
+ends, so a command killed halfway leaves nothing to delete (R20.1).
 
 `dossier embed <index>` makes what the workspace holds searchable by meaning
 and by words (spec 018). `indexes/<index>.yaml` names a pipeline, a pinned

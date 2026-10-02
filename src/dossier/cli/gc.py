@@ -30,6 +30,7 @@ from dossier.infrastructure.store import SnapshotStore
 
 
 def gc(
+    ctx: typer.Context,
     keep_last: Annotated[
         int,
         typer.Option(
@@ -60,6 +61,10 @@ def gc(
     that deletes cannot do so by accident (R16.5).
     """
     workspace = Path.cwd()
+    # A preview deletes nothing, so it runs beside a writer; the delete waits
+    # for none, and is refused while one holds the workspace (R20.1).
+    if apply:
+        bootstrap.hold_workspace(ctx, workspace, "gc")
     started = f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     # Before any work, as every command's: a template `gc` cannot fill, or a
     # server nobody can reach, is refused now rather than after files are gone

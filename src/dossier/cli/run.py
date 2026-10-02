@@ -63,6 +63,7 @@ _EXCLUSIVE = (
 
 
 def run(
+    ctx: typer.Context,
     pipeline: str = typer.Argument(
         "", help="Pipeline name under pipelines/. Not needed with --replay."
     ),
@@ -106,6 +107,11 @@ def run(
         if given[flag] and given[other]:
             typer.echo(f"{flag} cannot be combined with {other}: {why}", err=True)
             raise typer.Exit(code=2)
+
+    # A run, a try and a replay all write the workspace; a plan writes nothing,
+    # and runs beside whatever does (R20.1).
+    if not plan:
+        bootstrap.hold_workspace(ctx, Path.cwd(), "run")
 
     if replay_from:
         _replay(Path.cwd(), Path(replay_from))
