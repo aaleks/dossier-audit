@@ -34,6 +34,7 @@ from dossier.domain.conversion import (
     PART_SUFFIX,
     PART_TYPE,
     NoConverter,
+    is_container,
     is_read,
     part_name,
     unpack_parts,
@@ -465,9 +466,17 @@ def _execute(
                 # A kind whose artifact is a container of parts, unpacked once
                 # here so a per_part step can fan out over it (R3.12, R8.11).
                 for key, payload in produced.items():
+                    if not is_container(payload):
+                        # Text, which reaches a step as a substitution (R8.11).
+                        continue
                     try:
                         unpacked = unpack_parts(payload)
-                    except ValueError:
+                    except ValueError as error:
+                        # Begins as a container and cannot be read as one: a
+                        # document that did not convert, named (R8.34).
+                        unreadable.append(
+                            (name, key, f"its {kind} container cannot be read: {error}")
+                        )
                         continue
                     parts.setdefault(kind, {})[key] = [
                         (part_name(n, PART_SUFFIX), ImagePart(media_type=PART_TYPE, data=b))

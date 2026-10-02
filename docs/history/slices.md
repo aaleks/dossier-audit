@@ -13,6 +13,15 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A damaged page container is a document that did not convert (2026-10-02,
+R8.34, #689 and this). `run` told text from a parts container by trying to
+unpack it, so a container cut short was passed over as text: no pages, the
+`per_part` step skipped it, nothing said, exit 0 (analysis_v2 §3.5 row 4).
+Now `is_container` decides by the first bytes, and a container that will not
+unpack is named on the "could not be converted" line, and the run exits 1.
+`calibrate` and a replay still tell the two apart the old way. Changing them
+is left to a later rule.
+
 A damaged manifest is passed over and named (2026-10-02, R4.29 and R4.30,
 #686, #687 and this). analysis_v2 found that one manifest cut short stopped
 `run`, `run --plan`, `eval`, `embed` and `status` with a traceback. Each read
