@@ -54,6 +54,12 @@ from dossier.infrastructure.store import SnapshotStore
 def embed(
     ctx: typer.Context,
     index: Annotated[str, typer.Argument(help="An index declared as indexes/<INDEX>.yaml")],
+    label: Annotated[
+        str,
+        typer.Option(
+            "--label", help="A name for this record, in MLflow (R10.11).", metavar="NAME"
+        ),
+    ] = "",
 ) -> None:
     """Write a pipeline's documents into its index, asking only for missing vectors."""
     workspace = Path.cwd()
@@ -169,6 +175,7 @@ def embed(
         started=started,
         environ=environment(workspace),
         dossier_version=version("dossier"),
+        label=label,
     ):
         # Said where it was made, as `gc` and `eval` say theirs (R10.4 row 3).
         typer.echo(f"recorded to MLflow: {experiment}")
