@@ -1,7 +1,7 @@
 # 018 — The embedding index
 
-**Status:** Implemented
-**Rules:** R18.1 – R18.11
+**Status:** Partially implemented
+**Rules:** R18.1 – R18.12
 
 ## Purpose
 
@@ -357,3 +357,26 @@ The outer loop of the second slice.
 | 1 | `dossier sync`, `dossier run incident-audit`, `dossier embed incidents` | `INC-4830`'s document row holds its grounded categories and the run's id; it has a `record` chunk with its `root_cause`; exit 0 |
 | 2 | then `INC-4830` changed, re-synced, and `dossier embed incidents` | its record removed and named stale; of its body chunks, only those whose text changed are embedded |
 | 3 | *counter-example* — then `dossier run incident-audit` and `dossier embed incidents` | its record back, naming the new run |
+
+### R18.12 — an `embed` stopped by a failed request keeps every vector answered before it
+
+The vectors were cached only once every request had answered and every length
+had been checked (R18.5 row 5). So a request that failed late, a timeout in
+batch 2,000 on a CPU, threw away every vector the `embed` had been answered,
+and the next one asked for all of them again: hours, at spec 018 Q1's 21
+chunks in 76 seconds (analysis_v2, §3.2 row 4). Now a failed request keeps
+what was answered before it, once those vectors' lengths agree with each other
+and with the vectors already cached, and the next `embed` asks only for the
+rest. Lengths that disagree keep nothing, as R18.5 row 5 says: a vector of the
+wrong length, cached, would be served as if it were right.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.embed`)
+- **Proved by:** `tests/unit/test_R018_12__an_embed_stopped_by_a_failed_request_keeps_what_was_answered.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | 70 chunks to embed, in requests of 32, the third request failing | the `embed` fails as it did, and the 64 vectors of the first two requests are cached; the next `embed` asks for 6 texts, in one request |
+| 2 | *counter-example* — the first request answered with 2,560 values, the second with 1,024, the third failing | nothing cached: the lengths disagree, and none of them is known to be right |
+| 3 | *counter-example* — every request answered | every vector cached, as before (R18.3) |
