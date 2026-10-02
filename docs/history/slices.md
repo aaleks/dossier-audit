@@ -13,6 +13,14 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+An `embed` stopped by a failed request keeps what was answered (2026-10-02,
+R18.12, #691 and this). The vectors were cached only once every request had
+answered and every length agreed, so a timeout late in a long `embed` on a
+CPU threw away hours of them (analysis_v2 §3.2 row 4). Now a failed request
+keeps the vectors answered before it, when their lengths agree with each
+other and with the cache. Lengths that disagree keep nothing, so R18.5 row 5
+still holds.
+
 A damaged page container is a document that did not convert (2026-10-02,
 R8.34, #689 and this). `run` told text from a parts container by trying to
 unpack it, so a container cut short was passed over as text: no pages, the

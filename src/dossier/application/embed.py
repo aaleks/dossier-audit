@@ -205,22 +205,42 @@ def embed_index(
 
     answered: dict[str, tuple[float, ...]] = {}
     requests: list[EmbedRequest] = []
-    for start in range(0, len(missing), BATCH):
-        batch = missing[start : start + BATCH]
-        replies = embedder.embed(batch)
-        asked = set(batch)
-        requests.append(
-            EmbedRequest(
-                chunk_ids=tuple(cut.chunk_id for cut in every if cut.embedded_as in asked),
-                tokens=getattr(embedder, "last_tokens", None),
+    try:
+        for start in range(0, len(missing), BATCH):
+            batch = missing[start : start + BATCH]
+            replies = embedder.embed(batch)
+            asked = set(batch)
+            requests.append(
+                EmbedRequest(
+                    chunk_ids=tuple(cut.chunk_id for cut in every if cut.embedded_as in asked),
+                    tokens=getattr(embedder, "last_tokens", None),
+                )
             )
-        )
-        if len(replies) != len(batch):
-            raise ValueError(
-                f"{model} answered {len(replies)} vectors for {len(batch)} texts: "
-                "each text is owed one, and nothing is written"
+            if len(replies) != len(batch):
+                raise ValueError(
+                    f"{model} answered {len(replies)} vectors for {len(batch)} texts: "
+                    "each text is owed one, and nothing is written"
+                )
+            answered.update(zip(batch, (tuple(reply) for reply in replies), strict=True))
+    except Exception:
+        # Stopped by a failed request: what was answered before it is kept, so
+        # the next embed asks only for the rest (R18.12). Only when its lengths
+        # agree with each other and with the cache: a vector of the wrong
+        # length, cached, would be served as if it were right (R18.5 row 5).
+        known = held_vectors | answered
+        if answered and (
+            mismatched_length(
+                [
+                    (cut.document, cut.chunk_id, len(known[cut.embedded_as]))
+                    for cut in every
+                    if cut.embedded_as in known
+                ]
             )
-        answered.update(zip(batch, (tuple(reply) for reply in replies), strict=True))
+            is None
+        ):
+            for text, vector in answered.items():
+                keep_vector(vectors, model, text, vector)
+        raise
     vector_of = held_vectors | answered
 
     refused = mismatched_length(
