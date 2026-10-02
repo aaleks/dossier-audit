@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.30
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.31
 
 ## Purpose
 
@@ -824,3 +824,40 @@ with the runs it can read.
 | 3 | the same, `dossier status` | the same line; `20260806T142203Z-4f1a` is the pipeline's last run |
 | 4 | the same, `dossier run incident-audit` | the same line, and the run goes on |
 | 5 | *counter-example* — no manifest cut short | no such line |
+
+### R4.31 — `--plan` compares against the latest run that finished, and names each newer run that has not
+
+A plan's `cached` promises that the next run serves the step from the cache
+(R4.12). The plan compared against the latest manifest, and a run writes its
+manifest before it asks anything, so a run killed halfway, or one still going
+beside the plan, was compared against as though it had answered everything.
+Found live on 2026-10-02 (exercise 24): a run killed after one of four notes,
+then `--plan` printed `extract: cached` and `0 of 2 step(s) would run`, and the
+next run asked three of the four afresh.
+
+A run that finished wrote `failures.json`, `[]` when it failed nothing (R4.27).
+A run that stopped wrote none, and that is the line `dossier status` draws with
+`failures not recorded` (R17.3 row 5). So the plan compares against the latest
+run that wrote one, and names each newer run it passed over, as it names a
+manifest it cannot read (R4.30). The line says what the plan can see, a missing
+file, and both things it can mean: the plan cannot tell a run that was killed
+from one still going beside it. A run from before R4.27 wrote none either, and
+is passed over the same way: nothing on disk tells it from a run that stopped.
+Over-reporting is the cheaper mistake. A step reported to run and then served
+from the cache costs nothing, and one reported `cached` and then asked costs
+every call.
+
+Only the plan. `dossier status` still names a run that stopped as the latest,
+with `failures not recorded`, because that is what happened to it.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.plan.latest_manifest`), domain (`dossier.domain.store.stopped_line`), cli
+- **Proved by:** `tests/acceptance/test_R004_31__a_plan_passes_over_a_run_that_stopped.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the scoring example run twice with nothing changed, the second, `20260907T090000Z-bbbb`, stopped before it ended; `dossier run incident-audit --plan` | on standard error, `  passed over: runs/20260907T090000Z-bbbb/ has no failures.json: it stopped before it ended, or has not ended yet`; `compared against 20260806T142203Z-4f1a`; `extract: cached`; exit 0 |
+| 2 | the same, with `prompts/01_extract.md` edited before the second run | the same line; `extract: prompt changed`, compared against the first run's prompt, which is what the next run asks about every document the second did not answer |
+| 3 | only one run, and it stopped before it ended | the same line; `extract: new`, with nothing to compare against |
+| 4 | *counter-example* — the second run finished, failing nothing | no such line; compared against `20260907T090000Z-bbbb` |
