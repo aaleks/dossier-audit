@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.32
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.33
 
 ## Purpose
 
@@ -891,3 +891,34 @@ document with the rest.
 | 3 | *counter-example* — the last run failed nothing | `  extract: cached`, as before |
 | 4 | *counter-example* — the same failure, and `prompts/extract.md` edited since | `! extract: prompt changed`: the change that moves every key is named, and `INC-4822` is asked with the rest |
 | 5 | *counter-example* — the same failure, and `INC-4822` tombstoned since | `  extract: cached`: a document that has left the source is not asked again, as a departure is less work (R4.12 row 8) |
+
+### R4.33 — `dossier eval` and `dossier embed` read the latest run that finished, and name each newer run that has not
+
+R4.31 made the plan compare against the latest run that wrote `failures.json`.
+`eval` and `embed` still found the latest run whatever its state, and a run
+that stopped before it ended cannot be reproduced: the documents it never
+asked about have no cache entry. Measured on 2026-10-03, a run that died
+after answering `INC-4821` made `eval` stop, exit 2, on `step 'extract' has no
+cached artifact for 'INC-4822' ...; this run cannot be reproduced from this
+workspace`. That was true, but it did not say the run had stopped, and nothing
+could be scored until another run finished, though the run before it was
+whole. `embed` carried no fields from any run, saying the same (R18.8 row 7).
+
+Decided by `a.aleks` on 2026-10-02, against refusing until a run finishes: like
+the plan, both pass over a run that wrote no `failures.json`, name it with
+R4.31's line, and read the latest run that finished. A run from before R4.27
+is passed over as the plan passes it over. `status` still names the latest
+run whatever its state (R17.3 row 5), and `eval --compare` reads the runs it is
+given.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.plan.latest_manifest`, `dossier.application.embed.read_latest_run`), cli
+- **Proved by:** `tests/acceptance/test_R004_33__eval_and_embed_pass_over_a_run_that_stopped.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the scoring example run, then run again with `prompts/extract.md` edited and stopped after answering `INC-4821`, as `20260907T090000Z-bbbb`; `dossier eval incident-audit --gold gold/incidents` | on standard error, `  passed over: runs/20260907T090000Z-bbbb/ has no failures.json: it stopped before it ended, or has not ended yet`; the first run, `20260806T142203Z-4f1a`, is the run scored; exit 0 |
+| 2 | `INC-4830` run, then run again with the prompt edited and stopped before answering; `dossier embed incidents` | the same line; `INC-4830`'s values carried from the first run, which names it |
+| 3 | only one run, and it stopped before it ended; `dossier eval incident-audit --gold gold/incidents` | the same line, then ``incident-audit: no run to score. Run `dossier run incident-audit` first.``; exit 2 |
+| 4 | *counter-example* — the second run finished | no such line; the second run is the one scored |
