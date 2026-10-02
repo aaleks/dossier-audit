@@ -1,4 +1,4 @@
-"""R19.8 — a result shows its chunk's text on one line, cut at a word to at
+"""R19.12 — a result shows its chunk's text on one line, cut at a word to at
 most 200 characters (rows 5 to 7).
 
 The text a person reads first for each result, so one result is one glance: a
@@ -17,7 +17,7 @@ ROOT_CAUSE = (
 
 
 class TestAResultShowsItsTextOnOneLine:
-    """R19.8 rows 5 to 7 — one line, at most 200 characters, cut at a word."""
+    """R19.12 rows 5 to 7 — one line, at most 200 characters, cut at a word."""
 
     def test_a_long_text_is_cut_at_the_last_word_that_fits(self):
         """Row 5 — the one where the 200th character falls inside a word."""

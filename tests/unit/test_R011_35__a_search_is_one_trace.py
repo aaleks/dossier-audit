@@ -1,17 +1,21 @@
-"""R11.34 — a `dossier search` is one MLflow trace in its pipeline's `search`
+"""R11.35 — a `dossier search` is one MLflow trace in its pipeline's `search`
 experiment, with an EMBEDDING and a RETRIEVER span, and no run.
 
 A search changes nothing, so it opens no run. Its trace is what MLflow's
-retrieval views read, and what a later retrieval eval would score.
+retrieval views read, and what a later retrieval eval would score. Its request
+names the readers the search was for. It supersedes R11.34, whose search named
+no reader.
 
-Over R19.8's workspace, with tracking on and a fake tracker, as R11.33's are.
+Over R19.12's workspace, with tracking on and a fake tracker, as R11.33's are.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from tests.acceptance import test_R019_8__search_lists_what_answers_the_query as searched
+from tests.acceptance import (
+    test_R019_12__search_lists_what_answers_the_query_for_its_readers as searched,
+)
 from tests.acceptance.test_R010_5__an_unreachable_server_refuses_before_any_work import URI
 from tests.acceptance.test_R018_7__embed_builds_the_index_from_what_was_synced import _cli
 from tests.acceptance.test_R018_11__embed_carries_the_runs_record import INDEX, PIPELINE
@@ -40,11 +44,11 @@ def _tracked(monkeypatch) -> FakeTracker:
 
 
 def _search(workspace: Path, monkeypatch, *more: str):
-    return _cli(workspace, monkeypatch, "search", INDEX, QUERY, *more)
+    return _cli(workspace, monkeypatch, "search", INDEX, QUERY, "--as", searched.READER, *more)
 
 
 class TestASearchIsOneTrace:
-    """R11.34 — one trace, two spans, no run."""
+    """R11.35 — one trace, two spans, no run."""
 
     def test_a_search_is_one_trace_and_no_run(self, embedded: Path, monkeypatch):
         """Row 1 — the one searched with tracking on."""
@@ -59,7 +63,7 @@ class TestASearchIsOneTrace:
         assert trace.inputs == {
             "query": QUERY,
             "where": {"component": ["checkout"]},
-            "reader": None,
+            "readers": [searched.READER],
         }
         assert trace.outputs == [f"{searched.carried.SOURCE_ID}:INC-4830"]
         embedding, retriever = trace.spans
@@ -85,13 +89,23 @@ class TestASearchIsOneTrace:
         assert (embedding["dossier.tokens"], embedding["dossier.cached"]) == (0, True)
 
     def test_a_refused_search_records_nothing(self, embedded: Path, monkeypatch):
-        """Row 3, counter-example — the one on a field the index does not filter on."""
+        """Row 3, counter-example — the one that names no reader (R19.11 row 1)."""
         tracker = _tracked(monkeypatch)
 
-        result = _search(embedded, monkeypatch, "--where", "root_cause=certificate")
+        result = _cli(embedded, monkeypatch, "search", INDEX, QUERY)
 
         assert result.exit_code == 2
         assert tracker.traces == [] and tracker.runs == []
+
+    def test_every_reader_is_recorded_as_none(self, embedded: Path, monkeypatch):
+        """Row 1 — the one asked for every chunk, whose request names no reader."""
+        tracker = _tracked(monkeypatch)
+
+        result = _cli(embedded, monkeypatch, "search", INDEX, QUERY, "--all-readers")
+
+        assert result.exit_code == 0, result.output
+        (trace,) = tracker.traces
+        assert trace.inputs["readers"] is None
 
     def test_tracking_off_records_nothing_and_searches_as_before(
         self, embedded: Path, monkeypatch

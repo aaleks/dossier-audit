@@ -88,7 +88,7 @@ def write(sink: PostgresIndexSink, key: str, *chunks: Embedded, source: str) -> 
 
 def by_words(search: PostgresIndexSearch, query: str) -> list[str]:
     found = search.search(
-        INDEX, vector=meaning(query), words=query, where={}, reader=None, candidates=100
+        INDEX, vector=meaning(query), words=query, where={}, readers=None, candidates=100
     )
     return [candidate.chunk_id for candidate in found.words]
 

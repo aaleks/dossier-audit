@@ -48,7 +48,8 @@ class SearchReport:
 
     index: str
     query: str
-    reader: str | None
+    # The readers it was for, or `None` for every chunk (R19.10, R19.11).
+    readers: tuple[str, ...] | None
     chunks: bool
     found: tuple[Found, ...]
     # Held documents the index does not hold as held (R19.7).
@@ -65,7 +66,7 @@ def search_index(
     declaration: IndexDeclaration,
     query: str,
     where: Mapping[str, Sequence[str]],
-    reader: str | None,
+    readers: tuple[str, ...] | None,
     limit: int,
     chunks: bool,
     embedder: EmbeddingProvider,
@@ -100,14 +101,14 @@ def search_index(
         # Words are the query's own: the instruction is for the model.
         words=query,
         where=where,
-        reader=reader,
+        readers=readers,
         candidates=CANDIDATES,
     )
     shown = listed(fused(meaning=lists.meaning, words=lists.words), limit=limit, chunks=chunks)
     return SearchReport(
         index=declaration.name,
         query=query,
-        reader=reader,
+        readers=readers,
         chunks=chunks,
         found=tuple(
             Found(
@@ -132,7 +133,7 @@ def record_search(
     pipeline: str,
     environ: Mapping[str, str],
 ) -> None:
-    """Record a search as one trace in `experiment`, under no run (R11.34).
+    """Record a search as one trace in `experiment`, under no run (R11.35).
 
     A search changes nothing, so it opens no run, as a `--plan` records
     nothing. Its trace is what MLflow's retrieval views read: the query and
@@ -150,7 +151,8 @@ def record_search(
         inputs={
             "query": report.query,
             "where": {name: list(values) for name, values in where.items()},
-            "reader": report.reader,
+            # Whose search it was: the readers named, or `None` (R11.35).
+            "readers": None if report.readers is None else list(report.readers),
         },
     )
     tracker.span(

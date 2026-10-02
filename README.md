@@ -104,7 +104,7 @@ dossier review apply <pipeline> --gold … --verified-by …  # their expected v
 dossier gc [--keep-last N] [--apply]  # preview, then delete old runs, tries, replays and unread cache entries
 dossier status [<pipeline> --gold …]  # what each source holds, each latest run, what eval would withhold
 dossier embed <index>                # documents and the latest run's grounded record, into a search index
-dossier search <index> "<query>"    # the documents that answer it, ranked by meaning and words together
+dossier search <index> "<query>" --as <reader>   # the documents that answer it, for that reader, best first
 ```
 
 A prompt is iterated on one document at a time. `dossier run <pipeline> --doc
@@ -174,8 +174,8 @@ fields:
 target: {dsn_env: DOSSIER_INDEX_DSN}
 ```
 
-`dossier search <index> "<query>"` asks the index a question in plain words and
-lists the documents that answer it, best first (spec 019). It asks twice: by
+`dossier search <index> "<query>" --as <reader>` asks the index a question in
+plain words and lists the documents that answer it, best first (spec 019). It asks twice: by
 meaning, the chunks nearest the query's vector, and by words, the chunks holding
 every word of the query. The two ranked lists are fused by reciprocal rank, so a
 chunk found both ways outranks one found only one way, and an incident key,
@@ -184,9 +184,14 @@ listed once, at its best chunk, with the values the run carried; `--chunks`
 lists the chunks instead. `--where severity=major` keeps the documents carrying
 that value, in the spelling the declaration writes, and matched whole: a
 `reference` field is one string, so a field filtered on each of its parts is
-declared a `list`. A field the index does not filter on, or a value the field does not declare, is refused before the
-model is asked. `--as incident-response` keeps what that reader may read;
-without it the first line says the search was not filtered by reader. The query
+declared a `list`. A field the index does not filter on, or a value the field
+does not declare, is refused before the model is asked. A search names the
+readers it is for: `--as incident-response` keeps what that reader may read,
+and `--as incident-response --as sre` what either may. The index's connection
+string reads every row, so whatever holds it, a person or an agent searching
+on someone's behalf, keeps readers apart this way, and a search naming no
+reader is refused rather than listing every chunk. `--all-readers` searches
+everything, and the first line says it was not filtered by reader. The query
 is embedded after an instruction, as Qwen3-Embedding is trained to expect, which
 `query_instruction:` in the index file may change, and its vector is cached, so
 the same search again asks no model. A search of an index embedded with another
