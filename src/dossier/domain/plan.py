@@ -24,7 +24,7 @@ Pure. Two resolved plans in, one line per step out.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 
@@ -51,6 +51,7 @@ class StepStatus(Enum):
     CONVERTERS_CHANGED = "converters changed"
     DOCUMENTS_CHANGED = "documents changed"
     UPSTREAM_CHANGED = "upstream changed"
+    FAILED_LAST_RUN = "failed last run"
     CACHED = "cached"
 
 
@@ -72,7 +73,12 @@ class StepPlan:
         return self.status is not StepStatus.CACHED
 
 
-def diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan]:
+def diff(
+    resolved: ResolvedPlan,
+    previous: ResolvedPlan | None,
+    *,
+    failed: Mapping[str, Collection[str]] | None = None,
+) -> list[StepPlan]:
     """Per step: what changed since `previous`, and what it was before (R4.12).
 
     Upstream propagation is why this walks in declaration order and keeps a
@@ -83,6 +89,9 @@ def diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan
     Everything is `new` when there is no previous plan, which is the honest
     answer rather than a cheerful one: a first plan has nothing to compare
     against and should not imply otherwise.
+
+    `failed` is what that run recorded as failed, by step (R4.27): documents
+    with no cache entry, which the next run asks again (R4.32).
     """
     if previous is None:
         return [StepPlan(step=step, status=StepStatus.NEW) for step in resolved.steps]
@@ -94,6 +103,9 @@ def diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan
     converters_moved = _converters_moved(previous, resolved)
     moved_documents = _moved(previous.documents, resolved.documents)
     moved_reference = _moved_context(previous.reference, resolved.reference)
+    # A failed document that has since left the source is not asked again: a
+    # departure is less work (R4.12 row 8, R4.32 row 5).
+    departed = {d.key for d in previous.documents} - {d.key for d in resolved.documents}
 
     rerunning: set[str] = set()
     plans: list[StepPlan] = []
@@ -136,6 +148,14 @@ def diff(resolved: ResolvedPlan, previous: ResolvedPlan | None) -> list[StepPlan
             moved = (moved_documents if reads_documents else ()) + context_moved
         elif rerunning.intersection(step.inputs):
             status, was = StepStatus.UPSTREAM_CHANGED, None
+        elif again := sorted(set((failed or {}).get(step.id, ())) - departed):
+            # Nothing moved, and still not `cached`: an answer that failed was
+            # never cached (R6.1), so each is asked again. Named as moved
+            # documents are, since a person checks them against the reasons the
+            # run printed (R4.32). Last, because any change above moves every
+            # key and asks them with the rest.
+            status, was = StepStatus.FAILED_LAST_RUN, None
+            moved = tuple(f"{key} failed" for key in again)
         else:
             status, was = StepStatus.CACHED, None
 

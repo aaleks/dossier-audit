@@ -12,7 +12,7 @@ The rule forbids calling and writing, not reading.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -48,6 +48,7 @@ def build_plan(
     schema_hashes: Mapping[str, str | None] | None = None,
     converters: Sequence[PinnedConverter] | None = None,
     reference: Mapping[str, str] | None = None,
+    failed: Mapping[str, Collection[str]] | None = None,
 ) -> Plan:
     """Resolve the pipeline and say, per step, what would happen to it.
 
@@ -55,7 +56,8 @@ def build_plan(
     has never been one. `prompt_hashes`, `schema_hashes` and `converters` are the
     same ones a run keys on, handed in by the same caller: a plan resolved
     without them would print `cached` for a prompt, or a converter version, a run
-    is about to miss on (R4.12).
+    is about to miss on (R4.12). `failed` is what `previous` recorded as
+    failed, by step: no cache entry backs those documents (R4.32).
     """
     resolved = resolve(
         pipeline=pipeline,
@@ -68,7 +70,7 @@ def build_plan(
     )
     return Plan(
         resolved=resolved,
-        steps=diff(resolved, previous),
+        steps=diff(resolved, previous, failed=failed),
         compared_against=previous_id,
     )
 
