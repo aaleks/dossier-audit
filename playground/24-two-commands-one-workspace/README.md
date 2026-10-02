@@ -7,7 +7,8 @@ hand beside it, and a run is killed halfway.
 **You will learn:** which commands write the workspace and which only read it;
 what a second writer is told, and where the details come from; why a refused
 command never waits; why a command killed mid-run leaves no lock to clean up;
-and what a command that only reads sees of a run that has not finished.
+what a command that only reads sees of a run that has not finished; and how a
+record says which `dossier` wrote it.
 
 **Uses the stub model**, slowed down with `--delay` as in exercise 22, so that
 a run lasts long enough to start a second command beside it. Offline, a few
@@ -134,6 +135,24 @@ Both run: a command lets the lock go when it ends. Now the daily job:
   to today's run behind the `&&`? What lands in cron's mail?
 - What happens the day after, if yesterday's run has finished by then?
 
+## Task 5 — which `dossier` wrote it
+
+A job that runs every day runs across upgrades. Every manifest says which
+`dossier` wrote it:
+
+```bash
+grep -h '"dossier_version"' runs/*/manifest.json
+git -C ../../.. log --oneline -1
+```
+
+- Take the version apart: the number before `.dev`, the number after it, the
+  part after `+g`, and the part after `.d`, if there is one. Which commit is
+  it, and what does the last part say about the checkout?
+- What would the commit tagged `v0.2.0` say, and the third commit after it?
+- After a `git pull`, which version does the next run record before you run
+  `uv sync`, and which after? Why is the version fixed when `dossier` is
+  installed rather than when it runs?
+
 ---
 
 ## What you should now be able to explain
@@ -144,3 +163,4 @@ Both run: a command lets the lock go when it ends. Now the daily job:
 - Why the holder's details sit in a file beside the lock and not in it, and
   what a refused command says when that file is missing or half written.
 - Why nothing has to be cleaned up after a command is killed.
+- Where `dossier_version` comes from, and when it changes.
