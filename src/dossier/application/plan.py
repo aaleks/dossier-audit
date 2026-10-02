@@ -20,6 +20,7 @@ from dossier.application.manifest import MANIFEST_NAME, read_manifest
 from dossier.domain.pipeline import PipelineConfig
 from dossier.domain.plan import StepPlan, diff
 from dossier.domain.resolution import PinnedConverter, ResolvedPlan, resolve
+from dossier.domain.store import FAILURES_NAME
 from dossier.domain.sync import State
 
 
@@ -85,7 +86,11 @@ def pinned_documents(rows) -> dict[str, str]:
 
 
 def latest_manifest(
-    runs: Path, pipeline: str, *, unreadable: list[tuple[str, str]] | None = None
+    runs: Path,
+    pipeline: str,
+    *,
+    unreadable: list[tuple[str, str]] | None = None,
+    stopped: list[str] | None = None,
 ) -> tuple[ResolvedPlan | None, str | None]:
     """The most recent run's resolved plan, or `(None, None)` if there is none.
 
@@ -94,6 +99,12 @@ def latest_manifest(
     filesystem timestamps that a copy would rewrite. A newer manifest that
     cannot be read is passed over, and put in `unreadable` with why, for the
     command to name (R4.30).
+
+    Given `stopped`, a run of the pipeline that wrote no `failures.json` is
+    passed over too, and put in it. It stopped before it ended, or predates
+    R4.27, and its manifest, written before anything was asked, promises
+    answers it may never have cached: a plan compared against it printed
+    `cached` for a step the next run asked again (R4.31).
     """
     if not runs.is_dir():
         return None, None
@@ -112,6 +123,9 @@ def latest_manifest(
                 unreadable.append((directory.name, found))
             continue
         if found.plan.pipeline != pipeline:
+            continue
+        if stopped is not None and not (directory / FAILURES_NAME).is_file():
+            stopped.append(directory.name)
             continue
         return found.plan, directory.name
 

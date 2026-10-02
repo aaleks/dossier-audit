@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.31
 
 ## Purpose
@@ -853,7 +853,7 @@ with `failures not recorded`, because that is what happened to it.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.plan.latest_manifest`), domain (`dossier.domain.store.stopped_line`), cli
 - **Proved by:** `tests/acceptance/test_R004_31__a_plan_passes_over_a_run_that_stopped.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

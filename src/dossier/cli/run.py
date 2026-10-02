@@ -188,7 +188,10 @@ def run(
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
 
-    previous, previous_id = bootstrap.latest_run(workspace, pipeline)
+    # The latest run that finished: one that stopped wrote its manifest
+    # before it asked anything, and `cached` against it is a promise its
+    # cache may not keep (R4.31).
+    previous, previous_id = bootstrap.latest_run(workspace, pipeline, finished=True)
 
     # Keyed exactly as the run will be, from the same files, through the same
     # derivation (R4.12): `cached` here is a promise the run keeps.

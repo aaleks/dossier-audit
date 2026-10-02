@@ -21,7 +21,7 @@ from pathlib import Path
 from tests.pipelines import PROVIDERS, write_pipeline
 
 from dossier.application.manifest import Manifest
-from dossier.application.run import key_hashes
+from dossier.application.run import key_hashes, write_failures
 from dossier.config.load import load_output_schemas, load_pipeline
 from dossier.domain.hashing import content_hash
 from dossier.domain.resolution import resolve
@@ -75,6 +75,9 @@ def _record_a_run(workspace: Path) -> None:
         dossier_version="0.1.0",
         plan=plan,
     ).write(workspace / "runs")
+    # And finished, as a run that ended writes it: a plan compares only against
+    # a run that wrote `failures.json`, `[]` for one that failed nothing (R4.31).
+    write_failures(workspace / "runs" / EARLIER_RUN, [])
 
 
 class TestAnInsertedStepShowsUp:
