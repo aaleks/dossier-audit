@@ -1,0 +1,5 @@
+# The four incident notes every offline exercise starts from.
+sources:
+  - id: incidents
+    type: folder
+    path: inbox/incidents/

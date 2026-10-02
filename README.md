@@ -28,7 +28,7 @@ behind with the next rule.
 | `docs/history/` | How it came to be: `slices.md`, what each slice changed and why, newest first; the first session's kickoff prompt; the brainstorm that led to page images; and the findings that led to the web connector |
 | `src/dossier/` | The package: `domain/`, `application/`, `infrastructure/`, `config/`, `cli/` |
 | `tests/` | `architecture/`, `unit/`, `acceptance/`, `integration/`, `evals/` |
-| `playground/` | Hands-on exercises. Most run offline, in seconds, at zero cost; the rest need a Jira in Docker, a local MLflow server, or a public Confluence over the network, and `playground/README.md` says which. Not part of `dossier`. |
+| `playground/` | Hands-on exercises. Most run offline, in seconds, at zero cost; the rest need a Jira in Docker, a local MLflow server, a public site over the network, a Postgres and Ollama for the index, or Docling for OCR, and `playground/README.md` says which. Not part of `dossier`. |
 | `dev/` | A Jira and a Confluence Data Center in Docker, to run a source against a server you can write to. Not part of `dossier` |
 | `.claude/` | The spec-driven toolchain: skills, agents, rules, hooks |
 | `.github/workflows/ci.yml` | The gate every pull request passes: the lock, conflict markers, ruff, the architecture tests, the default suite, and the outer loop reported beside them |
@@ -442,13 +442,17 @@ and it checks that every spec rule and every test file still refer to each other
 pipeline, ground an answer, calibrate a judge, read the run back in MLflow,
 audit a chart, sync a real Jira, publish a gold set, follow a regression
 through MLflow to the prompt that caused it, review answers in MLflow, read a
-public Confluence, ask one question of several files, and check documents
-against procedures. Most run offline against a stub model server in
+public Confluence, ask one question of several files, check documents
+against procedures, read websites, score answers that are not text, build and
+ask a search index, say what a run cost and make it faster, and read a
+photocopy back into text with OCR. Most run offline against a stub model server in
 `playground/toolkit/`, so the code path is the real one and the answers are
 yours to control. The exercise on Jira brings up a Jira Data Center in Docker
 -- still on the stub model, with only the source real -- because a named
 credential, someone else's version marker and a listing that cannot report a
 deletion have nowhere to show themselves until a source is remote. The ones on
 datasets, prompts and review need a SQL-backed MLflow server on your machine,
-because datasets, prompt versions and logged models live in its tables. Start
-at `playground/README.md`, which says what each one needs.
+because datasets, prompt versions and logged models live in its tables. The
+index exercises need the Postgres in `dev/index` and a local Ollama, and the OCR
+one needs the `docling` extra and Docling's weights. Start at
+`playground/README.md`, which says what each one needs.
