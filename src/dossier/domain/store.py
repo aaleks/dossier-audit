@@ -148,3 +148,11 @@ def try_path(try_id: str) -> str:
     minted the same way.
     """
     return f"{TRIES_ROOT}/{try_id}"
+
+
+def passed_over_line(run_id: str, reason: str) -> str:
+    """The line a command prints for a run whose manifest it cannot read (R4.30)."""
+    return (
+        f"  passed over: {RUNS_ROOT}/{run_id}/manifest.json cannot be read: "
+        f"{' '.join(reason.split())}"
+    )

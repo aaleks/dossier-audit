@@ -337,8 +337,12 @@ def read_latest_run(
     store: SnapshotReader,
     converted: ArtifactStore,
     stage: ArtifactStore,
+    unreadable: list[tuple[str, str]] | None = None,
 ) -> LatestRun | None:
     """What the pipeline's latest run read, failed and answered at `step` (R18.8).
+
+    A newer manifest that cannot be read is passed over, and put in
+    `unreadable` for the command to name (R4.30).
 
     The latest is found as `eval` and `status` find it (R16.2). Its pins come
     from its manifest and its failures from `failures.json` (R4.27). Its
@@ -348,7 +352,7 @@ def read_latest_run(
     `eval` never scored (R0.11, R18.8 row 8). Nothing is asked of a model. A
     run that cannot be reproduced carries nothing, and says why (row 7).
     """
-    plan, run_dir = latest_manifest(workspace / RUNS_ROOT, pipeline)
+    plan, run_dir = latest_manifest(workspace / RUNS_ROOT, pipeline, unreadable=unreadable)
     if plan is None or run_dir is None:
         return None
     directory = workspace / RUNS_ROOT / run_dir

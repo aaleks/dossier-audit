@@ -13,7 +13,7 @@ import typer
 
 from dossier.application.convert import convert_source
 from dossier.application.manifest import MANIFEST_NAME, Manifest
-from dossier.application.plan import Plan, build_plan, latest_manifest, pinned_documents
+from dossier.application.plan import Plan, build_plan, pinned_documents
 from dossier.application.run import (
     MissingFromReplay,
     RunInputs,
@@ -181,7 +181,7 @@ def run(
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
 
-    previous, previous_id = latest_manifest(workspace / "runs", pipeline)
+    previous, previous_id = bootstrap.latest_run(workspace, pipeline)
 
     # Keyed exactly as the run will be, from the same files, through the same
     # derivation (R4.12): `cached` here is a promise the run keeps.
@@ -514,7 +514,7 @@ def _execute(
     # not what the last run read: the one moment a person needs to know two
     # runs are not over the same evidence, before R7.8 refuses to compare them
     # (R4.9 row 4). Before any step runs, so the warning is read, not scrolled.
-    previous, previous_id = latest_manifest(workspace / "runs", pipeline)
+    previous, previous_id = bootstrap.latest_run(workspace, pipeline)
     if previous is not None:
         # The procedures too, marked as context: every call reading `reference`
         # is shown them, so a tightened one is evidence that moved (R4.9 row 5).

@@ -24,7 +24,6 @@ from dossier.application.eval import (
     start_eval,
 )
 from dossier.application.manifest import MANIFEST_NAME, Manifest
-from dossier.application.plan import latest_manifest
 from dossier.application.recording import failed_if_stopped
 from dossier.application.run import (
     MissingFromReplay,
@@ -255,7 +254,7 @@ def eval_(
     # A version is part of the record, so it rides on the same switch (R10.1).
     versions = bootstrap.versions_for(workspace) if tracker is not None else None
 
-    _, run_dir = latest_manifest(workspace / "runs", pipeline)
+    _, run_dir = bootstrap.latest_run(workspace, pipeline)
     if run_dir is None:
         typer.echo(
             f"{pipeline}: no run to score. Run `dossier run {pipeline}` first.", err=True

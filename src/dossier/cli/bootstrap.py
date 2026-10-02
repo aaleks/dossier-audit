@@ -19,6 +19,7 @@ from pathlib import Path
 
 import typer
 
+from dossier.application.plan import latest_manifest
 from dossier.config.endpoints import EndpointUnset, endpoint_for
 from dossier.config.environment import environment
 from dossier.config.load import ConfigError, load_converter_names
@@ -35,6 +36,8 @@ from dossier.domain.ports import (
     Tracker,
     VersionRegistry,
 )
+from dossier.domain.resolution import ResolvedPlan
+from dossier.domain.store import RUNS_ROOT, passed_over_line
 from dossier.domain.tracking import TrackingSettings, experiment_name, name_template, namespace
 from dossier.domain.tracking import capture as capture_setting
 from dossier.domain.tracking import settings as tracking_settings
@@ -338,3 +341,17 @@ def build_prompt_registry(settings: TrackingSettings, *, verify: bool = True) ->
     return connect_prompts(
         settings.uri, auth=settings.auth, ca_bundle=settings.ca_bundle, verify=verify
     )
+
+
+def say_passed_over(unreadable: Sequence[tuple[str, str]]) -> None:
+    """Name on stderr each run whose manifest a command could not read (R4.30)."""
+    for run_id, reason in unreadable:
+        typer.echo(passed_over_line(run_id, reason), err=True)
+
+
+def latest_run(workspace: Path, pipeline: str) -> tuple[ResolvedPlan | None, str | None]:
+    """The pipeline's latest run, naming each manifest passed over on the way (R4.30)."""
+    unreadable: list[tuple[str, str]] = []
+    found = latest_manifest(workspace / RUNS_ROOT, pipeline, unreadable=unreadable)
+    say_passed_over(unreadable)
+    return found

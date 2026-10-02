@@ -16,7 +16,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from dossier.application.manifest import MANIFEST_NAME, Manifest
+from dossier.application.manifest import MANIFEST_NAME, read_manifest
 from dossier.domain.pipeline import PipelineConfig
 from dossier.domain.plan import StepPlan, diff
 from dossier.domain.resolution import PinnedConverter, ResolvedPlan, resolve
@@ -84,12 +84,16 @@ def pinned_documents(rows) -> dict[str, str]:
     return {row.key: row.snapshot for row in rows if row.state is not State.TOMBSTONED}
 
 
-def latest_manifest(runs: Path, pipeline: str) -> tuple[ResolvedPlan | None, str | None]:
+def latest_manifest(
+    runs: Path, pipeline: str, *, unreadable: list[tuple[str, str]] | None = None
+) -> tuple[ResolvedPlan | None, str | None]:
     """The most recent run's resolved plan, or `(None, None)` if there is none.
 
     Run directories are named with a sortable timestamp prefix (spec 000), so
     the newest is the last by name -- no `stat` call, and no dependence on
-    filesystem timestamps that a copy would rewrite.
+    filesystem timestamps that a copy would rewrite. A newer manifest that
+    cannot be read is passed over, and put in `unreadable` with why, for the
+    command to name (R4.30).
     """
     if not runs.is_dir():
         return None, None
@@ -101,7 +105,12 @@ def latest_manifest(runs: Path, pipeline: str) -> tuple[ResolvedPlan | None, str
         # Read through the model that writes it, so a plan comparing against a
         # past run and a run recording this one cannot drift into two shapes of
         # the same file.
-        found = Manifest.read(manifest)
+        found = read_manifest(manifest)
+        if isinstance(found, str):
+            # It says nothing of its run, not even its pipeline (R4.30).
+            if unreadable is not None:
+                unreadable.append((directory.name, found))
+            continue
         if found.plan.pipeline != pipeline:
             continue
         return found.plan, directory.name

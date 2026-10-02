@@ -8,13 +8,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dossier.application.manifest import MANIFEST_NAME, Manifest
+from dossier.application.manifest import MANIFEST_NAME, read_manifest
 from dossier.application.run import recorded_failures
 from dossier.domain.status import RunSeen
 from dossier.domain.store import RUNS_ROOT
 
 
-def read_runs(workspace: Path) -> list[RunSeen]:
+def read_runs(
+    workspace: Path, *, unreadable: list[tuple[str, str]] | None = None
+) -> list[RunSeen]:
     """Every run under `runs/`, with its documents and what it failed (R17.3).
 
     A run is a directory holding `manifest.json`, as `gc` counts one (R16.2):
@@ -30,7 +32,13 @@ def read_runs(workspace: Path) -> list[RunSeen]:
         manifest = directory / MANIFEST_NAME
         if not manifest.is_file():
             continue
-        plan = Manifest.read(manifest).plan
+        found = read_manifest(manifest)
+        if isinstance(found, str):
+            # Passed over and named, as every command looking for a run does (R4.30).
+            if unreadable is not None:
+                unreadable.append((directory.name, found))
+            continue
+        plan = found.plan
         failures = recorded_failures(directory)
         seen.append(
             RunSeen(

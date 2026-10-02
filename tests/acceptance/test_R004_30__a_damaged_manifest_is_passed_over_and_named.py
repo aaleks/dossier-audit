@@ -20,8 +20,6 @@ import pytest
 from tests.acceptance.conftest import GOLD, _cli
 from tests.scoring_example import PIPELINE
 
-pytestmark = pytest.mark.outer_loop
-
 PASSED_OVER = re.compile(r"^  passed over: runs/(\S+)/manifest\.json cannot be read: \S")
 
 

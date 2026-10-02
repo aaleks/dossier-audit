@@ -13,6 +13,17 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A damaged manifest is passed over and named (2026-10-02, R4.29 and R4.30,
+#686, #687 and this). analysis_v2 found that one manifest cut short stopped
+`run`, `run --plan`, `eval`, `embed` and `status` with a traceback. Each read
+every newer manifest, of any pipeline, before it asked which pipeline a run
+was. Only `gc` tolerated it (R16.11). Now each looks through `read_manifest`,
+passes over one it cannot read, names it on stderr (`  passed over:
+runs/<id>/manifest.json cannot be read: ...`), and goes on with the newest run
+it can read. And neither file is cut short any more: a manifest and its
+`failures.json` are written under a temporary name and renamed into place,
+each keeping the line endings it was written with.
+
 A request refused as sent, or cut off, fails its document (2026-10-02, R9.23
 to R9.25, #681, #683 and this). analysis_v2 named the first thing a real corpus
 would hit: any non-2xx stopped the run, so one prompt past the context window
