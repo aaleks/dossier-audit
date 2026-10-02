@@ -363,7 +363,7 @@ R19.8, whose searches name no reader.
 
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.search`), domain (`dossier.domain.search.excerpt`)
-- **Proved by:** `tests/acceptance/test_R019_12__search_lists_what_answers_the_query_for_its_readers.py`, `tests/unit/test_R019_12__a_result_shows_its_text_on_one_line.py`
+- **Proved by:** `tests/acceptance/test_R019_12__search_lists_what_answers_the_query_for_its_readers.py`
 - **Status:** IN PROGRESS
 
 | # | Given | Then |
