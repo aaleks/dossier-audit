@@ -32,6 +32,7 @@ from dossier.infrastructure.store import SnapshotStore
 
 
 def convert(
+    ctx: typer.Context,
     pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
     label: str = typer.Option(
         "", "--label", help="A name for this record, in MLflow (R10.11).", metavar="NAME"
@@ -45,6 +46,7 @@ def convert(
     -- which on a PDF-heavy corpus is usually where the surprises are.
     """
     workspace = Path.cwd()
+    bootstrap.hold_workspace(ctx, workspace, "convert")
     started_at = datetime.now(UTC)
 
     try:

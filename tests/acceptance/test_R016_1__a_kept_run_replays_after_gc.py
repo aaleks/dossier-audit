@@ -30,6 +30,8 @@ from tests.acceptance.test_R007_54__compare_scores_both_runs_over_the_same_docum
 from tests.fakes import NoModelClient
 from tests.scoring_example import PIPELINE
 
+from dossier.infrastructure.lock import HOLDER_PATH, LOCK_PATH
+
 GOLD = "gold/incidents"
 
 
@@ -68,12 +70,19 @@ def _stage_entries(workspace: Path) -> set[str]:
 
 
 def _files(workspace: Path) -> dict[str, bytes]:
-    """Every file under `runs/`, `tries/` and `.dossier/`, by path."""
+    """Every file under `runs/`, `tries/` and `.dossier/`, by path, but the lock's two.
+
+    Those are the lock's, not a command's work: every command that writes takes
+    the lock before it reads anything, so one refused for any other reason has
+    still written them (R20.1). And Windows will not read a locked byte, to the
+    process holding it too.
+    """
+    lock = {LOCK_PATH.as_posix(), HOLDER_PATH.as_posix()}
     return {
-        path.relative_to(workspace).as_posix(): path.read_bytes()
+        name: path.read_bytes()
         for top in ("runs", "tries", ".dossier")
         for path in (workspace / top).rglob("*")
-        if path.is_file()
+        if path.is_file() and (name := path.relative_to(workspace).as_posix()) not in lock
     }
 
 

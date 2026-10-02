@@ -25,6 +25,8 @@ from tests.fakes import NoModelClient, register_connector
 from tests.pipelines import write_pipeline
 from tests.scoring_example import ISSUES, PIPELINE, SOURCE_ID, SOURCE_TYPE, IssueTracker
 
+from dossier.infrastructure.lock import HOLDER_PATH, LOCK_PATH
+
 URI = "http://localhost:5000"
 
 
@@ -77,6 +79,20 @@ def _server_down(monkeypatch) -> None:
     monkeypatch.setattr(adapter, "HEALTH_TRANSPORT", httpx.MockTransport(_refused))
 
 
+def _state(workspace: Path) -> list[Path]:
+    """What `.dossier/` holds, but the lock's two files.
+
+    A sync takes the workspace's lock before it reads anything, the tracking
+    settings included, so a refused one has written them: they are the lock's,
+    not the sync's work (R20.1).
+    """
+    state = workspace / ".dossier"
+    lock = {workspace / LOCK_PATH, workspace / HOLDER_PATH}
+    if not state.exists():
+        return []
+    return sorted(path for path in state.rglob("*") if path not in lock)
+
+
 class TestAnUnreachableServerRefusesBeforeAnyWork:
     """R10.5 — with tracking enabled, an unreachable server refuses the command
     before any work."""
@@ -112,14 +128,13 @@ class TestAnUnreachableServerRefusesBeforeAnyWork:
         """
         _tracking_on(monkeypatch)
         _server_down(monkeypatch)
-        state = workspace / ".dossier"
-        before = sorted(state.rglob("*")) if state.exists() else []
+        before = _state(workspace)
 
         result = _cli(workspace, monkeypatch, "sync", PIPELINE)
 
         assert result.exit_code == 2
         assert source.fetched == []
-        assert (sorted(state.rglob("*")) if state.exists() else []) == before
+        assert _state(workspace) == before
 
     def test_a_missing_tracking_extra_is_refused_naming_it(
         self, workspace: Path, monkeypatch, source: CountingTracker

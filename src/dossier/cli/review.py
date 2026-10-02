@@ -104,6 +104,7 @@ def review_pull(
 
 @review_app.command("apply")
 def review_apply(
+    ctx: typer.Context,
     pipeline: str = typer.Argument(..., help="Pipeline name under pipelines/"),
     gold: str = typer.Option(..., "--gold", help="Gold set directory", metavar="DIR"),
     verified_by: str = typer.Option(
@@ -129,6 +130,7 @@ def review_apply(
         raise typer.Exit(code=2)
 
     workspace = Path.cwd()
+    bootstrap.hold_workspace(ctx, workspace, "review apply")
     try:
         path = bootstrap.pipeline_path(workspace, pipeline)
         config = load_pipeline(path, providers=available_providers())

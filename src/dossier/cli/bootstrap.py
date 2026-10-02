@@ -8,13 +8,15 @@ is what it calls. `build_review_source` is not here: it is built by
 `dossier review pull` alone, and lives beside it (R15.5).
 
 Also what every command says alike: where a pipeline is, how a count reads,
-and which failures are a model's.
+which failures are a model's, and that another command holds the workspace.
 """
 
 from __future__ import annotations
 
+import os
 import threading
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
@@ -43,6 +45,7 @@ from dossier.domain.tracking import TrackingSettings, experiment_name, name_temp
 from dossier.domain.tracking import capture as capture_setting
 from dossier.domain.tracking import settings as tracking_settings
 from dossier.infrastructure.converters.registry import installed_converters
+from dossier.infrastructure.lock import WorkspaceHeld, WorkspaceLock
 from dossier.infrastructure.models.openai_compatible import ModelRequestFailed
 from dossier.infrastructure.models.registry import UnknownProvider, embedding_provider
 from dossier.infrastructure.models.registry import provider as model_provider
@@ -403,3 +406,18 @@ def stale_install() -> str | None:
         return None
     differences = stale_entry_points(declared=declared, installed=installed_entry_points())
     return stale_install_line(differences) if differences else None
+
+
+def hold_workspace(ctx: typer.Context, workspace: Path, command: str) -> None:
+    """Hold the workspace until this command ends, or refuse at once, naming who has it (R20.1).
+
+    The lock goes on the command's own context, which closes however the
+    command ends -- returned, exited, raised -- so no command's body is wrapped,
+    and none can forget to let go. Called before anything is read.
+    """
+    lock = WorkspaceLock(workspace, command=command, pid=os.getpid(), since=datetime.now(UTC))
+    try:
+        ctx.with_resource(lock)
+    except WorkspaceHeld as held:
+        typer.echo(str(held), err=True)
+        raise typer.Exit(code=2) from held

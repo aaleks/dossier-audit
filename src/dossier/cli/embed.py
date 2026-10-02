@@ -52,10 +52,12 @@ from dossier.infrastructure.store import SnapshotStore
 
 
 def embed(
+    ctx: typer.Context,
     index: Annotated[str, typer.Argument(help="An index declared as indexes/<INDEX>.yaml")],
 ) -> None:
     """Write a pipeline's documents into its index, asking only for missing vectors."""
     workspace = Path.cwd()
+    bootstrap.hold_workspace(ctx, workspace, "embed")
     started = f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     try:
         sources = load_sources(workspace / "sources.yaml", connectors=declared_keys())

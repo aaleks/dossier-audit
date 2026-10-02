@@ -13,6 +13,31 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+One command writes a workspace at a time (2026-10-02, R20.1, #697, #698 and
+this). Spec 015's flow is a daily cron job, and nothing stopped two commands
+writing one workspace at once: `gc --apply` beside a `run` could delete what the
+run was writing, and two syncs wrote one ledger (analysis_v2 §3.4). Now `sync`,
+`convert`, `run` (a try and a replay too), `embed`, `gc --apply` and `review
+apply` hold the operating system's lock on `.dossier/lock` from before they read
+anything, and a second writer is refused at once, exit 2, naming the first from
+`.dossier/lock.json` beside it. It never waits: decided by a.aleks on
+2026-10-02, against waiting a while. Windows will not let any other handle read
+a locked byte, so the details cannot sit in the locked file, and they follow the
+lock, so a refusal in that moment comes without them (row 6, found while writing
+the test). The lock goes on the command's typer context, which closes however
+the command ends. The first try used `click.get_current_context()` and failed on
+every command: typer 0.26 vendors click, and `click` was installed only as
+another package's dependency. Three tests that said "nothing written" after a
+refusal (R10.5, R11.28, R16.6) now compare the workspace without the lock's two
+files. A live check ran two real processes on Windows against a stub slowed to
+four seconds an answer. `sync`, `gc --apply` and `convert` were refused beside
+the run; `status`, `--plan` and the `gc` preview ran; after `taskkill /F` the
+next sync took the lock. It also found that `run --plan`, after a run killed
+halfway, says `cached` for steps the cache does not hold. The plan diffs against
+the latest manifest, which a killed run leaves behind, and the next run asked
+three of four documents afresh, against R4.12. Reported, not fixed here.
+Exercise 24 walks through it.
+
 A stale install is refused, saying to reinstall (2026-10-02, R0.18, #693 and
 this). Entry points come from the metadata written at install time, so an
 install older than `pyproject.toml` failed on whatever needed a newer entry

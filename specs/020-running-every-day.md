@@ -1,6 +1,6 @@
 # 020 — Running it every day
 
-**Status:** Proposed
+**Status:** Implemented
 **Rules:** R20.1
 
 ## Purpose
@@ -45,6 +45,13 @@ lock, and names the writer before otherwise. A command refused in that moment
 is refused all the same, and a missing or unreadable `lock.json` refuses it
 without the details (row 6). The lock is what refuses; the file only says who.
 
+The lock's two files are the lock's, not a command's work. A command that takes
+the lock and is then refused for another reason -- a tracking server nobody can
+reach (R10.5), an experiment template it cannot fill (R11.28 row 3), a pin
+naming no run (R16.6 row 3) -- has written them, and "nothing written" in those
+rules means nothing of the workspace's: no ledger, snapshot, run, cache entry or
+pin.
+
 ## Existing options considered
 
 | Option | Covers | Decision |
@@ -59,7 +66,7 @@ without the details (row 6). The lock is what refuses; the file only says who.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.lock.held_line`), infrastructure (`dossier.infrastructure.lock.WorkspaceLock`), cli
 - **Proved by:** `tests/integration/test_R020_1__a_second_writer_is_refused.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
