@@ -30,6 +30,9 @@ superseded, since their searches named no reader.
 - `gh pr checks --watch`, run just after a push, printed "no checks reported"
   and exited 0, so #677 was merged before its gate ran. The gate passed, and a
   merge now waits for a registered check.
+- Exercise 21 was run live again with `--as`, on `qwen3-embedding` and
+  `dev/index`. Every ranking matched the first pass, the first lines named the
+  reader, and its first task now opens with the refused search.
 
 `dossier search` (2026-10-01, spec 019, R11.34 and R0.17, #664 to #668). The
 index `embed` writes could be searched only by writing SQL. `dossier search

@@ -7,6 +7,8 @@ which order, and why.
 **You will learn:** how a search turns two rankings into one, and where it
 stops being able to help:
 
+- why a search names the readers it is for, and what it does when it names
+  none;
 - why every note is listed for a question only one of them answers;
 - how a ranking by meaning and a ranking by words are fused, and what decides
   a tie;
@@ -47,7 +49,10 @@ score is `1 / (60 + rank)` in each list it is in, added up. Each note is listed
 once, at its best chunk, with the values its run carried. The ranking is a
 pure decision over two lists, so it is the same on every machine. The search
 changes nothing in the workspace or the index. It writes the question's vector
-to the cache, and nothing else.
+to the cache, and nothing else. And it names the readers it is for, with
+`--as`: the index's connection string reads every row, so the search is what
+keeps readers apart, and one naming no reader is refused unless it asks for
+every chunk with `--all-readers` (R19.10, R19.11).
 
 ---
 
@@ -115,15 +120,19 @@ for result in found["results"]:
 
 ## Task 1 — ask it a question
 
-Exercise 20 asked this question with `search.py`:
+Exercise 20 asked this question with `search.py`. Ask it first as it is, then
+as the one reader `sources.yaml` declares:
 
 ```bash
-$D search incidents "How much did the warehouse outage cost?"
-$D search incidents "How much did the warehouse outage cost?" --limit 2
+$D search incidents "How much did the warehouse outage cost?"; echo "exit $?"
+$D search incidents "How much did the warehouse outage cost?" --as incident-response
+$D search incidents "How much did the warehouse outage cost?" --as incident-response --limit 2
 ```
 
-**Checkpoint.** The first line is `incidents · 4 documents · not filtered by
-reader`. `PLAY-1003` comes first, at its `Impact` section, which says `CHF
+**Checkpoint.** The first search exits `2`: `name the readers this search is
+for with --as READER (incident-response), or search every chunk with
+--all-readers`. The second's first line is `incidents · 4 documents · as
+incident-response`. `PLAY-1003` comes first, at its `Impact` section, which says `CHF
 61'250`, with the two values its run carried. All four notes are listed, each
 at its `Impact`. With `--limit 2`, `PLAY-1003` and `PLAY-1002`.
 
@@ -134,17 +143,19 @@ at its `Impact`. With `--limit 2`, `PLAY-1003` and `PLAY-1002`.
   of its chunks stands for it (R19.2)?
 - **The second answer.** Read `PLAY-1002`'s line. Does it answer the question?
   Compare exercise 20's task 3, "The other way round".
-- **Not filtered by reader.** What is the first line warning you about? Who
-  could read the rows this search did not filter (R19.5, "Decisions")?
+- **No reader.** The first search was refused, and asked the model nothing.
+  The index's connection string reads every row. So who keeps readers apart,
+  and why is a search that names none refused, rather than answered with every
+  chunk (R19.11, "Decisions")?
 
 ## Task 2 — two lists, one order
 
 ```bash
-$D search incidents "How much did the warehouse outage cost?" --json --limit 2
-$D search incidents "How much did the warehouse outage cost?" --json --limit 2 | $P ranks.py
-$D search incidents "warehouse" --json --limit 3 | $P ranks.py
-$D search incidents "warehouse or cost" --json --limit 3 | $P ranks.py
-$D search incidents "PLAY-1004" --limit 2
+$D search incidents "How much did the warehouse outage cost?" --as incident-response --json --limit 2
+$D search incidents "How much did the warehouse outage cost?" --as incident-response --json --limit 2 | $P ranks.py
+$D search incidents "warehouse" --as incident-response --json --limit 3 | $P ranks.py
+$D search incidents "warehouse or cost" --as incident-response --json --limit 3 | $P ranks.py
+$D search incidents "PLAY-1004" --as incident-response --limit 2
 ```
 
 Then see how the words list ranks `warehouse`:
@@ -170,7 +181,7 @@ first. `PLAY-1004` lists `PLAY-1004` first. By words, all eight chunks holding
   `ts_rank_cd` themselves (R19.1, "How a search ranks")?
 - **Nothing by words.** Which words of the question did the words list require,
   and which one is in no chunk? What did `or` change? Why is a question in plain
-  English so often ranked by meaning alone (R19.8 row 3, open question 2)?
+  English so often ranked by meaning alone (R19.12 row 3, open question 2)?
 - **The export incident first.** `PLAY-1002` is about a warehouse *load*, and
   `PLAY-1003` is the warehouse incident. All eight chunks rank `0.1` by words.
   What put `PLAY-1002`'s follow-up first in that list, and is that a reason
@@ -186,8 +197,8 @@ first. `PLAY-1004` lists `PLAY-1004` first. By words, all eight chunks holding
 ## Task 3 — chunks or documents
 
 ```bash
-$D search incidents "firewall rule" --chunks --limit 4
-$D search incidents "firewall rule" --limit 4
+$D search incidents "firewall rule" --as incident-response --chunks --limit 4
+$D search incidents "firewall rule" --as incident-response --limit 4
 ```
 
 **Checkpoint.** With `--chunks`, four chunks, all of `PLAY-1003`: its root
@@ -207,23 +218,25 @@ at its root cause, then `PLAY-1001`, `PLAY-1002` and `PLAY-1004`.
 ```bash
 V() { find .dossier/cache/embed -name '*.meta.json' | wc -l; }   # the vectors cached
 
-$D search incidents "slow responses for customers" --where severity=MAJOR
-$D search incidents "slow responses for customers" --where severity=major --where severity=critical --limit 3
-$D search incidents "slow responses for customers" --where severity=major \
+$D search incidents "slow responses for customers" --as incident-response --where severity=MAJOR
+$D search incidents "slow responses for customers" --as incident-response --where severity=major --where severity=critical --limit 3
+$D search incidents "slow responses for customers" --as incident-response --where severity=major \
   --where "affected_systems=search-api, catalogue-index"
-$D search incidents "slow responses for customers" --where affected_systems=search-api
-$D search incidents "slow responses for customers" --as incident-response --limit 1
+$D search incidents "slow responses for customers" --as incident-response --where affected_systems=search-api
+$D search incidents "slow responses for customers" --all-readers --limit 1
 V
 $D search incidents "who was paged" --as sre; echo "exit $?"
-$D search incidents "who was paged" --where loss_amount=18400; echo "exit $?"
-$D search incidents "who was paged" --where severity=huge; echo "exit $?"
+$D search incidents "who was paged" --as incident-response --as sre; echo "exit $?"
+$D search incidents "who was paged" --as incident-response --all-readers; echo "exit $?"
+$D search incidents "who was paged" --as incident-response --where loss_amount=18400; echo "exit $?"
+$D search incidents "who was paged" --as incident-response --where severity=huge; echo "exit $?"
 V
 ```
 
 **Checkpoint.** `MAJOR` lists `PLAY-1004` and `PLAY-1001`. `major` or
 `critical` adds `PLAY-1003`. `major` with `PLAY-1004`'s two systems lists
-`PLAY-1004` alone. `search-api` alone: `no documents found`. `--as
-incident-response` changes the first line to `as incident-response`. The three
+`PLAY-1004` alone. `search-api` alone: `no documents found`.
+`--all-readers` changes the first line to `not filtered by reader`. The five
 refusals exit `2`, each naming what is declared, and `V` prints the same number
 before and after them.
 
@@ -238,10 +251,17 @@ before and after them.
   ranks")?
 - **Before the model.** `who was paged` was never asked of the model: `V` did
   not move. Why refuse a filter or a reader before the question is embedded
-  (R19.4 rows 5 and 6, R19.5)?
+  (R19.4 rows 5 and 6, R19.10, R19.11)?
 - **A reader nobody declared.** Why is `sre` refused rather than answered with
-  no documents? What would an empty answer have told someone who mistyped
-  `incident-response` (R19.5)?
+  no documents? And beside `incident-response`, why is it refused rather than
+  ignored? What would either answer have told an agent that mistyped a reader
+  (R19.10 row 4)?
+- **Two readers.** Were `sre` declared on another source, `--as
+  incident-response --as sre` would list what either may read, in one ranked
+  list. Why is that better than two searches merged afterwards (R19.10,
+  task 2)?
+- **Every chunk.** When is `--all-readers` the right flag, and why must it be
+  asked for, and not be what a search with no `--as` does (R19.11)?
 
 ## Task 5 — what the index has not seen
 
@@ -260,9 +280,9 @@ cat > inbox/incidents/PLAY-1005.md <<'EOF'
 Refunds were issued twice for 31 orders before the retry was stopped.
 EOF
 $D sync incident-audit
-$D search incidents "refunds issued twice" --limit 2
+$D search incidents "refunds issued twice" --as incident-response --limit 2
 $D embed incidents
-$D search incidents "refunds issued twice" --limit 2
+$D search incidents "refunds issued twice" --as incident-response --limit 2
 ```
 
 Then take it away again:
@@ -270,7 +290,7 @@ Then take it away again:
 ```bash
 rm inbox/incidents/PLAY-1005.md
 $D sync incident-audit
-$D search incidents "refunds issued twice" --limit 1
+$D search incidents "refunds issued twice" --as incident-response --limit 1
 $D embed incidents
 ```
 
@@ -278,7 +298,7 @@ Last, change the last character of the model's digest in
 `indexes/incidents.yaml` from `c` to `d`, search, and put it back:
 
 ```bash
-$D search incidents "refunds issued twice"; echo "exit $?"
+$D search incidents "refunds issued twice" --as incident-response; echo "exit $?"
 ```
 
 **Checkpoint.** After the sync, the search does not list `PLAY-1005`, and its
@@ -304,12 +324,12 @@ changed digest exits `2`, naming both pins.
 
 ```bash
 V
-$D search incidents "Why did adding servers make it slower?" --json --limit 3 | $P ranks.py
+$D search incidents "Why did adding servers make it slower?" --as incident-response --json --limit 3 | $P ranks.py
 V
-$D search incidents "Why did adding servers make it slower?" --limit 1
+$D search incidents "Why did adding servers make it slower?" --as incident-response --limit 1
 V
 echo 'query_instruction: ""' >> indexes/incidents.yaml
-$D search incidents "Why did adding servers make it slower?" --json --limit 3 | $P ranks.py
+$D search incidents "Why did adding servers make it slower?" --as incident-response --json --limit 3 | $P ranks.py
 V
 ```
 
@@ -369,15 +389,15 @@ for trace in traces:
 ```
 
 ```bash
-$D search incidents "Why did adding servers make it slower?" --limit 2
-$D search incidents "Which incident lost the most money?" --where severity=major --limit 2
+$D search incidents "Why did adding servers make it slower?" --as incident-response --limit 2
+$D search incidents "Which incident lost the most money?" --as incident-response --where severity=major --limit 2
 $P read_search_trace.py
 ```
 
 **Checkpoint.** Each search ends `recorded to MLflow:
 dossier-audit/incident-audit/search`. The script prints `runs 0` and two
 traces named `search incidents`. Each has the question, the filters and the
-reader as its request, and the note ids as its response; an `EMBEDDING` span
+readers as its request, and the note ids as its response; an `EMBEDDING` span
 with the text embedded, instruction and all; and a `RETRIEVER` span with each
 result's rank, chunk id, score and two ranks. The first question was asked in
 task 6, so its span says `cached True` and `tokens 0`. The second lists
@@ -385,7 +405,7 @@ task 6, so its span says `cached True` and `tokens 0`. The second lists
 18'400`.
 
 - **No run.** `sync`, `run`, `eval` and `embed` each record an MLflow run. Why
-  does a search record a trace and no run (R11.34)?
+  does a search record a trace and no run (R11.35)?
 - **Ids, not text.** The `RETRIEVER` span names chunks by id. Where is their
   text, and why is it not copied into MLflow?
 - **The most money.** The search was asked which incident lost the most, and
@@ -397,6 +417,8 @@ task 6, so its span says `cached True` and `tokens 0`. The second lists
 
 ## Done when
 
+- you can say why a search names the readers it is for, and what it does when
+  it names none;
 - you can read a search's output, and say why each note is listed and at which
   section;
 - you can work out a score from its two ranks, and say what decides a tie;
