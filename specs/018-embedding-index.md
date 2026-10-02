@@ -1,6 +1,6 @@
 # 018 — The embedding index
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R18.1 – R18.12
 
 ## Purpose
@@ -373,7 +373,7 @@ wrong length, cached, would be served as if it were right.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.embed`)
 - **Proved by:** `tests/unit/test_R018_12__an_embed_stopped_by_a_failed_request_keeps_what_was_answered.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
