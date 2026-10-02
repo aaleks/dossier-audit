@@ -105,7 +105,7 @@ it: the next run reads it, and re-converting a scanned PDF takes minutes
 (spec 008). An entry's provenance record goes with it.
 
 - **Kind:** deterministic
-- **Layer:** domain (`dossier.domain.gc.collectable`), application (`dossier.application.gc`)
+- **Layer:** domain (`dossier.domain.gc.collectable`, `dossier.domain.gc.held_snapshots`), application (`dossier.application.gc`)
 - **Proved by:** `tests/unit/test_R016_3__an_entry_a_kept_run_reads_is_never_deleted.py`
 - **Status:** MET
 
@@ -117,6 +117,7 @@ it: the next run reads it, and re-converting a scanned PDF takes minutes
 | 4 | a conversion of `INC-4821`'s current snapshot, made by `dossier convert` after the latest run | kept: the document is held now, and the next run reads it |
 | 5 | *counter-example* — the conversion of `INC-4821`'s previous snapshot, which no kept run read | deleted |
 | 6 | *counter-example* — `.dossier/cache/judge`, `.dossier/snapshots/` and `.dossier/ledger.db` | not a byte changes |
+| 7 | a conversion of `INC-4821`'s current snapshot, synced from a source declaring `fields`, whose `content_hash` is the projection's (R2.10) | kept: what is held is the payload its row's `snapshot_path` addresses, not the hash change detection compares (R2.17) |
 | 7 | the conversion of `INC-4821`'s previous snapshot, read by `20260806T142203Z-4f1a`, which `--keep-last 2` keeps | kept: the ledger no longer holds that snapshot, and the kept run is reproduced from it |
 | 8 | *counter-example* — `.dossier/cache/embed`, holding the vectors of `INC-4821`'s chunks (R18.3) | not a byte changes, across `--apply` as across the preview |
 

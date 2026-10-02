@@ -13,6 +13,16 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+`gc` keeps a held document's conversion whatever its source declares
+(2026-10-02, R16.3 row 7). analysis_v2 (#676) found that `gc` collected each
+row's `content_hash` as what is held, where R2.17 says a held document is the
+payload its `snapshot_path` addresses. For a source declaring `fields`, that
+hash is the projection's, so `gc --apply` deleted the conversion of a document
+still held, and the next run converted it again. No gc test had such a source.
+The user chose to fix the code to the spec: `held_snapshots`, in `domain/`,
+reads `row.snapshot`, and an end-to-end test syncs R2.17's projected tracker,
+converts and runs `gc --apply`. It failed first, with "1 cache entry" freed.
+
 A search names its readers (2026-10-02, R19.10 to R19.12 and R11.35, #675,
 #677 and this). An agent will search on people's behalf, and a search without
 `--as` listed every chunk with only a line saying so. Discovered with

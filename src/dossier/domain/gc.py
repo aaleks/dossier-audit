@@ -10,6 +10,9 @@ from __future__ import annotations
 from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass
 
+from dossier.domain.ledger import LedgerRow
+from dossier.domain.sync import State
+
 # How many runs of each pipeline are kept when `--keep-last` does not say
 # (decided by `a.aleks` on 2026-09-30, R16.2).
 KEEP_LAST = 5
@@ -165,3 +168,15 @@ def unreplayable_line(run_id: str, reason: str) -> str:
     several, put on one.
     """
     return f"  kept as it is: runs/{run_id}/ cannot be replayed: {' '.join(reason.split())}"
+
+
+def held_snapshots(rows: Iterable[LedgerRow]) -> set[str]:
+    """The snapshots the ledger holds now, whose conversions the next run reads (R16.3).
+
+    Each row's `snapshot`, the payload its `snapshot_path` addresses, and not its
+    `content_hash`: for a source declaring `fields` that is the projection's hash,
+    which addresses nothing stored, and a held document's conversion would be
+    collected as if it were no one's (R2.17, R16.3 row 7). A tombstoned row has
+    left scope, and no next run reads it.
+    """
+    return {row.snapshot for row in rows if row.state is not State.TOMBSTONED}
