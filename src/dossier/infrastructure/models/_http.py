@@ -14,7 +14,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from dossier.domain.refusals import refusal_reason
+from dossier.domain.refusals import UnanswerableRequest, about_the_request, refusal_reason
 from dossier.domain.retries import MAX_RETRIES, retry_after, retryable, wait_before
 from dossier.domain.usage import counted
 
@@ -44,6 +44,14 @@ class ModelRequestFailed(RuntimeError):
     header, nothing here echoes a header, and a reason quoting it has it removed
     (R9.8 row 1).
     """
+
+
+class RequestRefusedAsSent(ModelRequestFailed, UnanswerableRequest):
+    """A request refused about itself, `400`, `413` or `422`: its document fails (R9.23)."""
+
+
+class ReplyCutOff(ModelRequestFailed, UnanswerableRequest):
+    """A reply that stopped at the model's output limit, which is no answer (R9.24)."""
 
 
 def http_client(
@@ -93,7 +101,8 @@ def request(
             tried = f" (after {attempt} attempts)" if attempt > 1 else ""
             # And why, last: it is the provider's sentence, and may run long.
             said = f": {reason}" if reason else ""
-            raise ModelRequestFailed(failure + tried + said)
+            failed = RequestRefusedAsSent if about_the_request(status) else ModelRequestFailed
+            raise failed(failure + tried + said)
         asked = retry_after(headers, now=datetime.now(UTC))
         sleep(wait_before(attempt, retry_after=asked, jitter=1 - 0.25 * random.random()))
         attempt += 1
@@ -126,6 +135,17 @@ def text_at(response: httpx.Response, *path: str | int) -> str:
             f"{response.request.method} {response.request.url} answered "
             f"{response.status_code} with no {where}"
         )
+    return value
+
+
+def said_at(response: httpx.Response, *path: str | int) -> object | None:
+    """What a JSON answer holds at `path`, or `None` where it holds nothing."""
+    try:
+        value = response.json()
+        for step in path:
+            value = value[step]
+    except (ValueError, KeyError, IndexError, TypeError):
+        return None
     return value
 
 

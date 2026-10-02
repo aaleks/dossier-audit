@@ -654,7 +654,7 @@ open.
 | 4 | *counter-example* — `dossier sync incident-audit`, interrupted inside a source | no run at all: a sync opens its run only once its sources have answered, to record their counts (R11.4), so there is nothing to close |
 | 5 | *counter-example* — `dossier calibrate` on a 19-case sample | no run at all: refused before one was opened (R11.5 row 4) |
 | 6 | *counter-example* — closing the run fails too, the server gone | the command's own error is the one it fails with; a lost record never changes a command's outcome (R10.6) |
-| 7 | `dossier eval incident-audit --gold gold/incidents`, a `root_cause` verdict not in the cache, and the judge unreachable | the eval run ends `FAILED`; the command still fails with R9.20's line and exit 2 |
+| 7 | `dossier eval incident-audit --gold gold/incidents`, a `root_cause` verdict not in the cache, and the judge unreachable | the eval run ends `FAILED`; the command still fails with R9.25's line and exit 2 |
 | 8 | the same eval, interrupted while the judge is asked | the eval run ends `FAILED`, and the interrupt goes on |
 | 9 | *counter-example* — `dossier eval incident-audit --gold gold/incidents --compare 20260806T142203Z-4f1a 20260907T090000Z-bbbb`, the judge unreachable | no run at all: a comparison opens its run only once both sides are scored (R11.8 row 4), so there is nothing to close |
 

@@ -20,13 +20,16 @@ import httpx
 
 from dossier.domain.model_id import check_served
 from dossier.domain.ports import ImagePart, Reply
+from dossier.domain.refusals import cut_off, cut_off_line
 from dossier.infrastructure.models._http import (
     ModelRequestFailed,
+    ReplyCutOff,
     Sleep,
     count_at,
     encoded,
     http_client,
     request,
+    said_at,
     text_at,
 )
 
@@ -101,6 +104,10 @@ class OllamaClient:
             body["format"] = schema
         response = request(self._http, "POST", self._url, json=body, sleep=self._sleep)
         # What the answer cost, where Ollama's own API says it (R9.18).
+        # Cut off at the context or the output limit is no answer (R9.24).
+        stopped = said_at(response, "done_reason")
+        if cut_off(stopped):
+            raise ReplyCutOff(cut_off_line(self.model_id, "done_reason", stopped))
         return Reply(
             text_at(response, "message", "content"),
             input_tokens=count_at(response, "prompt_eval_count"),

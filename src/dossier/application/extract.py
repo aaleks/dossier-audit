@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from dossier.domain.fields import answered_twice
 from dossier.domain.grounding import FieldCheck, check_field, with_derived_page
 from dossier.domain.ports import ImagePart, ModelClient, Tracker
+from dossier.domain.refusals import UnanswerableRequest
 from dossier.domain.schemas import FieldRecord, StageOutput, failure_reason
 from dossier.domain.tracking import TOKEN_USAGE, record_content, span_payload, token_usage
 from dossier.domain.usage import Tokens, tokens_of, total
@@ -112,16 +113,21 @@ def run_stage(
     `enum` allows, which the field check holds its answer to (R6.26).
     """
     if schema is None:
-        text = _asked(
-            tracker,
-            model,
-            prompt,
-            schema=None,
-            attempt=1,
-            capture=capture,
-            hashes=hashes,
-            parts=parts,
-        )
+        try:
+            text = _asked(
+                tracker,
+                model,
+                prompt,
+                schema=None,
+                attempt=1,
+                capture=capture,
+                hashes=hashes,
+                parts=parts,
+            )
+        except UnanswerableRequest as refused:
+            # Refused as sent, or cut off: this document fails, uncached, and
+            # the run goes on (R9.23, R9.24).
+            return DocumentResult(document=document, attempts=1, error=str(refused))
         _llm_span(
             tracker,
             model,
@@ -144,16 +150,26 @@ def run_stage(
     while attempts < MAX_ATTEMPTS:
         attempts += 1
         asked = _with_correction(prompt, correction)
-        response = _asked(
-            tracker,
-            model,
-            asked,
-            schema=schema,
-            attempt=attempts,
-            capture=capture,
-            hashes=hashes,
-            parts=parts,
-        )
+        try:
+            response = _asked(
+                tracker,
+                model,
+                asked,
+                schema=schema,
+                attempt=attempts,
+                capture=capture,
+                hashes=hashes,
+                parts=parts,
+            )
+        except UnanswerableRequest as unanswerable:
+            # About this request, not the answer: no correction would change it,
+            # so no retry is spent on it (R9.23, R9.24, R6.2).
+            return DocumentResult(
+                document=document,
+                attempts=attempts,
+                error=str(unanswerable),
+                tokens=total(spent),
+            )
         spent.append(tokens_of(response))
 
         try:

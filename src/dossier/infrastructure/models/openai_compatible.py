@@ -23,14 +23,17 @@ import httpx
 
 from dossier.domain.model_id import check_served
 from dossier.domain.ports import ImagePart, Reply
+from dossier.domain.refusals import cut_off, cut_off_line
 from dossier.infrastructure.models._http import (
     TIMEOUT_SECONDS,
     ModelRequestFailed,
+    ReplyCutOff,
     Sleep,
     count_at,
     encoded,
     http_client,
     request,
+    said_at,
     text_at,
 )
 
@@ -116,6 +119,10 @@ class OpenAICompatibleClient:
                 "json_schema": {"name": "stage_output", "schema": schema},
             }
         response = request(self._http, "POST", self._url, json=body, sleep=self._sleep)
+        # Cut off at the output limit is no answer, and is never cached (R9.24).
+        stopped = said_at(response, "choices", 0, "finish_reason")
+        if cut_off(stopped):
+            raise ReplyCutOff(cut_off_line(self.model_id, "finish_reason", stopped))
         # What the answer cost, where the chat-completions API says it (R9.18).
         return Reply(
             text_at(response, "choices", 0, "message", "content"),

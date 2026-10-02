@@ -937,7 +937,7 @@ The reason was on the result and reached the document's trace (R15.1 row 4), so
 with MLflow off it was printed nowhere. Someone reading the terminal could not
 tell a model that answered prose from an empty file (R6.29). So the line ends
 with the reason, `    {step} failed on {document}: {reason}`, on stderr as
-before. It is one line, as R9.20 keeps a stopped command to one: a reason that
+before. It is one line, as R9.25 keeps a stopped command to one: a reason that
 spans lines is put on one. The reason never holds a key (R9.8), because none of
 the texts it is built from ever holds one.
 

@@ -18,9 +18,11 @@ from collections.abc import Sequence
 import httpx
 
 from dossier.domain.ports import ImagePart, Reply
+from dossier.domain.refusals import cut_off, cut_off_line
 from dossier.infrastructure.models._http import (
     TIMEOUT_SECONDS,
     ModelRequestFailed,
+    ReplyCutOff,
     Sleep,
     count_at,
     encoded,
@@ -101,6 +103,9 @@ class AnthropicClient:
             raise ModelRequestFailed(
                 f"POST {self._url} answered with no content blocks"
             ) from None
+        # Cut off at `max_tokens`, with text or without, is no answer (R9.24).
+        if cut_off(stop):
+            raise ReplyCutOff(cut_off_line(self.model_id, "stop_reason", stop))
         # A reply is a list of content blocks, and the answer is the first of
         # type `text`: a model that thinks by default puts its thinking first.
         for block in blocks:

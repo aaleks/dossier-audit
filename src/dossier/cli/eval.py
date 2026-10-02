@@ -359,7 +359,7 @@ def eval_(
                 ),
             )
         except bootstrap.MODEL_FAILURES as error:
-            # A judge nobody can reach, said as `run` says a stage's (R9.20).
+            # A judge nobody can reach, said as `run` says a stage's (R9.25).
             typer.echo(f"{pipeline}: {error}", err=True)
             raise typer.Exit(code=2) from error
         totals = per_field(scores, declared=list(kinds))
@@ -556,7 +556,7 @@ def _compare_runs(
                 ),
             )
         except bootstrap.MODEL_FAILURES as error:
-            # As an eval says it (R9.20). Nothing is recorded: a comparison
+            # As an eval says it (R9.25). Nothing is recorded: a comparison
             # opens its run only once both sides are scored (R11.8 row 4).
             typer.echo(f"{pipeline}: {error}", err=True)
             raise typer.Exit(code=2) from error
