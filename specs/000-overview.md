@@ -1,7 +1,7 @@
 # 000 — Overview, vocabulary and global invariants
 
-**Status:** Implemented
-**Rules:** R0.1 – R0.18
+**Status:** Partially implemented
+**Rules:** R0.1 – R0.19
 
 ## Purpose
 
@@ -59,9 +59,9 @@ In the code the boundary is a package boundary. Four packages may import a
 network client: `dossier.infrastructure.connectors` fetches source payloads,
 `dossier.infrastructure.models` asks a model, `dossier.infrastructure.tracking`
 records to MLflow and `dossier.infrastructure.index` writes and searches the
-embedding index (R0.17). Everything else is right of the line. A model sits on
+embedding index (R0.19). Everything else is right of the line. A model sits on
 the far side of it and the boundary still holds, because a model is asked only
-on a cache miss and its answer is kept under a key (R0.17, spec 005). See
+on a cache miss and its answer is kept under a key (R0.19, spec 005). See
 `docs/architecture.md`.
 
 ## Hashing
@@ -124,7 +124,7 @@ imports made lazily inside a function body.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_9__only_two_packages_reach_the_network.py`
-- **Status:** SUPERSEDED by R0.17
+- **Status:** SUPERSEDED by R0.19
 
 | # | Given | Then |
 |---|-------|------|
@@ -324,7 +324,7 @@ during execution and at no other time.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_9__only_two_packages_reach_the_network.py`
-- **Status:** SUPERSEDED by R0.17
+- **Status:** SUPERSEDED by R0.19
 
 | # | Given | Then |
 |---|-------|------|
@@ -359,7 +359,7 @@ is on or off (R10.4).
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_10__three_packages_reach_the_network.py`
-- **Status:** SUPERSEDED by R0.17
+- **Status:** SUPERSEDED by R0.19
 
 | # | Given | Then |
 |---|-------|------|
@@ -539,7 +539,7 @@ answer, asked through `models`, and cached as a stage's answer is (R18.3).
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_17__four_packages_reach_the_network.py`
-- **Status:** SUPERSEDED by R0.17
+- **Status:** SUPERSEDED by R0.19
 
 | # | Given | Then |
 |---|-------|------|
@@ -575,7 +575,7 @@ still derived data: nothing it holds enters a key, a manifest or a score.
 - **Kind:** deterministic
 - **Layer:** architecture
 - **Proved by:** `tests/architecture/test_R000_17__four_packages_reach_the_network.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R0.19
 
 | # | Given | Then |
 |---|-------|------|
@@ -620,3 +620,59 @@ it, a wheel, has nothing to compare and is not checked.
 | 3 | an entry point installed and no longer declared, or declared with another target | refused the same way, naming it: `installed and no longer declared`, or `declared as <target>, installed as <target>` |
 | 4 | *counter-example* — an install with no `pyproject.toml` of `dossier` beside its source | no check |
 | 5 | *counter-example* — the installed entry points the same as the declared ones | nothing said |
+
+### R0.19 — exactly four packages may reach the network, and what each reads back reaches only the places this rule names
+
+`dossier.infrastructure.connectors` fetches source payloads.
+`dossier.infrastructure.models` asks a model, for an answer or for a vector.
+`dossier.infrastructure.tracking` sends records to MLflow.
+`dossier.infrastructure.index` writes the embedding index (spec 018) and
+searches it (spec 019). Nothing else imports a network client, on any code
+path, including error paths and imports made lazily inside a function body.
+A model is asked only on a cache miss, and what a search reads of the index
+enters no key, manifest or score.
+
+It supersedes R0.17, which is the same boundary with its read-back half left
+partly unwritten. R0.17 said tracking "reads back only what specs 012 to 015
+fence", and spec 010 has it read three things more: whether the server answers
+and accepts the credential (R10.5, R10.18), an OIDC access token (R10.19), and
+whether the server holds each trace a command opened (R10.24). And R15.5 row 2,
+"the `Tracker` port returns nothing", rested on R0.10 row 5, which R0.16
+dropped. The promise that a six-month-old run reproduces offline rests on this
+fence, so it is written here whole. Decided by `a.aleks` on 2026-10-02.
+
+Everything the tracking package reads back, and where it may go:
+
+| Read back | Through | Reaches |
+|---|---|---|
+| whether the server answers and accepts the credential (R10.5, R10.18) | nothing outside the package | the refusal of a command before any work |
+| an OIDC access token (R10.19) | nothing outside the package | the headers of the package's own requests |
+| whether the server holds each trace a command opened (R10.24) | `BestEffortTracker.lost_traces` | a count of the traces lost, on standard error |
+| what a registry says of a version, a dataset or a prompt it published or found: an id, a version, its tags (specs 012 to 014) | `VersionRegistry`, `DatasetRegistry`, `PromptRegistry` | what is written and linked in MLflow, and the terminal |
+| reviewers' verdicts (spec 015) | `ReviewSource`, for `dossier review pull` alone | the files under `review/<pipeline>/`; gold only when a maintainer applies them (R15.4) |
+
+None of it enters a key, a manifest, a cache entry or a score.
+
+- **Kind:** deterministic
+- **Layer:** architecture
+- **Proved by:** `tests/architecture/test_R000_19__four_packages_reach_the_network_and_what_they_read_back.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier/application/convert.py` imports `httpx` | violation, naming the file, the line and the import |
+| 2 | `dossier/domain/keys.py` imports `urllib.request` inside a function body | violation; a lazy import is still an import |
+| 3 | `dossier/infrastructure/tracking/mlflow.py` imports `mlflow` | allowed; the SDK is a network client whatever it is named |
+| 4 | `dossier/application/run.py` imports `mlflow` | violation |
+| 5 | `dossier/infrastructure/index/postgres.py` imports `psycopg` | allowed; the fourth package |
+| 6 | `dossier/application/embed.py` imports `psycopg` | violation; `psycopg` counts as a network client |
+| 7 | the `IndexSink` port in `dossier.domain.ports` | declares no method that returns anything read from the index but the ids and content hashes of the rows it holds |
+| 8 | `dossier run --plan` over a pipeline where every step would re-run | zero model calls and zero tracking calls (R4.6, R11.1) |
+| 9 | *counter-example* — `dossier/infrastructure/store.py` opens a file on local disk | allowed; local file IO is not network IO |
+| 10 | *counter-example* — a chunk with no vector in the cache, during `dossier embed` | reaches the model, once, through `dossier.infrastructure.models`; R18.3 is the claim that it never happens twice for the same text |
+| 11 | `dossier/domain/keys.py`, `dossier/application/run.py` or `dossier/application/eval.py` imports `dossier.domain.search` or the `IndexSearch` port | violation: nothing a search reads enters a key, a manifest or a score |
+| 12 | *counter-example* — `dossier/application/search.py` imports the `IndexSearch` port | allowed; a search is where it is read |
+| 13 | the `Tracker` port in `dossier.domain.ports` | declares no method that returns anything: no answer from the server reaches a command through it (R15.5 row 2 rests here) |
+| 14 | `dossier.infrastructure.tracking.oidc` and `.auth`, which fetch the token and present the credential | imported by no module outside `dossier.infrastructure.tracking` |
+| 15 | `VersionRegistry`, `DatasetRegistry`, `PromptRegistry` and `ReviewSource` | each returns only what the table names: a published version, dataset or prompt, or a list of verdicts |
+| 16 | *counter-example* — `dossier/domain/keys.py`, `dossier/domain/scoring.py` or `dossier/application/manifest.py` imports a registry port, `ReviewSource`, or what one returns | violation: nothing MLflow holds enters a key, a manifest or a score |

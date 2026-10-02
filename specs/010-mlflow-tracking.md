@@ -11,7 +11,7 @@ than reconstructed from a terminal that has since scrolled away.
 
 Tracking **observes** a run; it is never an input to one. Turning it on or off
 changes no output (R10.4), and nothing read back from MLflow ever enters a key,
-a manifest or a score (R0.17, and R12.4, R13.4, R14.5 and R15.5 for each thing
+a manifest or a score (R0.19, and R12.4, R13.4, R14.5 and R15.5 for each thing
 read). Without that, a run's result would depend on
 whether a server happened to be up, and R0.5's promise -- a cache hit means
 nothing relevant changed -- would quietly acquire an exception.
@@ -105,8 +105,8 @@ Neither is a secret. Both are written by `dossier.infrastructure.tracking`, and
 only when tracking is on. `dossier.config` still reads the environment and never
 writes it (R9.11).
 
-The token exchange reads a response, which R0.17's fence on what tracking reads
-back might seem to forbid. It does not. The token is held inside
+The token exchange reads a response, which a fence on what tracking reads
+back might seem to forbid. It does not, and R0.19 names it. The token is held inside
 `dossier.infrastructure.tracking` and handed to nothing outside it. The `Tracker`
 port still declares no method that returns anything read from a server, so no key,
 manifest or score can depend on it.
@@ -264,7 +264,7 @@ through a `Tracker` port in `domain/ports.py` and never imports MLflow; the test
 suite hands it a `FakeTracker` that counts runs, traces and spans, as
 `FakeModelClient` counts calls. Only `dossier.infrastructure.tracking` imports
 `mlflow`, which makes it one of the four packages permitted to reach the network
-(R0.17).
+(R0.19).
 
 ## Must hold
 
@@ -675,7 +675,7 @@ exchange is the client-credentials grant, with the secret in the form body.
 
 A refresh that fails after the startup check loses a record and not the run
 (R10.6). The token never leaves `dossier.infrastructure.tracking`, and nothing
-read from the token endpoint reaches a key, a manifest or a score (R0.17).
+read from the token endpoint reaches a key, a manifest or a score (R0.19).
 
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.tracking.token_due`)

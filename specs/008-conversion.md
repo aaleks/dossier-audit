@@ -166,7 +166,7 @@ defaults instead, RapidOCR downloads them on first use.
 **It never fetches.** Docling's own default is to download a model from Hugging
 Face the first time it needs one, at revision `main` -- a floating name, which is
 what R0.6 refuses in a model identifier. Conversion is right of the hash boundary
-(R0.17). A converter that downloaded would put the network on the path every
+(R0.19). A converter that downloaded would put the network on the path every
 artifact is made on, and `main` would put into the artifact whatever Hugging Face
 held that day. The weights are fetched once, on purpose, by a person running the
 command a failure names.
@@ -360,7 +360,7 @@ its note.
 
 A converter reads the bytes it is given and its own options, and nothing else. No
 clock, no locale, no environment variable, no file outside its input, no network
-(R0.17).
+(R0.19).
 
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.converters`)

@@ -453,7 +453,7 @@ Following this rule to R11.3 alone would turn up nothing about either.
 
 ### R7.10 — scoring performs no network I/O for non-judge field types
 
-The direct consequence of R0.17 for this spec, and the reason most of an audit can
+The direct consequence of R0.19 for this spec, and the reason most of an audit can
 be re-scored offline in seconds.
 
 - **Kind:** deterministic
@@ -692,7 +692,7 @@ of abstention verdicts and judged ones is the silent subset this rule replaces.
 
 ### R7.18 — a judge verdict is cached under the judge model, the rubric hash, the judge prompt hash, the document's text hash and the candidate answer, and the judge is asked only on a miss
 
-R0.17's promise: a model is asked only on a cache miss, and everything right of
+R0.19's promise: a model is asked only on a cache miss, and everything right of
 the boundary reproduces without one. A judge is a model. Its verdict is an
 artifact like any stage's -- a content-addressed file with a provenance record
 (R0.3), in its own namespace beside `stage` and `convert` -- so a second eval
