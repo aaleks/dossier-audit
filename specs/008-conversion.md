@@ -1,7 +1,7 @@
 # 008 — Conversion
 
-**Status:** Implemented
-**Rules:** R8.1 – R8.33
+**Status:** Partially implemented
+**Rules:** R8.1 – R8.34
 
 ## Purpose
 
@@ -1144,3 +1144,26 @@ the machine.
 | 2 | a JPEG source (R8.12 row 2) | its one part re-encoded the same way, and the same bytes on both machines |
 | 3 | a part written and read back | the same pixels, size and mode: the PNG is one any reader, and any provider, decodes |
 | 4 | *counter-example* — a PNG source (R8.12 row 1) | copied as it is, not re-encoded: its bytes are the input's already |
+
+### R8.34 — a parts container that cannot be unpacked is a document that did not convert, named with why
+
+`run` told text from a container by trying to unpack it: an artifact that
+would not unpack was taken to be text and passed over. A
+container cut short would not unpack either, so it was passed over the same
+way. The document held no parts, a `per_part` step skipped it, nothing was
+reported, and the run exited 0 (analysis_v2, §3.5 row 4). Now an artifact is a
+container when it begins as one (R8.11), and one that begins as one and cannot
+be unpacked is a document that did not convert: named with why, as a
+converter's failure is (R8.6), and the command exits non-zero. `calibrate` and
+a replay tell the two apart the old way still, a later rule's to change.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.conversion.is_container`), cli (`dossier.cli.run`)
+- **Proved by:** `tests/acceptance/test_R008_34__a_damaged_parts_container_is_a_document_that_did_not_convert.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4830-postmortem-checkout-tls-expiry.pdf` converted to `markdown` and `page_images`, its `page_images` container cut short in the cache; `dossier run` with `extract` reading `documents@page_images` | `  incidents-manual: INC-4830-postmortem-checkout-tls-expiry.pdf could not be converted: its page_images container cannot be read: ` and why, on standard error; no page of it is asked about; exit 1 |
+| 2 | *counter-example* — its `markdown` artifact, which does not begin as a container | read as text, as before, with no line |
+| 3 | *counter-example* — the container whole | its pages asked about, as before, exit 0 |
