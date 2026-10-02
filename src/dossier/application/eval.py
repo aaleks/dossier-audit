@@ -721,6 +721,9 @@ def judged_cached(
             name=f"{field} \u00b7 {document}",
             tags={"dossier.document": document, "dossier.field": field},
         )
+    # ERROR until a verdict stands: a judge that raised closes its trace as a
+    # stage's failed one does, naming why (R11.36, R11.1 row 4).
+    status, error = "ERROR", None
     try:
         key = cache_key(inputs)
         hit = cache.get(key, require_record=True)
@@ -784,10 +787,14 @@ def judged_cached(
                 inputs, run_id=run_id, dossier_version=dossier_version, step="judge"
             ),
         )
+        status = "OK"
         return supported, evidence
+    except Exception as raised:
+        error = str(raised)
+        raise
     finally:
         if tracker is not None:
-            tracker.end_trace(status="OK")
+            tracker.end_trace(status=status, error=error)
 
 
 @dataclass(frozen=True)
