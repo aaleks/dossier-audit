@@ -1,8 +1,9 @@
 # 21 · Solution
 
-Every command below was run in order, in one pass, on 2026-10-01, at the commit
-of `main` that made a chunk's words its heading path and its text (R19.9,
-#672). The pass was on Windows, so `$D` was the worktree's
+Every command below was run in order, in one pass, on 2026-10-02, at the commit
+of `main` that made a search name its readers (R19.10 to R19.12, #678). A
+first pass on 2026-10-01, before that commit, ranked every search the same.
+The pass was on Windows, so `$D` was the worktree's
 `.venv/Scripts/dossier.exe` and `$P` its `.venv/Scripts/python.exe`, and
 `DOSSIER_INDEX_DSN` was set in the shell rather than in `.env`. Blocks not
 printed by a command are marked **[derived]**: worked out from the code or the
@@ -39,8 +40,12 @@ incidents · 21 chunks · 21 embedded · 0 cached · 4 written · 0 removed
 ## Task 1 — ask it a question
 
 ```console
-$ $D search incidents "How much did the warehouse outage cost?"
-incidents · 4 documents · not filtered by reader
+$ $D search incidents "How much did the warehouse outage cost?"; echo "exit $?"
+name the readers this search is for with --as READER (incident-response), or search every chunk with --all-readers
+exit 2
+
+$ $D search incidents "How much did the warehouse outage cost?" --as incident-response
+incidents · 4 documents · as incident-response
 1. PLAY-1003.md · PLAY-1003 — Warehouse terminals offline after a firewall rule change
    PLAY-1003 — Warehouse terminals offline after a firewall rule change > Impact
    Picking stopped for 77 minutes across two warehouses. The delayed shipments were credited at a recorded loss of CHF 61'250.
@@ -58,8 +63,8 @@ incidents · 4 documents · not filtered by reader
    Finance reconciled 214 abandoned baskets against the gateway's own records, a recorded loss of CHF 18'400.
    affected_systems: checkout-api, payments-gateway · severity: major
 
-$ $D search incidents "How much did the warehouse outage cost?" --limit 2
-incidents · 2 documents · not filtered by reader
+$ $D search incidents "How much did the warehouse outage cost?" --as incident-response --limit 2
+incidents · 2 documents · as incident-response
 1. PLAY-1003.md · PLAY-1003 — Warehouse terminals offline after a firewall rule change
    PLAY-1003 — Warehouse terminals offline after a firewall rule change > Impact
    Picking stopped for 77 minutes across two warehouses. The delayed shipments were credited at a recorded loss of CHF 61'250.
@@ -72,7 +77,7 @@ incidents · 2 documents · not filtered by reader
 
 Each line is the note, its title, the heading path of its best chunk, that
 chunk's text on one line, cut at a word to at most 200 characters, and the
-values its run carried (R19.8 row 1).
+values its run carried (R19.12 row 1).
 
 **Four of four.** A search by meaning orders every chunk by its distance from
 the question and takes the nearest 100. Nearest is relative: there is always a
@@ -93,21 +98,27 @@ what the question is about, so it is near. As with the autoscaler in exercise
 20, nearness cannot tell an answer from a passage on the same subject that
 answers something else.
 
-**Not filtered by reader.** That no chunk was left out for its readers: every
-row was a candidate, whoever may read it. Without `--as`, a search says so
-rather than staying silent (R19.5). And `--as` only filters. Whoever holds the
-connection string reads every row anyway, by SQL, as exercise 20 did. Keeping a
-reader out of rows is the database's job, through a role per reader, and is a
-later spec ("Decisions", "Left out on purpose").
+**No reader.** Whatever holds the connection string: `dossier search`, a
+person or an agent searching on someone's behalf. The string reads every row,
+by SQL as exercise 20 did, so Postgres keeps no reader out, and the search does
+it, with `--as`, on every chunk's readers. Postgres could, with a role per
+reader, but those roles cannot be managed where `dossier` runs ("Decisions",
+"Left out on purpose"). So a search names the readers it is for. One that
+names none would list every chunk, whoever it was for, and an agent that forgot
+the flag would show someone everything. It is refused before the model is
+asked, and searching everything is a flag of its own, `--all-readers` (task 4,
+R19.11).
 
 ## Task 2 — two lists, one order
 
 ```console
-$ $D search incidents "How much did the warehouse outage cost?" --json --limit 2
+$ $D search incidents "How much did the warehouse outage cost?" --as incident-response --json --limit 2
 {
   "index": "incidents",
   "query": "How much did the warehouse outage cost?",
-  "reader": null,
+  "readers": [
+    "incident-response"
+  ],
   "results": [
     {
       "rank": 1,
@@ -151,22 +162,22 @@ $ $D search incidents "How much did the warehouse outage cost?" --json --limit 2
   "unreflected": 0
 }
 
-$ $D search incidents "How much did the warehouse outage cost?" --json --limit 2 | $P ranks.py
+$ $D search incidents "How much did the warehouse outage cost?" --as incident-response --json --limit 2 | $P ranks.py
 1 PLAY-1003.md Impact                   0.016393 meaning 1 words None
 2 PLAY-1002.md Impact                   0.015873 meaning 3 words None
 
-$ $D search incidents "warehouse" --json --limit 3 | $P ranks.py
+$ $D search incidents "warehouse" --as incident-response --json --limit 3 | $P ranks.py
 1 PLAY-1002.md Follow-up                0.032266 meaning 3 words 1
 2 PLAY-1003.md Impact                   0.032018 meaning 1 words 4
 3 PLAY-1001.md Impact                   0.014085 meaning 11 words None
 
-$ $D search incidents "warehouse or cost" --json --limit 3 | $P ranks.py
+$ $D search incidents "warehouse or cost" --as incident-response --json --limit 3 | $P ranks.py
 1 PLAY-1002.md Follow-up                0.032018 meaning 4 words 1
 2 PLAY-1003.md Impact                   0.032018 meaning 1 words 4
 3 PLAY-1001.md Impact                   0.014706 meaning 8 words None
 
-$ $D search incidents "PLAY-1004" --limit 2
-incidents · 2 documents · not filtered by reader
+$ $D search incidents "PLAY-1004" --as incident-response --limit 2
+incidents · 2 documents · as incident-response
 1. PLAY-1004.md · PLAY-1004 — Search latency spike during the spring campaign
    PLAY-1004 — Search latency spike during the spring campaign
    **Severity:** major **Resolved:** 2026-05-12 **Systems affected:** search-api, catalogue-index
@@ -214,7 +225,7 @@ stop word, and `websearch_to_tsquery` joins words with `&`. `outage` is in no
 chunk, and neither is `cost`: the notes say `loss`. One missing word is enough
 to match nothing. `or` asked for either word, and `warehouse` matched eight
 chunks. A question in plain English carries words a note does not use, so it is
-often ranked by meaning alone. That is what a fusion of one list does (R19.8
+often ranked by meaning alone. That is what a fusion of one list does (R19.12
 row 3), and whether any word should do is open question 2.
 
 **The export incident first.** The tie-break. Each of the eight chunks holds
@@ -248,8 +259,8 @@ its next `embed`, from the rows it holds, with nothing embedded again.
 ## Task 3 — chunks or documents
 
 ```console
-$ $D search incidents "firewall rule" --chunks --limit 4
-incidents · 4 chunks · not filtered by reader
+$ $D search incidents "firewall rule" --as incident-response --chunks --limit 4
+incidents · 4 chunks · as incident-response
 1. PLAY-1003.md · PLAY-1003 — Warehouse terminals offline after a firewall rule change
    PLAY-1003 — Warehouse terminals offline after a firewall rule change > Root cause
    A firewall change written against a stale network inventory replaced the allow rule for the active terminal subnet with a rule for a range that had been decommissioned six months earlier, so every…
@@ -267,8 +278,8 @@ incidents · 4 chunks · not filtered by reader
    **Severity:** critical **Resolved:** 2026-04-07 **Systems affected:** terminal-gateway, inventory-sync
    affected_systems: terminal-gateway, inventory-sync · severity: critical
 
-$ $D search incidents "firewall rule" --limit 4
-incidents · 4 documents · not filtered by reader
+$ $D search incidents "firewall rule" --as incident-response --limit 4
+incidents · 4 documents · as incident-response
 1. PLAY-1003.md · PLAY-1003 — Warehouse terminals offline after a firewall rule change
    PLAY-1003 — Warehouse terminals offline after a firewall rule change > Root cause
    A firewall change written against a stale network inventory replaced the allow rule for the active terminal subnet with a rule for a range that had been decommissioned six months earlier, so every…
@@ -307,8 +318,8 @@ meaning alone.
 ## Task 4 — filters and readers
 
 ```console
-$ $D search incidents "slow responses for customers" --where severity=MAJOR
-incidents · 2 documents · not filtered by reader
+$ $D search incidents "slow responses for customers" --as incident-response --where severity=MAJOR
+incidents · 2 documents · as incident-response
 1. PLAY-1004.md · PLAY-1004 — Search latency spike during the spring campaign
    PLAY-1004 — Search latency spike during the spring campaign
    **Severity:** major **Resolved:** 2026-05-12 **Systems affected:** search-api, catalogue-index
@@ -318,8 +329,8 @@ incidents · 2 documents · not filtered by reader
    **Severity:** major **Resolved:** 2026-03-04 **Systems affected:** checkout-api, payments-gateway
    affected_systems: checkout-api, payments-gateway · severity: major
 
-$ $D search incidents "slow responses for customers" --where severity=major --where severity=critical --limit 3
-incidents · 3 documents · not filtered by reader
+$ $D search incidents "slow responses for customers" --as incident-response --where severity=major --where severity=critical --limit 3
+incidents · 3 documents · as incident-response
 1. PLAY-1004.md · PLAY-1004 — Search latency spike during the spring campaign
    PLAY-1004 — Search latency spike during the spring campaign
    **Severity:** major **Resolved:** 2026-05-12 **Systems affected:** search-api, catalogue-index
@@ -333,20 +344,20 @@ incidents · 3 documents · not filtered by reader
    Picking stopped for 77 minutes across two warehouses. The delayed shipments were credited at a recorded loss of CHF 61'250.
    affected_systems: terminal-gateway, inventory-sync · severity: critical
 
-$ $D search incidents "slow responses for customers" --where severity=major \
+$ $D search incidents "slow responses for customers" --as incident-response --where severity=major \
     --where "affected_systems=search-api, catalogue-index"
-incidents · 1 document · not filtered by reader
+incidents · 1 document · as incident-response
 1. PLAY-1004.md · PLAY-1004 — Search latency spike during the spring campaign
    PLAY-1004 — Search latency spike during the spring campaign
    **Severity:** major **Resolved:** 2026-05-12 **Systems affected:** search-api, catalogue-index
    affected_systems: search-api, catalogue-index · severity: major
 
-$ $D search incidents "slow responses for customers" --where affected_systems=search-api
-incidents · 0 documents · not filtered by reader
+$ $D search incidents "slow responses for customers" --as incident-response --where affected_systems=search-api
+incidents · 0 documents · as incident-response
 no documents found
 
-$ $D search incidents "slow responses for customers" --as incident-response --limit 1
-incidents · 1 document · as incident-response
+$ $D search incidents "slow responses for customers" --all-readers --limit 1
+incidents · 1 document · not filtered by reader
 1. PLAY-1004.md · PLAY-1004 — Search latency spike during the spring campaign
    PLAY-1004 — Search latency spike during the spring campaign
    **Severity:** major **Resolved:** 2026-05-12 **Systems affected:** search-api, catalogue-index
@@ -357,10 +368,16 @@ $ V
 $ $D search incidents "who was paged" --as sre; echo "exit $?"
 no source of incident-audit declares sre as a reader; they declare incident-response
 exit 2
-$ $D search incidents "who was paged" --where loss_amount=18400; echo "exit $?"
+$ $D search incidents "who was paged" --as incident-response --as sre; echo "exit $?"
+no source of incident-audit declares sre as a reader; they declare incident-response
+exit 2
+$ $D search incidents "who was paged" --as incident-response --all-readers; echo "exit $?"
+--as and --all-readers contradict: name the readers, or ask for every chunk
+exit 2
+$ $D search incidents "who was paged" --as incident-response --where loss_amount=18400; echo "exit $?"
 loss_amount is not a filter of incidents; its filters are affected_systems, severity
 exit 2
-$ $D search incidents "who was paged" --where severity=huge; echo "exit $?"
+$ $D search incidents "who was paged" --as incident-response --where severity=huge; echo "exit $?"
 huge is not a value of severity; it declares critical, major, minor
 exit 2
 $ V
@@ -392,12 +409,24 @@ on the same notes.
 index file's filters, the schema's values and the sources' readers. Embedding
 first would ask the model, and cache a vector, for a search that cannot run.
 So the question was never asked, and `V` did not move (R19.4 rows 5 and 6,
-R19.5).
+R19.10, R19.11).
 
-**A reader nobody declared.** An empty answer would read as "nothing is
-about that". A mistyped `incident-respnose` would then hide every note, and
-say nothing was found. Refused, it names the readers that are declared
-(R19.5).
+**A reader nobody declared.** Alone, an empty answer would read as "nothing is
+about that": a mistyped `incident-respnose` would hide every note and say
+nothing was found. Beside `incident-response`, ignoring it would narrow the
+search without a word, to what the one spelled right may read. Refused, it
+names the readers that are declared (R19.10 row 4).
+
+**Two readers.** One list ranks both readers' chunks against each other, by
+the same two ranks (task 2). Two searches would each rank their own, and a
+first place in one says nothing about a first place in the other, so the merge
+would be a guess. And a chunk both may read would come back twice (R19.10).
+
+**Every chunk.** For a person who may read everything, such as whoever runs
+`dossier` and holds the connection string, looking across all of it. Never
+for a search on someone's behalf. It has to be asked for because the default
+is where a forgotten flag lands: had a search with no `--as` listed every
+chunk, forgetting would be invisible, and now it is an error (R19.11).
 
 ## Task 5 — what the index has not seen
 
@@ -406,8 +435,8 @@ $ $D sync incident-audit
 incidents-manual  4 known · 0 changed · 1 new -> 5 fetched
 ledger updated · 1 new snapshots · 0 tombstoned
 
-$ $D search incidents "refunds issued twice" --limit 2
-incidents · 2 documents · not filtered by reader
+$ $D search incidents "refunds issued twice" --as incident-response --limit 2
+incidents · 2 documents · as incident-response
 1. PLAY-1001.md · PLAY-1001 — Checkout timeouts after the payment gateway upgrade
    PLAY-1001 — Checkout timeouts after the payment gateway upgrade > Impact
    Finance reconciled 214 abandoned baskets against the gateway's own records, a recorded loss of CHF 18'400.
@@ -422,8 +451,8 @@ $ $D embed incidents
 PLAY-1005.md: no record: 20260922T195104Z-96c1 did not read it
 incidents · 23 chunks · 2 embedded · 21 cached · 1 written · 0 removed
 
-$ $D search incidents "refunds issued twice" --limit 2
-incidents · 2 documents · not filtered by reader
+$ $D search incidents "refunds issued twice" --as incident-response --limit 2
+incidents · 2 documents · as incident-response
 1. PLAY-1005.md · PLAY-1005 — Refunds issued twice after a payment retry
    PLAY-1005 — Refunds issued twice after a payment retry > Impact
    Refunds were issued twice for 31 orders before the retry was stopped.
@@ -438,8 +467,8 @@ incidents-manual  5 known · 0 changed · 0 new -> 4 fetched
       PLAY-1005.md  tombstoned
 ledger updated · 0 new snapshots · 1 tombstoned
 
-$ $D search incidents "refunds issued twice" --limit 1
-incidents · 1 document · not filtered by reader
+$ $D search incidents "refunds issued twice" --as incident-response --limit 1
+incidents · 1 document · as incident-response
 1. PLAY-1005.md · PLAY-1005 — Refunds issued twice after a payment retry
    PLAY-1005 — Refunds issued twice after a payment retry > Impact
    Refunds were issued twice for 31 orders before the retry was stopped.
@@ -448,7 +477,7 @@ incidents · 1 document · not filtered by reader
 $ $D embed incidents
 incidents · 21 chunks · 0 embedded · 21 cached · 0 written · 1 removed
 
-$ $D search incidents "refunds issued twice"; echo "exit $?"
+$ $D search incidents "refunds issued twice" --as incident-response; echo "exit $?"
 incidents was embedded with ollama:qwen3-embedding:4b-fp16@sha256:3c93b6415795f9cc3e16c403a492ce25b1c0e260f2f760acc90e2035de25f9bc, and is declared with ollama:qwen3-embedding:4b-fp16@sha256:3c93b6415795f9cc3e16c403a492ce25b1c0e260f2f760acc90e2035de25f9bd: run dossier embed incidents
 exit 2
 ```
@@ -483,14 +512,14 @@ again with it.
 ```console
 $ V
 30
-$ $D search incidents "Why did adding servers make it slower?" --json --limit 3 | $P ranks.py
+$ $D search incidents "Why did adding servers make it slower?" --as incident-response --json --limit 3 | $P ranks.py
 1 PLAY-1004.md Root cause               0.016393 meaning 1 words None
 2 PLAY-1001.md Root cause               0.015385 meaning 5 words None
 3 PLAY-1003.md PLAY-1003 — Warehouse te 0.014706 meaning 8 words None
 $ V
 31
-$ $D search incidents "Why did adding servers make it slower?" --limit 1
-incidents · 1 document · not filtered by reader
+$ $D search incidents "Why did adding servers make it slower?" --as incident-response --limit 1
+incidents · 1 document · as incident-response
 1. PLAY-1004.md · PLAY-1004 — Search latency spike during the spring campaign
    PLAY-1004 — Search latency spike during the spring campaign > Root cause
    Each pod rebuilt the catalogue index locally at start-up, so scaling out under load added pods that served partial results for their first eight minutes and made latency worse rather than better.
@@ -498,7 +527,7 @@ incidents · 1 document · not filtered by reader
 $ V
 31
 $ echo 'query_instruction: ""' >> indexes/incidents.yaml
-$ $D search incidents "Why did adding servers make it slower?" --json --limit 3 | $P ranks.py
+$ $D search incidents "Why did adding servers make it slower?" --as incident-response --json --limit 3 | $P ranks.py
 1 PLAY-1004.md Root cause               0.016393 meaning 1 words None
 2 PLAY-1001.md Root cause               0.015625 meaning 4 words None
 3 PLAY-1003.md PLAY-1003 — Warehouse te 0.014493 meaning 9 words None
@@ -532,8 +561,8 @@ be judged against questions a person has answered ("Measuring relevance").
 ## Task 7 — with tracking on
 
 ```console
-$ $D search incidents "Why did adding servers make it slower?" --limit 2
-incidents · 2 documents · not filtered by reader
+$ $D search incidents "Why did adding servers make it slower?" --as incident-response --limit 2
+incidents · 2 documents · as incident-response
 1. PLAY-1004.md · PLAY-1004 — Search latency spike during the spring campaign
    PLAY-1004 — Search latency spike during the spring campaign > Root cause
    Each pod rebuilt the catalogue index locally at start-up, so scaling out under load added pods that served partial results for their first eight minutes and made latency worse rather than better.
@@ -543,10 +572,10 @@ incidents · 2 documents · not filtered by reader
    The gateway upgrade shipped a connection pool whose idle timeout was 30 seconds while the load balancer held connections open for 60, so the pool handed out sockets the balancer had already closed…
    affected_systems: checkout-api, payments-gateway · severity: major
 recorded to MLflow: dossier-audit/incident-audit/search
-2026/10/01 19:24:57 INFO mlflow.tracing.export.async_export_queue: Flushing the async trace logging queue before program exit. This may take a while...
+2026/10/02 07:36:31 INFO mlflow.tracing.export.async_export_queue: Flushing the async trace logging queue before program exit. This may take a while...
 
-$ $D search incidents "Which incident lost the most money?" --where severity=major --limit 2
-incidents · 2 documents · not filtered by reader
+$ $D search incidents "Which incident lost the most money?" --as incident-response --where severity=major --limit 2
+incidents · 2 documents · as incident-response
 1. PLAY-1004.md · PLAY-1004 — Search latency spike during the spring campaign
    PLAY-1004 — Search latency spike during the spring campaign > Impact
    Search was degraded for 45 minutes at the campaign's peak. The campaign team recorded a loss of CHF 9'900 in attributed revenue.
@@ -556,13 +585,13 @@ incidents · 2 documents · not filtered by reader
    Finance reconciled 214 abandoned baskets against the gateway's own records, a recorded loss of CHF 18'400.
    affected_systems: checkout-api, payments-gateway · severity: major
 recorded to MLflow: dossier-audit/incident-audit/search
-2026/10/01 19:25:05 INFO mlflow.tracing.export.async_export_queue: Flushing the async trace logging queue before program exit. This may take a while...
+2026/10/02 07:36:41 INFO mlflow.tracing.export.async_export_queue: Flushing the async trace logging queue before program exit. This may take a while...
 
 $ $P read_search_trace.py
 runs    0
 traces  2 (the newest two)
 trace   search incidents OK
-  in    {"query": "Which incident lost the most money?", "where": {"severity": ["major"]}, "reader": null}
+  in    {"query": "Which incident lost the most money?", "where": {"severity": ["major"]}, "readers": ["incident-response"]}
   out   ["incidents-manual:PLAY-1004.md", "incidents-manual:PLAY-1001.md"]
   span  EMBEDDING ollama:qwen3-embedding:4b-fp16@sha256:3c93b6415795f9cc3e16c403a492ce25b1c0e260f2f760acc90e2035de25f9bc
        text   "Instruct: Given a question about incidents, retrieve the passages of incident records and documents that answer it\nQuery:Which incident lost the most money?"
@@ -572,7 +601,7 @@ trace   search incidents OK
        {'rank': 1, 'document_id': 'incidents-manual:PLAY-1004.md', 'chunk_id': 'f8eb080ac8af081ad1cfbe29edf7820da22f2fb0efc1cb610f0622b6f38924a5', 'score': 0.01639344262295082, 'meaning_rank': 1, 'words_rank': None}
        {'rank': 2, 'document_id': 'incidents-manual:PLAY-1001.md', 'chunk_id': '21ecfcc95dbe97fba0a768ceea1f83c2cbc19c519911bcbc535b0f36195088a5', 'score': 0.016129032258064516, 'meaning_rank': 2, 'words_rank': None}
 trace   search incidents OK
-  in    {"query": "Why did adding servers make it slower?", "where": {}, "reader": null}
+  in    {"query": "Why did adding servers make it slower?", "where": {}, "readers": ["incident-response"]}
   out   ["incidents-manual:PLAY-1004.md", "incidents-manual:PLAY-1001.md"]
   span  EMBEDDING ollama:qwen3-embedding:4b-fp16@sha256:3c93b6415795f9cc3e16c403a492ce25b1c0e260f2f760acc90e2035de25f9bc
        text   "Instruct: Given a question about incidents, retrieve the passages of incident records and documents that answer it\nQuery:Why did adding servers make it slower?"
@@ -591,7 +620,7 @@ evaluation, an index written. An `embed` that changed nothing records nothing
 (R11.33 row 4). A search changes nothing, as `--plan` does not, so it opens no
 run. What there is to keep is what it asked and what it answered, and that is
 a trace, with the query's vector as an `EMBEDDING` span and the list as a
-`RETRIEVER` span: the shape MLflow's retrieval views read (R11.34).
+`RETRIEVER` span: the shape MLflow's retrieval views read (R11.35).
 
 **Ids, not text.** In the index, and in the snapshot store, where the readers
 on each row say who may read it. Copied into a trace, every passage a search
