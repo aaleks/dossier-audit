@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.30
 
 ## Purpose
@@ -793,7 +793,7 @@ writing its manifest is a directory with no manifest, which is not a run
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.manifest.Manifest.write`, `dossier.application.run`)
 - **Proved by:** `tests/unit/test_R004_29__a_run_record_is_written_whole_or_not_at_all.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -815,7 +815,7 @@ with the runs it can read.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.manifest.run_manifests`), cli
 - **Proved by:** `tests/acceptance/test_R004_30__a_damaged_manifest_is_passed_over_and_named.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

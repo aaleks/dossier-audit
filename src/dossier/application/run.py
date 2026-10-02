@@ -40,7 +40,7 @@ from pydantic import ValidationError
 
 from dossier.application.convert import MARKDOWN, convert_inputs
 from dossier.application.extract import DocumentResult, run_stage
-from dossier.application.manifest import MANIFEST_NAME, Manifest
+from dossier.application.manifest import MANIFEST_NAME, Manifest, write_whole
 from dossier.application.prompts import link_published
 from dossier.application.recording import failed_if_stopped
 from dossier.domain.conversion import PART_SUFFIX, PART_TYPE, part_name, unpack_parts
@@ -113,6 +113,14 @@ from dossier.domain.versions import version_record
 # be wrong, and leaving it unnamed would give a report no way to say which step a
 # failure came from. Reserved: a source may not hold a document called `*`.
 AGGREGATE_KEY = RESERVED_KEY
+
+
+def write_failures(directory: Path, failures: Sequence[Mapping[str, object]]) -> None:
+    """`failures.json`, written whole or not at all (R4.27, R4.29)."""
+    write_whole(
+        directory / FAILURES_NAME, json.dumps(list(failures), indent=2) + "\n", newline="\n"
+    )
+
 
 # One unit a run failed, as `failures.json` holds it: its step, document, page
 # or `None`, and reason (R4.27).
@@ -727,9 +735,7 @@ def execute(
     # nothing failed, so a finished run is told apart from a stopped one. A try
     # writes none: it has no manifest and is never replayed (R4.20).
     if manifest is not None:
-        (directory / FAILURES_NAME).write_text(
-            json.dumps(failures, indent=2) + "\n", encoding="utf-8", newline="\n"
-        )
+        write_failures(directory, failures)
 
     report = RunReport(run_id=run_id, manifest_path=manifest, steps=tuple(steps))
     if tracker is not None:

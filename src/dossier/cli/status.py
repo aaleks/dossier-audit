@@ -75,7 +75,10 @@ def status(
     for line in source_lines(declared, read_held(workspace)):
         typer.echo(f"  {line}")
     typer.echo("pipelines")
-    for line in pipeline_lines(pipelines, read_runs(workspace)):
+    passed_over: list[tuple[str, str]] = []
+    seen = read_runs(workspace, unreadable=passed_over)
+    bootstrap.say_passed_over(passed_over)
+    for line in pipeline_lines(pipelines, seen):
         typer.echo(f"  {line}")
     if judged is not None:
         typer.echo(f"judged fields · {pipeline} against {gold}")
