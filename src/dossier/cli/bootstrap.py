@@ -58,7 +58,7 @@ from dossier.infrastructure.tracking.mlflow import (
 # served (R9.2 row 3), no installed package provides it, or a request was
 # refused or never answered after R9.17's retries (R9.12 row 4). Every command
 # that asks a model says one in a line and exits 2, as `run` always has; anything
-# else keeps the traceback that says where it happened (R9.20).
+# else keeps the traceback that says where it happened (R9.25).
 MODEL_FAILURES = (EndpointUnset, UnknownProvider, ModelRequestFailed)
 
 

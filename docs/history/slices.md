@@ -13,6 +13,25 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A request refused as sent, or cut off, fails its document (2026-10-02, R9.23
+to R9.25, #681, #683 and this). analysis_v2 named the first thing a real corpus
+would hit: any non-2xx stopped the run, so one prompt past the context window
+stopped it at the same document on every rerun. Now `400`, `413` and `422`,
+which are about the request as sent, fail that document. It goes in
+`failures.json` and on one line with the provider's reason, cached nowhere,
+and the run goes on. A refusal no other request would avoid still stops it:
+`401`, `404`, `429` after the retries, or a judge's request. And a reply that
+stopped at the model's output limit (`finish_reason` or `done_reason`
+`length`, `stop_reason` `max_tokens`) is no answer, in all three providers.
+Before, an `aggregate` report cut off for length was cached as complete.
+R9.25 narrows R9.20, which is superseded.
+- The acceptance test drives the real OpenAI-compatible client through
+  `httpx.MockTransport`, so the status is read where a real one is. httpx
+  calls a 413 `Request Entity Too Large`, and the spec row now does too.
+- Left out: Ollama's `num_ctx`, since no local chat model was there to check
+  it against; an Anthropic `refusal` stop for a document's content, which
+  still stops the run; and a judge's refusal for one case in `eval`.
+
 `gc` keeps a held document's conversion whatever its source declares
 (2026-10-02, R16.3 row 7). analysis_v2 (#676) found that `gc` collected each
 row's `content_hash` as what is held, where R2.17 says a held document is the

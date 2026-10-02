@@ -29,8 +29,6 @@ from tests.scoring_example import (
     IssueTracker,
 )
 
-pytestmark = pytest.mark.outer_loop
-
 URL = "http://localhost:8080/api"
 COMPLETIONS = f"{URL}/chat/completions"
 REFUSED = "INC-4822"

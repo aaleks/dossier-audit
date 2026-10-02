@@ -789,7 +789,7 @@ def failure_line(*, step: str, document: str, reason: str | None) -> str:
 
     `extract failed on INC-4822` said which document and never why, and with
     MLflow off the reason was printed nowhere. One line, as a stopped command's
-    is (R9.20): a reason spanning lines is put on one.
+    is (R9.25): a reason spanning lines is put on one.
     """
     said = "" if not reason else ": " + " ".join(reason.split())
     return f"{step} failed on {document}{said}"

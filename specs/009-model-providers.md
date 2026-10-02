@@ -1,6 +1,6 @@
 # 009 — Model providers
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R9.1 – R9.25
 
 ## Purpose
@@ -549,7 +549,7 @@ find.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.bootstrap.MODEL_FAILURES`)
 - **Proved by:** `tests/acceptance/test_R009_20__a_model_that_fails_stops_a_command_in_one_line.py`
-- **Status:** MET
+- **Status:** SUPERSEDED by R9.25
 
 | # | Given | Then |
 |---|-------|------|
@@ -591,12 +591,12 @@ verdict goes stale.
 
 ### R9.22 — a request a provider refuses fails naming the reason the provider gave, and never the key
 
-R9.20's line names the URL and the status, and the status alone says that a
+R9.25's line names the URL and the status, and the status alone says that a
 request was refused but not why. On 2026-09-29 every judge call to Anthropic
 answered `400 Bad Request`. The cause, a schema left open (R9.21), was one
 sentence in the answer's body, and finding it meant reading the code. The
 provider has usually written that sentence already, so the line now ends with
-it. A person can then act on the line, which is what R9.20 is for.
+it. A person can then act on the line, which is what R9.25 is for.
 
 The reason is read from where each provider writes it: `error.message` for
 OpenAI, Anthropic and vLLM, `error` as a string for Ollama, and `message` or
@@ -617,7 +617,7 @@ reason and is left out, as it always was. The key is sent only in a header
 | 2 | OpenWebUI answering `401` with `{"detail": "Your session has expired or the token is invalid. Please sign in again."}` | `POST http://localhost:8080/api/chat/completions answered 401 Unauthorized: Your session has expired or the token is invalid. Please sign in again.` (verified live) |
 | 3 | Ollama answering `404` with `{"error": "model 'qwen3:1.7b' not found"}` | `… answered 404 Not Found: model 'qwen3:1.7b' not found` |
 | 4 | `503` three times, each `{"error": {"message": "Overloaded"}}` | `… answered 503 Service Unavailable (after 3 attempts): Overloaded` |
-| 5 | a reason spanning lines, `"schema invalid:\n  additionalProperties"` | `: schema invalid: additionalProperties`, on one line (R9.20) |
+| 5 | a reason spanning lines, `"schema invalid:\n  additionalProperties"` | `: schema invalid: additionalProperties`, on one line (R9.25) |
 | 6 | `DOSSIER_OPENAI_API_KEY=sk-4f1a-do-not-print` and a `401` whose message quotes it | the reason with `***` where the key was; the key is in no part of the line (R9.8 row 1) |
 | 7 | *counter-example* — a `502` whose body is a proxy's HTML page | `… answered 502 Bad Gateway (after 3 attempts)`, and nothing after it: a `502` is retried (R9.17), and the page is no reason |
 | 8 | *counter-example* — a `401` whose JSON names no reason, `{"code": 401}` | `… answered 401 Unauthorized`, and nothing after it |
@@ -640,7 +640,7 @@ A judge's request is not a stage's, and a refused one still stops `eval` and
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.refusals.about_the_request`), infrastructure (`dossier.infrastructure.models._http.request`), application (`dossier.application.extract.run_stage`)
 - **Proved by:** `tests/acceptance/test_R009_23__a_request_refused_as_sent_fails_its_document.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -665,7 +665,7 @@ fails and is not cached.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.refusals.cut_off`), infrastructure (`dossier.infrastructure.models`)
 - **Proved by:** `tests/unit/test_R009_24__a_reply_cut_off_at_its_limit_is_no_answer.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -681,13 +681,12 @@ R9.20, narrowed by R9.23. A stage's request refused as sent fails its
 document, and the run goes on. Everything else R9.20 stops still stops: no
 endpoint set, nothing listening, a refusal of the key, the model or the
 endpoint, a judge's request in `eval` or `calibrate`. It stops in R9.20's one
-line. When it lands, it supersedes R9.20, whose title says any refusal stops
-the command.
+line. It supersedes R9.20, whose title said any refusal stops the command.
 
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.bootstrap.MODEL_FAILURES`)
 - **Proved by:** `tests/acceptance/test_R009_25__a_model_that_fails_stops_a_command_in_one_line.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

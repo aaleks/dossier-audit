@@ -219,7 +219,7 @@ def calibrate(
         raise typer.Exit(code=2) from error
     except bootstrap.MODEL_FAILURES as error:
         # The judge is a model like any stage's, and fails like one: in the line
-        # `run` prints, not a traceback (R9.20).
+        # `run` prints, not a traceback (R9.25).
         typer.echo(f"{pipeline}: {error}", err=True)
         raise typer.Exit(code=2) from error
 

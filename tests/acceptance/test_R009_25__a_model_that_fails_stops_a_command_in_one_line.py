@@ -1,5 +1,9 @@
-"""R9.20 — a model that cannot be reached, or refuses, stops any command asking
-it in one line naming the pipeline, never a traceback.
+"""R9.25 — a model that cannot be reached, or refuses for a reason no other
+request would avoid, stops any command asking it in one line naming the
+pipeline, never a traceback.
+
+R9.20, narrowed by R9.23: a stage's request refused as sent fails its document,
+and the run goes on. Everything else still stops.
 
 `dossier run` always said it in one line. `calibrate` and `eval` ask the judge,
 and let the same failure out as a Python traceback: a live calibration against a
@@ -23,7 +27,7 @@ from tests.fakes import register_connector
 from tests.pipelines import write_pipeline
 from tests.scoring_example import ISSUES, PIPELINE, SOURCE_ID, SOURCE_TYPE, IssueTracker
 
-from dossier.infrastructure.models._http import ModelRequestFailed
+from dossier.infrastructure.models._http import ModelRequestFailed, RequestRefusedAsSent
 
 URL = "http://localhost:8080/api/chat/completions"
 UNREACHABLE = f"{URL} failed: [Errno 111] Connection refused (after 3 attempts)"
@@ -105,7 +109,7 @@ def _calibratable(workspace: Path, monkeypatch, *, model: str = FailingModel.mod
 
 
 class TestAModelThatFailsStopsACommandInOneLine:
-    """R9.20 — the line `run` prints, printed by every command that asks a model."""
+    """R9.25 — the line `run` prints, printed by every command that asks a model."""
 
     def test_calibrate_with_nothing_listening_says_so_in_one_line(
         self, workspace: Path, monkeypatch
@@ -133,6 +137,47 @@ class TestAModelThatFailsStopsACommandInOneLine:
         result = _cli(workspace, monkeypatch, "eval", PIPELINE, "--gold", GOLD)
 
         _said_in_one_line(result, REFUSED)
+
+    def test_eval_whose_judge_is_refused_as_sent_says_so_in_one_line(
+        self, judged_run: tuple[Path, str], monkeypatch
+    ):
+        """Row 6: the one where the judge's request is refused 400.
+
+        A judge's request is not a stage's: no score is written without it, so
+        it stops `eval` as any refusal did (R9.23).
+        """
+        workspace, _ = judged_run
+        refused = f"{URL} answered 400 Bad Request: too long"
+        _serve(monkeypatch, FailingModel(RequestRefusedAsSent(f"POST {refused}")))
+
+        result = _cli(workspace, monkeypatch, "eval", PIPELINE, "--gold", GOLD)
+
+        _said_in_one_line(result, refused)
+
+    def test_run_whose_request_is_refused_as_sent_goes_on(self, workspace: Path, monkeypatch):
+        """Row 8, a counter-example: the one where a stage's request is refused 400.
+
+        Every document fails on its own, and the run ends with them failed rather
+        than stopping at the first (R9.23).
+        """
+        (workspace / "sources.yaml").write_text(
+            f"sources:\n  - id: {SOURCE_ID}\n    type: {SOURCE_TYPE}\n", encoding="utf-8"
+        )
+        write_pipeline(workspace, sources=[SOURCE_ID])
+        register_connector(
+            monkeypatch, SOURCE_TYPE, lambda config, *, workspace: IssueTracker(ISSUES)
+        )
+        assert _cli(workspace, monkeypatch, "sync", PIPELINE).exit_code == 0
+        refused = FailingModel(RequestRefusedAsSent(f"POST {URL} answered 400 Bad Request"))
+        _serve(monkeypatch, refused)
+
+        result = _cli(workspace, monkeypatch, "run", PIPELINE)
+
+        assert result.exit_code == 1, result.output
+        assert refused.calls == len(ISSUES)
+        assert len([line for line in result.stderr.splitlines() if "failed on" in line]) == len(
+            ISSUES
+        )
 
     def test_a_comparison_whose_judge_is_unreachable_says_so_in_one_line(
         self, judged_run: tuple[Path, str], monkeypatch
@@ -188,7 +233,7 @@ class TestAModelThatFailsStopsACommandInOneLine:
     def test_an_eval_whose_verdicts_are_cached_asks_nothing_and_completes(
         self, judged_run: tuple[Path, str], monkeypatch
     ):
-        """Row 6, a counter-example: the one with nothing to fail.
+        """Row 7, a counter-example: the one with nothing to fail.
 
         The first eval caches the verdict (R7.18). The second is served it, so
         a judge nobody can reach is never built, let alone asked.
@@ -208,7 +253,7 @@ class TestAModelThatFailsStopsACommandInOneLine:
     def test_an_error_that_is_not_a_models_keeps_its_traceback(
         self, workspace: Path, monkeypatch
     ):
-        """Row 7, a counter-example: the one nobody expected.
+        """Row 9, a counter-example: the one nobody expected.
 
         A bug is not a line. Turned into one, it would read as something the
         reader can fix, and they cannot.
