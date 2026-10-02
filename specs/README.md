@@ -28,7 +28,7 @@ spec assumes.
 | `017-workspace-status.md` | `dossier status`: what each source holds and still owes, each pipeline's latest run, and which judged fields `eval` would withhold, changing nothing | R17.1 – R17.7 | Implemented |
 | `018-embedding-index.md` | `dossier embed`: a pipeline's documents and its latest run's grounded record, chunked at their headings, embedded on a cache miss, in a Postgres index that holds exactly the active documents | R18.1 – R18.12 | Implemented |
 | `019-search.md` | `dossier search`: the documents of an index that answer a query, ranked by meaning and words together, filtered by what a run grounded and who may read it | R19.1 – R19.12 | Implemented |
-| `020-running-every-day.md` | Running it every day: one writer at a time in a workspace, and a version that says which commit wrote a record | R20.1 – R20.2 | Partially implemented |
+| `020-running-every-day.md` | Running it every day: one writer at a time in a workspace, and a version that says which commit wrote a record | R20.1 – R20.2 | Implemented |
 
 Supporting files:
 

@@ -1,6 +1,6 @@
 # 020 — Running it every day
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R20.1 – R20.2
 
 ## Purpose
@@ -116,7 +116,7 @@ hash.
 - **Kind:** deterministic
 - **Layer:** build (`pyproject.toml`, `.github/workflows/ci.yml`)
 - **Proved by:** `tests/integration/test_R020_2__the_version_comes_from_git.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

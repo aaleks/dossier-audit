@@ -84,6 +84,15 @@ Converters, connectors and model providers are all resolved from entry points,
 never hard-coded: what a run can read depends on what is installed, and the
 manifest records which converters it actually used.
 
+The version is git's, not a number in `pyproject.toml` (R20.2). The commit
+tagged `v0.2.0` installs as `0.2.0`, three commits past it as
+`0.2.1.dev3+g<commit>`, and a checkout with uncommitted changes adds the date.
+Every manifest and MLflow record names it as `dossier_version`. It is fixed when
+the install is built, so run `uv sync` after a pull: it rebuilds the install
+whenever the commit has moved. A copy with no git history, such as GitHub's zip
+of a commit, refuses to build unless `SETUPTOOLS_SCM_PRETEND_VERSION` gives it a
+version.
+
 ## Commands
 
 ```

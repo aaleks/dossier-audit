@@ -13,6 +13,23 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+The version says which commit wrote a record (2026-10-02, R20.2, #700 and
+this). `dossier_version` is in every manifest and record, and `pyproject.toml`
+had said `0.1.0` for every commit since the first, so two scores of one run
+months apart could differ with nothing recorded to say why (analysis_v2 §3.4).
+`hatch-vcs` now derives it from git when the install is built: decided by
+a.aleks on 2026-10-02, against bumping by hand. Three things were measured
+before the rule was written. `uv lock` writes the version as dynamic, so
+`uv.lock` names none and `--locked` does not move with every commit. A commit
+followed by `uv sync --locked` rebuilds the install with the new version, once
+`[tool.uv] cache-keys` names the commit. And a copy with no `.git` refuses to
+build, naming `SETUPTOOLS_SCM_PRETEND_VERSION`. CI now checks out the whole
+history, because the version counts commits. The versions themselves are
+measured by a `live` test that builds wheels from a tagged clone; the default
+suite reads the configuration that makes them so. No tag exists yet, so this
+commit installs as `0.1.dev<N>+g<commit>`. The first `v0.x.0` is a release, and
+the user's to make.
+
 One command writes a workspace at a time (2026-10-02, R20.1, #697, #698 and
 this). Spec 015's flow is a daily cron job, and nothing stopped two commands
 writing one workspace at once: `gc --apply` beside a `run` could delete what the

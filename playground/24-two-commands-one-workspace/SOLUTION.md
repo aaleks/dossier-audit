@@ -163,3 +163,37 @@ At 06:00 with yesterday's run still going, today's sync is refused, exits 2,
 and the `&&` never starts today's run. Cron mails the one line, naming
 yesterday's run, its pid and since when. The day after, if yesterday's run has
 finished, both run as normal. Nothing has to be cleaned up in between.
+
+## Task 5 — which `dossier` wrote it
+
+The same workspace, after one more run under the install that took R20.2.
+Its first three runs were made a moment before, under the install that still
+said `0.1.0`:
+
+```console
+$ grep -h '"dossier_version"' runs/*/manifest.json
+  "dossier_version": "0.1.0",
+  "dossier_version": "0.1.0",
+  "dossier_version": "0.1.0",
+  "dossier_version": "0.1.dev884+gda1feaae7.d20261002",
+```
+
+`0.1.dev884` is a development release of 0.1, 884 commits from the start of
+the history, because no commit is tagged yet. `+gda1feaae7` is the commit:
+`git log --oneline -1` in that checkout printed `da1feaa`. `.d20261002` says
+the checkout had uncommitted changes on 2026-10-02 when it was installed, so
+the commit alone does not say what ran. The three `0.1.0` records say only
+that some commit since the first wrote them: `0.1.0` was the version of every
+one of the 883 before this change, so a record from any of them reads the same.
+
+The commit tagged `v0.2.0` installs as `0.2.0`. Three commits after it,
+`0.2.1.dev3+g` and that commit: a development release on the way to the next
+patch. These were measured by building from a tagged clone (R20.2 rows 1 and 2).
+
+After a `git pull`, the next run records the version of the install, which is
+still the commit before the pull, until `uv sync` rebuilds it. The commit is
+one of the install's cache keys, so the sync rebuilds as soon as it has moved.
+The version is fixed at install because that is when the build reads git: a
+version asked of git at run time would cost a subprocess on every command, and
+would have nothing to ask in an install with no checkout (spec 020, "Existing
+options considered").
