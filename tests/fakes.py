@@ -87,6 +87,59 @@ class NoModelClient:
         )
 
 
+# The canaries of `_fixtures.md` ("Client identifying data", spec 021), each with
+# the type and the score Presidio gives it. Fictional, so a test can search
+# every prompt, span and row for them.
+CANARIES: dict[str, tuple[str, float]] = {
+    "Erika Mustermann": ("PERSON", 0.85),
+    "Hans Muster": ("PERSON", 0.85),
+    "erika.mustermann@example.ch": ("EMAIL_ADDRESS", 1.0),
+    "+41 44 555 01 23": ("PHONE_NUMBER", 0.75),
+    "CH93 0076 2011 6238 5295 7": ("IBAN_CODE", 1.0),
+    "756.1234.5678.97": ("CH_AHV", 0.85),
+    "CIF 0042-118733": ("CLIENT_NUMBER", 0.85),
+}
+
+
+class FakeMasker:
+    """A masker that finds the canaries by their exact text, and counts its calls.
+
+    The shape the `Masker` port takes (spec 021): an id and a version, which
+    enter the masked view's key (R21.5), and `detect`, which finds candidate
+    spans and decides nothing -- the threshold, the overlaps and the numbering
+    are `dossier.domain.masking`'s. Counting is the point, as it is for
+    `FakeModelClient`: R21.5 and R21.6 are claims that the masker was asked
+    zero times.
+    """
+
+    id = "fake"
+    version = "1.0.0"
+
+    def __init__(self, canaries: Mapping[str, tuple[str, float]] = CANARIES) -> None:
+        self.canaries = dict(canaries)
+        self.calls: list[dict[str, str]] = []
+
+    @property
+    def call_count(self) -> int:
+        return len(self.calls)
+
+    def detect(self, text: str, *, language: str) -> list:
+        # Imported here: the domain module is what the slice builds, and
+        # collecting the default suite must not fail before it exists.
+        from dossier.domain.masking import Detection
+
+        self.calls.append({"text": text, "language": language})
+        found = []
+        for value, (entity, score) in self.canaries.items():
+            start = text.find(value)
+            while start != -1:
+                found.append(
+                    Detection(start=start, end=start + len(value), entity=entity, score=score)
+                )
+                start = text.find(value, start + 1)
+        return found
+
+
 class Gate:
     """Holds each model call until enough are in flight together (R9.19).
 
