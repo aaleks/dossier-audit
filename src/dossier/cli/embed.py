@@ -23,7 +23,7 @@ from dossier.application.embed import (
     read_latest_run,
     record_embed,
 )
-from dossier.application.masking import MASK
+from dossier.application.masking import MASK, mask_texts
 from dossier.cli import bootstrap
 from dossier.cli.convert import exit_if_unconvertible, read_holdings
 from dossier.config.endpoints import index_dsn
@@ -38,6 +38,7 @@ from dossier.config.load import (
 )
 from dossier.domain.conversion import NoConverter
 from dossier.domain.index import carried_output
+from dossier.domain.masking import MaskerUnavailable
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.chunkers.registry import UnknownChunker, chunker_for
 from dossier.infrastructure.connectors.registry import declared_keys
@@ -90,6 +91,9 @@ def embed(
     except (ConfigError, UnknownChunker, UnknownProvider, IndexSinkFailed) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
+    # An index masks when its pipeline does (spec 021), and a pipeline that
+    # cannot mask is refused before anything is converted or embedded (R21.7).
+    masking, masker = bootstrap.masking_for(declaration.pipeline, pipeline, path)
     # Before any work, as every command's: a server nobody can reach is refused
     # now, not after the model has been asked for every vector (R10.5, R11.33).
     tracker, experiment = bootstrap.tracking_for(workspace, declaration.pipeline, kind="embed")
@@ -116,9 +120,31 @@ def embed(
             except NoConverter as error:
                 typer.echo(str(error), err=True)
                 raise typer.Exit(code=2) from error
+            texts = report.text
+            if masking is not None and masker is not None:
+                # The body chunks of a masked index are cut from each
+                # document's masked view: the run's, from the cache, or masked
+                # here. One that cannot be masked is not written (R21.16).
+                try:
+                    shown = mask_texts(
+                        texts,
+                        masking=masking,
+                        masker=masker,
+                        cache=ArtifactCache(workspace, namespace=MASK),
+                        run_id=f"embed {started}",
+                        dossier_version=version("dossier"),
+                    )
+                except MaskerUnavailable as error:
+                    typer.echo(f"{index}: {error}", err=True)
+                    raise typer.Exit(code=2) from error
+                texts = shown.texts
+                unconverted.extend(
+                    Unconverted(source_id=name, key=key, reason=reason, step="masked")
+                    for key, reason in sorted(shown.failed.items())
+                )
             documents.extend(
                 ToIndex(source_id=name, key=key, snapshot=held[key].snapshot, text=text)
-                for key, text in sorted(report.text.items())
+                for key, text in sorted(texts.items())
             )
             # Held, and unreadable this time: kept, and named (R18.4 row 6).
             unconverted.extend(

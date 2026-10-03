@@ -551,7 +551,7 @@ The acceptance rule of the third part.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.embed`)
 - **Proved by:** `tests/integration/test_R021_16__embed_reads_the_masked_view.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
