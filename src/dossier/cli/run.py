@@ -28,7 +28,13 @@ from dossier.application.run import (
 from dossier.cli import bootstrap
 from dossier.cli.convert import exit_if_unconvertible, read_holdings
 from dossier.config.environment import environment
-from dossier.config.load import ConfigError, load_output_schemas, load_pipeline, load_sources
+from dossier.config.load import (
+    ConfigError,
+    load_masking,
+    load_output_schemas,
+    load_pipeline,
+    load_sources,
+)
 from dossier.domain.concurrency import concurrency as concurrency_setting
 from dossier.domain.conversion import (
     PART_SUFFIX,
@@ -41,6 +47,7 @@ from dossier.domain.conversion import (
 )
 from dossier.domain.conversion import used as used_converters
 from dossier.domain.hashing import text_hash
+from dossier.domain.masking import unrecognised
 from dossier.domain.pipeline import PipelineConfig, SourceConfig
 from dossier.domain.plan import check_tried
 from dossier.domain.ports import ImagePart
@@ -388,6 +395,26 @@ def _execute(
     # would report the same pipeline as an installation problem, which is the
     # other failure with the other fix.
     _check_kinds_or_stop(pipeline, config, declared)
+
+    # Before any model is asked: a pipeline that declares masking and cannot
+    # mask -- no masker installed, or a type nothing would find -- is refused,
+    # never run unmasked instead (R21.7).
+    try:
+        masking = load_masking(config, path)
+        masker = None if masking is None else bootstrap.build_masker(masking.declaration)
+    except (ConfigError, ValueError) as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+    if masking is not None and masker is not None:
+        missing = unrecognised(masking.declaration, masker.entities)
+        if missing:
+            typer.echo(
+                f"{pipeline}: {config.masking} declares {', '.join(missing)}, which masker "
+                f"{masker.id!r} finds with no recogniser and no declared pattern finds "
+                "either. A type nothing finds would be left unmasked (R21.7).",
+                err=True,
+            )
+            raise typer.Exit(code=2)
 
     tracker, experiment = bootstrap.tracking_for(workspace, pipeline, kind="run")
     capture = bootstrap.capture_for(workspace, pipeline) if tracker is not None else "full"

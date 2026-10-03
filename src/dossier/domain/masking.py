@@ -12,6 +12,8 @@ import json
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from dossier.domain.hashing import content_hash
 
 # The version of these rules: the numbering, the overlaps and the filter. It is
@@ -20,6 +22,74 @@ from dossier.domain.hashing import content_hash
 # of its artifacts (R5.4). A masked view cached by the old rules and served by
 # the new would claim to be something they no longer produce.
 MASKING_VERSION = "1"
+
+
+# The kind of a converted artifact that is pictures, not text. A masked pipeline
+# refuses any step reading it: a client's name in the pixels of a page cannot be
+# masked by anything here (R21.7).
+PICTURES = "page_images"
+
+
+class MaskPattern(BaseModel):
+    """A recogniser of the pipeline's own, such as the bank's client number."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    regex: str
+    score: float = Field(ge=0.0, le=1.0)
+    context: list[str] = []
+
+
+class MaskingDeclaration(BaseModel):
+    """`masking/cid.yaml`: what a pipeline masks, and with what (spec 021).
+
+    `score_threshold` has no default. Presidio scores each recogniser with a
+    constant, so the threshold decides which recognisers count, and that is
+    the pipeline author's decision rather than a number `dossier` ships.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    masker: str
+    languages: list[str] = Field(min_length=1)
+    score_threshold: float = Field(ge=0.0, le=1.0)
+    entities: list[str] = Field(min_length=1)
+    patterns: dict[str, MaskPattern] = {}
+    allow: str | None = None
+
+
+@dataclass(frozen=True)
+class Masking:
+    """A pipeline's masking as loaded: its declaration, the hash of every file
+    the declaration is made of (R21.5), and the values its allow-list names."""
+
+    declaration: MaskingDeclaration
+    declaration_hash: str
+    allow: tuple[str, ...] = ()
+
+
+def unmaskable_steps(steps: Sequence[tuple[str, Sequence[str]]]) -> list[str]:
+    """The steps, by id, that read a kind nothing can mask (R21.7 row 1).
+
+    Each step is its id and the inputs it declares, as `pipeline.yaml` writes
+    them: `documents@page_images` reads pictures, and a picture of a page
+    holds the client's name where no masker reaches it.
+    """
+    return [
+        step
+        for step, inputs in steps
+        if any(name.rpartition("@")[2] == PICTURES for name in inputs if "@" in name)
+    ]
+
+
+def unrecognised(declaration: MaskingDeclaration, recognised: Collection[str]) -> list[str]:
+    """The declared types nothing would find, in declaration order (R21.7 row 4).
+
+    A type no recogniser and no declared pattern provides is a type the author
+    believes is masked and is not: it is refused, never silently passed over.
+    """
+    found = set(recognised) | set(declaration.patterns)
+    return [entity for entity in declaration.entities if entity not in found]
 
 
 @dataclass(frozen=True)

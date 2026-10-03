@@ -41,6 +41,13 @@ from dossier.domain.index import (
     field_refusals,
     unreadable,
 )
+from dossier.domain.masking import (
+    PICTURES,
+    Masking,
+    MaskingDeclaration,
+    declaration_hash,
+    unmaskable_steps,
+)
 from dossier.domain.model_id import check_pinned, provider_of
 from dossier.domain.pipeline import (
     PipelineConfig,
@@ -342,7 +349,60 @@ def load_pipeline(path: Path, *, providers: Collection[str]) -> PipelineConfig:
     _validate_prompt_placeholders(pipeline, path)
     _validate_gold(pipeline, path)
     _validate_judge_thresholds(pipeline, path)
+    _validate_masking(pipeline, path)
     return pipeline
+
+
+def load_masking(pipeline: PipelineConfig, path: Path) -> Masking | None:
+    """The masking `pipeline` declares, or `None` when it declares none (spec 021).
+
+    `path` is the pipeline's own `pipeline.yaml`: the declaration, and the
+    allow-list it names, are relative to it, as an `output` is. Every file read
+    goes into one hash, so a vendor added to the allow-list moves the masked
+    view's key (R21.5 row 1).
+    """
+    if pipeline.masking is None:
+        return None
+    where = path.parent / pipeline.masking
+    declaration = _validate(MaskingDeclaration, _read_yaml(where), where)
+    files = {pipeline.masking: where.read_bytes()}
+    allow: tuple[str, ...] = ()
+    if declaration.allow is not None:
+        listed = path.parent / declaration.allow
+        try:
+            files[declaration.allow] = listed.read_bytes()
+        except FileNotFoundError as error:
+            raise ConfigError(
+                f"{_name(where)}: allow names {declaration.allow}, and there is no such file"
+            ) from error
+        allow = tuple(
+            line.strip()
+            for line in files[declaration.allow].decode("utf-8").splitlines()
+            if line.strip()
+        )
+    return Masking(
+        declaration=declaration, declaration_hash=declaration_hash(files), allow=allow
+    )
+
+
+def _validate_masking(pipeline: PipelineConfig, path: Path) -> None:
+    """A masked pipeline loads only when everything it shows a model can be masked (R21.7).
+
+    The declaration must load -- a threshold left out is a mistake, not a
+    default -- and no step may read pictures: the name on a page image is
+    where no masker reaches, so a masked pipeline refuses the step rather than
+    sending the page.
+    """
+    if load_masking(pipeline, path) is None:
+        return
+    pictures = unmaskable_steps([(step.id, step.inputs) for step in pipeline.steps])
+    if pictures:
+        named = ", ".join(repr(step) for step in pictures)
+        raise ConfigError(
+            f"{_name(path)}: masking is declared, and step {named} reads {PICTURES}. "
+            "A picture of a page cannot be masked, so a masked pipeline never shows "
+            "a model one (R21.7)."
+        )
 
 
 # Where a workspace declares its indexes, beside `pipelines/` (spec 018).

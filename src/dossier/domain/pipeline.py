@@ -188,6 +188,9 @@ class PipelineConfig(BaseModel):
     gold: str | None = None
     model: str
     steps: list[StepConfig]
+    # The masking declaration, relative to the pipeline's directory (spec 021).
+    # `None` masks nothing: a pipeline that declares none reads what it always did.
+    masking: str | None = None
 
     @property
     def synced_sources(self) -> list[str]:
