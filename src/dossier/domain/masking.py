@@ -189,20 +189,71 @@ def masked(text: str, detections: Sequence[Detection]) -> str:
     Numbered per type by first appearance, so a model shown the masked text can
     still tell two people apart and follow one through a document.
     """
+    return _numbered(text, detections, {})[0]
+
+
+def _numbered(
+    text: str, detections: Sequence[Detection], mapping: Mapping[str, str]
+) -> tuple[str, dict[str, str]]:
+    """`text` masked, numbering on from `mapping`; and the mapping it ends with.
+
+    `mapping` is a document's, placeholder to the value it stands for: a value
+    it holds keeps its placeholder, and a new one takes the next number of its
+    type (R21.22). Empty, numbering starts at one (R21.2). The mapping returned
+    holds each value as it was first written.
+    """
     numbers: dict[tuple[str, str], int] = {}
     counts: dict[str, int] = {}
+    held = dict(mapping)
+    for placeholder, value in mapping.items():
+        found = _PLACEHOLDER.fullmatch(placeholder)
+        if found is None:
+            continue
+        entity, number = found.group(1), int(found.group(2))
+        numbers[(entity, _same(value))] = number
+        counts[entity] = max(counts.get(entity, 0), number)
     pieces: list[str] = []
     at = 0
     for detection in sorted(detections, key=lambda d: d.start):
-        value = (detection.entity, _same(text[detection.start : detection.end]))
+        written = text[detection.start : detection.end]
+        value = (detection.entity, _same(written))
         if value not in numbers:
             counts[detection.entity] = counts.get(detection.entity, 0) + 1
             numbers[value] = counts[detection.entity]
+        placeholder = f"[{detection.entity}_{numbers[value]}]"
+        held.setdefault(placeholder, written)
         pieces.append(text[at : detection.start])
-        pieces.append(f"[{detection.entity}_{numbers[value]}]")
+        pieces.append(placeholder)
         at = detection.end
     pieces.append(text[at:])
-    return "".join(pieces)
+    return "".join(pieces), held
+
+
+# A placeholder as `masked` writes it: the type, which may hold underscores,
+# and its number.
+_PLACEHOLDER = re.compile(r"\[([A-Z][A-Z_]*)_(\d+)\]")
+
+
+def mapping_values(text: str, mapping: Mapping[str, str]) -> list[Detection]:
+    """Each place `text` writes a value of `mapping`, as a detection of its type (R21.22).
+
+    Found by the value itself, compared as two mentions are (R21.2): a gold
+    value or a candidate need not be found by a masker to be the document's
+    value, and a masker may miss a name in a short sentence it found in the
+    document.
+    """
+    found: list[Detection] = []
+    for placeholder, value in mapping.items():
+        typed = _PLACEHOLDER.fullmatch(placeholder)
+        words = value.split()
+        if typed is None or not words:
+            continue
+        pattern = re.compile(r"\s+".join(re.escape(word) for word in words), re.IGNORECASE)
+        found.extend(
+            Detection(start=hit.start(), end=hit.end(), entity=typed.group(1), score=1.0)
+            for hit in pattern.finditer(text)
+        )
+    return found
 
 
 def _same(value: str) -> str:
@@ -220,20 +271,53 @@ def mask(
     (R21.4), overlaps as one span (R21.3), and the placeholders (R21.2). The
     counts are for the provenance record and MLflow, never the values.
     """
+    masked_text, _, counts = mask_with_mapping(text, detections, masking)
+    return masked_text, counts
+
+
+def mask_with_mapping(
+    text: str, detections: Sequence[Detection], masking: Masking
+) -> tuple[str, dict[str, str], dict[str, int]]:
+    """`mask`, and the document's mapping from placeholder to value beside it (R21.21).
+
+    The mapping is what a gold value or a calibration candidate is masked
+    with, so that the same client has the same placeholder in the document and
+    in what a person wrote about it (R21.22). It is kept on this machine only.
+    """
+    spans = merged(_kept(text, detections, masking))
+    masked_text, mapping = _numbered(text, spans, {})
+    return masked_text, mapping, _counts(spans)
+
+
+def mask_like(
+    text: str, detections: Sequence[Detection], masking: Masking, mapping: Mapping[str, str]
+) -> str:
+    """`text` masked with a document's numbering (R21.22).
+
+    A value of the document -- found by itself, or by the masker -- takes the
+    document's placeholder; anything else the masker finds takes the next
+    number of its type. A text that holds neither is returned as written.
+    """
+    spans = merged([*_kept(text, detections, masking), *mapping_values(text, mapping)])
+    return _numbered(text, spans, mapping)[0]
+
+
+def _kept(text: str, detections: Sequence[Detection], masking: Masking) -> list[Detection]:
     declared = masking.declaration
-    spans = merged(
-        kept(
-            text,
-            detections,
-            entities=declared.entities,
-            threshold=declared.score_threshold,
-            allow=masking.allow,
-        )
+    return kept(
+        text,
+        detections,
+        entities=declared.entities,
+        threshold=declared.score_threshold,
+        allow=masking.allow,
     )
+
+
+def _counts(spans: Sequence[Detection]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for span in spans:
         counts[span.entity] = counts.get(span.entity, 0) + 1
-    return masked(text, spans), dict(sorted(counts.items()))
+    return dict(sorted(counts.items()))
 
 
 # The words of each language that carry no meaning of their own: articles,
