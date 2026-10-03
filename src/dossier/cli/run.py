@@ -47,13 +47,12 @@ from dossier.domain.conversion import (
 )
 from dossier.domain.conversion import used as used_converters
 from dossier.domain.hashing import text_hash
-from dossier.domain.masking import MASKING_VERSION, MaskerUnavailable
+from dossier.domain.masking import MaskerUnavailable
 from dossier.domain.pipeline import PipelineConfig, SourceConfig
 from dossier.domain.plan import check_tried
 from dossier.domain.ports import ImagePart
 from dossier.domain.resolution import (
     PinnedConverter,
-    PinnedMasker,
     check_kinds,
     moved_since,
     run_id,
@@ -639,16 +638,7 @@ def _execute(
                     for c in used_converters(requests=requests, available=converters)
                 ],
                 source_configs=declared,
-                masker=(
-                    None
-                    if masking is None or masker is None
-                    else PinnedMasker(
-                        id=masker.id,
-                        version=masker.version,
-                        masking_version=MASKING_VERSION,
-                        declaration=masking.declaration_hash,
-                    )
-                ),
+                masker=bootstrap.pinned_masker(masking, masker),
             ),
             workspace=workspace,
             model=bootstrap.BuiltOnFirstCall(config.model),

@@ -167,6 +167,7 @@ def embed(
             converted=cache,
             stage=ArtifactCache(workspace, namespace="stage"),
             masks=ArtifactCache(workspace, namespace=MASK),
+            masker=bootstrap.pinned_masker(masking, masker),
             unreadable=passed_over,
             stopped=stopped,
         )

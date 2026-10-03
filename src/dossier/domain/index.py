@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from dossier.domain.grounding import FieldVerdict, enum_folded
 from dossier.domain.hashing import content_hash
+from dossier.domain.resolution import PinnedMasker
 from dossier.domain.schemas import FieldRecord
 from dossier.domain.scoring import FieldKind
 
@@ -351,6 +352,26 @@ class LatestRun:
     # Why the run's answers could not be reproduced from the cache, on one
     # line, or `None` when they were (R18.8 row 7).
     unreplayable: str | None = None
+    # Why the run did not mask as a masked index does, or `None` when it did,
+    # or when the index is not masked (R21.17).
+    masked_otherwise: str | None = None
+
+
+def masking_differs(ran: PinnedMasker | None, index: PinnedMasker | None) -> str | None:
+    """Why a run's record may not be carried into a masked index, or `None` (R21.17).
+
+    The record holds a run's free-text answers, made from the text that run was
+    shown. A run that masked nothing, or masked by another masker or
+    declaration, may hold what this index's masking would not let through --
+    a type declared since, a vendor allow-listed since -- so only a run masked
+    exactly as the index masks is carried. An unmasked index carries its
+    latest run, as R18.8 says.
+    """
+    if index is None or ran == index:
+        return None
+    if ran is None:
+        return "it was made before masking was declared"
+    return "it masked by another masker or declaration"
 
 
 def record_for(
@@ -363,7 +384,7 @@ def record_for(
     only when the run read the snapshot the ledger holds now. With no run at
     all there is nothing to say per document: the command says it once.
     """
-    if run is None or run.unreplayable is not None:
+    if run is None or run.unreplayable is not None or run.masked_otherwise is not None:
         # Nothing to say per document: the command says it once.
         return None, None
     pinned = run.pinned.get(key)
