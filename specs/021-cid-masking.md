@@ -270,7 +270,7 @@ placeholder where the converted text held the value.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.run`, `dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R021_1__a_masked_pipeline_shows_no_model_client_data.py`
-- **Status:** NOT MET
+- **Status:** IN PROGRESS
 
 | # | Given | Then |
 |---|-------|------|
