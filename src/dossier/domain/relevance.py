@@ -194,3 +194,51 @@ def read_relevance(name: str, data: object) -> RelevanceQuery:
         judged_by=str(judged_by),
         judged=dict(judged),
     )
+
+
+def unreadable(
+    queries: Sequence[RelevanceQuery], acl: Mapping[str, Sequence[str]]
+) -> list[str]:
+    """One line for each judgment of a document none of its query's readers may read (R22.6).
+
+    `acl` is each source's readers, by source id. Such a document is never
+    listed for those readers (R19.10), so judging it would count a miss the
+    search was right to make.
+    """
+    lines: list[str] = []
+    for query in queries:
+        for document in query.judged:
+            source = document.partition(":")[0]
+            if not set(query.readers).intersection(acl.get(source, ())):
+                lines.append(
+                    f"{query.name}.yaml: {document} is not readable by "
+                    f"{' or '.join(query.readers)}"
+                )
+    return lines
+
+
+def relevance_document(
+    index: str,
+    queries: Sequence[tuple[RelevanceQuery, Sequence[str], Sequence[str], Measured]],
+    found: Means,
+) -> dict[str, object]:
+    """A measurement as one object: the means, then each query (R22.7 row 2)."""
+    return {
+        "index": index,
+        "ndcg_at_10": found.ndcg,
+        "recall_at_10": found.recall,
+        "scored": found.scored,
+        "unscored": list(found.unscored),
+        "queries": [
+            {
+                "name": query.name,
+                "query": query.query,
+                "readers": list(readers),
+                "ndcg_at_10": score.ndcg,
+                "recall_at_10": score.recall,
+                "unjudged": score.unjudged,
+                "listed": list(listed),
+            }
+            for query, readers, listed, score in queries
+        ],
+    }

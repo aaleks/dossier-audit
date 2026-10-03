@@ -32,7 +32,7 @@ records its runs is not a property of the pipeline.
 | `DOSSIER_MLFLOW_EXPERIMENT` | a template | `dossier-audit/{pipeline}/{kind}` |
 | `DOSSIER_MLFLOW_EXPERIMENT_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE`, `_COMPARE`, `_GC`, `_EMBED`, `_SEARCH` | a template | falls back to `DOSSIER_MLFLOW_EXPERIMENT` |
 | `DOSSIER_MLFLOW_CAPTURE` | `full` / `hashes` | `full` |
-| `DOSSIER_MLFLOW_RUN_NAME_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE`, `_COMPARE`, `_GC`, `_EMBED`, `_SEARCH` | a template | the default for that kind (R10.10) |
+| `DOSSIER_MLFLOW_RUN_NAME_SYNC`, `_CONVERT`, `_RUN`, `_EVAL`, `_CALIBRATE`, `_COMPARE`, `_GC`, `_EMBED`, `_SEARCH`, `_RELEVANCE` | a template | the default for that kind (R10.10) |
 | `DOSSIER_MLFLOW_RUN_PREFIX` | a name | none; `{prefix}` renders empty |
 | `DOSSIER_MLFLOW_NAMESPACE` | a name | none; every prompt and dataset name is exactly what R14.1, R14.2 and R12.1 compose (R10.13) |
 | `DOSSIER_MLFLOW_RUN_LABEL` | a name | none; `--label` wins over it (R10.11) |
@@ -210,6 +210,7 @@ The defaults:
 | `gc` | `{prefix}gc {started}{label}` | `gc 20260930T090000Z` (R11.28) |
 | `embed` | `{prefix}embed {index} {started}{label}` | `embed incidents 20261001T090000Z` (R11.33) |
 | `search` | `{prefix}search {index}{label}` | `search incidents`, the trace's name: a search opens no run (R11.35) |
+| `relevance` | `{prefix}relevance {index} {started}{label}` | `relevance incidents 20261003T090000Z`: a search measured against relevance gold, recorded in the `search` experiment (R11.37) |
 
 Nothing is abbreviated. A model identifier is written as `model:` pins it and as
 every param records it, because a shortened one is a second spelling of a value

@@ -1,6 +1,6 @@
 # 022 — Measuring search
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R22.1 – R22.8
 
 ## Purpose
@@ -198,7 +198,7 @@ so judging it relevant would count a miss the search was right to make.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.relevance`)
 - **Proved by:** `tests/acceptance/test_R022_6__a_query_is_searched_as_its_readers.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -211,7 +211,7 @@ so judging it relevant would count a miss the search was right to make.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.search`)
 - **Proved by:** `tests/acceptance/test_R022_7__search_gold_prints_each_querys_measures.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -227,7 +227,7 @@ their readers, and the measures are of ten documents, unfiltered.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.search`)
 - **Proved by:** `tests/unit/test_R022_8__gold_takes_no_query_or_reader.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -235,3 +235,4 @@ their readers, and the measures are of ten documents, unfiltered.
 | 2 | `--gold gold/incidents-search --as sre`, or `--all-readers` | exit 2: `--gold cannot be combined with --as: each query names its readers` |
 | 3 | `--gold gold/incidents-search --where component=checkout`, `--chunks` or `--limit 5` | exit 2, naming the option: it changes what is measured |
 | 4 | *counter-example* — `--gold gold/incidents-search --json` | measured, and printed as JSON |
+| 5 | `dossier search incidents`, with neither a query nor `--gold` | exit 2: `a query is required unless --gold is given` |

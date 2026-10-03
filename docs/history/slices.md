@@ -13,6 +13,27 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+Search is measured against relevance gold (2026-10-03, spec 022, R22.1-R22.8
+and R11.37, #714, #716, #719 and this). Nothing measured search, so spec 019's
+open questions and any move to BM25 or a reranker waited on numbers. Decided
+by a.aleks in /discover, all as recommended: the measures built as pure
+functions in `domain/` rather than adopting ir-measures, ranx or MLflow's
+deprecated retriever metrics and its cloud-defaulting judge; one YAML file per
+question, graded 0 to 2 by document id; `dossier search INDEX --gold DIR`;
+nDCG@10 and recall@10, the bar left open until the pilot. The formulas were
+checked once against ir-measures 0.4.3 in a scratch venv: 348 values, none
+differing, with each grade handed to trec_eval as `2^g - 1`, since its nDCG
+takes the grade as the gain. Numbered 022 because a parallel session merged
+spec 021, masking, the same morning, and its R21.1 held the one open outer
+loop, so this slice was built from the domain up and its acceptance rule was
+written red and turned green in one PR rather than opened as an outer loop.
+Writing it added two rows the spec had missed: a `--gold` directory holding no
+gold (R22.5 row 6), and a search given neither a query nor `--gold` (R22.8 row
+5). A measurement is named `relevance` and recorded in the `search`
+experiment, so `tracking_for` learned to check one kind's name template and
+another's experiment. Next, before the pilot: `--candidates N` and any-word
+matching, as options of the measurement only.
+
 `eval` and `embed` read the latest run that finished (2026-10-03, R4.33,
 #710 and this). Decided by a.aleks on 2026-10-02, on a wrong premise: the
 question put to them said `eval` scored a stopped run's partial answers.

@@ -424,6 +424,9 @@ DEFAULT_NAMES = {
     "embed": "{prefix}embed {index} {started}{label}",
     # A search's trace, which belongs to no run (R11.35).
     "search": "{prefix}search {index}{label}",
+    # A search measured against relevance gold: a run, in the search
+    # experiment, named by its index and when (R11.37).
+    "relevance": "{prefix}relevance {index} {started}{label}",
 }
 
 # What ` · ` separates. A name is read left to right, and the separator belongs to
@@ -454,6 +457,7 @@ NAME_PLACEHOLDERS = {
     "gc": ("prefix", "label", "kind", "started"),
     "embed": (*_EVERY_COMMAND, "index"),
     "search": (*_EVERY_COMMAND, "index"),
+    "relevance": (*_EVERY_COMMAND, "index"),
 }
 
 
