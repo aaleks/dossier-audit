@@ -357,7 +357,7 @@ placeholder where the converted text held the value.
 - **Kind:** deterministic
 - **Layer:** config (`dossier.config.load`)
 - **Proved by:** `tests/integration/test_R021_7__an_unmaskable_pipeline_is_refused_before_any_call.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict
 from dossier.domain.chunks import Chunk
 from dossier.domain.datasets import PublishedDataset
 from dossier.domain.index import IndexedChunk, IndexedDocument
+from dossier.domain.masking import Detection
 from dossier.domain.prompts import PublishedPrompt
 from dossier.domain.review import Verdict
 from dossier.domain.search import Lists
@@ -648,6 +649,23 @@ class EmbeddingProvider(Protocol):
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
         """One vector per text, in the order given."""
         ...
+
+
+class Masker(Protocol):
+    """What finds the client data in a document's text (spec 021).
+
+    It finds candidate spans and decides nothing: the threshold, the
+    allow-list, overlaps and numbering are `dossier.domain.masking`'s. `id`
+    and `version` are in every masked view's key (R21.5), and `entities` is
+    every type it can find, so a declared type nothing finds is refused rather
+    than silently left unmasked (R21.7).
+    """
+
+    id: str
+    version: str
+    entities: frozenset[str]
+
+    def detect(self, text: str, *, language: str) -> list[Detection]: ...
 
 
 class Chunker(Protocol):

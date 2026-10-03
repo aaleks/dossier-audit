@@ -27,6 +27,7 @@ from dossier.config.environment import environment
 from dossier.config.load import ConfigError, load_converter_names
 from dossier.domain.conversion import NoConverter, answering
 from dossier.domain.install import stale_entry_points, stale_install_line
+from dossier.domain.masking import MaskingDeclaration
 from dossier.domain.model_id import provider_of
 from dossier.domain.ports import (
     DatasetRegistry,
@@ -34,6 +35,7 @@ from dossier.domain.ports import (
     ImagePart,
     IndexSearch,
     IndexSink,
+    Masker,
     ModelClient,
     PromptRegistry,
     Tracker,
@@ -46,6 +48,7 @@ from dossier.domain.tracking import capture as capture_setting
 from dossier.domain.tracking import settings as tracking_settings
 from dossier.infrastructure.converters.registry import installed_converters
 from dossier.infrastructure.lock import WorkspaceHeld, WorkspaceLock
+from dossier.infrastructure.maskers.registry import masker_for
 from dossier.infrastructure.models.openai_compatible import ModelRequestFailed
 from dossier.infrastructure.models.registry import UnknownProvider, embedding_provider
 from dossier.infrastructure.models.registry import provider as model_provider
@@ -98,6 +101,16 @@ def build_model_client(model_id: str) -> ModelClient:
         environ=environment(Path.cwd()),
     )
     return factory(model_id, url=endpoint.url, api_key=endpoint.api_key)
+
+
+def build_masker(declaration: MaskingDeclaration) -> Masker:
+    """The masker a pipeline's masking declaration names (spec 021).
+
+    A seam, as `build_model_client` is: a test replaces it with a masker that
+    finds the canaries and counts its calls. A name no installed package
+    provides raises `UnknownMasker`, naming the extra that installs one.
+    """
+    return masker_for(declaration)
 
 
 def build_embedding_provider(model_id: str) -> EmbeddingProvider:

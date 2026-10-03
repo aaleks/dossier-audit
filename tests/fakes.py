@@ -118,6 +118,8 @@ class FakeMasker:
     def __init__(self, canaries: Mapping[str, tuple[str, float]] = CANARIES) -> None:
         self.canaries = dict(canaries)
         self.calls: list[dict[str, str]] = []
+        # Every type it can find: the canaries' (R21.7 row 4).
+        self.entities = frozenset(entity for entity, _ in self.canaries.values())
 
     @property
     def call_count(self) -> int:
