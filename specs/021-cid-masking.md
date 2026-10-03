@@ -674,7 +674,7 @@ The acceptance rule of the fourth part's first half.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.eval`)
 - **Proved by:** `tests/integration/test_R021_23__eval_compares_masked_answers_with_masked_gold.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

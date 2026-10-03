@@ -302,6 +302,16 @@ def mask_like(
     return _numbered(text, spans, mapping)[0]
 
 
+def mapped(text: str, mapping: Mapping[str, str]) -> str:
+    """`text` with each value of a document's mapping written as its placeholder (R21.23).
+
+    No masker is asked: what is found is what the mapping already holds, so
+    an eval, which masks nothing (R21.6), can mask a gold value by the
+    document it is about. A value the mapping does not hold stays as written.
+    """
+    return _numbered(text, merged(mapping_values(text, mapping)), mapping)[0]
+
+
 def _kept(text: str, detections: Sequence[Detection], masking: Masking) -> list[Detection]:
     declared = masking.declaration
     return kept(
