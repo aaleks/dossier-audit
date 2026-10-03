@@ -13,7 +13,7 @@ import typer
 
 from dossier.application.convert import convert_source
 from dossier.application.manifest import MANIFEST_NAME, Manifest
-from dossier.application.masking import MASK, mask_texts
+from dossier.application.masking import MASK, MASK_VALUES, mask_texts
 from dossier.application.plan import Plan, build_plan, pinned_documents
 from dossier.application.run import (
     MissingFromReplay,
@@ -546,6 +546,7 @@ def _execute(
                 masking=masking,
                 masker=masker,
                 cache=ArtifactCache(workspace, namespace=MASK),
+                values=ArtifactCache(workspace, namespace=MASK_VALUES),
                 run_id=this_run,
                 dossier_version=version("dossier"),
             )
