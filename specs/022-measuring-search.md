@@ -1,7 +1,7 @@
 # 022 — Measuring search
 
-**Status:** Implemented
-**Rules:** R22.1 – R22.8
+**Status:** Partially implemented
+**Rules:** R22.1 – R22.10
 
 ## Purpose
 
@@ -68,6 +68,24 @@ It exits 0 whatever the scores: no bar gates anything until the pilot has
 measured search once (open question 1). With tracking on it is one MLflow run
 (R11.37), and each query's search is one trace, as any search's is (R11.35).
 
+## Measuring a variant
+
+Spec 019 left two questions to numbers: whether 100 candidates a list are
+enough for the first ten documents, and whether the words list should match a
+chunk holding any word of the query rather than every word. A measurement can
+ask a variant of search, and the same gold measured twice answers each:
+
+```
+dossier search incidents --gold gold/incidents-search
+dossier search incidents --gold gold/incidents-search --candidates 1000
+dossier search incidents --gold gold/incidents-search --words any
+```
+
+They are options of the measurement only. Search itself keeps 100 and every
+word until the pilot's numbers decide (spec 019, questions 1 and 2). Only the
+words list changes with `--words`: the query's vector is the same vector, and
+cached under the same key (R19.3).
+
 ## The measures
 
 **nDCG@10.** Each document in the first ten gains `2^grade - 1`, discounted by
@@ -98,9 +116,6 @@ gain, so it was handed each grade as `2^grade - 1`, the gain used here.
 
 ## Left out on purpose
 
-- **Measuring variants.** `--candidates N` and matching any word, as options of
-  the measurement only, are the next slice, before the pilot: with them the
-  pilot answers spec 019's questions 1 and 2 on its own queries.
 - **An LLM relevance judge.** Asked of a local model or through OpenWebUI only,
   and admitted through the calibration gate (R7.15), which needs human
   judgments to calibrate on. The pilot makes those first.
@@ -236,3 +251,36 @@ their readers, and the measures are of ten documents, unfiltered.
 | 3 | `--gold gold/incidents-search --where component=checkout`, `--chunks` or `--limit 5` | exit 2, naming the option: it changes what is measured |
 | 4 | *counter-example* — `--gold gold/incidents-search --json` | measured, and printed as JSON |
 | 5 | `dossier search incidents`, with neither a query nor `--gold` | exit 2: `a query is required unless --gold is given` |
+
+### R22.9 — `--candidates N` asks each of a measured search's two lists for N chunks rather than 100
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.relevance.measure_search`), cli (`dossier.cli.search`)
+- **Proved by:** `tests/unit/test_R022_9__candidates_sets_how_deep_a_measurement_searches.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `--gold gold/incidents-search --candidates 1000` | each query's lists asked for 1000 chunks each; the first line `incidents · 1 query · candidates 1000 · nDCG@10 …` |
+| 2 | the same, with tracking on | the run's param `candidates` is `1000` |
+| 3 | *counter-example* — `--gold gold/incidents-search` alone | 100, as every search asks (R19.1); the first line names no depth; the param `100` |
+| 4 | `--candidates 1000` without `--gold` | exit 2, before anything is read: `--candidates needs --gold: it measures a variant, and search keeps 100` |
+
+### R22.10 — `--words any` makes a measured search's words list match a chunk holding any word of the query, rather than every word
+
+The query's words are joined with `or`, which `websearch_to_tsquery` reads as
+either (R19.1); a quoted phrase stays one.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.relevance.any_words`), application, cli
+- **Proved by:** `tests/unit/test_R022_10__words_any_matches_any_word_of_the_query.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `certificate expired at checkout`, `--words any` | the words list asked for `certificate or expired or at or checkout`; the query's vector unchanged |
+| 2 | `"expired certificate" checkout`, `--words any` | `"expired certificate" or checkout`: a quoted phrase is one |
+| 3 | the same as row 1, with tracking on | the run's param `words` is `any`; the first line says `any word` |
+| 4 | *counter-example* — `--words all`, or no `--words` | the query as written, every word required (R19.1); the param `all`; the first line says nothing of words |
+| 5 | `--words any` without `--gold` | exit 2, before anything is read: `--words needs --gold: it measures a variant, and search requires every word` |
+| 6 | `--words some` | exit 2: `--words is all or any` |
