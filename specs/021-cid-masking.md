@@ -660,7 +660,7 @@ The acceptance rule of the fourth part's first half.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.masking.masked_like`)
 - **Proved by:** `tests/unit/test_R021_22__a_value_is_masked_with_its_documents_numbering.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
