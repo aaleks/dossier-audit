@@ -41,6 +41,7 @@ from dossier.domain.index import (
     embedding_text,
     indexed,
     masking_differs,
+    masking_switch,
     mismatched_length,
     record_for,
     title_of,
@@ -149,6 +150,8 @@ def embed_index(
     run: LatestRun | None = None,
     enums: Mapping[str, Sequence[str]] | None = None,
     unconverted: Sequence[Unconverted] = (),
+    masks: bool = False,
+    written_masked: bool | None = None,
 ) -> EmbedReport:
     """Bring `declaration`'s index to exactly `documents`, asking only for missing vectors.
 
@@ -158,6 +161,17 @@ def embed_index(
     checks them before any is carried (R18.9).
     """
     model = declaration.embedding_model
+    # Before a vector is asked for or a row written: an index whose masking
+    # would change under it is refused, and left as it was (R21.18).
+    switch = masking_switch(
+        holds_rows=bool(sink.held(declaration.name)),
+        written_masked=written_masked,
+        masks=masks,
+    )
+    if switch is not None:
+        raise ValueError(
+            f"{declaration.name}: {switch}. Write a new index, or empty this one first."
+        )
     ordered = sorted(documents, key=lambda document: (document.source_id, document.key))
     asks = declaration.fields.carried
     notes: list[str] = []

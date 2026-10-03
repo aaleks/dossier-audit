@@ -580,7 +580,7 @@ The acceptance rule of the third part.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.embed`)
 - **Proved by:** `tests/integration/test_R021_18__an_index_s_masking_never_changes_under_it.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
