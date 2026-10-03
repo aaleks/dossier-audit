@@ -50,6 +50,7 @@ from dossier.domain.pipeline import (
     validate_step_ids,
 )
 from dossier.domain.prompts import check_placeholders
+from dossier.domain.relevance import RelevanceQuery, UnreadableRelevance, read_relevance
 from dossier.domain.scoring import FieldKind
 
 # The key a source names its credential's variable under, spelled once. Imported
@@ -911,3 +912,33 @@ def _line_of(text: str, *keys: str | int) -> int | None:
         line = match[0].start_mark.line + 1
         node = match[1]
     return line
+
+
+def load_relevance_gold(directory: Path) -> list[RelevanceQuery]:
+    """Every relevance gold file in `directory`, in name order (R22.5).
+
+    Each file is read before any is refused, so one pass names every problem,
+    as pipeline gold does (R7.56). A directory holding none is refused too: a
+    measurement of nothing would print a mean of nothing (R22.5 row 6).
+    """
+    paths = sorted(directory.glob("*.yaml")) if directory.is_dir() else []
+    if not paths:
+        raise ConfigError(f"{directory}: no relevance gold in it (*.yaml)")
+    queries: list[RelevanceQuery] = []
+    lines: list[str] = []
+    for path in paths:
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as error:
+            # Where it stopped, not the parser's words.
+            mark = getattr(error, "problem_mark", None)
+            where = "" if mark is None else f" (line {mark.line + 1}, column {mark.column + 1})"
+            lines.append(f"{path.name}: not YAML{where}")
+            continue
+        try:
+            queries.append(read_relevance(path.stem, data))
+        except UnreadableRelevance as error:
+            lines.extend(error.lines)
+    if lines:
+        raise ConfigError("\n".join(lines))
+    return queries

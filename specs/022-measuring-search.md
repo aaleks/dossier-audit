@@ -179,7 +179,7 @@ mean for a question nobody judged answerable.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.relevance.RelevanceQuery`), config
 - **Proved by:** `tests/unit/test_R022_5__a_malformed_relevance_file_is_refused.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
