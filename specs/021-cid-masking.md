@@ -386,7 +386,7 @@ placeholder where the converted text held the value.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.masking.language_of`)
 - **Proved by:** `tests/unit/test_R021_9__a_document_is_read_in_its_majority_language.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

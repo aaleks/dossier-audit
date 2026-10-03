@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from dossier.domain.keys import cache_key, mask_inputs, provenance
-from dossier.domain.masking import Masking, mask
+from dossier.domain.masking import MaskerUnavailable, Masking, language_of, mask
 from dossier.domain.ports import ArtifactStore, Masker
 
 # The cache namespace masked views are kept in. `gc` does not collect it, as it
@@ -55,6 +55,10 @@ def mask_texts(
                 )
                 continue
             shown[key] = view(texts[key])
+        except MaskerUnavailable:
+            # Not this document's failure: the masker cannot run at all here,
+            # and every document would fail alike. The run stops (R21.10).
+            raise
         except Exception as error:  # noqa: BLE001 -- any failure of a masker fails closed
             # A masker is a library over statistical models: what it raises is
             # not ours to enumerate. Whatever it is, the document is not sent.
@@ -91,7 +95,7 @@ class _Viewer:
         held = self.cache.get(key, require_record=True)
         if held is not None:
             return held.decode("utf-8")
-        language = self.masking.declaration.languages[0]
+        language = language_of(text, self.masking.declaration.languages)
         masked, counts = mask(text, self.masker.detect(text, language=language), self.masking)
         record = provenance(inputs, run_id=self.run_id, dossier_version=self.dossier_version)
         record["language"] = language
