@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from dossier.domain.keys import cache_key, mask_inputs, provenance
-from dossier.domain.masking import MaskerUnavailable, Masking, language_of, mask
+from dossier.domain.masking import MaskerUnavailable, Masking, language_of, mask, readable_key
 from dossier.domain.ports import ArtifactStore, Masker
 
 # The cache namespace masked views are kept in. `gc` does not collect it, as it
@@ -48,7 +48,8 @@ def mask_texts(
             # A key is shown to the model in every `<document key="...">`
             # (R3.13), so a file named after a client carries the name past
             # its own masked text. Masked like any text, and cached like it.
-            if view(key) != key:
+            readable = readable_key(key)
+            if view(readable) != readable:
                 failed[key] = (
                     "its key names client data, and a key is shown to the model; "
                     "rename it at the source"
