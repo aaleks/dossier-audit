@@ -235,3 +235,4 @@ their readers, and the measures are of ten documents, unfiltered.
 | 2 | `--gold gold/incidents-search --as sre`, or `--all-readers` | exit 2: `--gold cannot be combined with --as: each query names its readers` |
 | 3 | `--gold gold/incidents-search --where component=checkout`, `--chunks` or `--limit 5` | exit 2, naming the option: it changes what is measured |
 | 4 | *counter-example* — `--gold gold/incidents-search --json` | measured, and printed as JSON |
+| 5 | `dossier search incidents`, with neither a query nor `--gold` | exit 2: `a query is required unless --gold is given` |
