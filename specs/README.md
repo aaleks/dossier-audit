@@ -30,7 +30,7 @@ spec assumes.
 | `019-search.md` | `dossier search`: the documents of an index that answer a query, ranked by meaning and words together, filtered by what a run grounded and who may read it | R19.1 – R19.12 | Implemented |
 | `020-running-every-day.md` | Running it every day: one writer at a time in a workspace, and a version that says which commit wrote a record | R20.1 – R20.2 | Implemented |
 | `021-cid-masking.md` | Masking client identifying data: a pipeline that declares it shows a model only a masked view of its documents, masked on this machine by Presidio | R21.1 – R21.14 | Partially implemented |
-| `022-measuring-search.md` | Measuring search: relevance gold, nDCG@10 and recall@10, and `dossier search --gold` | R22.1 – R22.10 | Partially implemented |
+| `022-measuring-search.md` | Measuring search: relevance gold, nDCG@10 and recall@10, and `dossier search --gold` | R22.1 – R22.10 | Implemented |
 
 Supporting files:
 

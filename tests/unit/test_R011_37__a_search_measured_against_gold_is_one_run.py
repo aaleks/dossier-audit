@@ -59,6 +59,9 @@ class TestASearchMeasuredAgainstGoldIsOneRun:
         relevance = json.loads(run.artifacts["relevance.json"])
         assert [query["name"] for query in relevance["queries"]] == [NAME]
         assert run.status == "FINISHED"
+        # Closed, and nothing lost: a query's trace recorded through a plain
+        # search's `use_experiment` left the run unclosable, live on 2026-10-03.
+        assert "could not be recorded" not in result.stderr
 
     def test_each_query_is_still_one_trace(self, embedded: Path, monkeypatch):
         """Row 2 — the one with two queries: two search traces."""

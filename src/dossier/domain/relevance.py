@@ -10,8 +10,11 @@ same ids and judgments give the same measures on every machine.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+
+from dossier.domain.search import CANDIDATES
 
 # The first page: what a person reads of a search, and what the measures read.
 CUT = 10
@@ -242,3 +245,29 @@ def relevance_document(
             for query, readers, listed, score in queries
         ],
     }
+
+
+# How a measured search's words list matches: every word, as search does
+# (R19.1), or any of them (R22.10).
+WORDS = ("all", "any")
+
+# A quoted phrase, or a run of anything but space: the units `or` goes between.
+_UNITS = re.compile(r'"[^"]*"|\S+')
+
+
+def any_words(query: str) -> str:
+    """The query's words joined with `or`, a quoted phrase kept whole (R22.10).
+
+    `websearch_to_tsquery` reads `or` as either, so a chunk holding any one of
+    them is on the words list. Spec 019's question 2, asked of a measurement.
+    """
+    return " or ".join(_UNITS.findall(query))
+
+
+def variant(candidates: int, words: str) -> tuple[str, ...]:
+    """What a measurement asked differently of search, named on its first line (R22.9, R22.10).
+
+    Search as it is names nothing, so two outputs side by side say what differed.
+    """
+    named = [] if candidates == CANDIDATES else [f"candidates {candidates}"]
+    return (*named, *(["any word"] if words == "any" else []))

@@ -14,7 +14,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from dossier.application.search import SearchReport, record_search, search_index
+from dossier.application.search import SearchReport, search_index, search_trace
 from dossier.domain.gold import gold_set_hash
 from dossier.domain.index import IndexDeclaration
 from dossier.domain.ports import ArtifactStore, EmbeddingProvider, IndexSearch, Tracker
@@ -23,10 +23,13 @@ from dossier.domain.relevance import (
     Means,
     Measured,
     RelevanceQuery,
+    any_words,
     means,
     measured,
     relevance_document,
+    variant,
 )
+from dossier.domain.search import CANDIDATES
 from dossier.domain.tracking import label_for, run_name
 from dossier.domain.tracking import tags as tracking_tags
 
@@ -50,6 +53,13 @@ class RelevanceReport:
     index: str
     queries: tuple[MeasuredQuery, ...]
     means: Means
+    # The variant measured: each list's depth, and how its words match (R22.9, R22.10).
+    candidates: int = CANDIDATES
+    words: str = "all"
+
+    @property
+    def variant(self) -> tuple[str, ...]:
+        return variant(self.candidates, self.words)
 
     def document(self) -> dict[str, object]:
         """What `--json` prints and `relevance.json` holds, in one shape (R22.7, R11.37)."""
@@ -69,13 +79,17 @@ def measure_search(
     vectors: ArtifactStore,
     index: IndexSearch,
     held: Mapping[str, str],
+    candidates: int | None = None,
+    words: str = "all",
 ) -> RelevanceReport:
     """Search each query as its readers, ten documents deep, and measure what it listed.
 
     Unfiltered, and documents rather than chunks: the measures are of what a
     reader sees first (R22.8). `readers_of` is the command's own check of a
-    query's readers, as `--as` is checked (R19.10).
+    query's readers, as `--as` is checked (R19.10). `candidates` and `words`
+    are the variant measured; by default, search as it is (R22.9, R22.10).
     """
+    depth = CANDIDATES if candidates is None else candidates
     found: list[MeasuredQuery] = []
     for query in queries:
         readers = readers_of(query)
@@ -90,6 +104,8 @@ def measure_search(
             vectors=vectors,
             index=index,
             held=held,
+            candidates=depth,
+            words=any_words(query.query) if words == "any" else None,
         )
         listed = tuple(each.document.document_id for each in report.found)
         found.append(
@@ -105,6 +121,8 @@ def measure_search(
         index=declaration.name,
         queries=tuple(found),
         means=means([each.measured for each in found]),
+        candidates=depth,
+        words=words,
     )
 
 
@@ -147,6 +165,9 @@ def record_relevance(
         "index": declaration.name,
         "embedding_model": declaration.embedding_model,
         "gold_hash": gold,
+        # The variant measured, so two measurements compare like with like.
+        "candidates": str(report.candidates),
+        "words": report.words,
     }
     if dossier_version:
         # Which dossier measured (R11.19).
@@ -164,10 +185,12 @@ def record_relevance(
         "relevance.json",
         (json.dumps(report.document(), ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
     )
+    # Each query's search is one trace, under this run, where `end_run` looks
+    # for it (R10.24). Not through `record_search`: its `use_experiment` would
+    # send the traces to no run and leave this one unclosable.
     for each in report.queries:
-        record_search(
+        search_trace(
             tracker,
-            experiment=experiment,
             report=each.search,
             where={},
             pipeline=declaration.pipeline,

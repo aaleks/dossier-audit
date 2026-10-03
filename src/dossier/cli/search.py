@@ -42,7 +42,7 @@ from dossier.config.load import (
     load_sources,
 )
 from dossier.domain.index import carried_output, document_id
-from dossier.domain.relevance import unreadable
+from dossier.domain.relevance import WORDS, unreadable
 from dossier.domain.search import (
     ReadersRefused,
     UnfilterableWhere,
@@ -117,12 +117,45 @@ def search(
             metavar="DIR",
         ),
     ] = "",
+    candidates: Annotated[
+        int | None,
+        typer.Option(
+            "--candidates",
+            help="With --gold: ask each list for N chunks rather than 100 (R22.9).",
+            metavar="N",
+            min=1,
+        ),
+    ] = None,
+    words: Annotated[
+        str | None,
+        typer.Option(
+            "--words",
+            help="With --gold: match all of the query's words, or any (R22.10).",
+            metavar="all|any",
+        ),
+    ] = None,
 ) -> None:
     """List the documents of an index that answer a query, best first.
 
     With `--gold`, measure instead: each of the gold set's queries is searched
     as its readers, and nDCG@10 and recall@10 are printed (spec 022).
     """
+    # A variant is a measurement's to ask: search keeps spec 019's depth and
+    # words until the pilot's numbers decide (R22.9, R22.10).
+    if words is not None and words not in WORDS:
+        typer.echo("--words is all or any", err=True)
+        raise typer.Exit(code=2)
+    if not gold and candidates is not None:
+        typer.echo(
+            "--candidates needs --gold: it measures a variant, and search keeps 100", err=True
+        )
+        raise typer.Exit(code=2)
+    if not gold and words is not None:
+        typer.echo(
+            "--words needs --gold: it measures a variant, and search requires every word",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     if gold:
         # Before anything is read: each would change what is measured, and
         # measuring something other than what was asked would print a number
@@ -139,7 +172,15 @@ def search(
             if present:
                 typer.echo(f"--gold cannot be combined with {option}: {why}", err=True)
                 raise typer.Exit(code=2)
-        _measure(Path.cwd(), index, Path(gold), as_json=as_json, label=label)
+        _measure(
+            Path.cwd(),
+            index,
+            Path(gold),
+            as_json=as_json,
+            label=label,
+            candidates=candidates,
+            words=words or "all",
+        )
         return
     if not query:
         typer.echo("a query is required unless --gold is given", err=True)
@@ -232,7 +273,16 @@ def search(
         typer.echo(f"recorded to MLflow: {experiment}", err=True)
 
 
-def _measure(workspace: Path, index: str, gold: Path, *, as_json: bool, label: str) -> None:
+def _measure(
+    workspace: Path,
+    index: str,
+    gold: Path,
+    *,
+    as_json: bool,
+    label: str,
+    candidates: int | None,
+    words: str,
+) -> None:
     """`dossier search INDEX --gold DIR`: each query searched as its readers, and measured."""
     started = f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     try:
@@ -291,6 +341,8 @@ def _measure(workspace: Path, index: str, gold: Path, *, as_json: bool, label: s
             vectors=ArtifactCache(workspace, namespace="embed"),
             index=searched,
             held=_held(workspace, pipeline.sources),
+            candidates=candidates,
+            words=words,
         )
     except SearchRefused as error:
         typer.echo(str(error), err=True)
@@ -327,6 +379,8 @@ def measured_lines(report: RelevanceReport) -> list[str]:
     """
     count = len(report.queries)
     head = f"{report.index} · {count} {'query' if count == 1 else 'queries'}"
+    # A variant is named where the numbers are (R22.9, R22.10).
+    head += "".join(f" · {each}" for each in report.variant)
     found = report.means
     if found.ndcg is None or found.recall is None:
         lines = [f"{head} · no query has a document judged relevant"]

@@ -1,6 +1,6 @@
 # 022 — Measuring search
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R22.1 – R22.10
 
 ## Purpose
@@ -257,7 +257,7 @@ their readers, and the measures are of ten documents, unfiltered.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.relevance.measure_search`), cli (`dossier.cli.search`)
 - **Proved by:** `tests/unit/test_R022_9__candidates_sets_how_deep_a_measurement_searches.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -274,7 +274,7 @@ either (R19.1); a quoted phrase stays one.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.relevance.any_words`), application, cli
 - **Proved by:** `tests/unit/test_R022_10__words_any_matches_any_word_of_the_query.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

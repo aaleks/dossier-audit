@@ -635,6 +635,73 @@ each note's `loss_amount` as an amount, grounded in its note, under
 `runs/<id>/extract/`. A question about the most is a question for the run's
 records, not for a search.
 
+## Task 8 — how well does it rank?
+
+Run against this repository on 2026-10-03, with exercise 20's index, the real
+`qwen3-embedding:4b-fp16` on a CPU and `dev/index`. The four questions were
+written and judged by Claude, against the four notes as they read, and signed
+`judged_by: claude`; yours are yours to judge.
+
+```console
+$ $D search incidents --gold gold/incidents-search
+incidents · 4 queries · nDCG@10 1.000 · recall@10 1.000
+  a-job-that-missed-its-window                nDCG@10 1.000  recall@10 1.000  2 unjudged
+  an-outage-caused-by-a-configuration-change  nDCG@10 1.000  recall@10 1.000  0 unjudged
+  checkout-504s-after-the-gateway-upgrade     nDCG@10 1.000  recall@10 1.000  1 unjudged
+  play-1004                                   nDCG@10 1.000  recall@10 1.000  3 unjudged
+
+$ $D search incidents --gold gold/incidents-search --candidates 1000
+incidents · 4 queries · candidates 1000 · nDCG@10 1.000 · recall@10 1.000
+  ...the same four lines
+
+$ $D search incidents --gold gold/incidents-search --words any
+incidents · 4 queries · any word · nDCG@10 1.000 · recall@10 1.000
+  ...the same four lines
+
+$ Q "select count(*) filter (...every word...) as every_word, count(*) filter (...any word...) as any_word from dossier_index.chunks"
+ every_word | any_word
+------------+----------
+          0 |       16
+```
+
+The first measurement took 49 seconds: four questions, each embedded once,
+with the model loading for the first. The two after it took a second or two,
+because the questions' vectors were cached (task 6).
+
+**Every question scores 1.000.** Search put the note that answers each question
+first, and the related one before the irrelevant ones, so for these four
+questions its order is the best one the judgments allow. That says little
+about search. With four notes, the best order is nearly any order that puts one
+note first. nDCG@10 starts to mean something when a question has more than ten
+candidates to choose from.
+
+**The unjudged counts** are the notes in each first ten that no judgment names:
+three for `play-1004`, which judged only the note it names. They count as not
+relevant. That is harmless when the answer is already first, and it is the
+next thing to judge: a measure is only as good as what was judged.
+
+**`--candidates 1000` and `--words any` change nothing here.** The list by
+meaning already holds all 21 chunks at a depth of 100, so a deeper one adds
+none. The extra word matches only add to notes that were already first. The
+`Q` counts are why they matter at scale. For the plain
+question "an outage caused by a configuration change", the words list as
+search asks it, every word required, matches **0** chunks, so the question
+is found by meaning alone. With any word it matches 16, and those 16 then
+rank by words too. On two thousand notes that is the difference spec 019's
+question 2 asks about, and a gold set of real questions is how it gets
+answered.
+
+**With tracking on**, the measurement is one MLflow run in
+`dossier-audit/incident-audit/search`, named `relevance incidents` and its
+start. The means are its metrics, `candidates` and `words` are among its
+params, and `relevance.json` holds every question. The four questions'
+searches are four traces under that run. Writing them is where the live check
+found a bug the offline suite had missed. Recorded the way a plain search
+records its trace, they went to no run, and the run itself could not be
+closed: MLflow answered `Missing value for required parameter 'run_id'`, and
+the run stayed `RUNNING`. They are now recorded under the run, and the fake
+tracker refuses that call the way MLflow does.
+
 ## Cleaning up
 
 ```console
