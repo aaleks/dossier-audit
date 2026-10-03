@@ -24,11 +24,12 @@ import typer
 from dossier.application.plan import latest_manifest
 from dossier.config.endpoints import EndpointUnset, endpoint_for
 from dossier.config.environment import environment
-from dossier.config.load import ConfigError, load_converter_names
+from dossier.config.load import ConfigError, load_converter_names, load_masking
 from dossier.domain.conversion import NoConverter, answering
 from dossier.domain.install import stale_entry_points, stale_install_line
-from dossier.domain.masking import MaskingDeclaration
+from dossier.domain.masking import Masking, MaskingDeclaration, unrecognised
 from dossier.domain.model_id import provider_of
+from dossier.domain.pipeline import PipelineConfig
 from dossier.domain.ports import (
     DatasetRegistry,
     EmbeddingProvider,
@@ -111,6 +112,35 @@ def build_masker(declaration: MaskingDeclaration) -> Masker:
     provides raises `UnknownMasker`, naming the extra that installs one.
     """
     return masker_for(declaration)
+
+
+def masking_for(
+    pipeline: str, config: PipelineConfig, path: Path
+) -> tuple[Masking | None, Masker | None]:
+    """The masking `config` declares and the masker that masks by it; `(None, None)` for none.
+
+    One refusal for every command that shows a model or an index a document
+    (spec 021): a declaration that does not load, a masker nothing installs,
+    or a declared type nothing would find stops the command with exit 2,
+    before any work. It is never run unmasked instead (R21.7).
+    """
+    try:
+        masking = load_masking(config, path)
+        masker = None if masking is None else build_masker(masking.declaration)
+    except (ConfigError, ValueError) as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+    if masking is not None and masker is not None:
+        missing = unrecognised(masking.declaration, masker.entities)
+        if missing:
+            typer.echo(
+                f"{pipeline}: {config.masking} declares {', '.join(missing)}, which no "
+                f"recogniser of masker {masker.id!r} finds and no declared pattern names. "
+                "A type nothing finds would be left unmasked (R21.7).",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+    return masking, masker
 
 
 def build_embedding_provider(model_id: str) -> EmbeddingProvider:

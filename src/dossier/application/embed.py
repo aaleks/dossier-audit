@@ -78,11 +78,16 @@ class ToIndex:
 
 @dataclass(frozen=True)
 class Unconverted:
-    """A document the ledger holds active whose conversion failed at this embed (R18.4)."""
+    """A document the ledger holds active that this embed could not read (R18.4, R21.16).
+
+    Its conversion failed, or, in a masked index, its masking did: `step` says
+    which. Either way its rows from the last embed are kept, and it is named.
+    """
 
     source_id: str
     key: str
     reason: str
+    step: str = "converted"
 
 
 @dataclass(frozen=True)
@@ -286,7 +291,7 @@ def embed_index(
     # What the ledger holds and this embed could not read keeps its last rows,
     # and is named (R18.4 row 6).
     for failed in unconverted:
-        notes.append(f"{failed.key}: not converted, its rows are kept: {failed.reason}")
+        notes.append(f"{failed.key}: not {failed.step}, its rows are kept: {failed.reason}")
     write, remove = changes(
         sink.held(declaration.name),
         {identity: written[0].content_hash for identity, written in rows.items()},
