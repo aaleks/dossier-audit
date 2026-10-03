@@ -8,7 +8,7 @@ plain values and no masker at all -- and where mutation testing can reach them.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 
 
@@ -20,6 +20,32 @@ class Detection:
     end: int
     entity: str
     score: float
+
+
+def kept(
+    text: str,
+    detections: Sequence[Detection],
+    *,
+    entities: Collection[str],
+    threshold: float,
+    allow: Collection[str],
+) -> list[Detection]:
+    """The detections that are masked: declared, at the threshold or above, not allowed (R21.4).
+
+    A detection *at* the threshold is masked. Presidio scores each recogniser
+    with a constant, so the threshold is a choice of which recognisers count,
+    and one equal to a recogniser's score is a choice to count it. An
+    allow-listed value -- a vendor, a system, a site -- is never masked,
+    whatever its score; it is compared as two mentions of a value are (R21.2).
+    """
+    allowed = {_same(value) for value in allow}
+    return [
+        detection
+        for detection in detections
+        if detection.entity in entities
+        and detection.score >= threshold
+        and _same(text[detection.start : detection.end]) not in allowed
+    ]
 
 
 def merged(detections: Sequence[Detection]) -> list[Detection]:

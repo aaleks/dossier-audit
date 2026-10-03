@@ -313,7 +313,7 @@ placeholder where the converted text held the value.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.masking.kept`)
 - **Proved by:** `tests/unit/test_R021_4__a_detection_is_masked_only_when_declared_and_above_threshold.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
