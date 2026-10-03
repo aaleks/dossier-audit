@@ -334,7 +334,7 @@ placeholder where the converted text held the value.
 |---|-------|------|
 | 1 | `masking/allow.txt` gains `Oracle` | `PLAY-6001` is re-masked, and every stage key over it moves (R5.2) |
 | 2 | the masker's version `1.0.0` becomes `1.1.0` | every masked view is re-masked |
-| 3 | `masking:` declared in a pipeline that had none | every step reading documents or `reference` re-runs, and the steps after it |
+| 3 | `masking:` declared in a pipeline that had none, over `PLAY-6001` and `INC-4821` | `PLAY-6001`'s masked view differs from its text, so every stage key over it moves, and the steps after it (R5.2). `INC-4821`, in which nothing is detected, keeps its stage keys: a stage key holds the text a model is shown, and that text did not change |
 | 4 | `pdf-markdown` raises its version and `INC-4830` converts to the same text | the masked view is served from the cache, and the masker is asked 0 times: it is keyed by the text, not by who made it |
 | 5 | *counter-example* — `prompts/02_verify.md` edited | 0 masker calls; `verify` re-runs over the same masked text |
 
