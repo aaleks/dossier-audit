@@ -1,0 +1,96 @@
+{
+  "_comment": [
+    "One rule per document, matched on its heading, which names no canary and",
+    "is therefore the same substring whether the pipeline masks or not. Every",
+    "span below is the root-cause sentence, which also names no canary, so the",
+    "same reply grounds in task 1's unmasked run and in every masked run after",
+    "it -- only the prompt around it changes."
+  ],
+  "rules": [
+    {
+      "match": ["# PLAY-6001"],
+      "reply": {
+        "document": "PLAY-6001.md",
+        "fields": [
+          {
+            "field": "root_cause",
+            "value": "the nightly settlement export was scheduled at a local time that did not exist on the night the clocks changed, so it never ran",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-6001.md",
+              "span": "The nightly settlement export was scheduled at a local time that did not exist\non the night the clocks changed, so it never ran."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": ["# PLAY-6002"],
+      "reply": {
+        "document": "PLAY-6002.md",
+        "fields": [
+          {
+            "field": "root_cause",
+            "value": "eine Firewall-Regel wurde bei der nächtlichen Änderung entfernt, und die Kassenterminals konnten den Zahlungsdienst nicht mehr erreichen",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-6002.md",
+              "span": "Eine Firewall-Regel wurde bei der nächtlichen Änderung entfernt, und die\nKassenterminals konnten den Zahlungsdienst nicht mehr erreichen."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": ["# PLAY-6003"],
+      "reply": {
+        "document": "PLAY-6003.md",
+        "fields": [
+          {
+            "field": "root_cause",
+            "value": "la mise à jour du service de paiement a remplacé le certificat sans redémarrer les passerelles, qui ont refusé toutes les connexions",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-6003.md",
+              "span": "La mise à jour du service de paiement a remplacé le certificat sans\nredémarrer les passerelles, qui ont refusé toutes les connexions."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": ["# PLAY-6004"],
+      "reply": {
+        "document": "PLAY-6004.md",
+        "fields": [
+          {
+            "field": "root_cause",
+            "value": "l'esportazione notturna era programmata a un orario che non esisteva nella notte del cambio dell'ora, e non è stata eseguita",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-6004.md",
+              "span": "L'esportazione notturna era programmata a un orario che non esisteva nella\nnotte del cambio dell'ora, e non è stata eseguita."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": ["# PLAY-6005"],
+      "reply": {
+        "document": "PLAY-6005.md",
+        "fields": [
+          {
+            "field": "root_cause",
+            "value": "die Zahlung trug eine falsche Referenz und wurde nicht automatisch zugeordnet",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-6005.md",
+              "span": "Die Zahlung trug eine falsche Referenz und wurde nicht automatisch\nzugeordnet."
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

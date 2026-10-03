@@ -1,0 +1,8 @@
+masker: presidio
+languages: [en, de, fr, it]
+score_threshold: 0.5
+entities: [PERSON, EMAIL_ADDRESS, PHONE_NUMBER, IBAN_CODE, CREDIT_CARD, CH_AHV, CLIENT_NUMBER]
+patterns:
+  CH_AHV:        {regex: '\b756[.\s]?\d{4}[.\s]?\d{4}[.\s]?\d{2}\b', score: 0.5, context: [ahv, avs]}
+  CLIENT_NUMBER: {regex: '\bCIF \d{4}-\d{6}\b', score: 0.85}
+allow: masking/allow.txt

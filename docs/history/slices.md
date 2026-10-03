@@ -13,6 +13,51 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+Client data is masked before a model sees it (2026-10-03, spec 021, R21.1 -
+R21.13, #712 - #731). Incidents name clients, and every model call carried
+their names, e-mails and account numbers to OpenWebUI. A pipeline now declares
+`masking: masking/cid.yaml`, and is masked only when it does; snapshots and
+conversions stay as fetched. Decided by a.aleks in /discover from
+`cid_plan.md`, after a spike on this machine:
+- CID is client identifying data, with ORGANIZATION and LOCATION opt-in;
+- placeholders are `[TYPE_n]`, numbered per document;
+- MLflow is in scope;
+- the languages are en, de, fr and it, one per document by a function-word vote;
+- the engine is Presidio with spaCy's lg models, over GLiNER, which needed
+  torch and 4 GB and missed every IBAN;
+- `score_threshold` is required, with no default;
+- recall on real incidents is OPEN until a labelled sample exists (R21.14).
+
+The mechanism sits in one place:
+- a masked view, cached under its own key and pinned by the manifest, that
+  `RunInputs` and `replayed_inputs` serve, so a run, a try, a replay and an
+  eval's judge all read it;
+- what cannot be masked is refused, never sent: a step reading page images,
+  no masker, no threshold, a type nothing finds, a document whose masking
+  fails.
+
+The spike found the masker's two roads to the network. Neither is visible to
+R0.19's import walk:
+- Presidio downloads a missing spaCy model, so the masker loads each model
+  itself and hands it over;
+- tldextract fetches the public suffix list, so it is pointed at its bundled
+  list.
+
+Live, three things the fake masker could not show:
+- the German model missed `Hans Muster` when he opened a paragraph, and found
+  him once line breaks were read as spaces;
+- a file named `Erika-Mustermann-complaint.md` was sent with the name in its
+  key, because NER reads a hyphenated file name as one word, so a key is now
+  read with its separators as spaces (#731, found writing exercise 25);
+- the masked canaries hash the same in python:3.12-slim on Linux as on Windows.
+
+Presidio caps numpy below 2.5, so the lock moved it to 2.4.6. A live check
+showed Docling's OCR output byte for byte unchanged. Later parts of the spec:
+the index and search, gold and calibration, MLflow datasets, `status`, and a
+source that demands masking.
+
+---
+
 Search is measured against relevance gold (2026-10-03, spec 022, R22.1-R22.8
 and R11.37, #714, #716, #719 and this). Nothing measured search, so spec 019's
 open questions and any move to BM25 or a reranker waited on numbers. Decided
