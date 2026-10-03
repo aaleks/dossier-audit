@@ -73,6 +73,8 @@ def search_index(
     vectors: ArtifactStore,
     index: IndexSearch,
     held: Mapping[str, str],
+    candidates: int = CANDIDATES,
+    words: str | None = None,
 ) -> SearchReport:
     """Search `declaration`'s index for `query` (spec 019).
 
@@ -80,6 +82,9 @@ def search_index(
     asked anything: a query vector from another model is meaningless against
     it (R19.6). `held` is each document the ledger holds now, by id, with its
     snapshot, to say how many the index does not reflect (R19.7).
+
+    `candidates` and `words` are a measurement's to change (R22.9, R22.10): a
+    search asks each list for 100 chunks, by the query's words as written.
     """
     model = declaration.embedding_model
     refusal = model_refusal(
@@ -99,10 +104,10 @@ def search_index(
         declaration.name,
         vector=vector,
         # Words are the query's own: the instruction is for the model.
-        words=query,
+        words=query if words is None else words,
         where=where,
         readers=readers,
-        candidates=CANDIDATES,
+        candidates=candidates,
     )
     shown = listed(fused(meaning=lists.meaning, words=lists.words), limit=limit, chunks=chunks)
     return SearchReport(
@@ -144,6 +149,29 @@ def record_search(
     """
     label = label_for(label, environ)
     tracker.use_experiment(experiment)
+    search_trace(
+        tracker, report=report, where=where, pipeline=pipeline, environ=environ, label=label
+    )
+    tracker.end_traces()
+
+
+def search_trace(
+    tracker: Tracker,
+    *,
+    report: SearchReport,
+    where: Mapping[str, Sequence[str]],
+    pipeline: str,
+    environ: Mapping[str, str],
+    label: str,
+) -> None:
+    """One search as one trace: the query as its request, an EMBEDDING and a RETRIEVER span.
+
+    In whatever the tracker is recording: under no run for a search (R11.35),
+    under the measurement's run for each query a measurement searches (R11.37).
+    Choosing the experiment is not this function's: `use_experiment` sends the
+    traces that follow to no run, and a run open at the time forgets its id
+    and cannot be closed, found live on 2026-10-03.
+    """
     tracker.start_trace(
         name=run_name(
             kind="search", values={"index": report.index, "label": label}, environ=environ
@@ -187,4 +215,3 @@ def record_search(
     tracker.end_trace(
         status="OK", outputs=[found.document.document_id for found in report.found]
     )
-    tracker.end_traces()
