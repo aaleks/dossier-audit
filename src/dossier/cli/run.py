@@ -13,6 +13,7 @@ import typer
 
 from dossier.application.convert import convert_source
 from dossier.application.manifest import MANIFEST_NAME, Manifest
+from dossier.application.masking import MASK, mask_texts
 from dossier.application.plan import Plan, build_plan, pinned_documents
 from dossier.application.run import (
     MissingFromReplay,
@@ -540,6 +541,43 @@ def _execute(
                 for failure in converted.failed
             )
 
+    # A masked pipeline shows a model only the masked view of each document --
+    # its text, every converted kind a step reads, and every reference
+    # document -- so the prompts, the grounding and every span recorded hold
+    # the placeholders (spec 021). A document that cannot be masked is left
+    # out and named, as one that did not convert is (R21.8).
+    unmasked: list[tuple[str, str, str]] = []
+    if masking is not None and masker is not None:
+        failed: dict[str, str] = {}
+
+        def _masked(texts: dict[str, str]) -> dict[str, str]:
+            result = mask_texts(
+                texts,
+                masking=masking,
+                masker=masker,
+                cache=ArtifactCache(workspace, namespace=MASK),
+                run_id=this_run,
+                dossier_version=version("dossier"),
+            )
+            failed.update(result.failed)
+            return result.texts
+
+        text = _masked(text)
+        content = {kind: _masked(held) for kind, held in content.items()}
+        reference = {kind: _masked(held) for kind, held in reference.items()}
+        source_of = {key: name for name, keys in by_source.items() for key in keys}
+        for key, reason in sorted(failed.items()):
+            unmasked.append((source_of.get(key, "?"), key, reason))
+            for held in (
+                text,
+                documents,
+                media_types,
+                reference_documents,
+                *content.values(),
+                *reference.values(),
+            ):
+                held.pop(key, None)
+
     prompts = {
         step.id: (path.parent / step.prompt).read_text(encoding="utf-8")
         for step in config.steps
@@ -644,6 +682,8 @@ def _execute(
 
     for source, document, reason in unreadable:
         typer.echo(f"  {source}: {document} could not be converted: {reason}", err=True)
+    for source, document, reason in unmasked:
+        typer.echo(f"  {source}: {document} could not be masked: {reason}", err=True)
 
     if tried is None:
         typer.echo(f"run {report.run_id} · {report.manifest_path}")
@@ -708,5 +748,5 @@ def _execute(
 
     # Either kind of failure means this audit covered less than the corpus. A
     # zero exit here would let anything reading `$?` quote it as clean.
-    if report.failed or unreadable:
+    if report.failed or unreadable or unmasked:
         raise typer.Exit(code=1)

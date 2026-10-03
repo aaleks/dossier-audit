@@ -252,7 +252,7 @@ def cache_key(
 
 
 def provenance(
-    inputs: ConvertInputs | StageInputs | JudgeInputs,
+    inputs: ConvertInputs | StageInputs | JudgeInputs | MaskInputs,
     *,
     run_id: str,
     dossier_version: str,
