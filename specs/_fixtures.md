@@ -579,3 +579,34 @@ its postmortem except the one marked:
 | `architecture_category` | enum | `load-balancer-config` |
 | `root_cause` | free_text | `Certificate renewal and certificate deployment were two separate processes, and only the first was automated.` |
 | `component` | enum | `payments-api`: **ungrounded**, the value R18.9 row 3 leaves out. `INC-4830` never names it |
+
+## Client identifying data (spec 021)
+
+Every value here is fictional, and chosen so that a test can search every
+prompt, span and row for it. They are the **canaries**: a masked pipeline
+shows a model none of them.
+
+| Value | Type | Notes |
+|---|---|---|
+| `Erika Mustermann` | PERSON | The client. The German-speaking world's sample name |
+| `Hans Muster` | PERSON | A second client, so numbering has two people to tell apart |
+| `erika.mustermann@example.ch` | EMAIL_ADDRESS | Presidio also finds `example.ch` inside it as a URL (R21.3 row 1) |
+| `+41 44 555 01 23` | PHONE_NUMBER | Scores 0.4 alone and 0.75 beside `phone` or `Telefon` (R21.4, R21.12) |
+| `CH93 0076 2011 6238 5295 7` | IBAN_CODE | The sample IBAN Swiss banks publish |
+| `756.1234.5678.97` | CH_AHV | The sample AHV number, by a declared pattern |
+| `CIF 0042-118733` | CLIENT_NUMBER | The fictional client number; Presidio finds it only by the declared pattern |
+| `k.oyelaran` | — | An engineer's username, from `INC-5102`. Not a declared type, so never masked (R21.12 row 4) |
+
+The canary corpus. New keys, so that no existing fixture changes:
+
+| Key | Language | Notes |
+|---|---|---|
+| `PLAY-6001` | English | A Jira-shaped incident note: every canary, `Hans Muster` named before `Erika Mustermann`, a URL, `k.oyelaran`, and the phone beside `phone` |
+| `PLAY-6002` | German | `INC-5699`'s prose naming English systems (`orders-api`, `Kafka`), every canary, `Erika Mustermann` named first, the phone beside `Telefon` |
+| `PLAY-6003` | French | Every canary, in French prose |
+| `PLAY-6004` | Italian | Every canary, in Italian prose |
+| `Erika-Mustermann-complaint.pdf` | — | A folder document whose key names the client (R21.8 row 2) |
+
+`incident-audit`'s masking declaration in the examples is
+`masking/cid.yaml`: `masker: presidio`, `languages: [en, de, fr, it]`,
+`score_threshold: 0.5`, and `Oracle` in `masking/allow.txt`.
