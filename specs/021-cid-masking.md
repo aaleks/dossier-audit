@@ -453,7 +453,7 @@ masker. Marked `live`.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.maskers.presidio`)
 - **Proved by:** `tests/integration/test_R021_13__the_masked_canaries_are_the_same_bytes_everywhere.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 Marked `live`. Their SHA-256s are pinned in the test, as a PNG part's are (R8.29).
 
