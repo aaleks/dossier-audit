@@ -459,6 +459,14 @@ for a new index or an emptied one. How each index was last written is
 recorded in `.dossier/index/<index>.json` (R21.18). `dossier search` masks its
 query before it is embedded, searched, printed or recorded (R21.19).
 
+A masked view keeps its document's mapping, placeholder to value, beside it in
+`.dossier/cache/mask-values/`. It is local only, and never written to `runs/`,
+MLflow or the index (R21.21). A gold value or a calibration candidate, written by a
+person against the original document, is masked with that mapping. So the client is
+`[PERSON_2]` in the document and in the answer alike. `eval` scores a masked
+run's quoted span against gold masked that way, and `calibrate` shows its judge
+the masked view and masked candidates (R21.20, R21.22, R21.23).
+
 ## What it records
 
 With tracking on (`DOSSIER_MLFLOW_ENABLED=true` and a tracking URI, in the

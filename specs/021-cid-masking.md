@@ -633,7 +633,7 @@ The acceptance rule of the fourth part's first half.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.calibrate`)
 - **Proved by:** `tests/acceptance/test_R021_20__calibrate_shows_its_judge_no_client_data.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

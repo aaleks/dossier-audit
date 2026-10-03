@@ -10,6 +10,7 @@ import typer
 
 from dossier.application.convert import convert_source
 from dossier.application.eval import FieldSample, calibrate_fields
+from dossier.application.masking import MASK, MASK_VALUES, mask_texts
 from dossier.application.run import judge_evidence, reference_context
 from dossier.cli import bootstrap
 from dossier.cli.convert import exit_if_unconvertible, read_holdings
@@ -23,11 +24,13 @@ from dossier.config.load import (
     load_sources,
 )
 from dossier.domain.conversion import PART_TYPE, NoConverter, unpack_parts
+from dossier.domain.gold import CalibrationCase
 from dossier.domain.grounding import judge_name, judged_states
 from dossier.domain.hashing import text_hash
 from dossier.domain.judges import NotCalibrated
+from dossier.domain.masking import MaskerUnavailable, Masking, language_of, mask_like
 from dossier.domain.pipeline import reads_reference
-from dossier.domain.ports import ImagePart
+from dossier.domain.ports import ImagePart, Masker
 from dossier.domain.tracking import NAMESPACE, calibration_lines, label_for
 from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.connectors.registry import declared_keys
@@ -152,8 +155,17 @@ def calibrate(
         workspace, pipeline, kind="calibrate", gold=gold
     )
 
+    # A masked pipeline's judge is shown what its stages are shown (R21.20),
+    # and one that cannot mask is refused before any judge is asked (R21.7).
+    masking, masker = bootstrap.masking_for(pipeline, config, path)
+
     directory = workspace / gold
     documents, held_parts, held_reference = _held_content(workspace, config)
+    mappings: dict[str, dict[str, str]] = {}
+    if masking is not None and masker is not None:
+        documents, held_reference, mappings = _masked_content(
+            workspace, pipeline, documents, held_reference, masking=masking, masker=masker
+        )
     # A case is judged against what the step's call was shown, as an eval's
     # question about the same answer is: every member of a group (R7.33),
     # and every reference document the step read (R7.34).
@@ -174,8 +186,11 @@ def calibrate(
         for state in states:
             name = judge_name(field, state)
             try:
+                cases = load_calibration_sample(directory, name)
+                if masking is not None and masker is not None:
+                    cases = _masked_cases(cases, mappings, masking=masking, masker=masker)
                 samples[name] = FieldSample(
-                    cases=load_calibration_sample(directory, name),
+                    cases=cases,
                     rubric=rubric.read_text(encoding="utf-8"),
                     rubric_hash=text_hash(rubric),
                     field=field,
@@ -230,3 +245,66 @@ def calibrate(
             typer.echo(line)
     if tracker is not None:
         typer.echo(f"recorded to MLflow: {experiment}")
+
+
+def _masked_content(
+    workspace: Path,
+    pipeline: str,
+    documents: dict[str, str],
+    reference: dict[str, str],
+    *,
+    masking: Masking,
+    masker: Masker,
+) -> tuple[dict[str, str], dict[str, str], dict[str, dict[str, str]]]:
+    """The documents and procedures as a masked pipeline's judge is shown them (R21.20).
+
+    Each masked view comes with its mapping, which each candidate about it is
+    masked with (R21.22). A document that cannot be masked stops the
+    calibration: its cases cannot be judged unmasked, and a sample measured
+    without them would be another sample.
+    """
+
+    def masked(texts: dict[str, str]):
+        return mask_texts(
+            texts,
+            masking=masking,
+            masker=masker,
+            cache=ArtifactCache(workspace, namespace=MASK),
+            values=ArtifactCache(workspace, namespace=MASK_VALUES),
+            run_id=f"calibrate {datetime.now(UTC):%Y%m%dT%H%M%SZ}",
+            dossier_version=version("dossier"),
+        )
+
+    try:
+        shown, context = masked(documents), masked(reference)
+    except MaskerUnavailable as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+    failed = {**shown.failed, **context.failed}
+    if failed:
+        for key, reason in sorted(failed.items()):
+            typer.echo(f"  {key} could not be masked: {reason}", err=True)
+        typer.echo(f"{pipeline}: nothing is calibrated on a document left unmasked", err=True)
+        raise typer.Exit(code=2)
+    return shown.texts, context.texts, shown.mappings
+
+
+def _masked_cases(
+    cases: tuple[CalibrationCase, ...],
+    mappings: dict[str, dict[str, str]],
+    *,
+    masking: Masking,
+    masker: Masker,
+) -> tuple[CalibrationCase, ...]:
+    """Each candidate masked with its document's numbering (R21.20, R21.22)."""
+    masked: list[CalibrationCase] = []
+    for case in cases:
+        language = language_of(case.answer, masking.declaration.languages)
+        try:
+            found = masker.detect(case.answer, language=language)
+        except MaskerUnavailable as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(code=2) from error
+        answer = mask_like(case.answer, found, masking, mappings.get(case.document, {}))
+        masked.append(case.model_copy(update={"answer": answer}))
+    return tuple(masked)
