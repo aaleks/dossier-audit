@@ -16,7 +16,7 @@ import re
 import shutil
 from pathlib import Path
 
-from tests.fakes import CANARIES, FakeMasker
+from tests.fakes import FakeMasker
 from tests.pipelines import write_pipeline
 from tests.scoring_example import FIELDS, abstains
 
@@ -152,9 +152,15 @@ class TestADocumentThatCannotBeMaskedFailsAlone:
         A key is shown to the model in every `<document key="...">` (R3.13), so
         a file named after a client would carry the name past its own masked
         text. The PDF is one of the corpus's postmortems under that name.
+
+        The masker knows `Erika Mustermann` with a space, as a named-entity
+        model does: `en_core_web_lg` finds no person in
+        `Erika-Mustermann-complaint.pdf` and finds one in the same name with its
+        separators read as spaces (measured 2026-10-03). So a key is read that
+        way before it is masked.
         """
         name = "Erika-Mustermann-complaint.pdf"
-        masker = FakeMasker({**CANARIES, "Erika-Mustermann": ("PERSON", 0.85)})
+        masker = FakeMasker()
         pdf = POSTMORTEMS / "INC-5102-orders-api-oom-postmortem.pdf"
         tickets = {"PLAY-6001.md": PLAY_6001, name: pdf}
 

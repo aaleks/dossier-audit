@@ -153,7 +153,7 @@ else, so that no path to a model is missed by being a second call site.
 | the declared masker is not installed, or a declared language's model is missing | refused before any call, naming what installs it | R21.7, R21.10 |
 | `cid.yaml` with no `score_threshold`, or naming an entity nothing recognises | refused at load, naming the file and the key (R3.1) | R21.7 |
 | the masker fails on one document | that document fails, named, and the rest run (R8.6) | R21.8 |
-| a document's key holds a detected value | that document fails, naming the key, and is never sent | R21.8 |
+| a document's key holds a detected value, the key read with its `-`, `_`, `.`, `/` and `+` as spaces | that document fails, naming the key, and is never sent. A named-entity model reads `Erika-Mustermann-complaint.pdf` as one word and finds no person in it (measured 2026-10-03) | R21.8 |
 
 ## The Presidio masker
 

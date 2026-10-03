@@ -379,3 +379,20 @@ def language_of(text: str, languages: Sequence[str]) -> str:
         for language in languages
     }
     return max(languages, key=lambda language: (votes[language], -languages.index(language)))
+
+
+# What separates the words of a file name or a key. A named-entity model reads
+# `Erika-Mustermann-complaint.pdf` as one word and finds no person in it; read
+# with these as spaces it finds her (measured 2026-10-03, R21.8 row 2).
+_KEY_SEPARATORS = str.maketrans({separator: " " for separator in "-_./+"})
+
+
+def readable_key(key: str) -> str:
+    """`key` as a masker should read it: its separators as spaces, every offset kept.
+
+    A key is shown to the model in every `<document key="...">` (R3.13), so a
+    file named after a client carries the name past its masked text unless
+    the key itself is checked -- and a key's words are joined by hyphens,
+    underscores and dots, which a model trained on prose does not split on.
+    """
+    return key.translate(_KEY_SEPARATORS)
