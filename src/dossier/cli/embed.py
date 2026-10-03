@@ -23,7 +23,7 @@ from dossier.application.embed import (
     read_latest_run,
     record_embed,
 )
-from dossier.application.masking import MASK, mask_texts
+from dossier.application.masking import MASK, MASK_VALUES, mask_texts
 from dossier.cli import bootstrap
 from dossier.cli.convert import exit_if_unconvertible, read_holdings
 from dossier.config.endpoints import index_dsn
@@ -132,6 +132,7 @@ def embed(
                         masking=masking,
                         masker=masker,
                         cache=ArtifactCache(workspace, namespace=MASK),
+                        values=ArtifactCache(workspace, namespace=MASK_VALUES),
                         run_id=f"embed {started}",
                         dossier_version=version("dossier"),
                     )

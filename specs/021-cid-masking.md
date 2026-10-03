@@ -646,7 +646,7 @@ The acceptance rule of the fourth part's first half.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.masking`)
 - **Proved by:** `tests/integration/test_R021_21__a_masked_view_keeps_its_mapping_locally.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
