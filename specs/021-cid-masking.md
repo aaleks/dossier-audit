@@ -1,7 +1,7 @@
 # 021 — Masking client identifying data
 
 **Status:** Partially implemented
-**Rules:** R21.1 – R21.19
+**Rules:** R21.1 – R21.23
 
 ## Purpose
 
@@ -294,12 +294,34 @@ place the request named.
   reaches neither the embedding model's cache key nor MLflow, and the masked
   query matches the placeholders the index holds.
 
+## Calibration and gold
+
+`dossier calibrate` was the last road to a model. It shows a judge each sample
+case's document and a candidate answer, and it read the converted text, not
+the masked view. Its candidates, and a gold set's verified values, are written
+by a person against the original document, so they name the client the way
+the document does. Masking the document and not the answer would show the
+judge `[PERSON_1]` in one and `Erika Mustermann` in the other: a leak, and a
+judge asked to compare two things that can no longer agree.
+
+- **A masked view keeps its document's mapping**, placeholder to value, beside
+  it in the cache, in a namespace of its own. That is local, with the same
+  exposure as the snapshots, and never written to `runs/`, MLflow or the
+  index (decided 2026-10-03). The provenance record still names no value.
+- **A value is masked with its document's numbering.** A value from that
+  document gets the document's placeholder. A value the document does not
+  hold, but which the masker finds in the candidate, gets the next number of
+  its type. So `Erika Mustermann` is `[PERSON_1]` in the document, the
+  candidate and the gold value alike.
+- **`calibrate` shows its judge masked evidence**: the masked view, and each
+  candidate masked with its document's numbering.
+- **`eval` compares a masked run's answer with its gold value masked the same
+  way**, so a quoted span that names the client is scored as the same span.
+
 ## Later
 
-These are later parts of this spec, and are not built by R21.1 – R21.19:
+These are later parts of this spec, and are not built by R21.1 – R21.23:
 
-- **Calibration and gold.** A gold value or a calibration candidate shown to a
-  judge is masked with its own document's numbering.
 - **The rest of MLflow.**
   - A gold set publishes masked expectations.
   - A run records how many values of each type it masked.
@@ -603,6 +625,63 @@ The acceptance rule of the third part.
 | 2 | a query in which nothing is detected | searched as typed |
 | 3 | the pipeline's masker cannot run (a model missing) | exit 2, naming what installs it; the query sent nowhere |
 | 4 | *counter-example* — an index whose pipeline declares no `masking:` | the query searched as typed, as spec 019 does |
+
+### R21.20 — `dossier calibrate` of a masked pipeline shows its judge no value its masker detects
+
+The acceptance rule of the fourth part's first half.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.calibrate`)
+- **Proved by:** `tests/acceptance/test_R021_20__calibrate_shows_its_judge_no_client_data.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incident-audit` masked; a calibration sample case on `PLAY-6001` whose candidate reads `Erika Mustermann's settlement was held` | the judge is shown `PLAY-6001`'s masked view, and the candidate as `[PERSON_2]'s settlement was held`: no prompt holds a canary |
+| 2 | the same, recorded under `capture: full` | no span of the calibration holds a canary |
+| 3 | *counter-example* — the same pipeline, no `masking:` | the judge is shown the converted text and the candidate as written |
+
+### R21.21 — a masked view keeps its document's mapping from placeholder to value, on this machine only
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.masking`)
+- **Proved by:** `tests/integration/test_R021_21__a_masked_view_keeps_its_mapping_locally.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `PLAY-6001` masked | its mapping, `[PERSON_1] -> Hans Muster`, `[PERSON_2] -> Erika Mustermann` and the rest, kept in the cache namespace `mask-values` under the view's `K_mask` |
+| 2 | the view served from the cache | its mapping served with it; the masker asked 0 times |
+| 3 | the run's `runs/<run_id>/`, its manifest, its provenance records, and every span recorded | none holds a value from the mapping |
+| 4 | *counter-example* — a document in which nothing is detected | an empty mapping |
+
+### R21.22 — a value is masked with its document's numbering, and a value the document does not hold takes the next number of its type
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.masking.masked_like`)
+- **Proved by:** `tests/unit/test_R021_22__a_value_is_masked_with_its_documents_numbering.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `PLAY-6001`'s mapping; `Erika Mustermann's settlement was held` | `[PERSON_2]'s settlement was held`: the document's number, not a fresh `[PERSON_1]` |
+| 2 | `ERIKA MUSTERMANN confirmed` | `[PERSON_2] confirmed`: compared as R21.2 compares |
+| 3 | `Max Muster confirmed`, a person the document never names, found by the masker | `[PERSON_3] confirmed`: the next number of its type |
+| 4 | *counter-example* — `the settlement export never ran`, no value of the document and nothing detected | as written |
+
+### R21.23 — `eval` compares a masked run's answer with its gold value masked by the document's numbering
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.eval`)
+- **Proved by:** `tests/integration/test_R021_23__eval_compares_masked_answers_with_masked_gold.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a masked run quoting `[PERSON_2]'s settlement was held` for a `reference` field; gold `Erika Mustermann's settlement was held` | scored correct: the gold value is masked to the run's span |
+| 2 | gold naming a different client, `Hans Muster's settlement was held` | scored wrong: `[PERSON_1]` is not `[PERSON_2]` |
+| 3 | an enum or a number | compared as written: an enum's value is never client data |
+| 4 | *counter-example* — an unmasked run | gold compared as written, as spec 007 does |
 
 ## Open questions
 
