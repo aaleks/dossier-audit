@@ -23,6 +23,7 @@ from dossier.application.embed import (
     read_latest_run,
     record_embed,
 )
+from dossier.application.masking import MASK
 from dossier.cli import bootstrap
 from dossier.cli.convert import exit_if_unconvertible, read_holdings
 from dossier.config.endpoints import index_dsn
@@ -139,6 +140,7 @@ def embed(
             store=store,
             converted=cache,
             stage=ArtifactCache(workspace, namespace="stage"),
+            masks=ArtifactCache(workspace, namespace=MASK),
             unreadable=passed_over,
             stopped=stopped,
         )

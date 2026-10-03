@@ -25,15 +25,12 @@ import json
 import re
 from pathlib import Path
 
-import pytest
 from tests.acceptance.conftest import _cli
 from tests.fakes import CANARIES, FakeMasker, FakeTracker, register_connector
 from tests.pipelines import write_pipeline
 from tests.scoring_example import FIELDS, IssueTracker, abstains, found
 
 from dossier.domain.hashing import text_hash
-
-pytestmark = pytest.mark.outer_loop
 
 PIPELINE = "incident-audit"
 SOURCE_ID = "incidents-jira"

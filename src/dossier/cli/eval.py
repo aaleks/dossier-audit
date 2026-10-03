@@ -24,6 +24,7 @@ from dossier.application.eval import (
     start_eval,
 )
 from dossier.application.manifest import MANIFEST_NAME, Manifest
+from dossier.application.masking import MASK
 from dossier.application.recording import failed_if_stopped
 from dossier.application.run import (
     MissingFromReplay,
@@ -748,7 +749,12 @@ def _reproduced(
     try:
         store = SnapshotStore(workspace)
         converted = ArtifactCache(workspace, namespace="convert")
-        text = replayed_inputs(manifest, store=store, cache=converted)
+        text = replayed_inputs(
+            manifest,
+            store=store,
+            cache=converted,
+            masks=ArtifactCache(workspace, namespace=MASK),
+        )
         by_kind = replayed_parts(manifest, store=store, cache=converted)
         report = replay(
             manifest=manifest,

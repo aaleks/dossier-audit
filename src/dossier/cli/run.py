@@ -48,11 +48,17 @@ from dossier.domain.conversion import (
 )
 from dossier.domain.conversion import used as used_converters
 from dossier.domain.hashing import text_hash
-from dossier.domain.masking import unrecognised
+from dossier.domain.masking import MASKING_VERSION, unrecognised
 from dossier.domain.pipeline import PipelineConfig, SourceConfig
 from dossier.domain.plan import check_tried
 from dossier.domain.ports import ImagePart
-from dossier.domain.resolution import PinnedConverter, check_kinds, moved_since, run_id
+from dossier.domain.resolution import (
+    PinnedConverter,
+    PinnedMasker,
+    check_kinds,
+    moved_since,
+    run_id,
+)
 from dossier.domain.store import RUNS_ROOT, TRIES_ROOT, replay_path, try_path
 from dossier.domain.sync import DocumentCollision, State, one_document_per_key
 from dossier.domain.tracking import NAMESPACE, failure_line, label_for, step_line
@@ -327,7 +333,9 @@ def _replay(workspace: Path, directory: Path) -> None:
         # is how R5.4 invalidates conversions, so re-converting would produce
         # text the original run never saw (R4.7, R4.9).
         store = SnapshotStore(workspace)
-        text = replayed_inputs(manifest, store=store, cache=cache)
+        text = replayed_inputs(
+            manifest, store=store, cache=cache, masks=ArtifactCache(workspace, namespace=MASK)
+        )
         report = replay(
             manifest=manifest,
             document_text=text,
@@ -642,6 +650,16 @@ def _execute(
                     for c in used_converters(requests=requests, available=converters)
                 ],
                 source_configs=declared,
+                masker=(
+                    None
+                    if masking is None or masker is None
+                    else PinnedMasker(
+                        id=masker.id,
+                        version=masker.version,
+                        masking_version=MASKING_VERSION,
+                        declaration=masking.declaration_hash,
+                    )
+                ),
             ),
             workspace=workspace,
             model=bootstrap.BuiltOnFirstCall(config.model),

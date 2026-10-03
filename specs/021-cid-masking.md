@@ -270,7 +270,7 @@ placeholder where the converted text held the value.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.run`, `dossier.cli.eval`)
 - **Proved by:** `tests/acceptance/test_R021_1__a_masked_pipeline_shows_no_model_client_data.py`
-- **Status:** IN PROGRESS
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -343,7 +343,7 @@ placeholder where the converted text held the value.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run.replayed_inputs`)
 - **Proved by:** `tests/integration/test_R021_6__replay_and_eval_read_the_pinned_masked_view.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

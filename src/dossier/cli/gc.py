@@ -10,6 +10,7 @@ from typing import Annotated
 import typer
 
 from dossier.application.gc import apply_plan, gc_plan, pin_runs, plan_size, record_gc
+from dossier.application.masking import MASK
 from dossier.cli import bootstrap
 from dossier.config.environment import environment
 from dossier.domain.gc import (
@@ -90,6 +91,9 @@ def gc(
         caches=caches,
         held=_held_snapshots(workspace),
         keep_last=keep_last,
+        # Read, never collected: a kept masked run's replay reads its masked
+        # views through its manifest (R21.6), and `gc` keeps them all.
+        masks=ArtifactCache(workspace, namespace=MASK),
     )
     # Before what is collected, and on stderr: a run that cannot be reproduced
     # is a finding about the workspace, whatever gc does next (R16.7).
