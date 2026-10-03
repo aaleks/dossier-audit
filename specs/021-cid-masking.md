@@ -1,6 +1,6 @@
 # 021 — Masking client identifying data
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R21.1 – R21.14
 
 ## Purpose
@@ -284,7 +284,7 @@ placeholder where the converted text held the value.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.masking.masked`)
 - **Proved by:** `tests/unit/test_R021_2__a_value_becomes_a_numbered_placeholder.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
