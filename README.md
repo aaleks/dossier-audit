@@ -447,7 +447,17 @@ Masking happens on this machine and reaches no network (R21.11).
 What it promises is that every value the masker *detects* is masked
 everywhere. Detection is named-entity recognition, which is statistical: its
 recall on real incidents is measured against a labelled sample, not promised
-(R21.14). The index and `dossier search` are a later part of spec 021.
+(R21.14).
+
+An index masks when its pipeline does. `dossier embed` cuts its chunks from
+the masked views, so no row and no text sent to the embedding model holds a
+detected value. It carries a run's record only from a run masked the same way
+(R21.15 - R21.17). An index's masking never changes under it: Postgres keeps
+rewritten rows in its write-ahead log and backups. So `embed` refuses to write
+an index masked over rows it wrote unmasked, or the other way round, and asks
+for a new index or an emptied one. How each index was last written is
+recorded in `.dossier/index/<index>.json` (R21.18). `dossier search` masks its
+query before it is embedded, searched, printed or recorded (R21.19).
 
 ## What it records
 

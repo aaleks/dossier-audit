@@ -13,6 +13,35 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A masked pipeline's index and search hold no client data either (2026-10-03,
+spec 021 part 3, R21.15 - R21.19, #735 - #740). `dossier embed` still cut a
+masked pipeline's chunks from the unmasked conversion, so the index held what
+the runs never showed a model.
+
+What part 3 changed:
+- It cuts the chunks from the masked views: the run's from the cache, or
+  masked by embed.
+- It carries a record only from a run masked the same way.
+- It masks every search query, `--gold`'s questions included.
+
+R21.18 had a fork. R0.19 lets the index port read back only ids and hashes,
+so Postgres cannot be asked how its rows were written. Decided by a.aleks:
+each embed records it on this machine, in `.dossier/index/<index>.json`. The
+alternatives were a `masked_by` column, which widens R0.19, and a warning.
+Changing an index's masking, either way, is refused, because Postgres keeps
+rewritten rows in its write-ahead log and backups.
+
+Live against the dev index on 5435, with the real Presidio masker and a
+stand-in for the 8 GB embedding model:
+- no canary in any Postgres row, or in any text sent to be embedded;
+- the search embedded `[PERSON_1] [CLIENT_NUMBER_1]`;
+- the embed after masking was removed was refused.
+
+The acceptance test was written after its parts, so it was given a red by
+hand. With embed's masking turned off, it fails on the leaked rows.
+
+---
+
 A measurement can ask a variant of search (2026-10-03, R22.9 and R22.10, #730
 and this): `--candidates N` asks each list for N chunks, and `--words any`
 joins the query's words with `or`, a quoted phrase kept whole. Options of

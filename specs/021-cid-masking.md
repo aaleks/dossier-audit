@@ -537,7 +537,7 @@ The acceptance rule of the third part.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.embed`)
 - **Proved by:** `tests/acceptance/test_R021_15__a_masked_index_holds_no_client_data.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
