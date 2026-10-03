@@ -103,3 +103,94 @@ def means(queries: Sequence[Measured]) -> Means:
         scored=len(scored),
         unscored=unscored,
     )
+
+
+# What a grade may be: answers it, related, judged and not relevant.
+GRADES = (0, 1, 2)
+
+
+@dataclass(frozen=True)
+class RelevanceQuery:
+    """One question of a relevance gold set, and what a person judged of it (spec 022).
+
+    `name` is the file's, without `.yaml`: what is printed and recorded for it.
+    """
+
+    name: str
+    query: str
+    readers: tuple[str, ...]
+    judged_by: str
+    judged: Mapping[str, int]
+
+
+class UnreadableRelevance(ValueError):
+    """Relevance gold that cannot be read as judgments, one line each (R22.5)."""
+
+    def __init__(self, lines: Sequence[str]) -> None:
+        self.lines = tuple(lines)
+        super().__init__("\n".join(self.lines))
+
+
+def _text(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _document_id(value: object) -> bool:
+    # `<source>:<key>`, as the index names a document (spec 018): a key two
+    # sources share is not one document. The key may hold a colon of its own.
+    if not isinstance(value, str):
+        return False
+    source, colon, key = value.partition(":")
+    return bool(colon) and bool(source.strip()) and bool(key.strip())
+
+
+def read_relevance(name: str, data: object) -> RelevanceQuery:
+    """One relevance gold file, or `UnreadableRelevance` naming each problem (R22.5).
+
+    Refused rather than skipped: a skipped query would leave the means over
+    fewer questions than the gold holds, and say nothing.
+    """
+    file = f"{name}.yaml"
+    if not isinstance(data, dict):
+        raise UnreadableRelevance(
+            [f"{file}: not a mapping of query, readers, judged_by and judged"]
+        )
+    lines: list[str] = []
+    query, readers, judged_by, judged = (
+        data.get("query"),
+        data.get("readers"),
+        data.get("judged_by"),
+        data.get("judged"),
+    )
+    if not _text(query):
+        lines.append(f"{file}: query is missing")
+    if readers is None:
+        # A search names its readers, and a measured one is no exception (R19.11).
+        lines.append(f"{file}: readers is missing: a search names its readers (R19.11)")
+    elif not (isinstance(readers, list) and readers and all(map(_text, readers))):
+        lines.append(f"{file}: readers is not a list of readers")
+    if not _text(judged_by):
+        lines.append(
+            f"{file}: judged_by is missing: there is no anonymous path into gold (R7.7)"
+        )
+    if not isinstance(judged, dict):
+        lines.append(f"{file}: judged is missing: grades 0, 1 or 2 by document id")
+    else:
+        for document, grade in judged.items():
+            if not _document_id(document):
+                lines.append(
+                    f"{file}: {document} is not a document id: "
+                    "a document is named <source>:<key>"
+                )
+            # `bool` is an `int` to Python, and `true` is no grade.
+            elif type(grade) is not int or grade not in GRADES:
+                lines.append(f"{file}: {document} is graded {grade!r}; a grade is 0, 1 or 2")
+    if lines:
+        raise UnreadableRelevance(lines)
+    return RelevanceQuery(
+        name=name,
+        query=str(query),
+        readers=tuple(readers),
+        judged_by=str(judged_by),
+        judged=dict(judged),
+    )

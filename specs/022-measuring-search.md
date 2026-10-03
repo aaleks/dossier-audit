@@ -179,7 +179,7 @@ mean for a question nobody judged answerable.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.relevance.RelevanceQuery`), config
 - **Proved by:** `tests/unit/test_R022_5__a_malformed_relevance_file_is_refused.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -188,6 +188,7 @@ mean for a question nobody judged answerable.
 | 3 | no `judged_by` | refused, naming the field: there is no anonymous path into gold (R7.7) |
 | 4 | `INC-4830: 2`, with no source | refused: a document is named `<source>:<key>` (spec 018) |
 | 5 | *counter-example* — the file above, as written | read: one query, one reader, two judgments |
+| 6 | `--gold gold/incidents-search`, a directory holding no `.yaml` file, or none at all | refused: `gold/incidents-search: no relevance gold in it (*.yaml)`; a measurement of nothing would print a mean of nothing |
 
 ### R22.6 — each query is searched as the readers its file names, and a judgment of a document none of them may read is refused
 
