@@ -10,6 +10,7 @@ the query embedded.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
@@ -17,6 +18,7 @@ from typing import Annotated
 
 import typer
 
+from dossier.application.masking import mask_query
 from dossier.application.relevance import (
     RelevanceReport,
     gold_hash,
@@ -42,6 +44,8 @@ from dossier.config.load import (
     load_sources,
 )
 from dossier.domain.index import carried_output, document_id
+from dossier.domain.masking import MaskerUnavailable
+from dossier.domain.pipeline import PipelineConfig
 from dossier.domain.relevance import WORDS, unreadable
 from dossier.domain.search import (
     ReadersRefused,
@@ -228,6 +232,10 @@ def search(
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
 
+    # A masked index is searched with a masked query: nothing typed into it
+    # reaches the model, the words searched, the terminal or MLflow (R21.19).
+    query = _masked_query(declaration.pipeline, pipeline, path, query)
+
     # Before any work, as every command's: a server nobody can reach is refused
     # now, not after the model has been asked (R10.5, R11.35).
     tracker, experiment = bootstrap.tracking_for(workspace, declaration.pipeline, kind="search")
@@ -293,10 +301,8 @@ def _measure(
             sources=sources,
             embedding_providers=available_embedding_providers(),
         )
-        pipeline = load_pipeline(
-            bootstrap.pipeline_path(workspace, declaration.pipeline),
-            providers=available_providers(),
-        )
+        path = bootstrap.pipeline_path(workspace, declaration.pipeline)
+        pipeline = load_pipeline(path, providers=available_providers())
         # Every file read before any is refused (R22.5).
         queries = load_relevance_gold(gold if gold.is_absolute() else workspace / gold)
         acl = {source.id: tuple(source.acl or ()) for source in sources}
@@ -326,6 +332,12 @@ def _measure(
     except (ConfigError, ReadersRefused, UnknownProvider, IndexSearchFailed) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
+
+    # Each question of the gold set is a query like any other (R21.19).
+    queries = [
+        replace(each, query=_masked_query(declaration.pipeline, pipeline, path, each.query))
+        for each in queries
+    ]
 
     # Before any work: a run in the search experiment, named as a measurement
     # (R10.5, R11.37).
@@ -461,3 +473,15 @@ def as_document(report: SearchReport) -> dict[str, object]:
         ],
         "unreflected": report.unreflected,
     }
+
+
+def _masked_query(pipeline: str, config: PipelineConfig, path: Path, query: str) -> str:
+    """`query` as the index's pipeline masks it, or as typed when it masks nothing (R21.19)."""
+    masking, masker = bootstrap.masking_for(pipeline, config, path)
+    if masking is None or masker is None:
+        return query
+    try:
+        return mask_query(query, masking=masking, masker=masker)
+    except MaskerUnavailable as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
