@@ -178,6 +178,6 @@ incidents is measured on a labelled sample, against a threshold someone
 agrees to (R21.14), and not promised.
 
 Not shown here:
-- the index and `dossier search`, a later part of spec 021;
+- the index and `dossier search`, which mask by the same declaration (R21.15 - R21.19);
 - a scanned page, which is refused rather than masked;
 - calibration over gold values that name a client.
