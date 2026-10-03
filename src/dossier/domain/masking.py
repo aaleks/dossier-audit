@@ -199,3 +199,28 @@ def _same(value: str) -> str:
     """The form two mentions of one value share: a heading in capitals, or a
     name wrapped across a line, is not a second client (R21.2 row 2)."""
     return " ".join(value.split()).casefold()
+
+
+def mask(
+    text: str, detections: Sequence[Detection], masking: Masking
+) -> tuple[str, dict[str, int]]:
+    """A document as a masked pipeline shows it, and how many values of each type it masked.
+
+    The one composition of the three decisions: which detections count
+    (R21.4), overlaps as one span (R21.3), and the placeholders (R21.2). The
+    counts are for the provenance record and MLflow, never the values.
+    """
+    declared = masking.declaration
+    spans = merged(
+        kept(
+            text,
+            detections,
+            entities=declared.entities,
+            threshold=declared.score_threshold,
+            allow=masking.allow,
+        )
+    )
+    counts: dict[str, int] = {}
+    for span in spans:
+        counts[span.entity] = counts.get(span.entity, 0) + 1
+    return masked(text, spans), dict(sorted(counts.items()))

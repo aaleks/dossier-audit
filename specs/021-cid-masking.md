@@ -372,7 +372,7 @@ placeholder where the converted text held the value.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.masking`)
 - **Proved by:** `tests/integration/test_R021_8__a_document_that_cannot_be_masked_fails_alone.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
