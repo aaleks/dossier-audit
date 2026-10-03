@@ -1,7 +1,7 @@
 # 011 — What each command records to MLflow
 
-**Status:** Implemented
-**Rules:** R11.1 – R11.36
+**Status:** Partially implemented
+**Rules:** R11.1 – R11.37
 
 ## Purpose
 
@@ -944,3 +944,22 @@ that saw the error said all was well.
 |---|-------|------|
 | 1 | `dossier eval incident-audit --gold gold/incidents` with tracking on, a `root_cause` verdict not in the cache, and the judge's request refused | the judge's trace closes as ERROR, its error the client's line; the eval stops in one line, exit 2 (R9.25) |
 | 2 | *counter-example* — the judge answered | its trace closes as OK, as before |
+
+### R11.37 — a search measured against relevance gold is one MLflow run of its measures, in its pipeline's `search` experiment
+
+A search opens no run (R11.35); a measurement does, as an eval does, because
+what it records is a score to compare across runs of it (spec 022). The means
+are its metrics; the index, its embedding model and the hash of the gold set
+are its params; each query's measures are an artifact, `relevance.json`; and
+each query's search is still one trace, as any search's is.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.relevance`)
+- **Proved by:** `tests/unit/test_R011_37__a_search_measured_against_gold_is_one_run.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier search incidents --gold gold/incidents-search` with tracking on | one run in `dossier-audit/incident-audit/search`, named `relevance incidents` and its start; metrics `ndcg_at_10`, `recall_at_10`, `queries` and `unscored`; params `index`, `embedding_model` and `gold_hash`; the artifact `relevance.json` |
+| 2 | the same | one trace per query, as R11.35 records a search |
+| 3 | *counter-example* — tracking off | the same lines printed, and nothing recorded |

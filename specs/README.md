@@ -19,7 +19,7 @@ spec assumes.
 | `008-conversion.md` | The converter interface, its registration, versioning and selection | R8.1 – R8.34 | Implemented |
 | `009-model-providers.md` | Model providers, their pinned forms, where each is reached, when a request is sent again, what an answer cost, how many are asked at once, and how a failure is said | R9.1 – R9.25 | Implemented |
 | `010-mlflow-tracking.md` | MLflow tracking: the switch, experiment routing, naming, authentication, and what tracking may not do | R10.1 – R10.25 | Implemented |
-| `011-tracking-records.md` | What each command records to MLflow: runs, traces, spans and metrics | R11.1 – R11.36 | Implemented |
+| `011-tracking-records.md` | What each command records to MLflow: runs, traces, spans and metrics | R11.1 – R11.37 | Partially implemented |
 | `012-evaluation-datasets.md` | Publishing a gold set as an MLflow evaluation dataset, and the eval run that links to it | R12.1 – R12.6 | Implemented |
 | `013-pipeline-versions.md` | Publishing a pipeline version as an MLflow logged model, and the accuracy recorded against it | R13.1 – R13.5 | Implemented |
 | `014-prompt-publishing.md` | Publishing a pipeline's prompts and rubrics as MLflow prompt versions, and the half of that registry dossier declines to use | R14.1 – R14.12 | Implemented |
@@ -30,6 +30,7 @@ spec assumes.
 | `019-search.md` | `dossier search`: the documents of an index that answer a query, ranked by meaning and words together, filtered by what a run grounded and who may read it | R19.1 – R19.12 | Implemented |
 | `020-running-every-day.md` | Running it every day: one writer at a time in a workspace, and a version that says which commit wrote a record | R20.1 – R20.2 | Implemented |
 | `021-cid-masking.md` | Masking client identifying data: a pipeline that declares it shows a model only a masked view of its documents, masked on this machine by Presidio | R21.1 – R21.14 | Proposed |
+| `022-measuring-search.md` | Measuring search: relevance gold, nDCG@10 and recall@10, and `dossier search --gold` | R22.1 – R22.8 | Proposed |
 
 Supporting files:
 

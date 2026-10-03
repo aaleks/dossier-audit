@@ -566,6 +566,8 @@ finding 2).
 | `sre` | The readers `procedures-confluence` declares (`acl`), beside `incidents-jira`'s `incident-response` (spec 019) |
 | `certificate expired at checkout` | The query spec 019's examples ask of `incidents`. `INC-4830` answers it |
 | `Given a question about incidents, retrieve the passages of incident records and documents that answer it` | The query instruction an index declares by default (spec 019) |
+| `gold/incidents-search` | The relevance gold set spec 022's examples measure `incidents` against |
+| `certificate-expired-at-checkout.yaml` | Its one query: `certificate expired at checkout`, as `incident-response`, judged by `a.aleks`: `incidents-jira:INC-4830` 2, `incidents-jira:INC-4821` 0 |
 
 `INC-4830`'s categories, as a run declaring them would answer, each grounded in
 its postmortem except the one marked:
