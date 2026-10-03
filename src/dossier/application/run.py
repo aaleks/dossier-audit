@@ -48,7 +48,7 @@ from dossier.domain.fields import OutputSchema
 from dossier.domain.grounding import FieldCheck, FieldVerdict, check_field, with_derived_page
 from dossier.domain.groups import filed_under, group_of
 from dossier.domain.hashing import content_hash
-from dossier.domain.keys import ArtifactInput, StageInputs, cache_key, provenance
+from dossier.domain.keys import ArtifactInput, MaskInputs, StageInputs, cache_key, provenance
 from dossier.domain.pipeline import (
     DEFAULT_INPUT_KIND,
     DOCUMENTS,
@@ -75,6 +75,7 @@ from dossier.domain.ports import (
 from dossier.domain.prompts import empty_inputs, prompt_name, render
 from dossier.domain.resolution import (
     PinnedConverter,
+    PinnedMasker,
     ResolvedPlan,
     ResolvedStep,
     check_kinds,
@@ -274,6 +275,9 @@ class RunInputs:
     reference_documents: Mapping[str, str] | None = None
     converters: Sequence[PinnedConverter] | None = None
     source_configs: Mapping[str, SourceConfig] | None = None
+    # The masker a masked pipeline's documents were masked by, pinned in the
+    # manifest so a replay and an eval read the same masked views (R21.6).
+    masker: PinnedMasker | None = None
 
 
 @dataclass(frozen=True)
@@ -352,6 +356,7 @@ def execute(
         inputs.reference_documents,
     )
     converters, source_configs = inputs.converters, inputs.source_configs
+    masker = inputs.masker
     tracker, experiment, environ = recording.tracker, recording.experiment, recording.environ
     label, capture = recording.label, recording.capture
     versions, version_experiment = recording.versions, recording.version_experiment
@@ -385,6 +390,7 @@ def execute(
         converters=converters,
         source_configs=source_configs,
         reference=reference_documents,
+        masker=masker,
     )
     # Which client asks each step: its own model's, or the pipeline's (R3.14).
     # Decided before anything is written, so a step whose model has no client
@@ -1640,6 +1646,7 @@ def _resolve(
     converters: Sequence[PinnedConverter] | None = None,
     source_configs: Mapping[str, SourceConfig] | None = None,
     reference: Mapping[str, str] | None = None,
+    masker: PinnedMasker | None = None,
 ) -> ResolvedPlan:
     """Every check that can refuse a run, run before a run exists.
 
@@ -1676,6 +1683,7 @@ def _resolve(
         generated_schema_hashes=generated_schema_hashes,
         converters=converters,
         reference=reference,
+        masker=masker,
     )
     # Every remaining check that could refuse this run, run while refusing it is
     # still free (R4.1).
@@ -1706,7 +1714,11 @@ class MissingFromReplay(FileNotFoundError):
 
 
 def replayed_inputs(
-    manifest: Manifest, *, store: SnapshotReader, cache: ArtifactStore
+    manifest: Manifest,
+    *,
+    store: SnapshotReader,
+    cache: ArtifactStore,
+    masks: ArtifactStore | None = None,
 ) -> dict[str, str]:
     """The converted text a past run read, from the entries it wrote (R4.7).
 
@@ -1767,6 +1779,36 @@ def replayed_inputs(
             )
             continue
         text[document.key] = stored.decode("utf-8")
+
+    # A masked run read the masked view of each text, not the text: its judge
+    # and its replay read the same, through the masker its manifest pins, and
+    # never re-mask with what is installed or declared today (R21.6).
+    pinned_masker = manifest.plan.masker
+    if pinned_masker is not None:
+        for key, converted in list(text.items()):
+            view = (
+                None
+                if masks is None
+                else masks.get(
+                    cache_key(
+                        MaskInputs(
+                            text=converted,
+                            masker_id=pinned_masker.id,
+                            masker_version=pinned_masker.version,
+                            masking_version=pinned_masker.masking_version,
+                            declaration=pinned_masker.declaration,
+                        )
+                    ),
+                    require_record=True,
+                )
+            )
+            if view is None:
+                missing.append(
+                    f"  {key}: no masked view by {pinned_masker.id} {pinned_masker.version} "
+                    "for its text"
+                )
+                continue
+            text[key] = view.decode("utf-8")
 
     if missing:
         raise MissingFromReplay(

@@ -357,6 +357,7 @@ def read_latest_run(
     store: SnapshotReader,
     converted: ArtifactStore,
     stage: ArtifactStore,
+    masks: ArtifactStore | None = None,
     unreadable: list[tuple[str, str]] | None = None,
     stopped: list[str] | None = None,
 ) -> LatestRun | None:
@@ -393,7 +394,7 @@ def read_latest_run(
     try:
         report = replay(
             manifest=manifest,
-            document_text=replayed_inputs(manifest, store=store, cache=converted),
+            document_text=replayed_inputs(manifest, store=store, cache=converted, masks=masks),
             document_parts=replayed_parts(manifest, store=store, cache=converted),
             cache=stage,
             failures=recorded,

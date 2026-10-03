@@ -114,6 +114,23 @@ class PinnedConverter(BaseModel):
     kind: str
 
 
+class PinnedMasker(BaseModel):
+    """The masker a masked run used, and the declaration it masked by (spec 021).
+
+    Pinned as a converter is (R8.9), and for the same reason: a replay and an
+    eval recompose each masked view's key from this alone (R21.6), so they read
+    what the run was shown rather than re-masking with what is installed, or
+    declared, today.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    version: str
+    masking_version: str
+    declaration: str
+
+
 class ResolvedPlan(BaseModel):
     """A pipeline resolved against a set of snapshots -- and nothing else.
 
@@ -138,6 +155,18 @@ class ResolvedPlan(BaseModel):
     # `reference` exactly these (R4.16). Empty in a manifest written before.
     reference: list[PinnedDocument] = []
     converters: list[PinnedConverter] = []
+    # The masker of a masked pipeline (spec 021). `None` for every other, and
+    # then left out of the manifest altogether, as a step's own model is: a
+    # `"masker": null` would rewrite the manifest of every unmasked run, though
+    # nothing about them changed (R4.8, R21.6 row 4).
+    masker: PinnedMasker | None = None
+
+    @model_serializer(mode="wrap")
+    def _without_a_masker(self, handler: SerializerFunctionWrapHandler) -> dict:
+        written = handler(self)
+        if written.get("masker") is None:
+            written.pop("masker", None)
+        return written
 
     def model_of(self, step: ResolvedStep) -> str:
         """The model `step` is asked with: its own if it names one, else the pipeline's (R3.14).
@@ -236,6 +265,7 @@ def resolve(
     generated_schema_hashes: Mapping[str, str | None] | None = None,
     converters: Sequence[PinnedConverter] | None = None,
     reference: Mapping[str, str] | None = None,
+    masker: PinnedMasker | None = None,
 ) -> ResolvedPlan:
     """A pipeline and a set of snapshots, frozen into one plan (R4.4, R4.8).
 
@@ -280,6 +310,7 @@ def resolve(
         # converters installed in a different order write the same manifest
         # (R4.8, R5.6).
         converters=sorted(converters or [], key=lambda c: (c.media_type, c.kind, c.id)),
+        masker=masker,
     )
 
 

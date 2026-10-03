@@ -100,6 +100,7 @@ def gc_plan(
     caches: Mapping[str, CollectableStore],
     held: Collection[str],
     keep_last: int = KEEP_LAST,
+    masks: ArtifactStore | None = None,
 ) -> GcPlan:
     """What `gc` deletes, and nothing deleted yet (R16.2 - R16.4).
 
@@ -110,7 +111,9 @@ def gc_plan(
     unreadable: list[tuple[str, str]] = []
     every = held_runs(runs, unreadable=unreadable)
     kept, deleted = kept_runs(every, keep_last=keep_last)
-    needed, unreplayable, untraced = _needed(runs, kept, store=store, caches=caches)
+    needed, unreplayable, untraced = _needed(
+        runs, kept, store=store, caches=caches, masks=masks
+    )
     entries = [
         CacheEntry(
             namespace=namespace,
@@ -153,6 +156,7 @@ def _needed(
     *,
     store: SnapshotReader,
     caches: Mapping[str, CollectableStore],
+    masks: ArtifactStore | None = None,
 ) -> tuple[dict[str, set[str]], tuple[tuple[str, str], ...], tuple[str, ...]]:
     """The keys each kept run's replay reads, by cache, and the runs that stop (R16.3).
 
@@ -168,7 +172,7 @@ def _needed(
     for run_id in kept:
         manifest = Manifest.read(runs / run_id / MANIFEST_NAME)
         try:
-            text = replayed_inputs(manifest, store=store, cache=traced[CONVERT])
+            text = replayed_inputs(manifest, store=store, cache=traced[CONVERT], masks=masks)
             parts = replayed_parts(manifest, store=store, cache=traced[CONVERT])
             failures = _failures(runs / run_id)
         except MissingFromReplay as error:
