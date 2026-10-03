@@ -26,6 +26,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from dossier.domain.hashing import content_hash
+from dossier.domain.masking import MASKING_VERSION
 from dossier.domain.usage import Tokens
 
 # Recorded so an artifact can be traced, and excluded from the key because
@@ -184,7 +185,54 @@ class EmbeddingInputs(BaseModel):
         }
 
 
-def canonical(inputs: ConvertInputs | StageInputs | JudgeInputs | EmbeddingInputs) -> bytes:
+class MaskInputs(BaseModel):
+    """Everything `K_mask` is composed of, and nothing else (R21.5).
+
+    The converted text, not the conversion that made it: a converter that
+    writes the same words again is no reason to mask them again (R21.5 row 4).
+    The text is keyed by its hash, so a key holds no client's name. A prompt, a
+    step, a model and a run are absent on purpose: none of them changes what a
+    document reads as once masked.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    text: str
+    masker_id: str
+    masker_version: str
+    masking_version: str
+    declaration: str
+
+    def keyed(self) -> dict[str, Any]:
+        return {
+            "kind": "mask",
+            "text": content_hash(self.text.encode("utf-8")),
+            "masker_id": self.masker_id,
+            "masker_version": self.masker_version,
+            "masking_version": self.masking_version,
+            "declaration": self.declaration,
+        }
+
+    def recorded(self) -> dict[str, Any]:
+        return self.keyed()
+
+
+def mask_inputs(
+    *, text: str, masker_id: str, masker_version: str, declaration: str
+) -> MaskInputs:
+    """The inputs of one masked view, composed one way for a run and a replay (R21.5, R21.6)."""
+    return MaskInputs(
+        text=text,
+        masker_id=masker_id,
+        masker_version=masker_version,
+        masking_version=MASKING_VERSION,
+        declaration=declaration,
+    )
+
+
+def canonical(
+    inputs: ConvertInputs | StageInputs | JudgeInputs | EmbeddingInputs | MaskInputs,
+) -> bytes:
     """The exact bytes a key is taken over.
 
     `sort_keys` and a fixed separator rather than whatever `json` feels like:
@@ -196,7 +244,9 @@ def canonical(inputs: ConvertInputs | StageInputs | JudgeInputs | EmbeddingInput
     ).encode("utf-8")
 
 
-def cache_key(inputs: ConvertInputs | StageInputs | JudgeInputs | EmbeddingInputs) -> str:
+def cache_key(
+    inputs: ConvertInputs | StageInputs | JudgeInputs | EmbeddingInputs | MaskInputs,
+) -> str:
     """The full 64-character lowercase SHA-256 of the canonical form (R0.7)."""
     return content_hash(canonical(inputs))
 

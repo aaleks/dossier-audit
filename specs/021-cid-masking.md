@@ -328,7 +328,7 @@ placeholder where the converted text held the value.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.keys.mask_inputs`)
 - **Proved by:** `tests/unit/test_R021_5__the_masked_view_key_holds_what_can_change_it.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
