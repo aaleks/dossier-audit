@@ -357,6 +357,32 @@ class LatestRun:
     masked_otherwise: str | None = None
 
 
+def masking_switch(*, holds_rows: bool, written_masked: bool | None, masks: bool) -> str | None:
+    """Why `embed` may not write an index whose masking would change, or `None` (R21.18).
+
+    Postgres keeps a rewritten row in its write-ahead log, in its dead tuples
+    until a vacuum, and in every backup taken: rewriting an unmasked index
+    masked does not take the names out of it. The other way round, its readers
+    rely on a masked index staying masked. So an index that holds rows is
+    written only as it was last written. `written_masked` is how this machine
+    recorded the last embed; `None`, rows no record describes, which were
+    written before masking existed and so unmasked. An empty index is
+    written either way.
+    """
+    if not holds_rows or bool(written_masked) == masks:
+        return None
+    if masks:
+        return (
+            "it was written unmasked, and its pipeline now masks. Postgres keeps rewritten "
+            "rows in its write-ahead log and its backups, so the values would stay in it"
+        )
+    return (
+        "it was written masked, and its pipeline no longer masks. Its readers rely on a "
+        "masked index staying masked, and Postgres keeps what is rewritten in its "
+        "write-ahead log and its backups"
+    )
+
+
 def masking_differs(ran: PinnedMasker | None, index: PinnedMasker | None) -> str | None:
     """Why a run's record may not be carried into a masked index, or `None` (R21.17).
 

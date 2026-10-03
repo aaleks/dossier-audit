@@ -43,6 +43,7 @@ from dossier.infrastructure.cache import ArtifactCache
 from dossier.infrastructure.chunkers.registry import UnknownChunker, chunker_for
 from dossier.infrastructure.connectors.registry import declared_keys
 from dossier.infrastructure.index import IndexSinkFailed
+from dossier.infrastructure.index_record import record_written, written_masked
 from dossier.infrastructure.ledger import Ledger
 from dossier.infrastructure.models.openai_compatible import ModelRequestFailed
 from dossier.infrastructure.models.registry import (
@@ -187,6 +188,8 @@ def embed(
             run=run,
             enums=enums,
             unconverted=unconverted,
+            masks=masking is not None,
+            written_masked=written_masked(workspace, index),
         )
     except ValueError as error:
         typer.echo(str(error), err=True)
@@ -196,6 +199,8 @@ def embed(
         # did not answer. What was cached stays cached for the next embed.
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from error
+    # How this index was just written, for the next embed to compare (R21.18).
+    record_written(workspace, index, bootstrap.pinned_masker(masking, masker))
     for note in report.notes:
         typer.echo(note)
     typer.echo(report.line)
