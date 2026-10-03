@@ -103,3 +103,17 @@ class _Viewer:
         record["masked"] = counts
         self.cache.put(key, masked.encode("utf-8"), record=record)
         return masked
+
+
+def mask_query(query: str, *, masking: Masking, masker: Masker) -> str:
+    """A search's query as a masked index is searched with (R21.19).
+
+    Masked before it is embedded, searched, printed or recorded: a name typed
+    into a query would otherwise reach the embedding model, the vector cache's
+    key and MLflow, and the masked query matches the placeholders the index
+    holds. Not cached: a query is not a document, and is asked once.
+    A masker that cannot run raises `MaskerUnavailable`; the search stops.
+    """
+    language = language_of(query, masking.declaration.languages)
+    masked, _ = mask(query, masker.detect(query, language=language), masking)
+    return masked

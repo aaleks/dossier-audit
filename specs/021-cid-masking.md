@@ -595,7 +595,7 @@ The acceptance rule of the third part.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.search`)
 - **Proved by:** `tests/integration/test_R021_19__a_search_masks_its_query.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
