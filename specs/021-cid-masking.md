@@ -299,7 +299,7 @@ placeholder where the converted text held the value.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.masking.merged`)
 - **Proved by:** `tests/unit/test_R021_3__overlapping_detections_are_masked_as_one.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

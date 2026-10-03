@@ -22,6 +22,37 @@ class Detection:
     score: float
 
 
+def merged(detections: Sequence[Detection]) -> list[Detection]:
+    """Overlapping detections as one span covering them all, in text order (R21.3).
+
+    Presidio finds `example.ch` as a URL inside an e-mail address, and a person
+    inside a company's name. Masked one by one, they would leave a piece of the
+    value standing between two placeholders, so a run of overlapping spans
+    becomes one, and covers every one of them: masking more is the safe side.
+    The span takes the type of its longest detection; a tie is broken by the
+    type first by name, which never varies, rather than by the order a masker
+    happened to list them in.
+    """
+    groups: list[list[Detection]] = []
+    for detection in sorted(detections, key=lambda d: (d.start, d.end)):
+        if groups and detection.start < max(d.end for d in groups[-1]):
+            groups[-1].append(detection)
+        else:
+            groups.append([detection])
+    spans = []
+    for group in groups:
+        winner = min(group, key=lambda d: (-(d.end - d.start), d.entity))
+        spans.append(
+            Detection(
+                start=min(d.start for d in group),
+                end=max(d.end for d in group),
+                entity=winner.entity,
+                score=winner.score,
+            )
+        )
+    return spans
+
+
 def masked(text: str, detections: Sequence[Detection]) -> str:
     """`text` with each detected value replaced by `[TYPE_n]` (R21.2).
 
