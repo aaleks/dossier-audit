@@ -8,8 +8,18 @@ plain values and no masker at all -- and where mutation testing can reach them.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Sequence
+import json
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
+
+from dossier.domain.hashing import content_hash
+
+# The version of these rules: the numbering, the overlaps and the filter. It is
+# in every masked view's key (R21.5), and moves whenever they could write a
+# different text for the same input -- a converter's version promises the same
+# of its artifacts (R5.4). A masked view cached by the old rules and served by
+# the new would claim to be something they no longer produce.
+MASKING_VERSION = "1"
 
 
 @dataclass(frozen=True)
@@ -20,6 +30,20 @@ class Detection:
     end: int
     entity: str
     score: float
+
+
+def declaration_hash(files: Mapping[str, bytes]) -> str:
+    """One hash for a masking declaration and every file it names (R21.5).
+
+    `cid.yaml` alone would leave its allow-list out: a vendor added to
+    `allow.txt` changes what is masked and would change no key. Each file is
+    hashed under its name, in name order, so the same files give the same hash
+    on any machine (R0.4).
+    """
+    named = {name: content_hash(data) for name, data in sorted(files.items())}
+    return content_hash(
+        json.dumps(named, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    )
 
 
 def kept(
