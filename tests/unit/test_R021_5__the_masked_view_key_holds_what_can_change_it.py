@@ -10,7 +10,10 @@ the view through this key.
 from __future__ import annotations
 
 TEXT = "# PLAY-6001\n\nErika Mustermann called. The Oracle database stalled.\n"
-CID_YAML = b"masker: presidio\nlanguages: [en]\nscore_threshold: 0.5\nentities: [PERSON, ORGANIZATION]\nallow: masking/allow.txt\n"
+CID_YAML = (
+    b"masker: presidio\nlanguages: [en]\nscore_threshold: 0.5\n"
+    b"entities: [PERSON, ORGANIZATION]\nallow: masking/allow.txt\n"
+)
 
 
 def _key(text: str = TEXT, *, version: str = "1.0.0", files=None) -> str:
