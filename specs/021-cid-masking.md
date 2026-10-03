@@ -421,7 +421,7 @@ placeholder where the converted text held the value.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.maskers.presidio`)
 - **Proved by:** `tests/integration/test_R021_11__presidio_masks_with_the_network_blocked.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 Marked `live`: it needs the models.
 
