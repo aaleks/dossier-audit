@@ -9,6 +9,7 @@ plain values and no masker at all -- and where mutation testing can reach them.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
@@ -28,6 +29,15 @@ MASKING_VERSION = "1"
 # refuses any step reading it: a client's name in the pixels of a page cannot be
 # masked by anything here (R21.7).
 PICTURES = "page_images"
+
+
+class MaskerUnavailable(RuntimeError):
+    """The masker cannot mask at all on this machine: a model it reads with is missing.
+
+    Not one document's failure (R21.8) but the masker's, so it stops the run
+    before any model is asked, naming what installs it (R21.7, R21.10). It is
+    never caught as a document's failure: every document would fail alike.
+    """
 
 
 class MaskPattern(BaseModel):
@@ -224,3 +234,148 @@ def mask(
     for span in spans:
         counts[span.entity] = counts.get(span.entity, 0) + 1
     return masked(text, spans), dict(sorted(counts.items()))
+
+
+# The words of each language that carry no meaning of their own: articles,
+# conjunctions, prepositions, the commonest verbs. Every document has many of
+# them, and no client is called one. Lower case; a document's words are folded
+# before they are counted. Part of the masking rules: a change to a list can
+# choose another language for a document, so it raises MASKING_VERSION.
+FUNCTION_WORDS: dict[str, frozenset[str]] = {
+    "en": frozenset(
+        [
+            "the",
+            "and",
+            "of",
+            "to",
+            "in",
+            "is",
+            "was",
+            "that",
+            "for",
+            "it",
+            "with",
+            "on",
+            "as",
+            "by",
+            "at",
+            "from",
+            "this",
+            "were",
+            "be",
+            "not",
+            "an",
+            "are",
+            "has",
+            "had",
+            "have",
+            "which",
+            "after",
+        ]
+    ),
+    "de": frozenset(
+        [
+            "der",
+            "die",
+            "das",
+            "und",
+            "ist",
+            "nicht",
+            "mit",
+            "den",
+            "ein",
+            "eine",
+            "zu",
+            "von",
+            "auf",
+            "für",
+            "im",
+            "dem",
+            "sich",
+            "war",
+            "wurde",
+            "des",
+            "bei",
+            "nach",
+            "auch",
+            "einer",
+            "wurden",
+            "aus",
+        ]
+    ),
+    "fr": frozenset(
+        [
+            "le",
+            "la",
+            "les",
+            "et",
+            "est",
+            "des",
+            "une",
+            "un",
+            "du",
+            "en",
+            "que",
+            "pour",
+            "dans",
+            "pas",
+            "sur",
+            "au",
+            "avec",
+            "par",
+            "été",
+            "qui",
+            "aux",
+            "ont",
+            "il",
+            "elle",
+            "sont",
+        ]
+    ),
+    "it": frozenset(
+        [
+            "il",
+            "la",
+            "di",
+            "che",
+            "e",
+            "è",
+            "per",
+            "non",
+            "una",
+            "un",
+            "del",
+            "della",
+            "con",
+            "sono",
+            "gli",
+            "nel",
+            "da",
+            "al",
+            "stato",
+            "alle",
+            "dei",
+            "delle",
+            "anche",
+            "era",
+        ]
+    ),
+}
+_WORD = re.compile(r"[^\W\d_]+")
+
+
+def language_of(text: str, languages: Sequence[str]) -> str:
+    """The declared language whose function words `text` uses most (R21.9).
+
+    One language per document, because a named-entity model reading the wrong
+    language finds names that are not names and misses the ones that are.
+    Counted only among the declared languages: one the author did not declare
+    is never chosen. A tie, or a text with no votes at all -- a CSV of numbers
+    -- falls to the order the author declared them in, which never varies.
+    """
+    words = [word.casefold() for word in _WORD.findall(text)]
+    votes = {
+        language: sum(word in FUNCTION_WORDS.get(language, frozenset()) for word in words)
+        for language in languages
+    }
+    return max(languages, key=lambda language: (votes[language], -languages.index(language)))

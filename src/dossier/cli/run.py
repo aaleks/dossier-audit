@@ -48,7 +48,7 @@ from dossier.domain.conversion import (
 )
 from dossier.domain.conversion import used as used_converters
 from dossier.domain.hashing import text_hash
-from dossier.domain.masking import MASKING_VERSION, unrecognised
+from dossier.domain.masking import MASKING_VERSION, MaskerUnavailable, unrecognised
 from dossier.domain.pipeline import PipelineConfig, SourceConfig
 from dossier.domain.plan import check_tried
 from dossier.domain.ports import ImagePart
@@ -570,9 +570,15 @@ def _execute(
             failed.update(result.failed)
             return result.texts
 
-        text = _masked(text)
-        content = {kind: _masked(held) for kind, held in content.items()}
-        reference = {kind: _masked(held) for kind, held in reference.items()}
+        try:
+            text = _masked(text)
+            content = {kind: _masked(held) for kind, held in content.items()}
+            reference = {kind: _masked(held) for kind, held in reference.items()}
+        except MaskerUnavailable as error:
+            # The masker cannot run on this machine -- a model it reads with is
+            # missing -- and no model has been asked anything yet (R21.10).
+            typer.echo(f"{pipeline}: {error}", err=True)
+            raise typer.Exit(code=2) from error
         source_of = {key: name for name, keys in by_source.items() for key in keys}
         for key, reason in sorted(failed.items()):
             unmasked.append((source_of.get(key, "?"), key, reason))
