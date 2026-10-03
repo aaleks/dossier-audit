@@ -566,7 +566,7 @@ The acceptance rule of the third part.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.embed.read_latest_run`)
 - **Proved by:** `tests/integration/test_R021_17__a_masked_index_carries_only_a_masked_record.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

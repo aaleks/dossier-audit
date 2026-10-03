@@ -40,6 +40,7 @@ from dossier.domain.index import (
     document_id,
     embedding_text,
     indexed,
+    masking_differs,
     mismatched_length,
     record_for,
     title_of,
@@ -54,6 +55,7 @@ from dossier.domain.ports import (
     SnapshotReader,
     Tracker,
 )
+from dossier.domain.resolution import PinnedMasker
 from dossier.domain.store import RUNS_ROOT
 from dossier.domain.tracking import label_for, run_name
 from dossier.domain.tracking import tags as tracking_tags
@@ -163,6 +165,10 @@ def embed_index(
         notes.append(f"no run of {declaration.pipeline} yet")
     elif asks and run.unreplayable is not None:
         notes.append(f"no record: {run.run_id} cannot be replayed: {run.unreplayable}")
+    elif asks and run.masked_otherwise is not None:
+        notes.append(
+            f"no record: {run.run_id} did not mask as this index does: {run.masked_otherwise}"
+        )
     cuts: dict[str, list[_Cut]] = {}
     records: dict[str, Carried] = {}
     for document in ordered:
@@ -363,6 +369,7 @@ def read_latest_run(
     converted: ArtifactStore,
     stage: ArtifactStore,
     masks: ArtifactStore | None = None,
+    masker: PinnedMasker | None = None,
     unreadable: list[tuple[str, str]] | None = None,
     stopped: list[str] | None = None,
 ) -> LatestRun | None:
@@ -396,6 +403,13 @@ def read_latest_run(
         failed.setdefault(str(failure["document"]), str(failure["step"]))
     pinned = {document.key: document.snapshot for document in plan.documents}
     manifest = Manifest.read(directory / MANIFEST_NAME)
+    # A masked index carries the record only of a run masked exactly as it
+    # masks; nothing is replayed for one that was not (R21.17).
+    differs = masking_differs(manifest.plan.masker, masker)
+    if differs is not None:
+        return LatestRun(
+            run_id=run_dir, pinned=pinned, failed=failed, records={}, masked_otherwise=differs
+        )
     try:
         report = replay(
             manifest=manifest,

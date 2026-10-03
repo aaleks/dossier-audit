@@ -27,7 +27,7 @@ from dossier.config.environment import environment
 from dossier.config.load import ConfigError, load_converter_names, load_masking
 from dossier.domain.conversion import NoConverter, answering
 from dossier.domain.install import stale_entry_points, stale_install_line
-from dossier.domain.masking import Masking, MaskingDeclaration, unrecognised
+from dossier.domain.masking import MASKING_VERSION, Masking, MaskingDeclaration, unrecognised
 from dossier.domain.model_id import provider_of
 from dossier.domain.pipeline import PipelineConfig
 from dossier.domain.ports import (
@@ -42,7 +42,7 @@ from dossier.domain.ports import (
     Tracker,
     VersionRegistry,
 )
-from dossier.domain.resolution import ResolvedPlan
+from dossier.domain.resolution import PinnedMasker, ResolvedPlan
 from dossier.domain.store import RUNS_ROOT, passed_over_line, stopped_line
 from dossier.domain.tracking import TrackingSettings, experiment_name, name_template, namespace
 from dossier.domain.tracking import capture as capture_setting
@@ -141,6 +141,18 @@ def masking_for(
             )
             raise typer.Exit(code=2)
     return masking, masker
+
+
+def pinned_masker(masking: Masking | None, masker: Masker | None) -> PinnedMasker | None:
+    """The masker as a manifest pins it, and a masked index compares (R21.6, R21.17)."""
+    if masking is None or masker is None:
+        return None
+    return PinnedMasker(
+        id=masker.id,
+        version=masker.version,
+        masking_version=MASKING_VERSION,
+        declaration=masking.declaration_hash,
+    )
 
 
 def build_embedding_provider(model_id: str) -> EmbeddingProvider:
