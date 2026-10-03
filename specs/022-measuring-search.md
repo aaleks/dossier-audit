@@ -1,6 +1,6 @@
 # 022 — Measuring search
 
-**Status:** Proposed
+**Status:** Partially implemented
 **Rules:** R22.1 – R22.8
 
 ## Purpose
@@ -81,9 +81,11 @@ nothing relevant in the first ten.
 its first ten.
 
 Both are computed in `domain/`, by functions of the ranked document ids and
-the judgments, with no database and no model. They are checked once, when
-built, against `ir-measures` over the same judgments, and the check is recorded
-here.
+the judgments, with no database and no model. They were checked once, on
+2026-10-03, against `ir-measures` 0.4.3 (trec_eval, through
+`pytrec-eval-terrier`) over this spec's rows and 200 random queries: 348
+values, none differing by more than 1e-9. trec_eval's nDCG takes a grade as its
+gain, so it was handed each grade as `2^grade - 1`, the gain used here.
 
 ## Existing options considered
 
@@ -121,7 +123,7 @@ An unjudged document gains nothing. Gain `2^grade - 1`, discount
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.relevance.ndcg_at`)
 - **Proved by:** `tests/unit/test_R022_1__ndcg_is_graded_gain_over_the_ideal_order.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -135,7 +137,7 @@ An unjudged document gains nothing. Gain `2^grade - 1`, discount
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.relevance.recall_at`)
 - **Proved by:** `tests/unit/test_R022_2__recall_is_the_share_of_relevant_documents_listed.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -150,7 +152,7 @@ not relevant, so a high count means the score says little yet.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.relevance.unjudged`)
 - **Proved by:** `tests/unit/test_R022_3__a_query_says_how_many_of_its_first_ten_are_unjudged.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -165,7 +167,7 @@ mean for a question nobody judged answerable.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.relevance.means`)
 - **Proved by:** `tests/unit/test_R022_4__a_query_with_nothing_relevant_is_left_out_of_the_means.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
