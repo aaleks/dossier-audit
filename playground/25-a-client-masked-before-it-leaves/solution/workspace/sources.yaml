@@ -1,0 +1,5 @@
+# One source: a folder of incident notes that name a client.
+sources:
+  - id: incidents
+    type: folder
+    path: inbox/tickets/

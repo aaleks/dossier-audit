@@ -23,6 +23,10 @@ can read and edit — so the code path is the real one and the answers are yours
 to control. Exercises 08, 12, 13 and 14, and task 7 of 22, also start a local
 MLflow server; it is still your machine and nothing else.
 
+**Exercise 25 needs the masking extras.** Presidio and spaCy, and spaCy's four
+`lg` models, about 2 GB, installed once with `uv sync --extra masking --extra
+masking-models`. After that it runs offline, against the stub.
+
 **Exercise 23 needs Docling.** The `docling` extra brings torch, and Docling's
 model weights are downloaded once, at the commits `dossier` pins. After that it
 runs offline, against the stub, and its first conversion takes between half a
@@ -95,6 +99,7 @@ when you want the reasoning behind what you just saw.
 | 22 | [What a run costs, and how fast it goes](22-what-a-run-costs-and-how-fast-it-goes/) | a step that names its own model, a model name refused because it moves, which keys a model moves and what the plan cannot know, tokens per step and per record, a retry that is paid for, "not reported" against nothing asked, `--concurrency` and `DOSSIER_CONCURRENCY` writing the same bytes faster, and a label, tokens and models in MLflow | R3.14, R3.4, R9.14, R5.13, R5.2, R5.11, R5.12, R9.18, R9.19, R9.17, R10.11, R11.20, R11.21, R11.22 |
 | 23 | [A photocopy, read by OCR](23-a-photocopy-read-by-ocr/) | a PDF with no text layer, a workspace naming the converter that answers a pair, weights that are pinned and never fetched, OCR only where a page has no text layer, what OCR writes down and what it misses, a span that quotes the converted text and one that quotes the paper, and a converter name nothing answers | R8.1, R8.13, R8.14, R8.15, R8.2, R8.6, R8.9, R5.4, R6.4, R6.17 – R6.19 |
 | 24 | [Two commands, one workspace](24-two-commands-one-workspace/) | the commands that write and the ones that only read, a second writer refused and told who, the holder's details beside the lock and the moment they are stale, a command killed halfway that leaves nothing to clean up, a daily job that fails plainly rather than waiting, and the version every record says it was written by | R20.1, R17.3, R5.2, R4.31, R20.2 |
+| 25 | [A client's name, masked before it leaves](25-a-client-masked-before-it-leaves/) | what a model is sent and how to read it, declaring masking, numbered placeholders per document, a masked view's record and what it never writes down, a threshold that is required and a picture that is refused, a file named after the client, what the threshold decides, an allow-list for a word taken for a person, and what masking promises against what it measures | R21.1, R21.2, R21.4, R21.5, R21.7, R21.8, R21.9, R21.14 |
 
 ## How an exercise folder is laid out
 

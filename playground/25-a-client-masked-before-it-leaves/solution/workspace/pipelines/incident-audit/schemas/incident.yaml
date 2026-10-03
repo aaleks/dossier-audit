@@ -1,0 +1,7 @@
+# One field, asked of a note that names a client: the root cause, quoted.
+#
+# `reference` is scored by exact match on the quoted span, and needs no judge
+# (unlike `free_text`), which keeps this exercise about masking rather than
+# calibration.
+fields:
+  root_cause: {kind: reference}

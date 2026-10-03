@@ -1,0 +1,17 @@
+# One source, one model, one step -- task 1's pipeline, unmasked.
+#
+# Task 2 adds one line: `masking: masking/cid.yaml`. Nothing else here changes,
+# which is the point: declaring masking changes what a model is shown, not the
+# pipeline that shows it (spec 021).
+sources: [incidents]
+
+model: openai:gpt-5.4-mini
+
+steps:
+  - id: extract
+    prompt: prompts/01_extract.md
+    input: documents
+    mode: per_file
+    output: schemas/incident.yaml
+
+masking: masking/cid.yaml

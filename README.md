@@ -43,7 +43,13 @@ pip install dossier[tracking]  # and MLflow runs, traces and metrics
 pip install dossier[docling]   # and docling-markdown: a PDF with no text layer, read by OCR
 pip install dossier[browser]   # and render: browser, for a website that draws its pages in JavaScript
 pip install dossier[index]     # and dossier embed and search: a Postgres + pgvector index to search by meaning
+pip install dossier[masking,masking-models]  # and masking: client data masked on this machine before a model sees it
 ```
+
+`masking` is Presidio and spaCy; `masking-models` is spaCy's English, German,
+French and Italian models, 2 GB, apart because only a masked run reads them.
+`dossier` never downloads one: a model missing, or at another version, stops a
+masked run before any model is asked, naming this install (spec 021, R21.10).
 
 A `web` source that says `render: browser` has each HTML page drawn by a
 headless Chromium, through Playwright. Install the browser once:
@@ -396,6 +402,52 @@ The manifest pins the reference documents apart, so a replay shows every call
 the procedure as it was (R4.16). A judge is shown them beside the document
 (R7.34). Reading `reference` in a pipeline that declares none is refused at
 load time.
+
+### Masking client data
+
+A pipeline can show a model its documents with the client data masked:
+`Erika Mustermann` becomes `[PERSON_1]`, an IBAN `[IBAN_CODE_1]`. It is off
+unless the pipeline declares it, and declaring it changes nothing before
+conversion: documents are fetched, frozen and converted as they are.
+
+```yaml
+# pipeline.yaml
+masking: masking/cid.yaml
+```
+
+```yaml
+# masking/cid.yaml
+masker: presidio
+languages: [en, de, fr, it]       # each document is read in the one it uses most
+score_threshold: 0.5              # required: which recognisers count is yours to decide
+entities: [PERSON, EMAIL_ADDRESS, PHONE_NUMBER, IBAN_CODE, CREDIT_CARD, CH_AHV, CLIENT_NUMBER]
+patterns:
+  CH_AHV:        {regex: '\b756[.\s]?\d{4}[.\s]?\d{4}[.\s]?\d{2}\b', score: 0.5, context: [ahv, avs]}
+  CLIENT_NUMBER: {regex: '\bCIF \d{4}-\d{6}\b', score: 0.85}
+allow: masking/allow.txt          # optional: values never masked, such as vendors
+```
+
+Masked, every text the pipeline shows a model is the masked view of its
+document: its own text, `reference`, and what `eval`'s judge is shown. A value
+is numbered by first appearance in its document, so the model can still tell
+two people apart (R21.2). The masked view is cached like a conversion, and the
+manifest pins the masker, so a replay and an eval read what the run was shown
+and never mask again (R21.5, R21.6). Its provenance record names the language
+and how many values of each type were masked, never a value.
+
+Anything that cannot be masked is refused rather than sent:
+- a step reading `page_images` (the name is in the pixels);
+- no masker installed;
+- no threshold;
+- a type nothing finds;
+- a document whose masking fails, or whose file name names the client. That one fails alone (R21.7, R21.8).
+
+Masking happens on this machine and reaches no network (R21.11).
+
+What it promises is that every value the masker *detects* is masked
+everywhere. Detection is named-entity recognition, which is statistical: its
+recall on real incidents is measured against a labelled sample, not promised
+(R21.14). The index and `dossier search` are a later part of spec 021.
 
 ## What it records
 
