@@ -154,7 +154,12 @@ def build_tracker(settings: TrackingSettings) -> Tracker:
 
 
 def tracking_for(
-    workspace: Path, pipeline: str | None, *, kind: str, gold: str | None = None
+    workspace: Path,
+    pipeline: str | None,
+    *,
+    kind: str,
+    gold: str | None = None,
+    name_kind: str | None = None,
 ) -> tuple[BestEffortTracker | None, str | None]:
     """The tracker and experiment a `dossier <kind>` records to, or `(None, None)`.
 
@@ -167,6 +172,10 @@ def tracking_for(
     because sync, convert and run read no gold set: a template using `{gold}` is
     refused for them, naming the variable to fix (R10.2). Passing `None` from
     `eval` as well would refuse the one command that can actually fill it.
+
+    `name_kind` is the kind the record is named as, when it is not the kind of
+    the experiment it lands in: a search measured against gold is a
+    `relevance` run in the `search` experiment (R11.37).
     """
     environ = environment(workspace)
     try:
@@ -178,7 +187,7 @@ def tracking_for(
         # holds the run id or the figures it carries, but a template naming a
         # placeholder this command cannot fill is refused here -- before any work
         # (R10.10 row 4), as the experiment's is.
-        name_template(kind=kind, environ=environ)
+        name_template(kind=name_kind or kind, environ=environ)
         # With the rest of this machine's tracking settings, before any work
         # (R10.14): a prefix composed into a name only once a command was at
         # work reached `eval` and `calibrate` as a traceback, with their run

@@ -1,6 +1,6 @@
 # 011 — What each command records to MLflow
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R11.1 – R11.37
 
 ## Purpose
@@ -956,7 +956,7 @@ each query's search is still one trace, as any search's is.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.relevance`)
 - **Proved by:** `tests/unit/test_R011_37__a_search_measured_against_gold_is_one_run.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

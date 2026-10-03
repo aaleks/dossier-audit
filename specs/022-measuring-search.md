@@ -1,6 +1,6 @@
 # 022 — Measuring search
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R22.1 – R22.8
 
 ## Purpose
@@ -198,7 +198,7 @@ so judging it relevant would count a miss the search was right to make.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.relevance`)
 - **Proved by:** `tests/acceptance/test_R022_6__a_query_is_searched_as_its_readers.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -211,7 +211,7 @@ so judging it relevant would count a miss the search was right to make.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.search`)
 - **Proved by:** `tests/acceptance/test_R022_7__search_gold_prints_each_querys_measures.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -227,7 +227,7 @@ their readers, and the measures are of ten documents, unfiltered.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.search`)
 - **Proved by:** `tests/unit/test_R022_8__gold_takes_no_query_or_reader.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

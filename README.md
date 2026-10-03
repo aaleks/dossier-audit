@@ -114,6 +114,7 @@ dossier gc [--keep-last N] [--apply]  # preview, then delete old runs, tries, re
 dossier status [<pipeline> --gold …]  # what each source holds, each latest run, what eval would withhold
 dossier embed <index>                # documents and the latest run's grounded record, into a search index
 dossier search <index> "<query>" --as <reader>   # the documents that answer it, for that reader, best first
+dossier search <index> --gold <dir>  # how well search ranks, against what a person judged
 ```
 
 A prompt is iterated on one document at a time. `dossier run <pipeline> --doc
@@ -220,6 +221,32 @@ the same search again asks no model. A search of an index embedded with another
 model than its file declares is refused, and one over documents synced since the
 last `embed` says how many. `--json` prints the same results for a script. With
 tracking on, each search is one MLflow trace, under no run.
+
+`dossier search <index> --gold <dir>` measures how well search ranks (spec 022).
+The directory holds one YAML file per question people really ask: the `query`,
+the `readers` it is asked as, who `judged_by`, and a grade for each document
+judged, by its id in the index: 2 answers it, 1 is related, 0 is not relevant.
+
+```yaml
+# gold/incidents-search/certificate-expired-at-checkout.yaml
+query: certificate expired at checkout
+readers: [incident-response]
+judged_by: a.aleks
+judged:
+  incidents-jira:INC-4830: 2
+  incidents-jira:INC-4821: 0
+```
+
+Each question is searched as its readers, and the first ten documents are
+scored: nDCG@10, which rewards the answer near the top and counts a 2 three
+times a 1, and recall@10, the share of the documents graded 1 or 2 that were
+listed. Each question also says how many of its first ten nobody judged, since
+those count as not relevant: they are the next to judge. A question with
+nothing graded above 0 is named and left out of the means. A document none of a
+question's readers may read is refused as a judgment, since search was right
+not to list it. It exits 0 whatever the scores; no bar is agreed until the
+pilot has measured search once. With tracking on it is one MLflow run in the
+search experiment, the means as metrics and every question in `relevance.json`.
 
 ## What it reads
 
