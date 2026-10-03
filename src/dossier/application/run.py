@@ -1719,6 +1719,8 @@ def replayed_inputs(
     store: SnapshotReader,
     cache: ArtifactStore,
     masks: ArtifactStore | None = None,
+    values: ArtifactStore | None = None,
+    mappings: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, str]:
     """The converted text a past run read, from the entries it wrote (R4.7).
 
@@ -1786,22 +1788,22 @@ def replayed_inputs(
     pinned_masker = manifest.plan.masker
     if pinned_masker is not None:
         for key, converted in list(text.items()):
-            view = (
-                None
-                if masks is None
-                else masks.get(
-                    cache_key(
-                        MaskInputs(
-                            text=converted,
-                            masker_id=pinned_masker.id,
-                            masker_version=pinned_masker.version,
-                            masking_version=pinned_masker.masking_version,
-                            declaration=pinned_masker.declaration,
-                        )
-                    ),
-                    require_record=True,
+            viewed = cache_key(
+                MaskInputs(
+                    text=converted,
+                    masker_id=pinned_masker.id,
+                    masker_version=pinned_masker.version,
+                    masking_version=pinned_masker.masking_version,
+                    declaration=pinned_masker.declaration,
                 )
             )
+            view = None if masks is None else masks.get(viewed, require_record=True)
+            if mappings is not None and values is not None:
+                # The view's mapping, for gold to be masked with (R21.21,
+                # R21.23). A view kept before mappings were has none: its gold
+                # is compared as written.
+                kept = values.get(viewed)
+                mappings[key] = json.loads(kept) if kept is not None else {}
             if view is None:
                 missing.append(
                     f"  {key}: no masked view by {pinned_masker.id} {pinned_masker.version} "

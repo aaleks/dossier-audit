@@ -24,7 +24,7 @@ from dossier.application.eval import (
     start_eval,
 )
 from dossier.application.manifest import MANIFEST_NAME, Manifest
-from dossier.application.masking import MASK
+from dossier.application.masking import MASK, MASK_VALUES
 from dossier.application.recording import failed_if_stopped
 from dossier.application.run import (
     MissingFromReplay,
@@ -265,10 +265,17 @@ def eval_(
         raise typer.Exit(code=2)
     manifest = Manifest.read(workspace / "runs" / run_dir / MANIFEST_NAME)
 
+    mappings: dict[str, dict[str, str]] = {}
     scored, text, pages, failed = _reproduced(
-        workspace, manifest, step.id, enums=load_enum_values(path.parent / step.output)
+        workspace,
+        manifest,
+        step.id,
+        enums=load_enum_values(path.parent / step.output),
+        mappings=mappings,
     )
-    scores = score_run(report=scored, gold=load_gold(workspace / gold), kinds=kinds)
+    scores = score_run(
+        report=scored, gold=load_gold(workspace / gold), kinds=kinds, mappings=mappings
+    )
 
     judges, withheld = judge_gate(
         workspace / gold,
@@ -528,21 +535,24 @@ def _compare_runs(
     )
     totals: list[tuple] = []
     compared = next(s for s in config.steps if s.id == step)
+    mapped_by_run: list[dict[str, dict[str, str]]] = [{} for _ in manifests]
     reproduced = [
-        _reproduced(workspace, manifest, step, enums=load_enum_values(declaration))
-        for manifest in manifests
+        _reproduced(
+            workspace, manifest, step, enums=load_enum_values(declaration), mappings=mapped
+        )
+        for manifest, mapped in zip(manifests, mapped_by_run, strict=True)
     ]
     # A document either run left unscored is scored in neither (R7.54). Scored
     # over four in one run and three in the other, the failure read as each
     # field's regression, and the delta credited the configuration with it.
     left_out = {document for *_, failed in reproduced for _, document, _ in failed}
     kept = {key: answers for key, answers in gold_documents.items() if key not in left_out}
-    for run, manifest, (scored, text, pages, _) in zip(
-        runs, manifests, reproduced, strict=True
+    for run, manifest, (scored, text, pages, _), mapped in zip(
+        runs, manifests, reproduced, mapped_by_run, strict=True
     ):
         try:
             scores = judge_scores(
-                score_run(report=scored, gold=kept, kinds=kinds),
+                score_run(report=scored, gold=kept, kinds=kinds, mappings=mapped),
                 report=scored,
                 judging=_judging(
                     workspace,
@@ -737,7 +747,12 @@ def _judged_evidence(step, plan, text: Mapping[str, str]) -> dict[str, object]:
 
 
 def _reproduced(
-    workspace: Path, manifest: Manifest, step: str, *, enums: Mapping[str, Sequence[str]]
+    workspace: Path,
+    manifest: Manifest,
+    step: str,
+    *,
+    enums: Mapping[str, Sequence[str]],
+    mappings: dict[str, dict[str, str]] | None = None,
 ):
     """One step's results as a past run produced them, served from its cache (R4.7).
 
@@ -754,6 +769,9 @@ def _reproduced(
             store=store,
             cache=converted,
             masks=ArtifactCache(workspace, namespace=MASK),
+            # Each masked view's mapping, for its gold to be masked by (R21.23).
+            values=ArtifactCache(workspace, namespace=MASK_VALUES),
+            mappings=mappings,
         )
         by_kind = replayed_parts(manifest, store=store, cache=converted)
         report = replay(
