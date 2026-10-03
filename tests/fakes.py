@@ -353,6 +353,12 @@ class FakeTracker:
         self._open.trace = trace
 
     def use_experiment(self, experiment: str) -> None:
+        # As MLflow's tracker does: the traces that follow go under no run, so a
+        # run still open forgets its id, and its `end_run` then fails. Found live
+        # on 2026-10-03 (R11.37): MLflow answered `Missing value for required
+        # parameter 'run_id'`, and the run stayed RUNNING.
+        if self.runs and self.runs[-1].status is None:
+            self._forgot_run = True
         self.trace_experiments.append(experiment)
 
     def end_traces(self) -> None:
@@ -380,6 +386,11 @@ class FakeTracker:
         self._trace.tags.update(tags or {})
 
     def end_run(self, *, status: str) -> None:
+        if getattr(self, "_forgot_run", False):
+            raise FakeTrackerError(
+                "end_run after use_experiment: the tracker no longer knows the run "
+                "(MLflow: Missing value for required parameter 'run_id')"
+            )
         # The statuses MLflow's `RunStatus.from_string` accepts. A run and a trace
         # have different vocabularies -- a trace ends `OK` or `ERROR` -- and
         # passing a trace's to a run raises against a real server while a fake
@@ -991,6 +1002,7 @@ class FakeIndexSink:
                 "where": dict(where),
                 "readers": None if readers is None else tuple(readers),
                 "words": words,
+                "candidates": candidates,
             }
         )
         documents = {document.document_id: document for document in self.held_documents(index)}

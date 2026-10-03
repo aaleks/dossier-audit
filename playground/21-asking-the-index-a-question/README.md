@@ -17,7 +17,9 @@ stops being able to help:
 - what a filter on a run's values matches, and what it refuses before the model
   is asked anything;
 - what a search says about the notes the index has not seen;
-- what a search writes, and what it records in MLflow.
+- what a search writes, and what it records in MLflow;
+- how well a search ranks, measured against questions you judged yourself,
+  and what four notes can and cannot tell you about it.
 
 **Needs what exercise 20 needs: Docker, Ollama and about 10 GB of free RAM. No
 API key, no model bill, no stub. Task 7 needs an MLflow server, as exercise 08
@@ -413,6 +415,48 @@ task 6, so its span says `cached True` and `tokens 0`. The second lists
   question needs? Which part of `dossier` already holds every note's
   `loss_amount`, as a number?
 
+## Task 8 — how well does it rank?
+
+Every search so far was read by eye. `dossier search INDEX --gold DIR` measures
+it instead, against questions a person judged (spec 022). Write one YAML file
+per question in `gold/incidents-search/`, grading each note you judged: `2`
+answers it, `1` is related, `0` is not relevant. A note you leave out is
+unjudged, and counts as not relevant.
+
+```yaml
+# gold/incidents-search/an-outage-caused-by-a-configuration-change.yaml
+query: an outage caused by a configuration change
+readers: [incident-response]
+judged_by: you
+judged:
+  incidents-manual:PLAY-1003.md: 2
+  incidents-manual:PLAY-1001.md: 1
+  incidents-manual:PLAY-1004.md: 0
+  incidents-manual:PLAY-1002.md: 0
+```
+
+Write three more: a question about the checkout 504s, one about a job that
+missed its window, and the key `PLAY-1004`. Then:
+
+```bash
+$D search incidents --gold gold/incidents-search
+$D search incidents --gold gold/incidents-search --candidates 1000
+$D search incidents --gold gold/incidents-search --words any
+Q "select count(*) filter (where text_search @@ websearch_to_tsquery('simple',
+   'an outage caused by a configuration change')) as every_word,
+   count(*) filter (where text_search @@ websearch_to_tsquery('simple',
+   'an or outage or caused or by or a or configuration or change')) as any_word
+   from dossier_index.chunks"
+```
+
+- Every question probably scores 1.000. What does that say about search, and
+  what does it say about four notes?
+- What do the unjudged counts tell you, and which notes would you judge next?
+- Why do `--candidates 1000` and `--words any` change nothing here? What do the
+  two counts from `Q` say would change on two thousand notes?
+- With task 7's tracking on, what lands in MLflow, and what do the four
+  questions' traces sit under?
+
 ---
 
 ## Done when
@@ -426,7 +470,9 @@ task 6, so its span says `cached True` and `tokens 0`. The second lists
 - you know what `--where` matches and what it refuses, and that the refusals
   ask the model nothing;
 - you can say what a search writes, what it says about notes the index has not
-  seen, and what it records in MLflow.
+  seen, and what it records in MLflow;
+- you have measured search against your own judgments, and can say why four
+  notes cannot decide spec 019's open questions.
 
 ## Cleaning up
 

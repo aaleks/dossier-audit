@@ -13,6 +13,25 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+A measurement can ask a variant of search (2026-10-03, R22.9 and R22.10, #730
+and this): `--candidates N` asks each list for N chunks, and `--words any`
+joins the query's words with `or`, a quoted phrase kept whole. Options of
+`--gold` only, so search keeps spec 019's 100 and every word until the
+pilot's numbers decide. The live check, against the real model, `dev/index`
+and MLflow with the langchain and Confluence stacks stopped for memory as the
+user approved, found what the suite had not. The measurement's run was left
+`RUNNING`, with `5 record(s) could not be recorded`. Each query's trace was
+recorded through `record_search`, whose `use_experiment` sets the MLflow
+tracker's run id to `None`, so `end_run` was refused with `Missing value for
+required parameter 'run_id'`. `search_trace` is now split out of
+`record_search` and the measurement records its traces under its own run.
+The fake tracker refuses that sequence the way MLflow does, and R11.37's test
+went red on it before the fix. Postgres reads the `or` as `|` and keeps a
+phrase as `<->`. On exercise 20's 21 chunks, "an outage caused by a
+configuration change" matches 0 chunks when every word is required and 16
+with any word: the first real evidence on spec 019's question 2, though four
+notes score 1.000 either way. Exercise 21 gains task 8.
+
 Search is measured against relevance gold (2026-10-03, spec 022, R22.1-R22.8
 and R11.37, #714, #716, #719 and this). Nothing measured search, so spec 019's
 open questions and any move to BM25 or a reranker waited on numbers. Decided
