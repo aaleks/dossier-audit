@@ -185,6 +185,13 @@ written. `presidio-anonymizer` is not used.
   3.8.0, by hash, in a `masking` extra. The masker's version names them all:
   moving a pin raises it. A model is loaded only when a document is read in its
   language, so a corpus in English and German loads two, about 1.6 GB.
+- **Line breaks read as spaces.** spaCy reads a line break as a word, and
+  one opening a paragraph hid the name after it: `de_core_news_lg` found no
+  person in `PLAY-6002`'s paragraph "Hans Muster aus dem Filialnetz" until the
+  break before it was read as a space, which also stopped it finding a person
+  in `Kassenterminals` (measured 2026-10-03). Presidio is handed the text with
+  each break replaced by one space, so every span it finds is the same span in
+  the text that is masked.
 - **The same bytes on every machine** (R21.13). Measured on 2026-10-02:
   - Presidio's scores are constants, not computed floats.
   - The spans found were byte-identical across processes, across hash seeds,
@@ -401,7 +408,7 @@ placeholder where the converted text held the value.
 - **Kind:** deterministic
 - **Layer:** infrastructure (`dossier.infrastructure.maskers.presidio`)
 - **Proved by:** `tests/unit/test_R021_10__presidio_never_fetches_a_model.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
@@ -432,7 +439,7 @@ masker. Marked `live`.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.run`)
 - **Proved by:** `tests/acceptance/test_R021_12__presidio_masks_every_canary_before_the_model.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|

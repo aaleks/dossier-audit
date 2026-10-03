@@ -51,8 +51,11 @@ jobs:
         # Not docling: it brings torch, gigabytes with its CUDA libraries on
         # Linux, and every test that runs it is `live` -- excluded from the
         # default run whether it is installed or not (R8.14, R8.15).
+        # Not masking-models either: spaCy's four `lg` models are 2 GB, and
+        # the tests that read with them are `live` too (R21.11 - R21.13).
+        # `masking` itself is installed, so the masker's offline rules run.
         run: |
-          uv sync --locked --all-extras --no-extra docling
+          uv sync --locked --all-extras --no-extra docling --no-extra masking-models
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: No conflict markers

@@ -105,6 +105,26 @@ browser = ["playwright>=1.49"]
 # them (R0.19) and only `dossier embed` and `dossier search` reach it: a
 # workspace that builds no index installs no database driver.
 index = ["psycopg[binary]>=3.3", "pgvector>=0.5"]
+# The `presidio` masker (spec 021): Microsoft Presidio's analyzer finds client
+# data in a document's text, on spaCy's named-entity models, before any model
+# is shown it. MIT (presidio-analyzer, spaCy). Chosen over GLiNER, which needed
+# torch, 4 GB and ten times the time and missed every IBAN, and over patterns
+# alone, which find no name (spec 021, "Existing options considered"). Pinned
+# exactly: the masker's version names both, and a newer release can find other
+# spans in the same text, which is a masked view changing under its key (R5.4).
+# Presidio caps numpy below 2.5, and one lock resolves every extra together,
+# so the whole install holds numpy at 2.4 while this extra is in it.
+masking = ["presidio-analyzer==2.2.364", "spacy==3.8.16"]
+# The four languages' models, apart from `masking` because they are 2 GB and
+# CI, which runs no live test, has no use for them. Pinned by URL and hash,
+# because spaCy publishes its models as GitHub releases, not on PyPI; a model
+# missing or at another version stops a masked run naming this extra (R21.10).
+masking-models = [
+    "en-core-web-lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl",
+    "de-core-news-lg @ https://github.com/explosion/spacy-models/releases/download/de_core_news_lg-3.8.0/de_core_news_lg-3.8.0-py3-none-any.whl",
+    "fr-core-news-lg @ https://github.com/explosion/spacy-models/releases/download/fr_core_news_lg-3.8.0/fr_core_news_lg-3.8.0-py3-none-any.whl",
+    "it-core-news-lg @ https://github.com/explosion/spacy-models/releases/download/it_core_news_lg-3.8.0/it_core_news_lg-3.8.0-py3-none-any.whl",
+]
 
 [dependency-groups]
 dev = [
@@ -175,6 +195,11 @@ ollama = "dossier.infrastructure.models.ollama_embed:ollama_embeddings"
 [project.entry-points."dossier.chunkers"]
 headings = "dossier.domain.chunks:HeadingsChunker"
 
+# What finds client data in a masked pipeline's documents (spec 021), found by
+# the name a declaration's `masker:` gives, as a converter is (R8.7).
+[project.entry-points."dossier.maskers"]
+presidio = "dossier.infrastructure.maskers.presidio:PresidioMasker"
+
 [build-system]
 # hatch-vcs reads the version from git at build time, and only then: nothing
 # imports it when dossier runs (R20.2).
@@ -188,6 +213,12 @@ source = "vcs"
 # The version is fixed when the install is built, so uv rebuilds it when the
 # commit or a tag moves, not only when this file does (R20.2 row 6).
 cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true } }]
+
+# spaCy's models are GitHub releases, not PyPI packages, so the
+# `masking-models` extra names them by URL (spec 021). dossier is installed
+# from its repository, never published to PyPI, which refuses such references.
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dossier"]
