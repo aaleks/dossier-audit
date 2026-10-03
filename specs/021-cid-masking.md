@@ -1,7 +1,7 @@
 # 021 — Masking client identifying data
 
 **Status:** Partially implemented
-**Rules:** R21.1 – R21.14
+**Rules:** R21.1 – R21.19
 
 ## Purpose
 
@@ -225,6 +225,27 @@ Decided by `a.aleks` on 2026-10-02:
 - **Detection recall on real incidents is OPEN** until a labelled sample exists
   (R21.14). The synthetic canaries are a deterministic test instead (R21.12).
 
+Decided by `a.aleks` on 2026-10-03:
+
+- **The index and search are part 3** (R21.15 – R21.19), as drafted.
+- **How an index was last written is recorded on this machine**, in
+  `.dossier/index/<index>.json`. Rows that no record describes count as
+  unmasked. Two alternatives were weighed:
+  - a `masked_by` column in Postgres: the truth would live with the rows, but
+    it needs a schema migration and widens what R0.19 lets `IndexSink` read
+    back;
+  - a warning instead of a refusal: it leaves client data in the database's
+    history without a word.
+
+  The cost is that a second machine writing the same index has no record, and
+  is refused until the index is emptied. That is strict, and it is safe.
+- **For part 4, a masked view keeps its document's mapping** from placeholder to
+  value in its sidecar in `.dossier/cache/`. That is local, with the same
+  exposure as the snapshots, and is never written to `runs/`, MLflow or the
+  index. It is what a gold value is masked with, so `Erika Mustermann` is
+  `[PERSON_1]` in the gold file as in the document. A later local `--unmask`
+  view would read it too.
+
 ## Existing options considered
 
 Checked on PyPI on 2026-10-02, and measured on this machine the same day, in a
@@ -238,14 +259,45 @@ spike kept outside the repository:
 | `scrubadub` 2.0.1 | names and contacts | its last release was 2023-09 | Rejected: not maintained |
 | A local model through Ollama | anything it is asked to find | an answer that is not reproducible, so a masked view could not be keyed | Rejected |
 
+## The index and search
+
+An index declares its pipeline (spec 018), so it masks when its pipeline does,
+and has no switch of its own. `dossier embed` was the second road out: it cut
+its body chunks from the converted text, so a masked pipeline's index held
+the names its runs never showed a model. The embedding model is local, but
+the index is read by other systems through views (spec 018), and it is the
+place the request named.
+
+- **Body chunks are cut from the masked view.** The view is the run's, from
+  the cache under `K_mask` when the run made it, and masked by `embed` when it
+  did not (a document synced since). So `title`, `heading_path`, `text` and
+  `text_search` hold placeholders, and so does every text the embedding model
+  is asked for. A document that cannot be masked, or whose key names a client,
+  is not written. Its rows from the last embed are kept and named, as a
+  document that did not convert is (R18.4 row 6).
+- **The record comes only from a run masked the same way.** A record carried
+  from a run made before masking was declared, or under another declaration,
+  would hold what that run's masking let through. So a masked index carries a
+  record only from a run whose manifest pins the masker and the declaration
+  `embed` masks with (R18.8, extended).
+- **An index's masking never changes under it.** Postgres keeps a deleted or
+  updated row in its write-ahead log, in its dead tuples until a vacuum, and
+  in every backup taken. So rewriting an index's rows masked does not take the
+  names out of it. `embed` refuses to write an index masked over rows it wrote
+  unmasked, and the other way round. A new index, or one emptied by hand, is
+  the remedy. `IndexSink` reads back nothing but ids and content hashes
+  (R0.19), so how an index was last written is recorded on this machine, in
+  `.dossier/index/<index>.json`, by every `embed`. An index holding rows that
+  no such record describes was written before masking existed, unmasked.
+- **A search's query is masked** before it is embedded, searched, printed or
+  recorded, by the masker the pipeline declares. A name typed into a query
+  reaches neither the embedding model's cache key nor MLflow, and the masked
+  query matches the placeholders the index holds.
+
 ## Later
 
-These are later parts of this spec, and are not built by R21.1 – R21.14:
+These are later parts of this spec, and are not built by R21.1 – R21.19:
 
-- **The index and search.** `embed` reads the masked view, and its record chunk
-  is masked again. Masking masked text changes nothing. An index switching to
-  masked stops, because Postgres keeps deleted rows in its WAL and backups. A
-  search's query is masked before it is embedded, searched or recorded.
 - **Calibration and gold.** A gold value or a calibration candidate shown to a
   judge is masked with its own document's numbering.
 - **The rest of MLflow.**
@@ -477,6 +529,80 @@ Marked `live`. Their SHA-256s are pinned in the test, as a PNG part's are (R8.29
 | 1 | the labelled sample, every declared type marked by a person | recall per type, and over all, reported against the threshold |
 | 2 | a value the sample marks and the masker misses | named by document and type, never by its text, in what the eval prints and records |
 | 3 | *counter-example* — a detection the sample does not mark, such as a vendor read as a person | counted against precision, which is reported and not gated: a false positive costs signal, not privacy |
+
+### R21.15 — a masked pipeline's index holds no value its masker detects, and its embedding model is asked about none
+
+The acceptance rule of the third part.
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.embed`)
+- **Proved by:** `tests/acceptance/test_R021_15__a_masked_index_holds_no_client_data.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incident-audit` masked; `PLAY-6001` synced and run; `dossier embed incidents` | no document row or chunk row the index is handed holds a canary -- title, key, heading path, text -- and no text the embedding model is asked for does; they hold `[PERSON_1]` and `[IBAN_CODE_1]` |
+| 2 | the same, `root_cause` carried as the record chunk | the record chunk holds the run's masked answer and no canary |
+| 3 | the same, recorded under `capture: full` | no span of the embed holds a canary |
+| 4 | *counter-example* — the same pipeline, no `masking:` | the rows hold the converted text, as spec 018 writes them, and no masker is built |
+
+### R21.16 — `embed` cuts a masked index's body chunks from each document's masked view, and a document that cannot be masked is not written
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.embed`)
+- **Proved by:** `tests/integration/test_R021_16__embed_reads_the_masked_view.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `PLAY-6001` masked by the run before | its masked view served from the cache; the masker asked 0 times about it |
+| 2 | `PLAY-6005` synced after the run, never masked | masked by `embed`, cached under `K_mask`; the masker asked once about it |
+| 3 | the masker raises on `PLAY-6002` | `PLAY-6002` not written, its rows from the last embed kept and named: `PLAY-6002: not masked, its rows are kept: <the reason>`; the others written |
+| 4 | a folder document keyed `Erika-Mustermann-complaint.md` | not written, named; its key reaches neither the index nor the embedding model |
+| 5 | *counter-example* — `INC-4821`, in which nothing is detected | written from its masked view, which is its text |
+
+### R21.17 — a masked index carries a record only from a run whose manifest pins the masker and declaration it masks with
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.embed.read_latest_run`)
+- **Proved by:** `tests/integration/test_R021_17__a_masked_index_carries_only_a_masked_record.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the latest run masked with today's declaration | its grounded record carried (R18.9) |
+| 2 | the latest run made before `masking:` was declared | no record carried, named: `the latest run did not mask as this index does`; every body chunk still written |
+| 3 | the latest run masked before `ORGANIZATION` was added to `entities` | no record carried, named the same: that run let organisations through |
+| 4 | *counter-example* — a pipeline with no `masking:` | its latest run's record carried, as R18.8 says |
+
+### R21.18 — an index's masking never changes under it: `embed` refuses to write it masked over rows written unmasked, and the other way round
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.embed`)
+- **Proved by:** `tests/integration/test_R021_18__an_index_s_masking_never_changes_under_it.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incidents` written unmasked; `masking:` then declared | exit 2 before any embedding call, naming the index, that Postgres keeps rewritten rows in its write-ahead log and its backups, and the remedy: a new index, or this one emptied; 0 rows written |
+| 2 | `incidents` holding rows from before `.dossier/index/incidents.json` existed; `masking:` declared | the same refusal: rows no record describes were written unmasked |
+| 3 | `incidents` written masked; `masking:` removed | the same refusal, the other way round: readers of a masked index rely on it staying masked |
+| 4 | `incidents` written masked; `allow.txt` edited | written, masked by the new declaration: masked over masked is a change of masking, not of whether it masks |
+| 5 | *counter-example* — `incidents` empty, its first embed, masked | written masked, and `.dossier/index/incidents.json` records it |
+
+### R21.19 — a search over a masked index masks its query before it is embedded, searched, printed or recorded
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.search`)
+- **Proved by:** `tests/integration/test_R021_19__a_search_masks_its_query.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `dossier search incidents "Erika Mustermann complained about CIF 0042-118733"` | the embedding model is asked `[PERSON_1] complained about [CLIENT_NUMBER_1]`; the words searched, the line printed and the trace's request hold that, and no canary |
+| 2 | a query in which nothing is detected | searched as typed |
+| 3 | the pipeline's masker cannot run (a model missing) | exit 2, naming what installs it; the query sent nowhere |
+| 4 | *counter-example* — an index whose pipeline declares no `masking:` | the query searched as typed, as spec 019 does |
 
 ## Open questions
 
