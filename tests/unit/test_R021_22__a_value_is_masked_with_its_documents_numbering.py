@@ -51,6 +51,31 @@ class TestAValueIsMaskedWithItsDocumentsNumbering:
             == "[PERSON_2]'s settlement was held"
         )
 
+    def test_a_masker_span_over_the_documents_value_keeps_the_documents_placeholder(self):
+        """Row 1, as the real masker meets it: the one where its span takes in the possessive.
+
+        Presidio found `Erika Mustermann's` in the gold sentence, `'s` and all
+        (measured live on 2026-10-04). The document's value wins over a span
+        that overlaps it: the placeholder is the document's, and what is left
+        of the span -- `'s` -- is no value, so it stays as written.
+        """
+        text = "Erika Mustermann's settlement was held"
+        possessive = _person(text, "Erika Mustermann's")
+
+        assert _like(text, [possessive]) == "[PERSON_2]'s settlement was held"
+
+    def test_a_masker_span_reaching_past_the_documents_value_masks_the_rest(self):
+        """Row 3's boundary: the one where the span goes on into another name.
+
+        What is left of a span past the document's value is masked as a value
+        of its own when it holds a word: `Huber` is not the document's, and
+        takes the next number.
+        """
+        text = "Erika Mustermann-Huber called"
+        longer = _person(text, "Erika Mustermann-Huber")
+
+        assert _like(text, [longer]) == "[PERSON_2]-[PERSON_3] called"
+
     def test_a_value_is_matched_as_two_mentions_of_it_are(self):
         """Row 2: the one where the candidate writes the name in capitals."""
         assert _like("ERIKA  MUSTERMANN confirmed") == "[PERSON_2] confirmed"

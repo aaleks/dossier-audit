@@ -13,6 +13,33 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+Calibration, gold and MLflow follow a masked pipeline's masking (2026-10-04,
+spec 021 parts 4a and 4b, R21.20 - R21.25, #741 - #749). `dossier calibrate`
+was the last road to a model: it showed its judge the converted text and
+candidates a person wrote against the original document. Its judge now sees
+masked views. Each candidate, each gold value `eval` compares, and each
+expectation `dataset publish` sends is masked with its own document's
+numbering, from a mapping kept beside each masked view in `mask-values`.
+That was decided by a.aleks, over re-masking on demand and gold written
+masked. A masked run records `masked/<TYPE>` counts.
+
+Checked live against a scratch MLflow 3.15.1 server on 5001, with the real
+Presidio masker and the playground's stub model:
+- the run's metrics were the right counts;
+- no canary was in any param, metric, tag or trace;
+- the dataset's expectation, at first, was `[PERSON_3] settlement was held`.
+
+Presidio's span on the gold sentence took in the possessive, `Erika
+Mustermann's`. Merged, it was a value the mapping did not hold, so it took a
+new number and swallowed the `'s`. The unit test had passed, because the fake
+masker never finds such a span. Now a document's values win over a span that
+overlaps them, and what is left of the span is masked only if it holds a word.
+A second live run published `[PERSON_2]'s settlement was held`. Writing the
+fix also found two module constants both named `_WORD`, the later one
+shadowing the first.
+
+---
+
 A masked pipeline's index and search hold no client data either (2026-10-03,
 spec 021 part 3, R21.15 - R21.19, #735 - #740). `dossier embed` still cut a
 masked pipeline's chunks from the unmasked conversion, so the index held what

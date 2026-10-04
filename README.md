@@ -465,7 +465,10 @@ MLflow or the index (R21.21). A gold value or a calibration candidate, written b
 person against the original document, is masked with that mapping. So the client is
 `[PERSON_2]` in the document and in the answer alike. `eval` scores a masked
 run's quoted span against gold masked that way, and `calibrate` shows its judge
-the masked view and masked candidates (R21.20, R21.22, R21.23).
+the masked view and masked candidates (R21.20, R21.22, R21.23). `dataset publish` sends a
+masked pipeline's gold expectations to MLflow masked the same way (R21.24), and
+a masked run records how many values of each type it masked as `masked/<TYPE>`
+metrics, which are counts and never values (R21.25).
 
 ## What it records
 
