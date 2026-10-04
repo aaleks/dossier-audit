@@ -1,7 +1,7 @@
 # 021 — Masking client identifying data
 
 **Status:** Partially implemented
-**Rules:** R21.1 – R21.23
+**Rules:** R21.1 – R21.25
 
 ## Purpose
 
@@ -318,13 +318,26 @@ judge asked to compare two things that can no longer agree.
 - **`eval` compares a masked run's answer with its gold value masked the same
   way**, so a quoted span that names the client is scored as the same span.
 
+## MLflow
+
+A trace records what was sent, so a masked run's traces are masked by
+construction (R21.1 row 3). Two records are not traces:
+
+- **A gold set published as a dataset** (spec 012) sends each document's
+  verified answers to the MLflow server as its expectations. A person wrote
+  them against the original document, so they name the client. A masked
+  pipeline's gold set is published with each expectation masked by its
+  document's numbering (R21.22), as `eval` compares them (R21.23).
+- **How much was masked** is said nowhere a reviewer looks. A masked run
+  records, on its MLflow run, how many values of each type its documents'
+  masked views hold: `masked/PERSON`, `masked/IBAN_CODE`. These are counts,
+  never values, so a reviewer can see masking happened, and how much, without
+  seeing what.
+
 ## Later
 
-These are later parts of this spec, and are not built by R21.1 – R21.23:
+These are later parts of this spec, and are not built by R21.1 – R21.25:
 
-- **The rest of MLflow.**
-  - A gold set publishes masked expectations.
-  - A run records how many values of each type it masked.
 - **`dossier status`, and a source that demands masking.** That is a
   `requires_masking: true` source refusing any pipeline that reads it unmasked.
 - **Seeing it first.** `dossier convert` reports what it masked, and one
@@ -682,6 +695,34 @@ The acceptance rule of the fourth part's first half.
 | 2 | gold naming a different client, `Hans Muster's settlement was held` | scored wrong: `[PERSON_1]` is not `[PERSON_2]` |
 | 3 | an enum or a number | compared as written: an enum's value is never client data |
 | 4 | *counter-example* — an unmasked run | gold compared as written, as spec 007 does |
+
+### R21.24 — a masked pipeline's gold set is published to MLflow with each expectation masked by its document's numbering
+
+- **Kind:** deterministic
+- **Layer:** cli (`dossier.cli.dataset`)
+- **Proved by:** `tests/integration/test_R021_24__a_masked_gold_set_publishes_masked_expectations.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incident-audit` masked; gold for `PLAY-6001` with `affected_systems: Erika Mustermann's settlement was held`; `dossier dataset publish` | the record's expectation is `[PERSON_2]'s settlement was held`; nothing the registry is handed holds a canary |
+| 2 | the same gold, `severity: major` | `major`, as written: an enum is never client data |
+| 3 | the masker cannot mask `PLAY-6001` | exit 2 naming it; no dataset published, 0 records sent |
+| 4 | *counter-example* — the same gold set, the pipeline not masked | the expectations as written, as R12.2 says |
+
+### R21.25 — a masked run records how many values of each type it masked, and never a value
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.run`)
+- **Proved by:** `tests/integration/test_R021_25__a_masked_run_records_what_it_masked.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | a masked run over `PLAY-6001` (two people, one IBAN), tracking on | its MLflow run holds `masked/PERSON: 2` and `masked/IBAN_CODE: 1` |
+| 2 | the same run again, every view served from the cache | the same metrics: counted from the views' records, not from what was masked this time |
+| 3 | the run's params, metrics and tags | none names or holds a value |
+| 4 | *counter-example* — an unmasked run | no `masked/` metric at all |
 
 ## Open questions
 
