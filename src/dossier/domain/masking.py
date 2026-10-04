@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -490,3 +490,16 @@ def readable_key(key: str) -> str:
     underscores and dots, which a model trained on prose does not split on.
     """
     return key.translate(_KEY_SEPARATORS)
+
+
+def masked_metrics(counts: Iterable[Mapping[str, int]]) -> dict[str, int]:
+    """How many values of each type a run's masked views hold, as `masked/<TYPE>` (R21.25).
+
+    Counts and never values: a reviewer sees that masking happened, and how
+    much of it, without seeing what. Summed over the views, in type order.
+    """
+    totals: dict[str, int] = {}
+    for view in counts:
+        for entity, count in view.items():
+            totals[entity] = totals.get(entity, 0) + count
+    return {f"masked/{entity}": totals[entity] for entity in sorted(totals)}

@@ -278,6 +278,9 @@ class RunInputs:
     # The masker a masked pipeline's documents were masked by, pinned in the
     # manifest so a replay and an eval read the same masked views (R21.6).
     masker: PinnedMasker | None = None
+    # How many values of each type its documents' masked views hold, as
+    # `masked/<TYPE>`, recorded beside the run's other figures (R21.25).
+    masked_counts: Mapping[str, int] | None = None
 
 
 @dataclass(frozen=True)
@@ -762,6 +765,9 @@ def execute(
                 **token_metrics(
                     total(done.tokens for done in report.steps if done.tokens is not None)
                 ),
+                # Counts, never values: that masking happened, and how much
+                # (R21.25). Absent for a pipeline that masks nothing.
+                **(inputs.masked_counts or {}),
             }
         )
         # A try's record holds the plan it resolved as a run's does, though no

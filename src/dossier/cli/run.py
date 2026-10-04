@@ -47,8 +47,8 @@ from dossier.domain.conversion import (
 )
 from dossier.domain.conversion import used as used_converters
 from dossier.domain.hashing import text_hash
-from dossier.domain.masking import MaskerUnavailable
-from dossier.domain.pipeline import PipelineConfig, SourceConfig
+from dossier.domain.masking import MaskerUnavailable, masked_metrics
+from dossier.domain.pipeline import DEFAULT_INPUT_KIND, PipelineConfig, SourceConfig
 from dossier.domain.plan import check_tried
 from dossier.domain.ports import ImagePart
 from dossier.domain.resolution import (
@@ -540,7 +540,7 @@ def _execute(
     if masking is not None and masker is not None:
         failed: dict[str, str] = {}
 
-        def _masked(texts: dict[str, str]) -> dict[str, str]:
+        def _masked(texts: dict[str, str], *, counted: bool = False) -> dict[str, str]:
             result = mask_texts(
                 texts,
                 masking=masking,
@@ -551,12 +551,21 @@ def _execute(
                 dossier_version=version("dossier"),
             )
             failed.update(result.failed)
+            if counted:
+                viewed.update(result.counts)
             return result.texts
 
+        # The views counted for MLflow: each document's text and each reference
+        # document's, once -- another kind of the same document would count it
+        # twice (R21.25).
+        viewed: dict[str, dict[str, int]] = {}
         try:
-            text = _masked(text)
+            text = _masked(text, counted=True)
             content = {kind: _masked(held) for kind, held in content.items()}
-            reference = {kind: _masked(held) for kind, held in reference.items()}
+            reference = {
+                kind: _masked(held, counted=kind == DEFAULT_INPUT_KIND)
+                for kind, held in reference.items()
+            }
         except MaskerUnavailable as error:
             # The masker cannot run on this machine -- a model it reads with is
             # missing -- and no model has been asked anything yet (R21.10).
@@ -640,6 +649,7 @@ def _execute(
                 ],
                 source_configs=declared,
                 masker=bootstrap.pinned_masker(masking, masker),
+                masked_counts=masked_metrics(viewed.values()) if masking is not None else None,
             ),
             workspace=workspace,
             model=bootstrap.BuiltOnFirstCall(config.model),

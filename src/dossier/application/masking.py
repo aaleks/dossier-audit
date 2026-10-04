@@ -43,6 +43,9 @@ class MaskedTexts:
     # Each masked document's mapping, placeholder to value (R21.21): what a
     # gold value or a candidate about it is masked with (R21.22). Local only.
     mappings: dict[str, dict[str, str]] = field(default_factory=dict)
+    # How many values of each type each masked view holds: its record's, never
+    # a value (R21.25).
+    counts: dict[str, dict[str, int]] = field(default_factory=dict)
 
 
 def mask_texts(
@@ -63,6 +66,7 @@ def mask_texts(
     shown: dict[str, str] = {}
     failed: dict[str, str] = {}
     mappings: dict[str, dict[str, str]] = {}
+    counts: dict[str, dict[str, int]] = {}
     view = _Viewer(
         masking, masker, cache, values=values, run_id=run_id, dossier_version=dossier_version
     )
@@ -78,7 +82,7 @@ def mask_texts(
                     "rename it at the source"
                 )
                 continue
-            shown[key], mappings[key] = view(texts[key])
+            shown[key], mappings[key], counts[key] = view(texts[key])
         except MaskerUnavailable:
             # Not this document's failure: the masker cannot run at all here,
             # and every document would fail alike. The run stops (R21.10).
@@ -87,7 +91,7 @@ def mask_texts(
             # A masker is a library over statistical models: what it raises is
             # not ours to enumerate. Whatever it is, the document is not sent.
             failed[key] = f"masking failed: {error}"
-    return MaskedTexts(texts=shown, failed=failed, mappings=mappings)
+    return MaskedTexts(texts=shown, failed=failed, mappings=mappings, counts=counts)
 
 
 class _Viewer:
@@ -110,8 +114,8 @@ class _Viewer:
         self.run_id = run_id
         self.dossier_version = dossier_version
 
-    def __call__(self, text: str) -> tuple[str, dict[str, str]]:
-        """The masked view of `text`, and its mapping from placeholder to value."""
+    def __call__(self, text: str) -> tuple[str, dict[str, str], dict[str, int]]:
+        """The masked view of `text`, its mapping, and how many of each type it masked."""
         inputs = mask_inputs(
             text=text,
             masker_id=self.masker.id,
@@ -122,7 +126,8 @@ class _Viewer:
         held = self.cache.get(key, require_record=True)
         kept = None if self.values is None else self.values.get(key)
         if held is not None and (kept is not None or self.values is None):
-            return held.decode("utf-8"), json.loads(kept or b"{}")
+            counted = (self.cache.record(key) or {}).get("masked", {})
+            return held.decode("utf-8"), json.loads(kept or b"{}"), dict(counted)
         # A miss, or a view cached before its mapping was kept: masked again.
         # The masker's output is a function of the text (R21.13), so the view
         # rewritten here is the one already cached.
@@ -144,7 +149,7 @@ class _Viewer:
                 json.dumps(mapping, sort_keys=True, ensure_ascii=False).encode("utf-8"),
                 record={"kind": "mask-values", "cache_key": key},
             )
-        return masked, mapping
+        return masked, mapping, counts
 
 
 def mask_query(query: str, *, masking: Masking, masker: Masker) -> str:
