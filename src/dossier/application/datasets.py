@@ -12,7 +12,7 @@ and read by a person (R12.4).
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from dossier.domain.datasets import PublishedDataset, record_for
@@ -47,6 +47,7 @@ def publish_gold(
     experiment: str,
     snapshots: Mapping[str, str] | None = None,
     namespace: str = "",
+    prepare: Callable[[GoldDocument], GoldDocument] | None = None,
 ) -> PublishedDataset:
     """The gold set at `gold`, published as the dataset named after it (R12.1).
 
@@ -66,6 +67,11 @@ def publish_gold(
     name = namespaced(gold.name, namespace)
     held = snapshots or {}
     documents = _documents(files)
+    if prepare is not None:
+        # A masked pipeline's answers, masked by each document's numbering
+        # before anything is sent (R21.24). The hash below is still the files':
+        # it names which answers, and holds none of them.
+        documents = {key: prepare(document) for key, document in documents.items()}
     # The same hash an eval tags its own run with (R11.3 row 2), so the dataset and
     # the runs measured against it can be shown to be about the same answers --
     # which is the whole point of publishing it.

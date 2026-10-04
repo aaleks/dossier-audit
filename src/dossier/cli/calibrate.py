@@ -39,7 +39,7 @@ from dossier.infrastructure.models.registry import available_providers
 from dossier.infrastructure.store import SnapshotStore
 
 
-def _held_content(
+def held_content(
     workspace: Path, config
 ) -> tuple[dict[str, str], dict[str, list[ImagePart]], dict[str, str]]:
     """The converted text and the pages of every document the workspace holds (R7.14).
@@ -160,7 +160,7 @@ def calibrate(
     masking, masker = bootstrap.masking_for(pipeline, config, path)
 
     directory = workspace / gold
-    documents, held_parts, held_reference = _held_content(workspace, config)
+    documents, held_parts, held_reference = held_content(workspace, config)
     mappings: dict[str, dict[str, str]] = {}
     if masking is not None and masker is not None:
         documents, held_reference, mappings = _masked_content(

@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel, ConfigDict, Field
 
 from dossier.domain.hashing import content_hash
+from dossier.domain.scoring import FieldKind
 
 # The version of these rules: the numbering, the overlaps and the filter. It is
 # in every masked view's key (R21.5), and moves whenever they could write a
@@ -24,6 +25,13 @@ from dossier.domain.hashing import content_hash
 # the new would claim to be something they no longer produce.
 MASKING_VERSION = "1"
 
+
+# The kinds of answer that are never a client's: a closed vocabulary, a number,
+# a date, a length, a yes or no. A gold value of these kinds is compared and
+# published as written, masked pipeline or not (R21.23 row 3, R21.24 row 2).
+NOT_CLIENT_DATA = frozenset(
+    {FieldKind.ENUM, FieldKind.AMOUNT, FieldKind.DATE, FieldKind.BOOLEAN, FieldKind.DURATION}
+)
 
 # The kind of a converted artifact that is pictures, not text. A masked pipeline
 # refuses any step reading it: a client's name in the pixels of a page cannot be

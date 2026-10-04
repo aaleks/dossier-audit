@@ -701,7 +701,7 @@ The acceptance rule of the fourth part's first half.
 - **Kind:** deterministic
 - **Layer:** cli (`dossier.cli.dataset`)
 - **Proved by:** `tests/integration/test_R021_24__a_masked_gold_set_publishes_masked_expectations.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
