@@ -36,7 +36,7 @@ from dossier.domain.judges import (
     require_measurable,
 )
 from dossier.domain.keys import JudgeInputs, cache_key, provenance
-from dossier.domain.masking import mapped
+from dossier.domain.masking import NOT_CLIENT_DATA, mapped
 from dossier.domain.plan import changed_steps, diff
 from dossier.domain.ports import (
     ArtifactStore,
@@ -1223,13 +1223,6 @@ def load_calibration(directory: Path, field: str) -> Calibration | None:
     return Calibration.model_validate(json.loads(path.read_text(encoding="utf-8")))
 
 
-# What a gold value of these kinds says is never a client's: it is compared as
-# written, masked run or not (R21.23 row 3).
-_NOT_TEXT = frozenset(
-    {FieldKind.ENUM, FieldKind.AMOUNT, FieldKind.DATE, FieldKind.BOOLEAN, FieldKind.DURATION}
-)
-
-
 def _masked_gold(
     fields: Mapping[str, GoldField],
     *,
@@ -1242,7 +1235,7 @@ def _masked_gold(
     masked: dict[str, GoldField] = {}
     for name, gold_field in fields.items():
         value = gold_field.value
-        if kinds.get(name) in _NOT_TEXT:
+        if kinds.get(name) in NOT_CLIENT_DATA:
             masked[name] = gold_field
         elif isinstance(value, str):
             masked[name] = gold_field.model_copy(update={"value": mapped(value, mapping)})
