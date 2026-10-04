@@ -715,7 +715,7 @@ The acceptance rule of the fourth part's first half.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.run`)
 - **Proved by:** `tests/integration/test_R021_25__a_masked_run_records_what_it_masked.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
