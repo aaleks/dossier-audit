@@ -306,8 +306,49 @@ def mask_like(
     document's placeholder; anything else the masker finds takes the next
     number of its type. A text that holds neither is returned as written.
     """
-    spans = merged([*_kept(text, detections, masking), *mapping_values(text, mapping)])
-    return _numbered(text, spans, mapping)[0]
+    values = mapping_values(text, mapping)
+    # The document's values win over a masker span that overlaps one: its
+    # extent and its placeholder are known. Presidio found `Erika
+    # Mustermann's` in a gold sentence, possessive and all (measured
+    # 2026-10-04); merged, the span was a value the mapping did not hold, took
+    # a new number, and swallowed the `'s`. What a span holds past the
+    # document's value is masked on its own, if it holds a word.
+    beyond = [
+        part
+        for detection in _kept(text, detections, masking)
+        for part in _outside(detection, values, text)
+    ]
+    return _numbered(text, merged([*beyond, *values]), mapping)[0]
+
+
+# A word: what is left of a masker's span past a document's value is a value
+# of its own only if it holds one. A possessive `'s` or a hyphen is not.
+_VALUE_WORD = re.compile(r"\w{2,}")
+
+
+def _outside(detection: Detection, values: Sequence[Detection], text: str) -> list[Detection]:
+    """The parts of `detection` no value of the document covers, each cut to its words."""
+    pieces = [(detection.start, detection.end)]
+    for value in values:
+        pieces = [
+            part
+            for start, end in pieces
+            for part in ((start, min(end, value.start)), (max(start, value.end), end))
+            if part[0] < part[1]
+        ]
+    parts: list[Detection] = []
+    for start, end in pieces:
+        words = list(_VALUE_WORD.finditer(text, start, end))
+        if words:
+            parts.append(
+                Detection(
+                    start=words[0].start(),
+                    end=words[-1].end(),
+                    entity=detection.entity,
+                    score=detection.score,
+                )
+            )
+    return parts
 
 
 def mapped(text: str, mapping: Mapping[str, str]) -> str:
