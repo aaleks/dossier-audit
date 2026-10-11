@@ -1,0 +1,6 @@
+# Exercise 25's source, and who may read it. An index needs to know (spec 018).
+sources:
+  - id: incidents
+    type: folder
+    path: inbox/tickets/
+    acl: [incident-response]

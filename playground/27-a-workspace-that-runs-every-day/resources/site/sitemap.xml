@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  A vendor's runbook site, served from your own machine by `python -m http.server`.
+  It names two pages and serves one: PLAY-7002 is not under runbooks/ until
+  task 1 puts it there, so the first sync asks for it and is answered 404.
+  The port is in every <loc>, so the server must listen on 8098.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>http://127.0.0.1:8098/runbooks/PLAY-7001.html</loc>
+    <lastmod>2026-10-01</lastmod>
+  </url>
+  <url>
+    <loc>http://127.0.0.1:8098/runbooks/PLAY-7002.html</loc>
+    <lastmod>2026-10-01</lastmod>
+  </url>
+</urlset>

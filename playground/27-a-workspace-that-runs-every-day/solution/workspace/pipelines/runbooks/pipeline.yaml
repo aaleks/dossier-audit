@@ -1,0 +1,16 @@
+# The pipeline the runbook site is synced for. Its prompt and its field
+# declaration are exercise 18's, copied in by the setup.
+#
+# Nothing in this exercise runs it. It exists because `dossier sync` takes a
+# pipeline, and a pipeline says which sources it reads. `status` lists it as
+# `no run yet`, which is what it is.
+sources: [vendor-runbooks]
+
+model: openai:gpt-5.4-mini
+
+steps:
+  - id: summarise
+    prompt: prompts/01_summarise.md
+    input: documents
+    mode: per_file
+    output: schemas/page.yaml

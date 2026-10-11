@@ -1,0 +1,8 @@
+# An index of the four notes. It names its pipeline, and so masks as the
+# pipeline does: there is no switch here (spec 021, "The index and search").
+pipeline: incident-audit
+embedding_model: ollama:qwen3-embedding:4b-fp16@sha256:3c93b6415795f9cc3e16c403a492ce25b1c0e260f2f760acc90e2035de25f9bc
+chunker: {name: headings, max_chars: 2000}
+fields:
+  embed: [root_cause]
+target: {dsn_env: DOSSIER_INDEX_DSN}

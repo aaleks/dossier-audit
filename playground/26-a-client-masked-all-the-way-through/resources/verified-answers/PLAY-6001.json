@@ -1,0 +1,13 @@
+{
+  "document": "PLAY-6001.md",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-10-11",
+  "fields": {
+    "affected_client": {
+      "value": "Erika Mustermann"
+    },
+    "root_cause": {
+      "value": "The nightly settlement export was scheduled at a local time that did not exist on the night the clocks changed, so it never ran, and Erika Mustermann's settlement was held for two days."
+    }
+  }
+}

@@ -1,0 +1,257 @@
+{
+  "_comment": [
+    "What the stub judge answers. Layer it in front of the step's replies:",
+    "    --replies resources/replies-judge.json --replies resources/replies.json",
+    "",
+    "Each rule matches the opening <claim> tag and the start of one candidate,",
+    "as the judge is shown it: masked with its note's numbering (R21.20,",
+    "R21.22). So these rules are written in placeholders. A rule written as",
+    "the sample writes the candidate, with Erika Mustermann in it, would never",
+    "match, and the calibration would stop on a 422 from the stub.",
+    "",
+    "The first twenty agree with the twenty human verdicts, as exercise 07's",
+    "do. The last four answer `eval`'s judge about the run's own answers."
+  ],
+  "rules": [
+    {
+      "_comment": "rc-01 · PLAY-6001.md · human verdict: supported",
+      "match": [
+        "<claim>The nightly settlement export was scheduled at a local time that did not exist on the night the clocks changed, so it never ran.</claim>"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause section states exactly this."
+      }
+    },
+    {
+      "_comment": "rc-02 · PLAY-6001.md · human verdict: supported",
+      "match": [
+        "<claim>The export never ran on the night the clocks changed, so [PERSON_2]'s se"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause section and the hold on her settlement are both stated."
+      }
+    },
+    {
+      "_comment": "rc-03 · PLAY-6001.md · human verdict: supported",
+      "match": [
+        "<claim>[PERSON_2]'s settlement was held because the export was scheduled at a t"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The same cause, with the client's name as a reviewer typed it."
+      }
+    },
+    {
+      "_comment": "rc-04 · PLAY-6001.md · human verdict: unsupported",
+      "match": [
+        "<claim>[PERSON_3] gave the bank a wrong account number, so her settlement was h"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The note says nothing about a wrong account number."
+      }
+    },
+    {
+      "_comment": "rc-05 · PLAY-6001.md · human verdict: unsupported",
+      "match": [
+        "<claim>[PERSON_1] cancelled the nightly export by mistake."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "Hans Muster reported the incident; the export never ran because of the clock change."
+      }
+    },
+    {
+      "_comment": "rc-06 · PLAY-6002.md · human verdict: supported",
+      "match": [
+        "<claim>Eine Firewall-Regel wurde bei der nächtlichen Änderung entfernt, und die"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The Ursache section states exactly this."
+      }
+    },
+    {
+      "_comment": "rc-07 · PLAY-6002.md · human verdict: supported",
+      "match": [
+        "<claim>A firewall rule removed in the nightly change cut the cash terminals off"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The Ursache section, in English, and the blocked account is stated."
+      }
+    },
+    {
+      "_comment": "rc-08 · PLAY-6002.md · human verdict: supported",
+      "match": [
+        "<claim>Die Kassenterminals erreichten den Zahlungsdienst nicht mehr, weil eine "
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The Ursache section, in other words."
+      }
+    },
+    {
+      "_comment": "rc-09 · PLAY-6002.md · human verdict: unsupported",
+      "match": [
+        "<claim>The Kafka consumer lag reported by [PERSON_2] caused the outage."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The consumer lag is a symptom the note reports; the cause is the removed firewall rule."
+      }
+    },
+    {
+      "_comment": "rc-10 · PLAY-6002.md · human verdict: unsupported",
+      "match": [
+        "<claim>Die AHV-Nummer [CH_AHV_1] von [PERSON_1] wurde vom Zahlungsdienst abgele"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "Nothing in the note says the AHV number was rejected."
+      }
+    },
+    {
+      "_comment": "rc-11 · PLAY-6003.md · human verdict: supported",
+      "match": [
+        "<claim>La mise à jour du service de paiement a remplacé le certificat sans redé"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The Cause section states exactly this."
+      }
+    },
+    {
+      "_comment": "rc-12 · PLAY-6003.md · human verdict: supported",
+      "match": [
+        "<claim>The payment service update replaced the certificate without restarting t"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The Cause section, in English."
+      }
+    },
+    {
+      "_comment": "rc-13 · PLAY-6003.md · human verdict: supported",
+      "match": [
+        "<claim>La cliente [PERSON_1] a été bloquée parce que les passerelles n'ont pas "
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Her blocked transfer and the cause are both stated."
+      }
+    },
+    {
+      "_comment": "rc-14 · PLAY-6003.md · human verdict: unsupported",
+      "match": [
+        "<claim>Le compte [IBAN_CODE_1] de la cliente avait été clôturé, donc le viremen"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The account was not closed; the gateways refused every connection."
+      }
+    },
+    {
+      "_comment": "rc-15 · PLAY-6003.md · human verdict: unsupported",
+      "match": [
+        "<claim>[PERSON_2] restarted the gateways before the certificate was replaced."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "Hans Muster confirmed the block; the gateways were never restarted."
+      }
+    },
+    {
+      "_comment": "rc-16 · PLAY-6004.md · human verdict: supported",
+      "match": [
+        "<claim>L'esportazione notturna era programmata a un orario che non esisteva nel"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The Causa section states exactly this."
+      }
+    },
+    {
+      "_comment": "rc-17 · PLAY-6004.md · human verdict: supported",
+      "match": [
+        "<claim>She called from [PHONE_NUMBER_1] because her transfer was held after the"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "Her call, the held transfer and the export that never ran are all stated."
+      }
+    },
+    {
+      "_comment": "rc-18 · PLAY-6004.md · human verdict: supported",
+      "match": [
+        "<claim>[PERSON_1]'s transfer was held because the nightly export never ran."
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The Causa section and the held transfer."
+      }
+    },
+    {
+      "_comment": "rc-19 · PLAY-6004.md · human verdict: unsupported",
+      "match": [
+        "<claim>The client wrote from [EMAIL_ADDRESS_1] to cancel the transfer."
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "She wrote to the desk; nothing says she cancelled anything."
+      }
+    },
+    {
+      "_comment": "rc-20 · PLAY-6004.md · human verdict: unsupported",
+      "match": [
+        "<claim>Il bonifico è stato sospeso perché il cliente [CLIENT_NUMBER_1] era bloc"
+      ],
+      "reply": {
+        "supported": false,
+        "evidence": "The client reference was not blocked; the export never ran."
+      }
+    },
+    {
+      "_comment": "the run's answer · PLAY-6001.md · supported",
+      "match": [
+        "<claim>The nightly settlement export was scheduled at a local time that did not exist on the night the clocks changed, so it never ran, and [PERSON_2]'s"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause section states this."
+      }
+    },
+    {
+      "_comment": "the run's answer · PLAY-6002.md · supported",
+      "match": [
+        "<claim>eine Firewall-Regel wurde bei der nächtlichen Änderung entfernt"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause section states this."
+      }
+    },
+    {
+      "_comment": "the run's answer · PLAY-6003.md · supported",
+      "match": [
+        "<claim>la mise à jour du service de paiement a remplacé le certificat"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause section states this."
+      }
+    },
+    {
+      "_comment": "the run's answer · PLAY-6004.md · supported",
+      "match": [
+        "<claim>l'esportazione notturna era programmata a un orario"
+      ],
+      "reply": {
+        "supported": true,
+        "evidence": "The root cause section states this."
+      }
+    }
+  ]
+}

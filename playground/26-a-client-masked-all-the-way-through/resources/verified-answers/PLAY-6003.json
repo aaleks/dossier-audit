@@ -1,0 +1,13 @@
+{
+  "document": "PLAY-6003.md",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-10-11",
+  "fields": {
+    "affected_client": {
+      "value": "Erika Mustermann"
+    },
+    "root_cause": {
+      "value": "La mise à jour du service de paiement a remplacé le certificat sans redémarrer les passerelles, qui ont refusé toutes les connexions."
+    }
+  }
+}
