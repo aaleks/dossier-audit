@@ -54,6 +54,15 @@ others promise.
 > behaviour, and is not governed by the spec-driven loop the rest of the
 > repository is. See [Ground rules](#ground-rules) below.
 
+## Watch first
+
+[`tutorial/`](tutorial/) is an eight-minute narrated quickstart of what
+exercises 01, 02 and 05 build: sync, convert, plan, run and eval, then a prompt
+edit that `eval --compare` catches as a regression. An AI types every command
+live, a voice says what each one is for, and every output is one the command
+printed. Its README says how to render it with two commands. `TRANSCRIPT.md`
+there is the same lesson as text, to type along with.
+
 ## Before you start
 
 ```bash

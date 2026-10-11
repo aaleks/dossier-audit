@@ -1,0 +1,6 @@
+# The fields the extract step asks for. The kind decides how a field is scored.
+fields:
+  loss_amount:      {kind: amount, currency: CHF}
+  resolution_date:  {kind: date}
+  severity:         {kind: enum, values: [minor, major, critical]}
+  affected_systems: {kind: reference}

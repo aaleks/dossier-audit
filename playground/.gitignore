@@ -8,3 +8,9 @@ work/
 
 # Editable installs of the converter packages built in exercises 03 and 11.
 *.egg-info/
+
+# What tutorial/render.py writes: the video, its subtitles and stills. Generated
+# from the lesson and its recording, and tens of megabytes, so never committed.
+tutorial/*.mp4
+tutorial/*.srt
+tutorial/*.png
