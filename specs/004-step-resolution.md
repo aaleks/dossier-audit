@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.33
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.34
 
 ## Purpose
 
@@ -922,3 +922,34 @@ given.
 | 2 | `INC-4830` run, then run again with the prompt edited and stopped before answering; `dossier embed incidents` | the same line; `INC-4830`'s values carried from the first run, which names it |
 | 3 | only one run, and it stopped before it ended; `dossier eval incident-audit --gold gold/incidents` | the same line, then ``incident-audit: no run to score. Run `dossier run incident-audit` first.``; exit 2 |
 | 4 | *counter-example* — the second run finished | no such line; the second run is the one scored |
+
+### R4.34 — a command looking for a past run passes over one whose `failures.json` it cannot read, and names it
+
+R4.30 taught every command to pass over a manifest it cannot read. A
+`failures.json` it cannot read still stopped `run --plan`, `eval`, `embed` and
+`status` with a traceback, and `status` exited 1, which R17.6 does not allow.
+Found by the playground's exercise 27 on 2026-10-11. R4.29 writes the file
+whole or not at all, so one that does not load is older than R4.29, or was
+edited by a person (R0.11).
+
+Its run's manifest reads, but what the run failed cannot be known. A plan
+cannot say which documents it would ask again (R4.32), `eval` and `embed`
+cannot reproduce the run (R4.28), and `status` cannot say what it failed. So
+each passes it over as it passes over a manifest it cannot read, names it on
+standard error with the file and why, and goes on with the runs it can read.
+A replay of such a run is refused by name instead: it cannot reproduce what
+the run failed, and it substitutes nothing (R4.7). `gc` already named it and
+went on (R16.11).
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.plan.latest_manifest`, `dossier.application.status`), domain (`dossier.domain.store.passed_over_line`), cli
+- **Proved by:** `tests/acceptance/test_R004_34__an_unreadable_failures_file_is_passed_over_and_named.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | the scoring example run twice, `20260907T090000Z-bbbb`'s `failures.json` then cut short; `dossier run incident-audit --plan` | on standard error, `  passed over: runs/20260907T090000Z-bbbb/failures.json cannot be read: ` and the reason; the plan is compared with `20260806T142203Z-4f1a`'s, the newest it can read; exit 0 |
+| 2 | the same, `dossier eval incident-audit --gold gold/incidents` | the same line; `20260806T142203Z-4f1a` is the run scored |
+| 3 | the same, `dossier status` | the same line; `20260806T142203Z-4f1a` is the pipeline's latest run; exit 0 (R17.6) |
+| 4 | the same, `dossier run --replay runs/20260907T090000Z-bbbb/` | exit 2, naming `failures.json` and why it cannot be read; no `replays/` directory under the run |
+| 5 | *counter-example* — `failures.json` whole | no such line |
