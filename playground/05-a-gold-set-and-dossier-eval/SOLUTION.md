@@ -123,23 +123,26 @@ is a different question and the cache cannot answer it (R4.12, R5.2).
 ```console
 $ dossier run incident-audit
 run 20260917T210016Z-3069 · …
-  extract: 4 document(s) · 0 from cache · 0 failed
+  extract: 4 document(s) · 0 from cache · 0 failed · tokens not reported
 
 $ dossier eval incident-audit --gold gold/incidents
 4 documents · 4 fields · overall 87.5%
   loss_amount         75.0%   <- weakest
+    PLAY-1002.md   answered 0.0; gold abstains, so the correct answer was to abstain too
   resolution_date     75.0%   <- weakest
+    PLAY-1001.md   '04.03.2026' is not a well-formed date, so it cannot be compared with '2026-03-04'
   severity           100.0%
   affected_systems   100.0%
 ```
 
-Row by row:
+The indented lines under a weak field name the document and say, in the
+scorer's own words, why it lost the point. Row by row:
 
 | document | field | answer | verdict | why |
 |---|---|---|---|---|
 | PLAY-1001 | loss_amount | `"CHF 18'400"` (string) | **correct** | the amount scorer strips an unambiguous thousands separator and a three-letter currency written before or after the value. `currency` is still compared as its own field — the reply sets `"currency": "CHF"`, and without it this row would have failed on the currency, not on the number |
 | PLAY-1001 | severity | `"MAJOR"` | **correct** | an enum is a closed vocabulary compared as case-folded text. Which case a model echoed a value back in is not information |
-| PLAY-1001 | resolution_date | `"04.03.2026"` | **incorrect** | both numbers are ≤ 12, so this is 4 March in one country and 3 April in another. Refused rather than guessed |
+| PLAY-1001 | resolution_date | `"04.03.2026"` | **incorrect** | the report calls it "not a well-formed date": both numbers are ≤ 12, so this is 4 March in one country and 3 April in another. Refused rather than guessed |
 | PLAY-1002 | resolution_date | `"19.03.2026"` | **correct** | no month is 19, so the form is unambiguous and normalises to 2026-03-19 |
 | PLAY-1002 | loss_amount | `0.0` | **incorrect** | gold says `null` — the note states that no loss was recorded. "Zero" and "not stated" are different claims, and R7.3 scores the difference |
 
@@ -166,12 +169,21 @@ Both runs are reproduced from their own manifests and cache entries, so the
 comparison asks no model, and both are scored against the same gold set. That is
 what makes the delta a fact about your prompt edit rather than about the weather.
 
-Adding a fifth note and trying to compare across it:
+Adding a fifth note and trying to compare across it. The note is not in
+`playground/corpus/incidents/`; exercise 07 ships it, and this exercise's
+`resources/replies.json` already holds a rule that answers it, so the stub does
+not refuse the run:
 
 ```console
+$ cp playground/07-calibrating-a-judge/resources/documents/PLAY-1005.md inbox/incidents/
+$ dossier sync incident-audit
+incidents-manual  4 known · 0 changed · 1 new -> 5 fetched
+ledger updated · 1 new snapshots · 0 tombstoned
+
 $ dossier run incident-audit
 warning: the source has moved since run 20260917T210016Z-3069: PLAY-1005.md new
 run 20260917T211923Z-ae97 · …
+  extract: 5 document(s) · 4 from cache · 0 failed · tokens not reported
 
 $ dossier eval incident-audit --gold gold/incidents --compare 20260917T210015Z-e8d2 20260917T211923Z-ae97
 incident-audit: runs 20260917T210015Z-e8d2 and 20260917T211923Z-ae97 cover different documents
@@ -198,7 +210,9 @@ With `affected_systems` removed from `PLAY-1003.json`:
 $ dossier eval incident-audit --gold gold/incidents
 4 documents · 4 fields · overall 86.7%
   loss_amount         75.0%   <- weakest
+    PLAY-1002.md   answered 0.0; gold abstains, so the correct answer was to abstain too
   resolution_date     75.0%   <- weakest
+    PLAY-1001.md   '04.03.2026' is not a well-formed date, so it cannot be compared with '2026-03-04'
   severity           100.0%
   affected_systems   100.0%
 ```

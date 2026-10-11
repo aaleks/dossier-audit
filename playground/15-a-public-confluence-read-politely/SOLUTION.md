@@ -24,6 +24,13 @@ and 7 show dossier as it is now. What each one did before is marked
 **[derived]**: it is taken from this exercise's first pass, and from the opening
 paragraph of the rule that fixed it, not from a run of the current code.
 
+Task 3 and task 7's markers were refreshed on 2026-10-11, against
+`confluence-page-markdown` 1.2.0 (#422) and the markers R1.26 (#509) writes: the
+setup block, tasks 2 and 3, and task 4's first run were run again, once each
+against the two servers, and show what they printed. The tombstone-and-return
+syncs of task 7, and tasks 5 and 6, were not run again, and show the
+2026-09-26 pass, with the markers worked out from R1.19 and R1.26.
+
 A fourth thing was an open question, and task 8 used to end on it. It was
 answered after the pass, by R8.26 and R8.27, and task 8's `convert:` maps were
 never run against either server. Their blocks are **[derived]**. The one
@@ -237,7 +244,7 @@ $ P=$($L payload 67637330); echo $P; wc -c < $P
 .dossier/snapshots/dd/0f/dd0f9582a9f675e2d88b97ee19ba7c44f7557bd25bb2f3800160b3c479069c1f
 20747
 $ $L note 67637330 > kip-110.md; wc -c < kip-110.md
-8904
+8796
 $ python -c "import json,sys; p=json.load(open(sys.argv[1],encoding='utf-8')); print(sorted(p))" $P
 ['_expandable', '_links', 'body', 'extensions', 'id', 'position', 'space', 'status', 'title', 'type', 'version']
 ```
@@ -313,9 +320,9 @@ confluence-embedded-image | https://cwiki.apache.org/confluence/download/attachm
 
 ```console
 $ grep -n '!\[' kip-110.md
-45:![36294762-b69219dc-1297-11e8-9537-2d214d677211.png](36294762-b69219dc-1297-11e8-9537-2d214d677211.png)![36294778-d275232e-1297-11e8-8522-368ecda49ac9.png](36294778-d275232e-1297-11e8-8522-368ecda49ac9.png)
-53:![zstd-1.3.3-vs-4.png](zstd-1.3.3-vs-4.png)
-57:![zstd-1.3.4.png](zstd-1.3.4.png)
+39:![36294762-b69219dc-1297-11e8-9537-2d214d677211.png](36294762-b69219dc-1297-11e8-9537-2d214d677211.png)![36294778-d275232e-1297-11e8-8522-368ecda49ac9.png](36294778-d275232e-1297-11e8-8522-368ecda49ac9.png)
+47:![zstd-1.3.3-vs-4.png](zstd-1.3.3-vs-4.png)
+51:![zstd-1.3.4.png](zstd-1.3.4.png)
 ```
 
 **[derived]** A rename of KIP-110 to `KIP-110: ZStandard` would raise the
@@ -346,15 +353,19 @@ here.
 **[run]** Text a reader never sees:
 
 ```console
+$ grep -c "Getting issue details" kip-110.md
+0
 $ grep -n -A3 "HADOOP-13578" kip-110.md
 26:  [HADOOP-13578](https://issues.apache.org/jira/browse/HADOOP-13578)
 27-  -
-28-  Getting issue details...
-29-  STATUS
+28-- HBase (2.0.0) - 
+29-
+$ grep -o "Getting issue details" $P | wc -l
+3
 ```
 
-That is Confluence's Jira issue macro. The export view renders it as a
-placeholder with a spinner:
+The payload holds Confluence's Jira issue macro as the export view renders it,
+a placeholder with a spinner:
 
 ```html
 <span class="jira-issue" data-jira-key="HADOOP-13578" data-client-id="SINGLE_5aa69414-…_67637330_anonymous">
@@ -364,13 +375,20 @@ placeholder with a spinner:
 ```
 
 A browser replaces the placeholder with the issue's summary and status, fetched
-by script after the page loads. So `Getting issue details... STATUS` is in the
-note three times, and a reader never sees it. It is harmless here, but it is the
-kind of sentence R8.20 takes out ("what a reader does not see"), and R8.20
-names only the table of contents, `<style>` and `<script>`. The `data-client-id`
-ends in `_anonymous`: the payload records who asked for the page. A source with
-a credential would hold a different payload for the same version. The note
-leaves the attribute out.
+by script after the page loads, so a reader never sees `Getting issue details...
+STATUS`. The note does not have it either: the converter writes the key and its
+link and leaves both placeholders out (R8.20 row 8). `STATUS` is not the issue's
+status, and a stage that read it could report it as one. The macro's leftover
+hyphen (`  -` on line 27) is the separator the page put between the key and the
+summary, and stays. A macro whose details were rendered, with no
+`issue-placeholder` in it, keeps its summary and status, because they are what a
+reader sees (R8.20 row 9). **[derived]** Before `confluence-page-markdown` 1.2.0
+(#422), `Getting issue details... STATUS` was in this note three times, and R8.20
+named only the table of contents, `<style>` and `<script>` as what it took out.
+
+The `data-client-id` ends in `_anonymous`: the payload records who asked for the
+page. A source with a credential would hold a different payload for the same
+version. The note leaves the attribute out.
 
 **[run]** KIP-57's empty heading:
 
@@ -461,7 +479,7 @@ print(ConfluencePageMarkdownConverter.version)
 for html in ["<p><strong>Released:\xa0</strong>0.10.0.0</p>", "<p><strong>Released: </strong>0.10.0.0</p>"]:
     print(repr(markdown(html)))
 PY
-1.1.0
+1.2.0
 '**Released:** 0.10.0.0'
 '**Released:** 0.10.0.0'
 ```
@@ -520,13 +538,14 @@ $ dossier run kip-audit
 run 20260926T043932Z-0d67 · …/runs/20260926T043932Z-0d67/manifest.json
   extract: 2 document(s) · 0 from cache · 0 failed · tokens not reported
 $ cat calls.jsonl
-{"at": "2026-09-26T04:39:32.156912+00:00", "image_sha256": [], "images": 0, "matched": true, "model": "gpt-5.4-mini", "prompt_chars": 5945, "prompt_first_line": "Extract the requested fields from the Kafka Improvement Proposal below.", "schema": true}
-{"at": "2026-09-26T04:39:32.170011+00:00", "image_sha256": [], "images": 0, "matched": true, "model": "gpt-5.4-mini", "prompt_chars": 9250, "prompt_first_line": "Extract the requested fields from the Kafka Improvement Proposal below.", "schema": true}
+{"at": "2026-09-26T04:39:32.156912+00:00", "documents": ["62694040"], "image_sha256": [], "images": 0, "matched": true, "model": "gpt-5.4-mini", "prompt_chars": 5945, "prompt_first_line": "Extract the requested fields from the Kafka Improvement Proposal below.", "schema": true}
+{"at": "2026-09-26T04:39:32.170011+00:00", "documents": ["67637330"], "image_sha256": [], "images": 0, "matched": true, "model": "gpt-5.4-mini", "prompt_chars": 9142, "prompt_first_line": "Extract the requested fields from the Kafka Improvement Proposal below.", "schema": true}
 $ find runs/20260926T043932Z-0d67 -type f | sort
 runs/20260926T043932Z-0d67/extract/62694040.json
 runs/20260926T043932Z-0d67/extract/62694040.meta.json
 runs/20260926T043932Z-0d67/extract/67637330.json
 runs/20260926T043932Z-0d67/extract/67637330.meta.json
+runs/20260926T043932Z-0d67/failures.json
 runs/20260926T043932Z-0d67/manifest.json
 $ find .dossier/cache/stage -name '*.meta.json' | wc -l
 2
@@ -772,17 +791,25 @@ $ dossier sync export-check
 atlassian-docs  0 known · 0 changed · 3 new -> 3 fetched
 ledger updated · 3 new snapshots · 0 tombstoned
 $ $L ledger | grep atlassian
-atlassian-docs  792498257                        v1                   application/vnd.dossier.confluence-page+json  active
-atlassian-docs  792498257.pdf                    v1+292df2727d6b      application/pdf                               active
+atlassian-docs  792498257                        v1+ic1c15da84414     application/vnd.dossier.confluence-page+json  active
+atlassian-docs  792498257.pdf                    v1+ic1c15da84414+292df2727d6b application/pdf                               active
 atlassian-docs  792498257/ellipsis.png           792498258:v1         image/png                                     active
-$ python -c "import hashlib; print('v1+' + hashlib.sha256(b'792498258:v1').hexdigest()[:12])"
-v1+292df2727d6b
+$ python -c "import hashlib; print('v1+ic1c15da84414+' + hashlib.sha256(b'792498258:v1').hexdigest()[:12])"
+v1+ic1c15da84414+292df2727d6b
 ```
 
-The export's marker is the page's marker, a `+`, and the first twelve hex digits
-of the SHA-256 of the page's file markers, sorted and joined by newlines
-(R1.19). This page carries one file, so that is the hash of `792498258:v1`. A
-page carrying no files would have `v1` alone (R1.19 row 4).
+The page's own marker is no longer `v1` alone: it is `v1+ic1c15da84414`. This
+page includes another page's text, which Confluence draws into it without its
+version moving, so since R1.26 (#509) the marker is its version, `+i`, and the
+first twelve hex digits of the SHA-256 of what it includes, each `<id>:v<n>`,
+sorted and joined by newlines. A page including nothing keeps its version alone
+(R1.26 row 5), which is why KIP-57 and KIP-110 are still `v11` and `v15`.
+
+The export's marker is the page's marker, as that is now written, a `+`, and the
+first twelve hex digits of the SHA-256 of the page's file markers, sorted and
+joined by newlines (R1.19). This page carries one file, so that is the hash of
+`792498258:v1`. The export of a page carrying no files would have the page's
+marker alone (R1.19 row 4): `v1+ic1c15da84414` here.
 
 **[run]**
 
@@ -838,8 +865,8 @@ atlassian-docs  3 known · 0 changed · 0 new -> 0 fetched
       792498257.pdf  tombstoned
 ledger updated · 0 new snapshots · 1 tombstoned
 $ $L ledger | grep atlassian
-atlassian-docs  792498257                        v1                   application/vnd.dossier.confluence-page+json  active
-atlassian-docs  792498257.pdf                    v1+292df2727d6b      application/pdf                               tombstoned
+atlassian-docs  792498257                        v1+ic1c15da84414     application/vnd.dossier.confluence-page+json  active
+atlassian-docs  792498257.pdf                    v1+ic1c15da84414+292df2727d6b application/pdf                               tombstoned
 atlassian-docs  792498257/ellipsis.png           792498258:v1         image/png                                     active
 $ dossier sync export-check
 atlassian-docs  2 known · 0 changed · 0 new -> 0 fetched
@@ -849,8 +876,8 @@ atlassian-docs  2 known · 0 changed · 0 new · 1 returned -> 0 fetched
       792498257.pdf  returned
 ledger updated · 0 new snapshots · 0 tombstoned
 $ $L ledger | grep atlassian
-atlassian-docs  792498257                        v1                   application/vnd.dossier.confluence-page+json  active
-atlassian-docs  792498257.pdf                    v1+292df2727d6b      application/pdf                               active
+atlassian-docs  792498257                        v1+ic1c15da84414     application/vnd.dossier.confluence-page+json  active
+atlassian-docs  792498257.pdf                    v1+ic1c15da84414+292df2727d6b application/pdf                               active
 atlassian-docs  792498257/ellipsis.png           792498258:v1         image/png                                     active
 ```
 
@@ -862,7 +889,7 @@ row 4).
 
 Put back, the export is active again, and nothing was rendered. The key changed
 again, so the page was listed, and `attachments()` reported `792498257.pdf` at
-`v1+292df2727d6b`. That is the marker of the snapshot the ledger still held, so
+`v1+ic1c15da84414+292df2727d6b`. That is the marker of the snapshot the ledger still held, so
 R2.1 skipped the fetch and the row came back as it was. The marker, not the
 bytes, decided that the server need not be asked again. A new export would
 differ anyway, in the random `/ID` in its trailer.

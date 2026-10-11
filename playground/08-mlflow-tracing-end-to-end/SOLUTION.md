@@ -55,6 +55,9 @@ incident-audit: tracking is enabled and no MLflow server answers at http://127.0
 exit 2
 ```
 
+(On Windows the parenthesis reads `[WinError 10061] No connection could be made
+because the target machine actively refused it`; the rest is the same.)
+
 Both before any work. The health check is one `GET /health` at startup, and the
 reason it is there rather than at the first record is in R10.5: an hour of model
 calls nobody can inspect afterwards is the failure being prevented. Note the
@@ -108,6 +111,11 @@ The second message is the better one: `{gold}` is perfectly valid for `eval` and
 `calibrate`, and the fix is the per-command variable, which the message names.
 
 ## Task 3 — what each command records
+
+The lists below are abbreviated: each record also carries `dossier_version`, and
+a `run` or `eval` also carries the hashes of the pipeline, prompts and schemas,
+the converters and the document count; `sync`, `convert` and `calibrate` carry
+a few more counts than shown.
 
 ```
 sync       metrics: incidents-manual/known 0 · changed 0 · new 5 · fetched 5 · failed 0
@@ -173,7 +181,7 @@ for s in t.data.spans:
 PY
 {'dossier.step': 'extract', 'dossier.document': 'PLAY-1005.md'}
   extract · PLAY-1005.md UNKNOWN {}
-  extract STAGE {'dossier.cache': 'miss', 'dossier.key': '5988a9bfdb9d46b2…'}
+  extract STAGE {'dossier.cache': 'miss', 'dossier.key': '2389fab4b14d0160…'}
   openai:gpt-5.4-mini LLM {'dossier.model': 'openai:gpt-5.4-mini', 'dossier.attempt': 1}
 ```
 
@@ -185,7 +193,7 @@ two LLM spans in one trace.
 Run again with everything cached and the traces change shape:
 
 ```
-  extract STAGE {'dossier.cache': 'hit', 'dossier.key': '5988a9bfdb9d46b2…'}
+  extract STAGE {'dossier.cache': 'hit', 'dossier.key': '2389fab4b14d0160…'}
 ```
 
 A stage span and **no LLM span at all**. The hit is recorded as carefully as the
@@ -208,8 +216,8 @@ $ # DOSSIER_MLFLOW_CAPTURE=hashes
      dossier.model = openai:gpt-5.4-mini
      dossier.attempt = 1
      prompt_hash = b3c909cfe88ac27ee0ff7bd2f51cd7dc6961900e2607199bbfcf5186df57ba0a
-     input_hashes = ['4a3401534177d21d521501e791c91f7ac1d97c932339c507d19f19eb660d2470']
-     key = 5988a9bfdb9d46b2bf09f04b901421f87a0a88cb93e91f1a0261be55df9eb790
+     input_hashes = ['1a5b25c1bd8a7a9ccbc90e5edeb863413429ee1d4785c9ebb97730cf650ba89b']
+     key = 2389fab4b14d0160d08c21f184022e75ea75ce4017993b5e05d76f467d574a8a
 ```
 
 versus `full`:
@@ -223,8 +231,10 @@ versus `full`:
 ```
 
 Under `hashes` the span still says *exactly which question was asked* — the three
-hashes are the same three the cache key is made of — and carries no document text
-at all (R10.8). That is the setting for a confidential corpus on a shared server,
+hashes are the same three the cache key is made of. The input hash is the hash
+of the note's text as the stage read it (the converted markdown, rendered into
+the prompt), not of the snapshot's bytes, so it differs from the snapshot's own
+hash. The span carries no document text at all (R10.8). That is the setting for a confidential corpus on a shared server,
 and the value is checked before any work for the same reason the switch is: read
 as `full`, a typo would copy text you meant to keep out of the server, and finding
 that out after the run is finding it out after the copy.

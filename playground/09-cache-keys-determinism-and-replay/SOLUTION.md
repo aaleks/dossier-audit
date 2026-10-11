@@ -75,7 +75,8 @@ compared against 20260918T044720Z-45b2
 1 of 1 step(s) would run · nothing written
 
 $ dossier run incident-audit
-  extract: 4 document(s) · 3 from cache · 0 failed
+warning: the source has moved since run 20260918T044720Z-45b2: PLAY-1001.md re-snapshotted
+  extract: 4 document(s) · 3 from cache · 0 failed · tokens not reported
 ```
 
 One call, for the one document the plan named.
@@ -124,13 +125,13 @@ that pair is the working agreement in practice.
 
 ```console
 $ find .dossier/cache/stage -type f ! -name '*.meta.json' | sort | xargs cat | sha256sum
-dfcf50041737fc4c898b39596c84654a1b2c5ca5124b954687687056fc4ce684  -
+65ab16db7d456ddf1c3ec8573bcaf5beaf51da4041c8d12fb82dbaab4ae505dc  -
 
 $ rm -rf .dossier/cache && dossier run incident-audit
-  extract: 4 document(s) · 0 from cache · 0 failed
+  extract: 4 document(s) · 0 from cache · 0 failed · tokens not reported
 
 $ find .dossier/cache/stage -type f ! -name '*.meta.json' | sort | xargs cat | sha256sum
-dfcf50041737fc4c898b39596c84654a1b2c5ca5124b954687687056fc4ce684  -
+65ab16db7d456ddf1c3ec8573bcaf5beaf51da4041c8d12fb82dbaab4ae505dc  -
 ```
 
 Byte for byte. Deleting the cache changed the *cost* — four more model calls in
@@ -142,11 +143,11 @@ A damaged entry:
 ```console
 $ # one artifact truncated to `{"document": "trunc`
 $ dossier run incident-audit
-  extract: 4 document(s) · 3 from cache · 0 failed
+  extract: 4 document(s) · 3 from cache · 0 failed · tokens not reported
 
 $ # one .meta.json removed instead
 $ dossier run incident-audit
-  extract: 4 document(s) · 3 from cache · 0 failed
+  extract: 4 document(s) · 3 from cache · 0 failed · tokens not reported
 ```
 
 Both are misses, not authority. An artifact whose bytes do not parse is redone; an
@@ -171,10 +172,10 @@ $ echo $?
 Identical keys:
 
 ```
-a4eff980d6ddd7d3d2862d7ef47acb705bfc2ace8e940a51cb8c46f6790bbda8
-b6a49caeb2df0103c9fc97ffee4390066f788f5ae7261f3e8f13dc1f503ec566
-c7c0845c5b3c13f2c0fc1cc1815925b44acfc712a204afd14ab5f4a77fd506ff
-df36fd6c50784b8b4b84a463340a78af8eeb6c226cfdd834ae965c6a2a49cc3d
+46ea8ebb5e5a8c528a4b6be2d6bed88cef853cfa17d85d137a3faafa21387373
+4b35046ad28fc5421bcbadce9a69947445981ee78ef3ec2aa6f9d52c8b4ed4c6
+b1762dbf2b7a38cc5ccaf99c7e5dc357c633a37424aaaafe27fd65ce33d173a6
+f932eb18a3b2df3105fafa8caf788ab3ab058c56a310333052e15570107adf8f
 ```
 
 Different absolute paths, different directory depth, same keys. That is the
@@ -203,7 +204,7 @@ person will otherwise remove it as noise.
 ```console
 $ # one stage artifact deleted
 $ dossier run --replay runs/20260921T133715Z-8cac/
-step 'extract' has no cached artifact for 'PLAY-1004.md' at a4eff980d6dd…; this run cannot
+step 'extract' has no cached artifact for 'PLAY-1004.md' at 46ea8ebb5e5a…; this run cannot
 be reproduced from this workspace, and nothing has been substituted for it.
 exit 2
 

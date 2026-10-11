@@ -121,7 +121,9 @@ gate: the question "did this prompt edit help?" has one honest answer, and it is
 field by field.
 
 Then break it deliberately: add a fifth note to the source, sync, run, and try to
-compare that run with an earlier one.
+compare that run with an earlier one. The note is
+`playground/07-calibrating-a-judge/resources/documents/PLAY-1005.md`, and the
+stub already has a rule for it in this exercise's `resources/replies.json`.
 
 **Checkpoint.** Refused before anything is scored. A delta over different
 documents reports the documents' difference as the change's effect, which is

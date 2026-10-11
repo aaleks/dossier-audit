@@ -129,12 +129,14 @@ note says, so:
 
 The dataset and the files agree here, because you republished. Now break that:
 change `PLAY-1003`'s `severity` back to `critical` — the reviewer thought again —
-and run the eval **without** republishing.
+by rewriting the file with a tool that re-indents it (a `json.dump(..., indent=4)`
+round trip will do), not by restoring its exact bytes, and run the eval **without**
+republishing.
 
 **Checkpoint.**
 
 ```
-dataset incidents is stale: published 1cdc3ac9, scored 8a13aeee
+dataset incidents is stale: published 8f7813c4, scored abe1c870
   run `dossier dataset publish` to refresh it
 5 documents · 5 fields · overall 100.0%
 ```
@@ -145,11 +147,12 @@ dataset incidents is stale: published 1cdc3ac9, scored 8a13aeee
 - Three things `dossier` could have done — refuse, republish, or link and say so.
   Argue for the one it does. What does R10.6 say about letting a tracking server
   decide whether a local score happens?
-- You reverted an answer to exactly what it was, and `scored 8a13aeee` is neither
+- You set an answer back to exactly what it was, and `scored abe1c870` is neither
   of the two hashes you have seen. Why not? (The gold hash is over **bytes**, and
   rewriting a file does not reproduce its formatting — R0.7, R12.3 row 5. Publish
   again and watch a third digest appear for a set whose *answers* are the ones you
-  started with.)
+  started with. Restore the file's original bytes instead, and the scored hash is
+  the original set's again: only a rewrite makes a hash nobody has seen.)
 
 ## Task 4 — three ways to be told no
 
@@ -218,7 +221,7 @@ python playground/toolkit/stub_model.py \
 **Checkpoint.** The run reports a finding before you score anything:
 
 ```
-extract: 5 document(s) · 0 from cache · 0 failed · 1 finding(s)
+extract: 5 document(s) · 0 from cache · 0 failed · 1 finding(s) · tokens not reported
   PLAY-1002.md  loss_amount: has a value and no source. A figure without evidence
                 is the thing this system exists not to produce (R6.6).
 ```

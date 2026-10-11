@@ -333,8 +333,8 @@ message, and **put the change back before the next one**:
 6. And one that is not a refusal: put it back with `wrong` as the password.
 
 **Checkpoint.** The first five exit `2`, each naming what to fix. The last
-exits `1`: `preparing index 'incidents' failed: connection failed: … password
-authentication failed for user "dossier"`.
+exits `1`: `reading what index 'incidents' holds failed: connection failed: …
+password authentication failed for user "dossier"`.
 
 - **Before anything.** None of the five asked the model anything or touched
   Postgres. Why must a missing connection string be found before the first

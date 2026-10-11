@@ -122,7 +122,7 @@ steps:
 ```console
 $ dossier run observability-audit
 run 20260919T121417Z-9295 · .../runs/20260919T121417Z-9295/manifest.json
-  extract: 6 document(s) · 0 from cache · 0 failed · 10 described
+  extract: 6 document(s) · 0 from cache · 0 failed · 10 described · tokens not reported
 ```
 
 Six documents, **nine calls** — `PLAY-3005` has four pages and each one is its
@@ -265,8 +265,9 @@ guessed:
 
 ```console
 $ dossier calibrate observability-audit --gold gold/observability
-root_cause.described: no calibration sample at .../samples/root_cause.described.jsonl.
-A judge cannot be measured against a sample nobody has written (R7.14, R7.16).
+root_cause.described: root_cause.described: no calibration sample at
+.../samples/root_cause.described.jsonl. A judge cannot be measured against a sample
+nobody has written (R7.14, R7.16).
 ```
 
 **Why the described bar is lower.** Reading a page and then judging it is the
@@ -405,7 +406,10 @@ ever written, so every `per_part` run was irreproducible — and `dossier eval`,
 which scores a replay, could score none of them. That is R4.14, and it was found
 by nobody until a slice went looking.
 
-Delete the `png-pages` container from `.dossier/cache/convert/` and replay again:
+Delete the `png-pages` container from `.dossier/cache/convert/` and replay again.
+The entry is the one whose record names the converter:
+`grep -l png-pages .dossier/cache/convert/*/*/*.meta.json` finds its `.meta.json`,
+and the artifact beside it (the same name without `.meta.json`) goes with it:
 
 ```console
 $ dossier run --replay runs/20260919T121417Z-9295/

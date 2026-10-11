@@ -286,7 +286,7 @@ The extension first, because it is the key most people write:
 
 ```console
 $ dossier convert incident-audit        # convert: {.log: []}
-sources.yaml, line 5: in 'shift-notes', 'convert' -- Value error, convert: maps media types to kinds, and '.log' is not a media type. Write it as a snapshot records it, such as application/pdf: a file extension is not evidence about content (R8.3, R8.26).
+sources.yaml, line 30: in 'shift-notes', 'convert' -- Value error, convert: maps media types to kinds, and '.log' is not a media type. Write it as a snapshot records it, such as application/pdf: a file extension is not evidence about content (R8.3, R8.26).
 exit 2
 ```
 

@@ -60,8 +60,8 @@ no previous run to compare against
 0
 
 $ $D gc; echo $?
-nothing to collect
   kept as it is: runs/20261002T172602Z-cd3e/ cannot be replayed: step 'extract' has no cached artifact for 'PLAY-1001.md' at f932eb18a3b2...; this run cannot be reproduced from this workspace, and nothing has been substituted for it.
+nothing to collect
 0
 
 $ $D gc --apply; echo $?
