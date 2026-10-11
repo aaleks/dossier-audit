@@ -42,7 +42,7 @@ ledger updated · 5 new snapshots · 0 tombstoned
 recorded to MLflow: dossier-audit/incident-audit/sync
 run 20260922T055408Z-2071 · …/runs/20260922T055408Z-2071/manifest.json
 recorded to MLflow: dossier-audit/incident-audit/run · run 20260922T055408Z-2071
-  extract: 5 document(s) · 0 from cache · 0 failed
+  extract: 5 document(s) · 0 from cache · 0 failed · tokens not reported
 root_cause         100.0% agreement over 20 cases · openai:gpt-5.4-mini
                    lower bound 83.9% · kappa 1.00 · supported 12 of 12 · unsupported 8 of 8
 recorded to MLflow: dossier-audit/incident-audit/calibrate
@@ -60,7 +60,7 @@ published to MLflow: dossier-audit/incident-audit/eval/incidents (d-199062269f9b
 The dataset on the server, read back with `mlflow.genai.datasets.get_dataset`:
 
 ```
-tags    dossier.gold_hash      8a13aeeeb0ff8f30677d8feb284a9f215de7e59822276761fef7b3cca36c4145
+tags    dossier.gold_hash      2e0c83619a3b36b2a332481371246dc44563e0d4d68374ccc7c1f6c9081e940f
         dossier.snapshots_hash 4e100b0fcb16b22c6c550f8d1ba28f99b383592bccb643b18ccbebc0376cc6f3
         dossier.verified_by    a.aleks
 records 5
@@ -71,9 +71,8 @@ records 5
   PLAY-1005.md  {"loss_amount": 2750.0,  "resolution_date": "2026-06-24", "severity": "major", …}
 ```
 
-(The `gold_hash` above is the value the set ends on, after task 3's last publish.
-At this point in the exercise it is the original set's hash — the tag is overwritten
-by each publish, so the earlier values survive only on the runs that linked them.)
+(The `gold_hash` above is the original set's hash. The tag is overwritten by each
+publish, so the earlier values survive only on the runs that linked them.)
 
 **What is in `inputs`, and what is not.** The document key, and nothing else:
 
@@ -163,22 +162,23 @@ The run on the server:
 ```
 inputs   [('incidents', '3043d4a8')]
 tags     dossier.kind      eval
-         dossier.gold_hash 1cdc3ac9…
+         dossier.gold_hash 8f7813c4…
          dossier.run_id    20260922T055408Z-2071
 metrics  accuracy/severity 80.0   accuracy/overall 96.0   …
 ```
 
-The dataset's own `gold_hash` tag is `1cdc3ac9` too, and its digest is the
+The dataset's own `gold_hash` tag is `8f7813c4` too, and its digest is the
 `3043d4a8` this run links: the two agree, which is why there is no stale tag.
 
 `inputs` is the link (R11.7): the dataset, by name and digest, beside the figures.
 Anyone opening this run can open the answers it was measured against without
 knowing what a gold hash is.
 
-After reverting `PLAY-1003` and **not** republishing:
+After setting `PLAY-1003` back to `critical` by rewriting its file with every key
+re-indented (a `json.dump(..., indent=4)` round trip), and **not** republishing:
 
 ```
-dataset incidents is stale: published 1cdc3ac9, scored 8a13aeee
+dataset incidents is stale: published 8f7813c4, scored abe1c870
   run `dossier dataset publish` to refresh it
 5 documents · 5 fields · overall 100.0%
 ```
@@ -189,7 +189,7 @@ That run, read back:
 inputs   [('incidents', '3043d4a8')]
 tags     dossier.kind          eval
          dossier.dataset_stale true
-         dossier.gold_hash     8a13aeee…
+         dossier.gold_hash     abe1c870…
 metrics  accuracy/severity 100.0   accuracy/overall 100.0   …
 ```
 
@@ -217,10 +217,13 @@ the three that does not put a tracking server in charge of a local score.
   it came from, and leaves the fix to the person who knows whether the edit was
   meant.
 
-**Why `8a13aeee` is a third hash.** The gold hash is over the *bytes* of the files
+**Why `abe1c870` is a third hash.** The gold hash is over the *bytes* of the files
 (R0.7), and rewriting a JSON file does not reproduce its original formatting —
 indentation, key order, the trailing newline. The answers are the ones you started
-with; the bytes are not. That is R12.3 row 5 exactly: a file rewritten with the same
+with; the bytes are not. Put the original bytes back instead (`git checkout` of the
+file, or a plain text replacement of `major` by `critical` that touches nothing
+else) and the scored hash is `2e0c8361`, the original set's, a hash the dataset has
+already been published at once: only a rewrite produces a hash nobody has seen. That is R12.3 row 5 exactly: a file rewritten with the same
 answers formatted differently is sent, because the set the dataset claims to address
 has moved. Publishing again gives a fourth digest for a set whose answers never
 really changed:
@@ -282,7 +285,7 @@ MLflow instead of by `dossier`.
 ```
 run 20260922T055516Z-d3cf · …/runs/20260922T055516Z-d3cf/manifest.json
 recorded to MLflow: dossier-audit/incident-audit/run · run 20260922T055516Z-d3cf
-  extract: 5 document(s) · 0 from cache · 0 failed · 1 finding(s)
+  extract: 5 document(s) · 0 from cache · 0 failed · 1 finding(s) · tokens not reported
     PLAY-1002.md  loss_amount: has a value and no source. A figure without evidence
                   is the thing this system exists not to produce (R6.6).
 ```
@@ -321,7 +324,9 @@ metrics  a/loss_amount 100.0   b/loss_amount 80.0   delta/loss_amount -20.0
          a/overall 100.0   b/overall 92.0   delta/overall -8.0
 tags     dossier.kind      compare
          dossier.regressed loss_amount, resolution_date
-         dossier.gold_hash 8a13aeee…
+         dossier.lost      (empty)
+         dossier.changed_steps extract (prompt changed)
+         dossier.gold_hash abe1c870…
 params   a 20260922T055408Z-2071   a/model openai:gpt-5.4-mini
          b 20260922T055516Z-d3cf   b/model openai:gpt-5.4-mini
 inputs   [('incidents', '70c68d1a')]
@@ -343,9 +348,6 @@ An *absent* tag on a clean comparison would break it. You could not tell a
 comparison where nothing regressed from one recorded before the tag existed, which
 is the same reasoning that has `sync` attach a `changes.json` whose lists are all
 empty rather than no artifact (R11.6 row 2). So it is present and empty.
-
-(The run above was recorded before R11.29, so it has no `dossier.lost`. Yours
-has one, present and empty.)
 
 **A lost document is its own tag.** `dossier.regressed` holds field names, and
 the filter above treats it that way. Put `PLAY-1004.md` in it and every reader

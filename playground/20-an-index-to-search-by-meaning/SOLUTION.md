@@ -470,7 +470,7 @@ incidents.yaml, line 7: fields.embed names 'affected_systems', a reference field
 exit 2
 
 $ $D embed incidents; echo "exit $?"          # embedding_model: ollama:qwen3-embedding:4b-fp16
-incidents.yaml, line 3: embedding_model 'ollama:qwen3-embedding:4b-fp16' is an Ollama tag with no digest, and a tag moves when the model is re-pulled. Pin it as 'ollama:<name>:<tag>@sha256:<digest>'
+incidents.yaml, line 2: embedding_model 'ollama:qwen3-embedding:4b-fp16' is an Ollama tag with no digest, and a tag moves when the model is re-pulled. Pin it as 'ollama:<name>:<tag>@sha256:<digest>'
 exit 2
 
 $ $D embed incidents; echo "exit $?"          # DOSSIER_INDEX_DSN unset
@@ -478,7 +478,7 @@ DOSSIER_INDEX_DSN is not set: it holds the connection string of the index incide
 exit 2
 
 $ $D embed incidents; echo "exit $?"          # the password is wrong
-preparing index 'incidents' failed: connection failed: connection to server at "127.0.0.1", port 5435 failed: FATAL: password authentication failed for user "dossier"
+reading what index 'incidents' holds failed: connection failed: connection to server at "127.0.0.1", port 5435 failed: FATAL: password authentication failed for user "dossier"
 exit 1
 ```
 

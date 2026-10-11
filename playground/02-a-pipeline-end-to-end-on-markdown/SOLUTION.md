@@ -135,7 +135,7 @@ ask for — and `--plan` is the command you reach for when you are not sure yet.
 ```console
 $ dossier run incident-audit
 run 20260921T133524Z-ac6c · /…/playground/work/02/runs/20260921T133524Z-ac6c/manifest.json
-  extract: 4 document(s) · 0 from cache · 0 failed
+  extract: 4 document(s) · 0 from cache · 0 failed · tokens not reported
 ```
 
 The manifest, trimmed:
@@ -144,7 +144,7 @@ The manifest, trimmed:
 {
   "run_id": "20260921T133524Z-ac6c",
   "started_at": "2026-09-21T13:35:24.…Z",
-  "dossier_version": "0.1.0",
+  "dossier_version": "0.1.dev932+g523fc87d5",
   "plan": {
     "pipeline": "incident-audit",
     "pipeline_hash": "5aed764040dfbc0d…",
@@ -156,13 +156,15 @@ The manifest, trimmed:
         "mode": "per_file",
         "prompt_hash": "b3c909cfe88ac27e…",
         "schema_hash": "387e8655133090ff…",
-        "generated_schema_hash": "ab74a2c9281eea27…"
+        "generated_schema_hash": "46b01cd3e36ce5ca…"
       }
     ],
     "documents": [
       {"key": "PLAY-1001.md", "snapshot": "6bdb8cad3ebd2dcf…", "media_type": "text/markdown"},
       …
-    ]
+    ],
+    "reference": [],
+    "converters": [{"id": "markdown-text", "version": "1.0.0", "media_type": "text/markdown", "kind": "markdown"}]
   }
 }
 ```
@@ -184,26 +186,67 @@ snapshot has not.
 One stage artifact, and its record:
 
 ```console
-$ cat .dossier/cache/stage/a4/ef/a4eff980…
-{"document":"PLAY-1004.md","fields":[{"field":"loss_amount","value":9900.0,"currency":"CHF",
-"reason":null,"confidence":"high","source":{"document":"PLAY-1004.md","span":"recorded a loss
-of CHF 9'900 in attributed revenue","page":null}}, …]}
+$ cat .dossier/cache/stage/46/ea/46ea8ebb…
+{
+  "document": "PLAY-1004.md",
+  "fields": [
+    {
+      "field": "loss_amount",
+      "value": 9900.0,
+      "currency": "CHF",
+      "reason": null,
+      "confidence": "high",
+      "source": {
+        "document": "PLAY-1004.md",
+        "span": "recorded a loss of CHF 9'900 in attributed revenue",
+        "page": null
+      }
+    },
+    …
+  ]
+}
 
-$ cat .dossier/cache/stage/a4/ef/a4eff980….meta.json
+$ cat .dossier/cache/stage/46/ea/46ea8ebb….meta.json
 {
   "attempts": 1,
-  "cache_key": "a4eff980d6ddd7d3…",
-  "dossier_version": "0.1.0",
-  "generated_schema": {"hash": "ab74a2c9281eea27…"},
-  "inputs": [{"hash": "d7c5317a23938586…", "path": "documents/PLAY-1004.md", "role": "documents"}],
+  "cache_key": "46ea8ebb5e5a8c52…",
+  "dossier_version": "0.1.dev932+g523fc87d5",
+  "generated_schema": {
+    "hash": "46b01cd3e36ce5ca…"
+  },
+  "inputs": [
+    {
+      "hash": "bc86d7c5f1cc858a…",
+      "path": "documents/PLAY-1004.md",
+      "role": "documents"
+    }
+  ],
   "model": "openai:gpt-5.4-mini",
   "options": {},
-  "prompt": {"hash": "b3c909cfe88ac27e…", "path": "prompts/01_extract.md", "role": "prompt"},
+  "prompt": {
+    "hash": "b3c909cfe88ac27e…",
+    "path": "prompts/01_extract.md",
+    "role": "prompt"
+  },
   "run_id": "20260921T133524Z-ac6c",
-  "schema": {"hash": "387e8655133090ff…", "path": "schemas/incident.yaml", "role": "schema"},
-  "step": "extract"
+  "schema": {
+    "hash": "387e8655133090ff…",
+    "path": "schemas/incident.yaml",
+    "role": "schema"
+  },
+  "step": "extract",
+  "tokens": {
+    "input": null,
+    "output": null
+  }
 }
 ```
+
+The input hash is **not** the snapshot hash `d7c5317a…`. A stage hashes its input
+as the stage reads it: the document wrapped in `<document key="PLAY-1004.md">…
+</document>`, so the model can say which document a value came from (R3.13).
+Those are different bytes, so a different hash; the snapshot hash is what the
+manifest pins, and the input hash is what the cache key is built from.
 
 `attempts: 1` is the one field here that is about what happened rather than about
 what was asked. Exercise 06 makes it 2.
@@ -215,7 +258,7 @@ $ ls runs/20260921T133524Z-ac6c/extract/
 PLAY-1001.md.json   PLAY-1002.md.json   PLAY-1003.md.json   PLAY-1004.md.json
 PLAY-1001.md.meta.json  PLAY-1002.md.meta.json  PLAY-1003.md.meta.json  PLAY-1004.md.meta.json
 
-$ cmp runs/20260921T133524Z-ac6c/extract/PLAY-1004.md.json       .dossier/cache/stage/a4/ef/a4eff980… && echo identical
+$ cmp runs/20260921T133524Z-ac6c/extract/PLAY-1004.md.json       .dossier/cache/stage/46/ea/46ea8ebb… && echo identical
 identical
 ```
 
@@ -301,6 +344,7 @@ warning: the source has moved since run 20260929T143151Z-8137: handover-note.md 
 run 20260929T143153Z-fa75 · .../runs/20260929T143153Z-fa75/manifest.json
   extract: 5 document(s) · 4 from cache · 1 failed
     extract failed on handover-note.md: every input it reads is empty: documents
+exit 1
 ```
 
 The call log did not grow: four answers from cache, and no call for the note.
@@ -331,10 +375,13 @@ $ dossier run --replay runs/20260929T143153Z-fa75/
 replayed 20260929T143153Z-fa75 · incident-audit
   extract: 4 artifact(s) from cache
 4 artifact(s) reproduced · no model calls · written to runs/20260929T143153Z-fa75/replays/20260929T144034Z-12b0/
+    extract failed on handover-note.md: every input it reads is empty: documents
 ```
 
 The replay makes the same decision the run made, and reproduces the failure
-rather than looking for an entry the run never wrote (R4.7).
+rather than looking for an entry the run never wrote (R4.7). That is the last
+line above: the run exits 1 because a document failed, and the replay repeats
+the failure by name without a model call.
 
 ---
 

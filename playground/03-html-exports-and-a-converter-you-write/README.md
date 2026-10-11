@@ -248,7 +248,9 @@ What did leaving the breadcrumb out cost? Write that down too.
 >
 > Point the workspace's `.env` at it as the playground README describes, run
 > the pipeline, move the page again (to `Finance`, say), sync, and run once more.
-> The second run reports `6 from cache`, and the call log does not grow.
+> The first run makes five calls, not six: `PLAY-4003` converted to nothing, and
+> a call about nothing is not made, so that document fails (R6.29). The second
+> run reports `5 from cache · 1 failed`, and the call log does not grow.
 
 ## Task 4 — a register as a table
 

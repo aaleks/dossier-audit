@@ -191,8 +191,9 @@ will be shown. Read both. Then check each of these:
   snapshots of the two PNGs (R1.16 row 3, R2.7, R8.20 row 4).
 - **Four images in the note, two in the ledger.** `grep -n '!\[' kip-110.md`.
   Where are the other two, and what does the note claim about them?
-- **Text a reader never sees.** Look for `Getting issue details...` in the note.
-  Find it in the payload, and work out what a browser shows in its place.
+- **Text a reader never sees.** Look for `Getting issue details...` in the
+  payload, and in the note. Work out what a browser shows in its place, and
+  which rule says the note leaves the placeholder out (R8.20 rows 8 and 9).
 
 Then read the first lines of KIP-57's note (`$L note 62694040 | head -12`). One
 line is an empty heading. Find out from the payload why it is there.
@@ -369,8 +370,9 @@ dossier convert export-check
 ```
 
 **Checkpoint.** Three documents: the page at `v1`, `792498257/ellipsis.png`, and
-`792498257.pdf` with the marker `v1+` followed by twelve hex digits. Work out
-those digits yourself from R1.19, using the file's marker. Then read the page's
+`792498257.pdf` with a marker that begins with the page's own and ends in `+`
+and twelve hex digits. The page's marker is not `v1` alone: read R1.26 to see why.
+Work out those digits yourself from R1.19, using the file's marker. Then read the page's
 note and the PDF's (`$L note 792498257.pdf`). Where is the image in each, and
 why does the export's marker have to move when the image does?
 

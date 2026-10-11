@@ -91,7 +91,7 @@ Run it with the stub (`resources/replies.json`), then read the call log.
 **Checkpoint.**
 
 ```
-  extract: 6 document(s) · 0 from cache · 0 failed · 10 described
+  extract: 6 document(s) · 0 from cache · 0 failed · 10 described · tokens not reported
 ```
 
 and nine calls, each carrying exactly one picture, each with a prompt of exactly
@@ -201,7 +201,9 @@ written under, and a key without the part in it is a key no run ever wrote — w
 is what made every `per_part` run irreproducible before R4.14.
 
 Then break it deliberately: delete the `png-pages` container from
-`.dossier/cache/convert/` and replay again. Two things to check, and the second
+`.dossier/cache/convert/` and replay again (`grep -l png-pages
+.dossier/cache/convert/*/*/*.meta.json` finds the entry; delete it and the
+artifact beside it). Two things to check, and the second
 is the one that matters:
 
 - the message names the step, its mode, and the document whose pages are gone;

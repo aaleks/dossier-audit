@@ -2,7 +2,7 @@
   "_comment": [
     "What the stub model answers, one rule per document. First match wins.",
     "`match` is a list of substrings that must all appear in the rendered prompt;",
-    "the heading of the note is enough to tell the four documents apart.",
+    "the heading of the note is enough to tell the documents apart.",
     "Every `span` below appears verbatim in its document -- that is what makes the",
     "field grounded (R6.4). Change one character of a span and the field is scored",
     "incorrect however right its value looks."
@@ -156,6 +156,43 @@
               "document": "PLAY-1004.md",
               "span": "**Systems affected:** search-api, catalogue-index"
             }
+          }
+        ]
+      }
+    },
+    {
+      "comment": "Task 4's fifth note. It lives in exercise 07's resources, not in the corpus.",
+      "match": ["# PLAY-1005"],
+      "reply": {
+        "document": "PLAY-1005.md",
+        "fields": [
+          {
+            "field": "loss_amount",
+            "value": 2750.0,
+            "currency": "CHF",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-1005.md",
+              "span": "credits issued came to a recorded loss of CHF 2'750"
+            }
+          },
+          {
+            "field": "resolution_date",
+            "value": "2026-06-24",
+            "confidence": "high",
+            "source": {"document": "PLAY-1005.md", "span": "**Resolved:** 2026-06-24"}
+          },
+          {
+            "field": "severity",
+            "value": "major",
+            "confidence": "high",
+            "source": {"document": "PLAY-1005.md", "span": "**Severity:** major"}
+          },
+          {
+            "field": "affected_systems",
+            "value": "upload-service",
+            "confidence": "high",
+            "source": {"document": "PLAY-1005.md", "span": "**Systems affected:** upload-service"}
           }
         ]
       }

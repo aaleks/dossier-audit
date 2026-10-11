@@ -25,17 +25,20 @@ Then, per task, restart the stub with that task's variant in front and
 
 ```console
 $ dossier run incident-audit
-  extract: 4 document(s) · 0 from cache · 0 failed
+  extract: 4 document(s) · 0 from cache · 0 failed · 1 finding(s) · tokens not reported
+    PLAY-1001.md  loss_amount: span not found in PLAY-1001.md (R6.4).
 
 $ dossier eval incident-audit --gold gold/incidents
 4 documents · 4 fields · overall 93.8%
   loss_amount         75.0%   <- weakest
+    PLAY-1001.md   ungrounded: the value may be right, and nothing in the document shows it
   resolution_date    100.0%
   severity           100.0%
   affected_systems   100.0%
 ```
 
-**The run reports no failure, and the score drops.** That pairing is deliberate. A
+**The run reports no failure, and the score drops.** The run line counts the
+finding and prints it, `0 failed` beside it. That pairing is deliberate. A
 field with a plausible value and no evidence has not made the *run* fail — the
 stage got a well-formed answer for every document — it has produced a finding,
 and findings are scoring's business (spec 006's four verdicts: `valid`,
@@ -95,21 +98,23 @@ amendment.
 ## Task 2 — abstention, done wrong twice
 
 ```console
+$ dossier run incident-audit
+  extract: 4 document(s) · 0 from cache · 0 failed · 2 finding(s) · tokens not reported
+    PLAY-1002.md  loss_amount: value is null with no reason. Abstention must say why it abstained (R6.5).
+    PLAY-1002.md  severity: has a value and no source. A figure without evidence is the thing this system exists not to produce (R6.6).
+
 $ dossier eval incident-audit --gold gold/incidents
 4 documents · 4 fields · overall 87.5%
   loss_amount         75.0%   <- weakest
+    PLAY-1002.md   loss_amount: value is null with no reason. Abstention must say why it abstained (R6.5).
   resolution_date    100.0%
   severity            75.0%   <- weakest
+    PLAY-1002.md   severity: has a value and no source. A figure without evidence is the thing this system exists not to produce (R6.6).
   affected_systems   100.0%
 ```
 
-Both records are `invalid`, and the messages say which problem is which:
-
-```
-loss_amount: value is null with no reason. Abstention must say why it abstained (R6.5).
-severity: has a value and no source. A figure without evidence is the thing this system
-exists not to produce (R6.6).
-```
+Both records are `invalid`, and the lines under the weak fields say which problem
+is which (the run prints the same two as findings):
 
 Put beside exercise 05, this is the sharpest lesson in spec 006. There,
 `PLAY-1002` abstained on `loss_amount` **with** a reason, gold said `null`, and it
@@ -128,7 +133,7 @@ honest.
 $ wc -l < /tmp/dossier-calls.jsonl        # before
 0
 $ dossier run incident-audit
-  extract: 4 document(s) · 0 from cache · 0 failed
+  extract: 4 document(s) · 0 from cache · 0 failed · tokens not reported
 $ wc -l < /tmp/dossier-calls.jsonl        # after
 5
 
@@ -174,7 +179,15 @@ Two details worth carrying away:
   the stub answer with prose both times, because the first rule matches both the
   original prompt and the retry. That is task 4's situation, reached by a
   different route, and it is what a real model looks like when a prompt cannot be
-  satisfied.
+  satisfied. Run it and you get five calls, exit 1, and:
+
+  ```console
+  $ dossier run incident-audit
+  run 20260929T153010Z-1c2a · …
+    extract: 4 document(s) · 0 from cache · 1 failed · tokens not reported
+      extract failed on PLAY-1003.md: no valid output after 2 attempts: Invalid JSON: expected value at line 1 column 1
+  exit 1
+  ```
 
 ## Task 4 — a document that never produces an answer
 

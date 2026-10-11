@@ -82,11 +82,17 @@ ledger updated · 4 new snapshots · 0 tombstoned
 ```console
 $ find .dossier -type f | sort
 .dossier/ledger.db
+.dossier/lock
+.dossier/lock.json
 .dossier/snapshots/6b/db/6bdb8cad3ebd2dcf76a24acdf1d36b55a5cda49f0a7222c9809044573892b1d0
 .dossier/snapshots/95/0d/950d8ed7fbe310505a8d01cb02233239e3524bd445022b892caa7d6b1ab60007
 .dossier/snapshots/9c/5d/9c5d76c1930794d25fd2bb6356a7a4f800ae1f5f9c22ba98b81aec45b67769d4
 .dossier/snapshots/d7/c5/d7c5317a23938586cd2ce4d2778373d32693309ab91445e62120bbaa83211ac8
 ```
+
+`lock` and `lock.json` are the workspace lock (spec 020): a command that writes
+holds it while it runs, and `lock.json` says which command and process hold it.
+Exercise 24 is about them; here they are noise you can ignore.
 
 The ledger is SQLite, one table of items:
 
@@ -146,7 +152,7 @@ than patched.
 $ printf '\n- Added by the reviewer: the credit note was issued on 2026-04-09.\n' >> inbox/incidents/PLAY-1003.md
 $ dossier sync incident-audit
 incidents-manual  4 known · 1 changed · 0 new -> 4 fetched
-      PLAY-1003.md  9b1c…e7f2 -> 4d80…a613
+      PLAY-1003.md  9c5d76c1930794d25fd2bb6356a7a4f800ae1f5f9c22ba98b81aec45b67769d4 -> ceee134bf276f83a320081358d84094fde930217f4eb3b448f5f073f4581a449
 ledger updated · 1 new snapshots · 0 tombstoned
 
 $ find .dossier/snapshots -type f | wc -l
@@ -159,11 +165,11 @@ under the snapshot store is ever rewritten (R0.2) — which is what lets a manif
 written before your edit still resolve to the document that run actually read.
 
 The indented line names the item that moved, with the address it held and the
-one it holds now — both printed in full, abbreviated here (R2.18). Those are the
+one it holds now — both printed in full (R2.18). Those are the
 two files under `.dossier/snapshots/`, so the edit is one `diff` away:
 
 ```console
-$ diff .dossier/snapshots/9b/1c/9b1c…e7f2 .dossier/snapshots/4d/80/4d80…a613
+$ diff .dossier/snapshots/9c/5d/9c5d76c1… .dossier/snapshots/ce/ee/ceee134b…
 ```
 
 And the ledger keeps the history after the terminal has scrolled by. Every
@@ -228,7 +234,7 @@ looking for the pipeline instead (R2.12).
 
 ```console
 $ dossier sync incident-audit     # with `pth:` instead of `path:`
-sources.yaml, line 4: in 'incidents-manual', unknown key 'pth' -- did you mean 'path'?
+sources.yaml, line 9: in 'incidents-manual', unknown key 'pth' -- did you mean 'path'?
 exit 2
 ```
 
@@ -240,7 +246,7 @@ what a folder is (R1.10).
 
 ```console
 $ dossier sync incident-audit     # with `token: hunter2` in sources.yaml
-sources.yaml, line 5: in 'incidents-manual', 'token' holds a credential, and this file
+sources.yaml, line 10: in 'incidents-manual', 'token' holds a credential, and this file
 is committed to git. Name the variable instead, as `token_env: DOSSIER_FOLDER_TOKEN`, and
 set its value in the environment (R1.8).
 exit 2

@@ -135,13 +135,13 @@ $ echo $?
 
 $ artifacts.py PLAY-4005 --cat
 PLAY-4005-connection-pool-exhaustion.html snapshot 3d99a87a  html-markdown       1.3.0    519 bytes  sha256 ad1e83fe5471
-  .dossier/cache/convert/38/51/3851fbd56684620f7748580348b7119a8d2378ff9abac2246ee2752d40a0eaf8
+  .dossier/cache/convert/06/e7/06e7d034982ca77ab55d9367381aaf68ed112e65b05ef98b0e058ad8f66192a2
     Spaces / Site Reliability / Postmortems / 2026 / PLAY-4005
 
     # PLAY-4005 – Connection pool exhausted by a report query
 
-    **Severity:** major
-    **Resolved:** 2026-06-21
+    **Severity:** major  
+    **Resolved:** 2026-06-21  
     **Systems affected:** orders-api
     …
 ```
@@ -215,6 +215,26 @@ All seven are served from cache, the page included. `markdown` was the kind
 they had by default, so declaring it chose the same converters, and a convert
 key is the snapshot, the converter's id and version, and the options (R5.4).
 Who chose the kind is not in it.
+
+Before task 2, take the Windows-1252 page and the `convert:` line out as well,
+and sync again. Task 2 names a converter of your own, and yours reads UTF-8 only:
+leave the page in and that converter fails on it, which the end of task 2 shows.
+
+**[run]**
+
+```console
+$ rm inbox/postmortems/PLAY-4005-connection-pool-exhaustion.html
+$ dossier sync incident-audit           # with the convert: line removed
+postmortems-mixed  7 known · 0 changed · 0 new -> 6 fetched
+      PLAY-4005-connection-pool-exhaustion.html  tombstoned
+ledger updated · 0 new snapshots · 1 tombstoned
+
+$ dossier convert incident-audit
+postmortems-mixed  6 held · 0 converted · 6 cached
+cache updated · 0 converted · 6 cached
+```
+
+Six held again, and the numbers in task 2 are counted from here.
 
 The same JSON, the same installation, and one line of `sources.yaml` decided
 how far its failure reached. The table in spec 008 is the whole difference:
@@ -355,7 +375,13 @@ postmortems-mixed  6 held · 0 converted · 6 cached
 cache updated · 0 converted · 6 cached
 ```
 
-Three exports converted under a key that names `play-html-markdown`. The scans
+Three exports converted under a key that names `play-html-markdown`. (This is
+why the page came out above: with `PLAY-4005` still held, the same command
+reports `7 held · 0 converted · 6 cached · 1 failed` and exits 1, with
+`PLAY-4005-connection-pool-exhaustion.html: ValueError: play-html-markdown could
+not decode this export as UTF-8: 'utf-8' codec can't decode byte 0x96 in
+position 81: invalid start byte`. `html-markdown` reads the page's own
+`<meta charset>`; yours decodes strictly and does not.) The scans
 and the register are cached, because their converters, and so their keys, did not
 change. The choice sits in `sources.yaml`, beside `sources:`, because a manifest
 pins one converter per pair (R8.9) and a replay recomposes every conversion from
@@ -393,13 +419,13 @@ amendment rather than a package.
 ```console
 $ artifacts.py PLAY-4001 --cat
 PLAY-4001-payment-retries.html            snapshot db6997e7  html-markdown       1.3.0   1302 bytes  sha256 ec8a656a0b6d
-  .dossier/cache/convert/f7/07/f707a8edad4001d0171faa80367209008691f2f70ece6a9dac942da31d9f5b61
+  .dossier/cache/convert/4a/0c/4a0c7b0f0b75e25103fb4a32ba38fe00a61e57d16ac8955730de14c5fe524ff3
     Spaces / Site Reliability / Postmortems / 2026 / PLAY-4001
 
     # PLAY-4001 — Duplicate payment retries after a queue redelivery
 
-    **Severity:** major
-    **Resolved:** 2026-04-18
+    **Severity:** major  
+    **Resolved:** 2026-04-18  
     **Systems affected:** payments-worker, orders-api
 
     ## Timeline
@@ -445,7 +471,7 @@ Three differences, and only the first was the point:
 ```console
 $ artifacts.py PLAY-4003 --cat
 PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.3.0     50 bytes  sha256 5bfd3d4bcc44
-  .dossier/cache/convert/bd/93/bd930fa81d987bb66630707e3e9bac0539acdff8a654c0158b6cdf7dd39a731c
+  .dossier/cache/convert/7f/63/7f63337854f0f1a37bdb6414e14000db8c53da88c8bc96c07d58d8de5d246657
     ![panel-checkout-p99.png](panel-checkout-p99.png)
 
 PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  play-html-markdown  0.1.0      0 bytes  sha256 e3b0c44298fc
@@ -475,10 +501,14 @@ empty note. It does. `_reads_nothing` in `src/dossier/application/run.py` asks
 whether a document holds an artifact *of the kind the step reads*, not whether
 the artifact holds anything. R6.21 skips a PNG for a step reading `markdown`,
 because the PNG has no `markdown` artifact at all. An empty `markdown` artifact
-is still one. So with `0.1.0` named, a model is asked about a document with
-nothing in it. The optional stub run below makes that call. Its log records each
-prompt's length, and `PLAY-4003`'s is the shortest of the six, at 400
-characters: 13 fewer than the photocopy's, whose note is only its page anchor.
+is still one, so the step does not skip the document. What it does is decided
+one stage later (R6.29): every input the call reads is empty, so the call is
+not made and the document fails, with `every input it reads is empty:
+documents`. The optional stub run below shows it. Before R6.29 the model was
+asked about a document with nothing in it. Now nothing is paid for, but the
+audit reports a failure for a page that held nothing to extract, and `run`
+exits 1. The photocopy, whose note is only its page anchor, is not empty, and
+its call is made.
 
 **[derived]** So the answer the solution reaches is the third one. Write what the
 page states about its picture: its alt text, and failing that the name of its
@@ -533,9 +563,10 @@ place and the stub answering from `resources/replies.json`:
 ```console
 $ dossier run incident-audit
 run 20260926T101423Z-e10d · …/runs/20260926T101423Z-e10d/manifest.json
-  extract: 6 document(s) · 0 from cache · 0 failed · tokens not reported
+  extract: 6 document(s) · 0 from cache · 1 failed · tokens not reported
+    extract failed on PLAY-4003-latency-dashboard-export.html: every input it reads is empty: documents
 $ wc -l < /tmp/dossier-calls-03.jsonl
-6
+5
 
 $ sed -i 's#Spaces / Payments / Postmortems#Spaces / Finance / Postmortems#' \
     inbox/postmortems/PLAY-4001-payment-retries.html
@@ -547,14 +578,16 @@ ledger updated · 1 new snapshots · 0 tombstoned
 $ dossier run incident-audit
 warning: the source has moved since run 20260926T101423Z-e10d: PLAY-4001-payment-retries.html re-snapshotted
 run 20260926T101425Z-ab68 · …/runs/20260926T101425Z-ab68/manifest.json
-  extract: 6 document(s) · 6 from cache · 0 failed
+  extract: 6 document(s) · 5 from cache · 1 failed
+    extract failed on PLAY-4003-latency-dashboard-export.html: every input it reads is empty: documents
 $ wc -l < /tmp/dossier-calls-03.jsonl
-6
+5
 ```
 
 The run warns that the source moved, which is true, and asks nothing, which is
-the point. The first run's six calls include `PLAY-4003`, asked about an empty
-note.
+the point. The first run's five calls are the five documents with something in
+them; `PLAY-4003`, the empty note, is refused before any call and fails again
+here, with no call, until its converter gives it text.
 
 **What did leaving the breadcrumb out cost?** The note no longer says which space
 a postmortem lives in, so a question like "which team's postmortems cite a
@@ -723,7 +756,7 @@ cache updated · 0 converted · 6 cached
 
 $ artifacts.py PLAY-4003 --cat
 PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  html-markdown       1.3.0     50 bytes  sha256 5bfd3d4bcc44
-  .dossier/cache/convert/bd/93/bd930fa81d987bb66630707e3e9bac0539acdff8a654c0158b6cdf7dd39a731c
+  .dossier/cache/convert/7f/63/7f63337854f0f1a37bdb6414e14000db8c53da88c8bc96c07d58d8de5d246657
     ![panel-checkout-p99.png](panel-checkout-p99.png)
 
 PLAY-4003-latency-dashboard-export.html   snapshot 614caa61  play-html-markdown  0.1.0      0 bytes  sha256 e3b0c44298fc
