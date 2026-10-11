@@ -13,19 +13,24 @@ is several files, checking incidents against the procedures that apply to
 them without auditing the procedures, reading three public websites as
 documents, one of them drawn by a browser, scoring answers that are not text:
 a yes or no, a length of time, and a list, indexing the notes to search them by
-meaning, and asking that index questions, and finally saying what a run cost and
-making it faster, and reading a photocopy back into text.
+meaning, and asking that index questions, saying what a run cost and making it
+faster, reading a photocopy back into text, masking a client's name before a model
+sees it and keeping it masked all the way to MLflow and the index, and finally
+looking after a workspace a job runs every day.
 
-**Exercises 01 to 10, 12 to 14, 16, 17, 19 and 22 run offline, in seconds, at zero cost.**
+**Exercises 01 to 10, 12 to 14, 16, 17, 19, 22 and 27 run offline, in seconds, at zero cost.**
 No API key, no model bill, no network. A stub model server in `toolkit/` answers
 the same OpenAI-compatible route a real endpoint would, from a file of rules you
 can read and edit — so the code path is the real one and the answers are yours
 to control. Exercises 08, 12, 13 and 14, and task 7 of 22, also start a local
-MLflow server; it is still your machine and nothing else.
+MLflow server; it is still your machine and nothing else. Exercise 27 also serves
+a small website from your machine, on 127.0.0.1.
 
-**Exercise 25 needs the masking extras.** Presidio and spaCy, and spaCy's four
-`lg` models, about 2 GB, installed once with `uv sync --extra masking --extra
-masking-models`. After that it runs offline, against the stub.
+**Exercises 25 and 26 need the masking extras.** Presidio and spaCy, and spaCy's
+four `lg` models, about 2 GB, installed once with `uv sync --extra masking --extra
+masking-models`. After that they run offline, against the stub. Exercise 26's
+task 4 starts a local MLflow server, and its tasks 5 to 7 need what exercises 20
+and 21 need: the Postgres in `dev/index` and a local Ollama.
 
 **Exercise 23 needs Docling.** The `docling` extra brings torch, and Docling's
 model weights are downloaded once, at the commits `dossier` pins. After that it
@@ -109,6 +114,8 @@ when you want the reasoning behind what you just saw.
 | 23 | [A photocopy, read by OCR](23-a-photocopy-read-by-ocr/) | a PDF with no text layer, a workspace naming the converter that answers a pair, weights that are pinned and never fetched, OCR only where a page has no text layer, what OCR writes down and what it misses, a span that quotes the converted text and one that quotes the paper, and a converter name nothing answers | R8.1, R8.13, R8.14, R8.15, R8.2, R8.6, R8.9, R5.4, R6.4, R6.17 – R6.19 |
 | 24 | [Two commands, one workspace](24-two-commands-one-workspace/) | the commands that write and the ones that only read, a second writer refused and told who, the holder's details beside the lock and the moment they are stale, a command killed halfway that leaves nothing to clean up, a daily job that fails plainly rather than waiting, and the version every record says it was written by | R20.1, R17.3, R5.2, R4.31, R20.2 |
 | 25 | [A client's name, masked before it leaves](25-a-client-masked-before-it-leaves/) | what a model is sent and how to read it, declaring masking, numbered placeholders per document, a masked view's record and what it never writes down, a threshold that is required and a picture that is refused, a file named after the client, what the threshold decides, an allow-list for a word taken for a person, and what masking promises against what it measures | R21.1, R21.2, R21.4, R21.5, R21.7, R21.8, R21.9, R21.14 |
+| 26 | [A client, masked all the way through](26-a-client-masked-all-the-way-through/) | where a masked view keeps the values it replaced, a value a person wrote masked with the note's own numbering, a value the note does not hold taking a new number, gold written against the original and compared masked, a judge calibrated on masked candidates, what MLflow records about masking and that it records no value, an index that holds no client data and an embedding model asked about none, an index whose masking never changes, and a search for a client by name | R21.15 – R21.25 |
+| 27 | [A workspace that runs every day](27-a-workspace-that-runs-every-day/) | a page the sync still owes and the morning `status`, why `status` exits 0 with a problem in view, `status` and `eval` agreeing on a judged field, a `gc` preview proved to delete nothing, what `gc` keeps of a run it cannot replay, `--keep-last 0` refused before anything is read, a run directory losing its manifest last, and a record cut short | R17.1, R17.2, R17.6, R17.7, R16.5, R16.7 – R16.11 |
 
 ## How an exercise folder is laid out
 

@@ -1,0 +1,108 @@
+{
+  "_comment": [
+    "What the stub answers the extract step. One rule per note, matched on the",
+    "prompt's own words and the note's heading, so that a judge's prompt, which",
+    "holds the note in full but not these words, never matches one.",
+    "",
+    "Written as a model shown the masked view would answer: the client is the",
+    "placeholder the note was masked with, numbered as that note numbers it.",
+    "PLAY-6001 names Hans Muster first, so Erika Mustermann is [PERSON_2] there,",
+    "and [PERSON_1] in the other three. Every span is in the masked text, so",
+    "every answer grounds (R6.4). Only PLAY-6001's root cause names the client,",
+    "so the index's record chunk has a placeholder to carry (R21.15 row 2)."
+  ],
+  "rules": [
+    {
+      "match": ["affected, and its root cause", "# PLAY-6001"],
+      "reply": {
+        "document": "PLAY-6001.md",
+        "fields": [
+          {
+            "field": "affected_client",
+            "value": "[PERSON_2]",
+            "confidence": "high",
+            "source": {"document": "PLAY-6001.md", "span": "The affected client is [PERSON_2]"}
+          },
+          {
+            "field": "root_cause",
+            "value": "The nightly settlement export was scheduled at a local time that did not exist on the night the clocks changed, so it never ran, and [PERSON_2]'s settlement was held for two days.",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-6001.md",
+              "span": "The nightly settlement export was scheduled at a local time that did not exist\non the night the clocks changed, so it never ran."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": ["affected, and its root cause", "# PLAY-6002"],
+      "reply": {
+        "document": "PLAY-6002.md",
+        "fields": [
+          {
+            "field": "affected_client",
+            "value": "[PERSON_1]",
+            "confidence": "high",
+            "source": {"document": "PLAY-6002.md", "span": "[PERSON_1] meldete am Montag"}
+          },
+          {
+            "field": "root_cause",
+            "value": "eine Firewall-Regel wurde bei der nächtlichen Änderung entfernt, und die Kassenterminals konnten den Zahlungsdienst nicht mehr erreichen",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-6002.md",
+              "span": "Eine Firewall-Regel wurde bei der nächtlichen Änderung entfernt, und die\nKassenterminals konnten den Zahlungsdienst nicht mehr erreichen."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": ["affected, and its root cause", "# PLAY-6003"],
+      "reply": {
+        "document": "PLAY-6003.md",
+        "fields": [
+          {
+            "field": "affected_client",
+            "value": "[PERSON_1]",
+            "confidence": "high",
+            "source": {"document": "PLAY-6003.md", "span": "La cliente [PERSON_1] a signalé"}
+          },
+          {
+            "field": "root_cause",
+            "value": "la mise à jour du service de paiement a remplacé le certificat sans redémarrer les passerelles, qui ont refusé toutes les connexions",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-6003.md",
+              "span": "La mise à jour du service de paiement a remplacé le certificat sans\nredémarrer les passerelles, qui ont refusé toutes les connexions."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": ["affected, and its root cause", "# PLAY-6004"],
+      "reply": {
+        "document": "PLAY-6004.md",
+        "fields": [
+          {
+            "field": "affected_client",
+            "value": "[PERSON_1]",
+            "confidence": "high",
+            "source": {"document": "PLAY-6004.md", "span": "La cliente [PERSON_1] ha segnalato"}
+          },
+          {
+            "field": "root_cause",
+            "value": "l'esportazione notturna era programmata a un orario che non esisteva nella notte del cambio dell'ora, e non è stata eseguita",
+            "confidence": "high",
+            "source": {
+              "document": "PLAY-6004.md",
+              "span": "L'esportazione notturna era programmata a un orario che non esisteva nella\nnotte del cambio dell'ora, e non è stata eseguita."
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

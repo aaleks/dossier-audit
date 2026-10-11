@@ -1,0 +1,13 @@
+{
+  "document": "PLAY-6004.md",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-10-11",
+  "fields": {
+    "affected_client": {
+      "value": "Erika Mustermann"
+    },
+    "root_cause": {
+      "value": "L'esportazione notturna era programmata a un orario che non esisteva nella notte del cambio dell'ora, e non è stata eseguita."
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# PROPOSED. Copy this into `gold/incidents/judge.yaml` yourself, once you agree
+# with it, and change the name and the date to yours.
+#
+# The agreement root_cause's judge must reach against this gold set's sample
+# (R7.13). The argument is exercise 07's: twelve of the twenty cases are
+# supported, so a judge that says "supported" to everything scores 0.60, and a
+# bar at what one measurement happened to produce leaves no room for one
+# disagreement. 0.95 sits between the two.
+#
+# root_cause: agreed by <your name> on <today's date>.
+root_cause: 0.95

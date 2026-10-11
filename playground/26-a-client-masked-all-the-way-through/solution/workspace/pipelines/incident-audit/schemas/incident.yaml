@@ -1,0 +1,9 @@
+# Two fields, each one a person writes gold for against the original note.
+#
+# `affected_client` is a `reference`: scored by exact match, once the gold
+# value is masked by the note's numbering (R21.23). `root_cause` is
+# `free_text`: a judge decides whether a stated cause is supported by the
+# note, and the judge is measured on a sample first (R7.11, R21.20).
+fields:
+  affected_client: {kind: reference}
+  root_cause:      {kind: free_text, judge: rubrics/root_cause.md}

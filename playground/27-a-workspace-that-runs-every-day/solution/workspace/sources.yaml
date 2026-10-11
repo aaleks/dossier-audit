@@ -1,0 +1,17 @@
+# The two sources the daily job syncs.
+#
+# `incidents-manual` is exercise 07's folder of incident notes, audited by
+# `incident-audit`. `vendor-runbooks` is a vendor's runbook site, here served
+# from your own machine on port 8098. Nothing audits it in this exercise: it is
+# synced every morning for a pipeline someone else runs, and it is the source
+# that goes wrong.
+sources:
+  - id: incidents-manual
+    type: folder
+    path: inbox/incidents/
+
+  # Listed from the host's own /sitemap.xml, the default when `sitemap:` is not
+  # given (R1.29). Every page under `url` that the sitemap names is a document.
+  - id: vendor-runbooks
+    type: web
+    url: http://127.0.0.1:8098/runbooks/

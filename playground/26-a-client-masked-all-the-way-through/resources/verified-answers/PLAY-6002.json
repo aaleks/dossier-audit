@@ -1,0 +1,13 @@
+{
+  "document": "PLAY-6002.md",
+  "verified_by": "a.aleks",
+  "verified_at": "2026-10-11",
+  "fields": {
+    "affected_client": {
+      "value": "Erika Mustermann"
+    },
+    "root_cause": {
+      "value": "Eine Firewall-Regel wurde bei der nächtlichen Änderung entfernt, und die Kassenterminals konnten den Zahlungsdienst nicht mehr erreichen."
+    }
+  }
+}

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PLAY-7001 — Failing over the payments database</title>
+</head>
+<body>
+  <nav><a href="/runbooks/">Runbooks</a></nav>
+  <main>
+    <h1>PLAY-7001 — Failing over the payments database</h1>
+    <p>Owner: platform on-call.</p>
+    <h2>When</h2>
+    <p>Fail over when the primary has not answered a health check for five
+    minutes, or when replication lag on the standby is under ten seconds and
+    the primary is degraded.</p>
+    <h2>Steps</h2>
+    <ol>
+      <li>Freeze deployments to the payment gateway.</li>
+      <li>Promote the standby, and point the gateway's connection string at it.</li>
+      <li>Confirm that new payments are written to the promoted database.</li>
+    </ol>
+  </main>
+</body>
+</html>
