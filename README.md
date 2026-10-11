@@ -585,4 +585,7 @@ datasets, prompts and review need a SQL-backed MLflow server on your machine,
 because datasets, prompt versions and logged models live in its tables. The
 index exercises need the Postgres in `dev/index` and a local Ollama, and the OCR
 one needs the `docling` extra and Docling's weights. Start at
-`playground/README.md`, which says what each one needs.
+`playground/README.md`, which says what each one needs. To watch before you
+type, `playground/tutorial/` renders a narrated ten-minute quickstart of the
+core loop -- sync, convert, plan, run, eval -- in which every command is typed
+live and every output is one the command printed.

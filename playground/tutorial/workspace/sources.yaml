@@ -1,0 +1,6 @@
+# Where documents come from. One source here: a folder of incident notes.
+# dossier also reads Jira, Confluence and websites, declared the same way.
+sources:
+  - id: incidents-manual
+    type: folder
+    path: inbox/incidents/

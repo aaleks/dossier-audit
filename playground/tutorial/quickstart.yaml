@@ -1,0 +1,311 @@
+# The quickstart video, as data: what is said, and what is typed.
+#
+# `record.py` runs every `run:` below for real, in a fresh workspace with the
+# stub model behind it, and keeps what each command printed. `render.py` turns
+# that recording and the narration into the video. Nothing a viewer sees in the
+# terminal is written here: it is what the command printed when it was recorded.
+#
+# A scene has a `say:` (spoken while the command is typed, or over a slide), and
+# a `then:` (spoken after the output appears, with `highlight:` lines lit). Write
+# short sentences: each one is a caption. `pronounce:` changes only what the
+# voice reads, never the caption.
+
+title: dossier in ten minutes
+header: quickstart
+subtitle: A folder of notes, a pipeline and a score. Offline, at zero cost.
+voice: af_heart
+speed: 1.0
+
+pronounce:
+  gpt-5.4-mini: G P T five point four mini
+  sources.yaml: sources dot yammel
+  pipeline.yaml: pipeline dot yammel
+  incident.yaml: incident dot yammel
+  .env: dot E N V
+  enum: enumeration
+  YAML: yammel
+  OpenWebUI: open web U I
+  MLflow: M L flow
+  JSON: jason
+  CHF: Swiss francs
+  "04.03.2026": "zero four, zero three, twenty twenty-six"
+  "87.5": eighty-seven and a half
+  eval: e-val
+
+setup:
+  workspace: quickstart          # built under playground/work/
+  port: 8199
+  copy:
+    - {from: "tutorial/workspace/*", to: .}
+    - {from: "corpus/incidents/PLAY-100[1-4].md", to: inbox/incidents/}
+    - {from: "05-a-gold-set-and-dossier-eval/resources/verified-answers/*.json", to: gold/incidents/}
+  env: |
+    # Where the model is served. Which model answers is pipeline.yaml's business.
+    DOSSIER_OPENAI_URL=http://127.0.0.1:{port}/api
+    DOSSIER_OPENAI_API_KEY=stub
+  stub:
+    replies:
+      - 05-a-gold-set-and-dossier-eval/resources/replies-prompt-v2.json
+      - 05-a-gold-set-and-dossier-eval/resources/replies.json
+    log: model-calls.jsonl       # inside the workspace, so the video can count it
+    usage: true
+
+chapters:
+  - title: Welcome
+    scenes:
+      - slide:
+          heading: What dossier does
+          bullets:
+            - Collects documents from folders, Jira, Confluence and websites
+            - Freezes each one as an immutable snapshot
+            - Runs a pipeline of prompt steps over them
+            - Checks that every answer quotes its source
+            - Scores the answers against answers a person verified
+        say: >-
+          Welcome to dossier.
+          dossier is a command-line tool for auditing documents with a language model, and for proving how well it did.
+          It collects documents from your sources, and freezes each one as a snapshot that never changes.
+          Then it runs a pipeline of prompt steps over them, and checks that every answer quotes the document it came from.
+          Finally, it scores those answers against answers a person verified.
+      - slide:
+          heading: In the next ten minutes
+          bullets:
+            - "sync  →  convert  →  plan  →  run  →  eval"
+            - Four incident notes, one pipeline, one score
+            - Change a prompt, and catch the regression it causes
+            - "A stub answers as gpt-5.4-mini: offline, free, repeatable"
+        say: >-
+          In the next ten minutes, we'll take a folder of four incident notes all the way to a score.
+          Then we'll change a prompt, and watch dossier catch the regression it causes.
+          Everything you'll see runs offline, on your own machine, at zero cost.
+          Every command is typed live, and every output is real.
+          Let's start.
+
+  - title: The workspace
+    scenes:
+      - run: find . -type f | sort
+        say: >-
+          dossier always runs from a workspace.
+          That's a folder holding your sources, your pipelines, and the state the tool writes.
+          This one was prepared for the course.
+        then: >-
+          Four incident notes in an inbox.
+          Four gold files, which hold the answers a person verified.
+          One pipeline, a sources file, and a .env file.
+      - run: cat sources.yaml
+        say: >-
+          sources.yaml declares where documents come from.
+        then: >-
+          Here there is one source, a folder.
+          Jira, Confluence and websites are declared the same way, each with its own type.
+        highlight: ['type: folder']
+      - run: cat inbox/incidents/PLAY-1001.md
+        say: >-
+          Let's read one of the notes.
+        then: >-
+          These are the facts we want to extract.
+          A severity, a resolution date, and the systems affected.
+          And near the bottom, a loss in CHF.
+        highlight: ['Severity', 'Resolved', 'Systems affected', "CHF 18'400"]
+
+  - title: Where the model is served
+    scenes:
+      - run: cat .env
+        say: >-
+          dossier talks to every model over one OpenAI-compatible route.
+          The .env file says only where that route is served, and with which key.
+        then: >-
+          In this course, that address is a stub server on this machine.
+          It answers from a file of prepared replies.
+          It's the same code path a real model takes, but it's free, and it gives the same answer every time.
+          Later, you'll point this line at your own OpenWebUI, and nothing else changes.
+        highlight: ['DOSSIER_OPENAI_URL']
+
+  - title: Sync and snapshots
+    scenes:
+      - run: dossier sync incident-audit
+        say: >-
+          The first command is sync.
+          It asks each source what it holds, and freezes every new document as a snapshot, named by the hash of its content.
+        then: >-
+          Four new documents, so four new snapshots.
+          The ledger now remembers each one.
+      - run: dossier sync incident-audit
+        say: >-
+          Let's run it again.
+        then: >-
+          Four known, nothing changed, nothing new.
+          Sync only ever stores what changed.
+        highlight: ['0 changed']
+      - run: 'echo "- 2026-03-05: post-mortem held." >> inbox/incidents/PLAY-1001.md'
+        say: >-
+          Now a colleague adds a line to one of the notes.
+      - run: dossier sync incident-audit
+        say: >-
+          And we sync once more.
+        then: >-
+          One document changed, and it got a new snapshot, with a new hash.
+          The old snapshot is never overwritten.
+          So any run that read the old version can still be replayed, exactly as it was.
+        highlight: ['1 changed', 'PLAY-1001.md']
+
+  - title: A pipeline
+    scenes:
+      - run: cat pipelines/incident-audit/pipeline.yaml
+        say: >-
+          A pipeline is plain data, in its own folder.
+        then: >-
+          It names the sources it reads, and the model that answers: gpt-5.4-mini.
+          It has one step, extract, which runs once per file.
+          The step has a prompt, and an output declaration.
+        highlight: ['model:', 'id: extract', 'per_file']
+      - run: cat pipelines/incident-audit/schemas/incident.yaml
+        say: >-
+          The output declaration lists the fields to extract.
+        then: >-
+          Four fields, each with a kind.
+          An amount, a date, an enum with three allowed values, and a reference.
+          The kind decides how an answer is scored later.
+          An amount is compared as a number, and a date only when it can't be misread.
+      - run: cat pipelines/incident-audit/prompts/01_extract.md
+        say: >-
+          And here's the prompt.
+        then: >-
+          Every value must quote the exact sentence it came from, or be null with a reason.
+          No guessing.
+          That quote is how dossier checks that an answer is grounded in the document.
+        highlight: ['exact sentence', 'null with a reason']
+
+  - title: Convert, plan and run
+    scenes:
+      - run: dossier convert incident-audit
+        say: >-
+          Before a model can read a document, it has to be text.
+          Convert does that, and caches the result.
+        then: >-
+          Markdown is nearly free.
+          PDFs, web pages, screenshots and scans each have a converter of their own.
+      - run: dossier run incident-audit --plan
+        say: >-
+          Before spending anything, ask for the plan.
+        then: >-
+          One step would run, and the plan says why: it's new, because there's no previous run.
+          A plan writes nothing to disk, so it's always safe to ask.
+        highlight: ['extract: new', 'nothing written']
+      - run: dossier run incident-audit
+        say: >-
+          Now the real run.
+          Four documents, one model call each.
+        then: >-
+          Every run gets an id, and a manifest.
+          The manifest pins exactly what the run read.
+          Each snapshot, the prompt, the output declaration, and the model.
+          The run also counts the tokens it spent, so you know what it cost.
+        highlight: ['tokens in']
+      - run: head -n 16 runs/{run:last}/extract/PLAY-1001.md.json
+        say: >-
+          Let's look at what came back for the first note.
+        then: >-
+          Each field has a value, a confidence, and the exact text it was read from.
+          dossier checked that this text really appears in the note.
+          An answer that quotes something the note doesn't say is not accepted.
+        highlight: ['"value"', '"span"']
+
+  - title: The cache
+    scenes:
+      - run: dossier run incident-audit
+        say: >-
+          What happens if we run it again?
+        then: >-
+          Four answers from the cache.
+          Each answer is stored under a key made of everything that could change it.
+          Same snapshot, same prompt, same model: same key.
+        highlight: ['4 from cache']
+      - run: wc -l < model-calls.jsonl
+        say: >-
+          The stub logs every request it receives.
+        then: >-
+          Four requests, all from the first run.
+          The second run didn't ask the model anything.
+          On a real model, that's time and money saved, and an answer you can reproduce.
+
+  - title: Scoring against gold
+    scenes:
+      - run: cat gold/incidents/PLAY-1001.json
+        say: >-
+          So how good are these answers?
+          To know, you need answers a person has checked.
+        then: >-
+          A gold file holds the verified answers for one document, who verified them, and when.
+          dossier never writes gold files itself.
+          Accepting an answer as true is always a person's call.
+        highlight: ['verified_by']
+      - run: dossier eval incident-audit --gold gold/incidents
+        say: >-
+          eval scores the latest run against the gold set, field by field.
+        then: >-
+          One hundred percent, because the stub answers exactly what the gold says.
+          That's our baseline.
+          From here, anything that moves is something we changed.
+        highlight: ['overall 100.0%']
+
+  - title: A prompt change, and a regression
+    scenes:
+      - run: 'echo "When two figures are given, prefer the figure finance reconciled." >> pipelines/incident-audit/prompts/01_extract.md'
+        say: >-
+          Now let's do what happens in real life.
+          Someone improves the prompt, with one more instruction.
+      - run: dossier run incident-audit --plan
+        say: >-
+          The plan first.
+        then: >-
+          It sees the change at once: prompt changed.
+          The prompt is part of every cache key, so this is a new question, and the cache can't answer it.
+        highlight: ['prompt changed']
+      - run: dossier run incident-audit
+        say: >-
+          So we run it.
+      - run: dossier eval incident-audit --gold gold/incidents
+        say: >-
+          And we score it again.
+        then: >-
+          87.5 percent.
+          Two fields got weaker, and eval names the document behind each one, and why.
+          For one note, the model answered a loss of zero, where the note says there was no loss at all.
+          For another, it wrote the date as 04.03.2026, which is March in one country and April in the next.
+          dossier refuses to guess.
+        highlight: ['weakest', 'PLAY-1002.md', 'PLAY-1001.md']
+      - run: dossier eval incident-audit --gold gold/incidents --compare {run:first} {run:last}
+        say: >-
+          And compare puts two runs side by side.
+        then: >-
+          Both runs are rebuilt from their own manifests and the cache, so no model is asked.
+          The difference is a fact about the prompt edit, not about the model's mood that day.
+          That's the change gate: a prompt edit has to earn its place.
+        highlight: ['regression']
+
+  - title: Status, and where next
+    scenes:
+      - run: dossier status
+        say: >-
+          Last command: status.
+        then: >-
+          What each source holds, when it was last synced, and each pipeline's latest run.
+          It's a good way to start the day.
+      - slide:
+          heading: Where next
+          bullets:
+            - "A real model: keep model: openai:gpt-5.4-mini, point .env at your OpenWebUI"
+            - "08 · every call traced in MLflow"
+            - "20, 21 · an index, and search by meaning"
+            - "25 · client names masked before anything leaves"
+            - "11, 15, 18 · a real Jira, Confluence and websites"
+            - "playground/README.md · every exercise, and what it needs"
+        say: >-
+          That's the whole loop: sync, convert, plan, run and eval.
+          To use a real model, keep the model line as it is, and point the URL in .env at your OpenWebUI.
+          No cache key changes, because where a model is served is never part of a key.
+          From here, the playground has an exercise for each part of dossier.
+          You can trace every call in MLflow, search your documents by meaning, and mask client names before anything leaves your machine.
+          You can also read a real Jira, a Confluence, or a website.
+          Thanks for watching.
