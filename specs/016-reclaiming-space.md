@@ -257,11 +257,13 @@ is held for good, and nothing names it.
 
 ### R16.11 — a run whose `manifest.json` or `failures.json` cannot be read stops no `gc`
 
-Neither file is written all at once (R4.27), so a run killed while writing one
-leaves it cut short. Without this, `gc` would stop with a traceback and delete
-nothing until a person found the file. A manifest that cannot be read says
-nothing of the run, not even its pipeline: the directory is left as one with no
-manifest is (R16.2 row 6), and named. A `failures.json` that cannot be read is
+Neither file was written all at once (R4.27), so a run killed while writing one
+left it cut short. R4.29 now writes each whole or not at all, so one cut short
+was written before R4.29, or edited by a person (R0.11). Without this, `gc`
+would stop with a traceback and delete nothing until a person found the file.
+A manifest that cannot be read says nothing of the run, not even its
+pipeline: the directory is left as one with no manifest is (R16.2 row 6), and
+named. A `failures.json` that cannot be read is
 a replay that stops before its stages, R16.8's case.
 
 - **Kind:** deterministic
