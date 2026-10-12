@@ -319,12 +319,15 @@ class Ledger:
     def owe(
         self, source_id: str, key: str, *, item_key: str | None, at: datetime, error: str
     ) -> None:
+        # Owed again: `failed_at` stays the first failure's, which is what
+        # `status` means by `since`, and the error becomes the last one's
+        # (R17.2 row 6). Moving it to every failed sync made a page refused for
+        # a week read as owed since this morning.
         self._connection.execute(
             """
             INSERT INTO owed (source_id, key, item_key, failed_at, error) VALUES (?, ?, ?, ?, ?)
             ON CONFLICT (source_id, key) DO UPDATE SET
                 item_key = excluded.item_key,
-                failed_at = excluded.failed_at,
                 error = excluded.error
             """,
             (source_id, key, item_key, _to_text(at), error),

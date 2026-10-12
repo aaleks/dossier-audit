@@ -43,6 +43,34 @@ def lines_for(*owed: Owed) -> list[str]:
 class TestStatusNamesWhatASyncStillOwes:
     """R17.2 — every owed document, under its source, with when and why."""
 
+    def test_owed_since_the_fetch_that_first_failed_for_the_last_ones_reason(
+        self, tmp_path: Path
+    ):
+        """Row 6 — the one refused again the next day, `429` this time.
+
+        Through the ledger both syncs wrote: the second failure is what moved
+        `since` to its own instant.
+        """
+        throttled = REFUSED.replace("answered 403", "answered 429")
+        with Ledger(tmp_path) as ledger:
+            ledger.record(held_row("procedures-confluence", "OPS-114"))
+            ledger.set_watermark("procedures-confluence", SYNCED)
+            for at, error in (
+                (SYNCED, REFUSED),
+                (datetime(2026, 8, 7, 9, 0, tzinfo=UTC), throttled),
+            ):
+                ledger.owe(
+                    "procedures-confluence",
+                    "81920114.pdf",
+                    item_key="81920114",
+                    at=at,
+                    error=error,
+                )
+
+        lines = source_lines(["procedures-confluence"], read_held(tmp_path))
+
+        assert lines[1:] == [f"  owed 81920114.pdf, since 2026-08-06T09:00:00Z: {throttled}"]
+
     def test_an_owed_document_is_named_under_its_source(self, tmp_path: Path):
         """Row 1 — the one where `81920114.pdf` was refused `403`.
 

@@ -110,7 +110,8 @@ page is missing. `never synced` would be false as well, and would hide both the
 page held and the page owed (R17.1 row 5, R17.2 row 5).
 
 **Where the failure is kept.** In the ledger, as an owed key with the time of
-the sync that failed and the error it got (R2.23). The terminal line reaches
+the first sync that failed and the error the last one got (R2.23, R17.2 row 6).
+A page refused every night for a week is owed since the first night. The terminal line reaches
 cron's mail once. The owed row stays until a sync stores the page, or the
 source stops listing it, and every `status` until then prints it (R17.2).
 
