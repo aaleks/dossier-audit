@@ -14,7 +14,7 @@ superseded is still correct history, and `specs/` names what replaced it.
 ---
 
 The playground run against today's code, and what it found (2026-10-11 to
-2026-10-12, #750 - #762).
+2026-10-12, #750 - #764).
 - A narrated quickstart video was added: every command is typed live, and
   every output is real (#750).
 - The walkthroughs that had drifted were refreshed (#751).
@@ -49,6 +49,12 @@ Each masking fix was checked live with Presidio. Its span takes in an
 ASCII `'s` and leaves a typographic `’s` outside, which the fake masker,
 finding canaries by their exact text, never shows. It finds
 `CIF 0042-118733` in a one-word filter as the fake assumed.
+
+Three walkthroughs then still showed output from before the fixes, and were
+rerun (#764): exercise 10's doubled prefix, exercise 27's next-morning `run`,
+and exercise 02's manifest excerpt. Exercise 27's task 8 now asks `status`
+where it crashed, and exercise 26's task 7 adds the refused filter. The
+quickstart, recorded again, differed only in run ids and timestamps.
 
 ---
 
