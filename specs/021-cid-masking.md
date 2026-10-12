@@ -1,7 +1,7 @@
 # 021 — Masking client identifying data
 
 **Status:** Partially implemented
-**Rules:** R21.1 – R21.25
+**Rules:** R21.1 – R21.26
 
 ## Purpose
 
@@ -723,6 +723,33 @@ The acceptance rule of the fourth part's first half.
 | 2 | the same run again, every view served from the cache | the same metrics: counted from the views' records, not from what was masked this time |
 | 3 | the run's params, metrics and tags | none names or holds a value |
 | 4 | *counter-example* — an unmasked run | no `masked/` metric at all |
+
+### R21.26 — a search over a masked index refuses a `--where` value its masker detects, and sends it nowhere
+
+R21.19 masked a search's query and left its filters as typed. Found while
+writing the playground's exercise 26 on 2026-10-11: whatever was typed into
+`--where` reached the index's query and the trace MLflow records.
+
+Masking the value would not help. A masked index carries each value as its own
+document numbered it (R21.2), so `[CLIENT_NUMBER_1]` is a different client in
+every document, and a filter masked to it would find documents about other
+clients and look like an answer. So a `--where` value in which the masker
+detects anything is refused before the model is asked or the index is searched.
+The refusal names the field and what was detected, and never the value. A value
+in which nothing is detected is searched as typed. That is a category, as most
+filters are.
+
+- **Kind:** deterministic
+- **Layer:** application (`dossier.application.masking`), cli (`dossier.cli.search`)
+- **Proved by:** `tests/integration/test_R021_26__a_search_refuses_a_where_its_masker_detects.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `incident-audit` masked, its index `incidents` filtering on `severity` and `affected_systems`; `dossier search incidents "settlement held" --where affected_systems="CIF 0042-118733"` | exit 2, naming `affected_systems` and `CLIENT_NUMBER`; no canary on either stream; the embedding model not asked, the index not searched, nothing recorded |
+| 2 | the same, `--where severity=major` | searched with `severity` `major`, as typed, and recorded so |
+| 3 | the same as row 1, the pipeline's masker unable to run (a model missing) | exit 2, naming what installs it; the filter sent nowhere |
+| 4 | *counter-example* — the same index, its pipeline declaring no `masking:` | `--where affected_systems="CIF 0042-118733"` searched as typed, as R19.4 does |
 
 ## Open questions
 
