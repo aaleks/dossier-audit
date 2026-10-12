@@ -281,6 +281,9 @@ class RunInputs:
     # How many values of each type its documents' masked views hold, as
     # `masked/<TYPE>`, recorded beside the run's other figures (R21.25).
     masked_counts: Mapping[str, int] | None = None
+    # The kinds each document was read as, pinned beside it so a replay reads
+    # those and no others (R4.35). `None` pins none.
+    kinds: Mapping[str, Collection[str]] | None = None
 
 
 @dataclass(frozen=True)
@@ -394,6 +397,7 @@ def execute(
         source_configs=source_configs,
         reference=reference_documents,
         masker=masker,
+        kinds=inputs.kinds,
     )
     # Which client asks each step: its own model's, or the pipeline's (R3.14).
     # Decided before anything is written, so a step whose model has no client
@@ -1653,6 +1657,7 @@ def _resolve(
     source_configs: Mapping[str, SourceConfig] | None = None,
     reference: Mapping[str, str] | None = None,
     masker: PinnedMasker | None = None,
+    kinds: Mapping[str, Collection[str]] | None = None,
 ) -> ResolvedPlan:
     """Every check that can refuse a run, run before a run exists.
 
@@ -1690,6 +1695,7 @@ def _resolve(
         converters=converters,
         reference=reference,
         masker=masker,
+        kinds=kinds,
     )
     # Every remaining check that could refuse this run, run while refusing it is
     # still free (R4.1).
@@ -1778,6 +1784,11 @@ def replayed_inputs(
     text: dict[str, str] = {}
     for document in pinned:
         converter = claimed.get((document.media_type, MARKDOWN))
+        if document.read_as(MARKDOWN) is False:
+            # The run read no text of it, though it could have made some: a
+            # source mapping its PDFs to pictures alone, beside one that does
+            # not (R4.35). Asking for it would refuse a run this can reproduce.
+            continue
         if converter is None:
             # Not an error. The manifest records the converters the run used,
             # so no markdown converter for this media type means the run never
@@ -1860,6 +1871,10 @@ def replayed_parts(
     for converter in manifest.plan.converters:
         for document in manifest.plan.documents:
             if document.media_type != converter.media_type:
+                continue
+            if document.read_as(converter.kind) is False:
+                # A container cached since, by a source since told to make
+                # it, is not one this run read (R4.35).
                 continue
             key = cache_key(
                 convert_inputs(
@@ -1958,8 +1973,8 @@ def replay(
             if not _reads_a_set(step.mode) and _reads_nothing(
                 targets=step.inputs,
                 document=document,
-                holds=lambda kind: _held(
-                    kind, by_kind={DEFAULT_INPUT_KIND: document_text}, by_part=by_part
+                holds=lambda kind: _replay_held(
+                    kind, plan=plan, document_text=document_text, by_part=by_part
                 ),
             ):
                 continue
@@ -2188,6 +2203,30 @@ def _replay_one(
             "workspace, and nothing has been substituted for it."
         )
     return served, key
+
+
+def _replay_held(
+    kind: str,
+    *,
+    plan: ResolvedPlan,
+    document_text: Mapping[str, str],
+    by_part: Mapping[str, Mapping[str, Sequence[tuple[str, ImagePart]]]],
+) -> set[str]:
+    """The documents a past run held as `kind`: those it pinned so (R4.35).
+
+    Read from the manifest, not from what the cache gave back. A container gone
+    since would otherwise read as a document that never had one, and the step
+    would pass over it as the run never did. Held and not found, it is asked
+    for, and `_replayed_parts_for` stops the replay naming it (R4.14). A
+    document of a manifest written before pins nothing, and holds what the
+    entries say, as it always did.
+    """
+    found = _held(kind, by_kind={DEFAULT_INPUT_KIND: document_text}, by_part=by_part)
+    return {
+        document.key
+        for document in plan.documents
+        if (read := document.read_as(kind)) or (read is None and document.key in found)
+    }
 
 
 def _replayed_parts_for(

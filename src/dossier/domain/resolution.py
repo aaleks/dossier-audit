@@ -14,7 +14,7 @@ provable in milliseconds.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -94,6 +94,24 @@ class PinnedDocument(BaseModel):
     # today, and a re-synced source would otherwise change which converter a past
     # run appears to have used.
     media_type: str = ""
+    # The kinds this run read the document as: the text and the parts a step
+    # could be given (R4.35). The converters pinned for its media type say what
+    # the run could make of a PDF, not what it made of this one: a source
+    # mapping its PDFs to pictures alone made no text of them. `None` in a
+    # manifest written before, which a replay reads as it always did, and then
+    # left out of the manifest, as a step's own model is.
+    kinds: list[str] | None = None
+
+    @model_serializer(mode="wrap")
+    def _without_unpinned_kinds(self, handler: SerializerFunctionWrapHandler) -> dict:
+        written = handler(self)
+        if written.get("kinds") is None:
+            written.pop("kinds", None)
+        return written
+
+    def read_as(self, kind: str) -> bool | None:
+        """Whether the run read this document as `kind`; `None` where it pinned no kinds."""
+        return None if self.kinds is None else kind in self.kinds
 
 
 class PinnedConverter(BaseModel):
@@ -266,6 +284,7 @@ def resolve(
     converters: Sequence[PinnedConverter] | None = None,
     reference: Mapping[str, str] | None = None,
     masker: PinnedMasker | None = None,
+    kinds: Mapping[str, Collection[str]] | None = None,
 ) -> ResolvedPlan:
     """A pipeline and a set of snapshots, frozen into one plan (R4.4, R4.8).
 
@@ -278,7 +297,19 @@ def resolve(
     order, and insertion order here comes from a ledger query -- so sorting is
     what stops the plan depending on how the rows happened to come back (R0.4,
     R5.6).
+
+    `kinds` is what each document was read as (R4.35), for a run that converted
+    them; a plan converts nothing, and pins none.
     """
+
+    def pinned(key: str, snapshot: str) -> PinnedDocument:
+        return PinnedDocument(
+            key=key,
+            snapshot=snapshot,
+            media_type=(media_types or {}).get(key, ""),
+            kinds=None if kinds is None else sorted(kinds.get(key, ())),
+        )
+
     return ResolvedPlan(
         pipeline=pipeline.name,
         pipeline_hash=pipeline_hash,
@@ -290,22 +321,8 @@ def resolve(
             generated_schema_hashes=generated_schema_hashes,
             pipeline_model=pipeline.model,
         ),
-        documents=[
-            PinnedDocument(
-                key=key,
-                snapshot=documents[key],
-                media_type=(media_types or {}).get(key, ""),
-            )
-            for key in sorted(documents)
-        ],
-        reference=[
-            PinnedDocument(
-                key=key,
-                snapshot=(reference or {})[key],
-                media_type=(media_types or {}).get(key, ""),
-            )
-            for key in sorted(reference or {})
-        ],
+        documents=[pinned(key, documents[key]) for key in sorted(documents)],
+        reference=[pinned(key, (reference or {})[key]) for key in sorted(reference or {})],
         # Sorted by the pair each claims, so two machines with the same
         # converters installed in a different order write the same manifest
         # (R4.8, R5.6).

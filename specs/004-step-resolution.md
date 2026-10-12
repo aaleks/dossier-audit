@@ -1,6 +1,6 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Partially implemented
+**Status:** Implemented
 **Rules:** R4.1 – R4.35
 
 ## Purpose
@@ -987,7 +987,7 @@ A manifest written before this rule pins none, and is replayed as before.
 - **Kind:** deterministic
 - **Layer:** domain (`dossier.domain.resolution.PinnedDocument`), application (`dossier.application.run.replay`, `replayed_inputs`, `replayed_parts`), cli (`dossier.cli.run`)
 - **Proved by:** `tests/acceptance/test_R004_35__a_replay_reads_the_kinds_each_document_was_read_as.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
