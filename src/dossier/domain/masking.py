@@ -22,8 +22,9 @@ from dossier.domain.scoring import FieldKind
 # in every masked view's key (R21.5), and moves whenever they could write a
 # different text for the same input -- a converter's version promises the same
 # of its artifacts (R5.4). A masked view cached by the old rules and served by
-# the new would claim to be something they no longer produce.
-MASKING_VERSION = "1"
+# the new would claim to be something they no longer produce. `2`: a
+# possessive is not part of the value (R21.2 row 6).
+MASKING_VERSION = "2"
 
 
 # The kinds of answer that are never a client's: a closed vocabulary, a number,
@@ -223,7 +224,8 @@ def _numbered(
     pieces: list[str] = []
     at = 0
     for detection in sorted(detections, key=lambda d: d.start):
-        written = text[detection.start : detection.end]
+        end = _value_end(text, detection)
+        written = text[detection.start : end]
         value = (detection.entity, _same(written))
         if value not in numbers:
             counts[detection.entity] = counts.get(detection.entity, 0) + 1
@@ -232,9 +234,27 @@ def _numbered(
         held.setdefault(placeholder, written)
         pieces.append(text[at : detection.start])
         pieces.append(placeholder)
-        at = detection.end
+        at = end
     pieces.append(text[at:])
     return "".join(pieces), held
+
+
+# A possessive at the end of a span: `'s`, `’s`, or a bare apostrophe.
+_POSSESSIVE = re.compile(r"['’]s?\Z")
+
+
+def _value_end(text: str, detection: Detection) -> int:
+    """Where the value a span holds ends: before a possessive it took in (R21.2 row 6).
+
+    Presidio spans `Erika Mustermann's` whole, measured on 2026-10-12, which
+    numbered a second person and swallowed the `'s`. The possessive stays in
+    the text, after the placeholder. An apostrophe inside a name is the name's
+    (row 7), and a span that is nothing but one is left as found.
+    """
+    found = _POSSESSIVE.search(text, detection.start, detection.end)
+    if found is None or not text[detection.start : found.start()].strip():
+        return detection.end
+    return found.start()
 
 
 # A placeholder as `masked` writes it: the type, which may hold underscores,
