@@ -347,11 +347,11 @@ does.
 
 Delete it yourself: `rm -rf runs/<day 6>`.
 
-## Task 8 — a record cut short (R16.11)
+## Task 8 — a record cut short (R16.11, R4.34)
 
-Neither a manifest nor a failures file is written all at once (R4.27), so a run
-killed while it writes one leaves it cut short. Day 8, then cut day 7's
-manifest:
+A run writes its manifest and its failures file whole or not at all (R4.29), so
+one cut short was written before R4.29, or edited by a person (R0.11). Make
+two. Day 8, then cut day 7's manifest:
 
 ```bash
 $D run incident-audit
@@ -368,14 +368,19 @@ Then cut the latest run's failures file:
 ```bash
 head -c 1 runs/<day 8>/failures.json > short && mv short runs/<day 8>/failures.json
 $D gc; echo $?
+$D status
 ```
 
 **Checkpoint.** Day 8 is `kept as it is`, because `failures.json cannot be
-read`, followed by task 6's `no cache entry deleted` line. Exit 0.
+read`, followed by task 6's `no cache entry deleted` line. Exit 0. `status`
+passes over day 8 too, naming its `failures.json`, and `incident-audit` has
+`no run yet`.
 
 - Day 7 is "left as it is" and day 8 is "kept as it is". What does `gc` know
   about each, and what can it not know about day 7?
 - Why does a failures file it cannot read mean that no cache entry may go?
+- `gc` keeps day 8 as the latest run, and `status` passes it over. What does
+  `status` need from the latest run that `gc` does not? (R4.34)
 
 The next morning:
 
@@ -385,8 +390,8 @@ $D gc --keep-last 1 --apply; echo $?
 ls runs
 ```
 
-**Checkpoint.** Day 8 is deleted like any other run. Day 7 is still there, and
-still named. Read what is left of it if you want to know what it was, then
+**Checkpoint.** The run names day 8 and day 7 before it starts, and goes on.
+Day 8 is deleted like any other run. Day 7 is still there, and still named. Read what is left of it if you want to know what it was, then
 `rm -rf runs/<day 7>`.
 
 ---

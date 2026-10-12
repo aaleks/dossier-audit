@@ -13,7 +13,8 @@ placeholders. Then MLflow, and last an index you search for her by name.
 - what MLflow records about masking, and that it records no value;
 - what an index of a masked pipeline holds, and what its embedding model is asked;
 - why an index's masking can never change under it;
-- what a search for a client's name finds, and what it cannot find.
+- what a search for a client's name finds, and what it cannot find;
+- why a filter that names her is refused rather than masked.
 
 **Needs the masking extras, as exercise 25 does.** Tasks 1 to 3 run offline,
 against the stub. Task 4 starts a local MLflow server with a database, as
@@ -323,7 +324,7 @@ docker exec dossier-index psql -U dossier -d dossier -tA -c "$RUNS"
 **Checkpoint.** Exit 2 and nothing written. Then `no record: … did not mask as
 this index does`, then the record back under the new run's id.
 
-## Task 7 — search for the client (R21.19)
+## Task 7 — search for the client (R21.19, R21.26)
 
 ```bash
 : > embed-calls.jsonl
@@ -347,6 +348,16 @@ $P $R/asked.py embed-calls.jsonl
 
 3. What reached the model this time? Why does `asked.py` still say `0 of 7`?
 
+Then a filter that names her:
+
+```bash
+$D search masked-tickets "settlement held" --as incident-response --where "affected_client=Erika Mustermann"; echo "exit $?"
+```
+
+4. The query was masked, and the filter is refused. Why not mask the filter
+   too? `masked-tickets` declares no filters at all, so why is the refusal
+   about what the value holds rather than `not a filter`?
+
 Last, read MLflow back once more:
 
 ```bash
@@ -354,11 +365,13 @@ $P $R/mlflow_canaries.py http://127.0.0.1:5000
 grep -rlaF Mustermann mlflow.db mlartifacts
 ```
 
-4. No canary is in any record. Which two things in the store hold part of her
+5. No canary is in any record. Which two things in the store hold part of her
    name, and which part of spec 021 says each is not covered?
 
 **Checkpoint.** The query reached Ollama as `[PERSON_1] complained about
-[CLIENT_NUMBER_1]`. The surname reached it as typed.
+[CLIENT_NUMBER_1]`. The surname reached it as typed. The filter that names
+her exits 2, naming the field and `PERSON`, and nothing is searched or
+recorded.
 
 ---
 

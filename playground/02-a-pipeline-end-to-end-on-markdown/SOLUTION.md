@@ -183,6 +183,11 @@ A document is pinned by its **snapshot hash**. That is what makes a replay a
 reproduction rather than a re-read: the file on disk may have moved on, the
 snapshot has not.
 
+A manifest written today also pins what each document was read as:
+`"kinds": ["markdown"]` after `"media_type"`. The excerpt above is older
+than that. A replay reads those kinds and no others, so it never guesses them
+from the converters pinned for a media type (R4.35).
+
 One stage artifact, and its record:
 
 ```console
