@@ -450,6 +450,9 @@ def _execute(
     )
     convert_cache = ArtifactCache(workspace, namespace="convert")
     unreadable: list[tuple[str, str, str]] = []
+    # What each document was read as, as text or as parts, pinned beside it so
+    # a replay reads those kinds and no others (R4.35).
+    read_as: dict[str, set[str]] = {}
 
     with Ledger(workspace) as ledger:
         holdings = read_holdings(ledger, config.synced_sources, declared)
@@ -493,6 +496,10 @@ def _execute(
                         # prompt placeholder cannot hold it -- it reaches a step
                         # as parts rather than as a substitution.
                         continue
+                    # A container is never read as text, even one cut short
+                    # enough to decode (R8.11, R8.34).
+                    if not is_container(payload):
+                        read_as.setdefault(key, set()).add(kind)
                 if decoded and name in config.reference:
                     reference.setdefault(kind, {}).update(decoded)
                 if not audited:
@@ -518,6 +525,7 @@ def _execute(
                         (part_name(n, PART_SUFFIX), ImagePart(media_type=PART_TYPE, data=b))
                         for n, b in enumerate(unpacked, 1)
                     ]
+                    read_as.setdefault(key, set()).add(kind)
             # Every document that converted, not only those that converted to
             # text. A source rendered to pictures alone would otherwise convert
             # successfully and then be absent from the run entirely (R6.15).
@@ -652,6 +660,7 @@ def _execute(
                 source_configs=declared,
                 masker=bootstrap.pinned_masker(masking, masker),
                 masked_counts=masked_metrics(viewed.values()) if masking is not None else None,
+                kinds=read_as,
             ),
             workspace=workspace,
             model=bootstrap.BuiltOnFirstCall(config.model),
