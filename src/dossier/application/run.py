@@ -1710,6 +1710,20 @@ def recorded_failures(run_dir: Path) -> list[Failure] | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def replayed_failures(run_dir: Path) -> list[Failure] | None:
+    """What a run recorded as failed, for reproducing it, or `MissingFromReplay` naming why not.
+
+    A `failures.json` that cannot be read leaves what the run failed unknown,
+    so its replay cannot start: it is refused by name and nothing is
+    substituted (R4.7, R4.34). `gc` collects nothing a replay so refused would
+    read (R16.8, R16.11).
+    """
+    try:
+        return recorded_failures(run_dir)
+    except ValueError as error:
+        raise MissingFromReplay(f"{FAILURES_NAME} cannot be read: {error}") from error
+
+
 class MissingFromReplay(FileNotFoundError):
     """A replay needs something the workspace no longer holds.
 

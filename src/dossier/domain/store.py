@@ -162,9 +162,10 @@ def stopped_line(run_id: str) -> str:
     )
 
 
-def passed_over_line(run_id: str, reason: str) -> str:
-    """The line a command prints for a run whose manifest it cannot read (R4.30)."""
-    return (
-        f"  passed over: {RUNS_ROOT}/{run_id}/manifest.json cannot be read: "
-        f"{' '.join(reason.split())}"
-    )
+def passed_over_line(where: str, reason: str) -> str:
+    """The line a command prints for a run it passed over, naming the file it could not read.
+
+    `where` is the file under `runs/`: `<run_id>/manifest.json` (R4.30) or
+    `<run_id>/failures.json` (R4.34).
+    """
+    return f"  passed over: {RUNS_ROOT}/{where} cannot be read: {' '.join(reason.split())}"
