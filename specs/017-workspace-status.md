@@ -100,6 +100,7 @@ no general tool knows.
 | 3 | *counter-example* — nothing owed | no `owed` line |
 | 4 | *counter-example* — a ledger written before R2.23, with no `owed` table | no `owed` line, and the ledger is read as it is: not migrated, its bytes unchanged |
 | 5 | `procedures-confluence`, whose first sync was refused `OPS-114`, its only page | `procedures-confluence · 0 held · 0 tombstoned · no complete sync yet`, with `owed OPS-114` beneath: the ledger holds no row and no watermark for it, and `never synced` would hide what it is owed |
+| 6 | the same export refused again by the sync at `2026-08-07T09:00:00Z`, `429` this time | `owed 81920114.pdf, since 2026-08-06T09:00:00Z:` and the `429`: owed since the fetch that first failed, for the reason the last one did. Found by the playground's exercise 27 on 2026-10-11, when each failure moved `since` to its own sync |
 
 ### R17.3 — `dossier status` names each pipeline's latest run, with its documents and how many of them a step failed
 
