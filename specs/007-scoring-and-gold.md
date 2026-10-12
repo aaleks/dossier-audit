@@ -587,6 +587,8 @@ latest, and a trace per case behind the agreement figure.
 | 3 | a sample of fewer than 20 cases | refused, naming the count; not measurable at this N, never rounded into a percentage (R7.11 row 3) |
 | 4 | a judged field with no `samples/<field>.jsonl` at all | refused, naming the field and the path it looked for; a judge cannot be measured against a sample nobody has written |
 | 5 | *counter-example* — `gold/incidents/judge.yaml` | never written and never read by the measurement; the bar is agreed by a person, and a calibration run may not move it |
+| 6 | the same as row 4, its refusal read whole | one line, naming the field once: `root_cause: no calibration sample at gold/incidents/samples/root_cause.jsonl. ` and why. It named the field twice, `root_cause: root_cause: no calibration sample at`, until 2026-10-12 |
+| 7 | a sample whose cases name `INC-9999`, a document this workspace does not hold (not synced yet, or a key mistyped) | refused before the judge is asked, naming the field and `INC-9999`; exit 2. It stopped in a `KeyError` traceback until 2026-10-12 |
 
 ### R7.15 — `dossier eval` withholds a judged field whose calibration is missing, short or stale
 

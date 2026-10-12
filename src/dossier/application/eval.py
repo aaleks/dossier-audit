@@ -33,6 +33,7 @@ from dossier.domain.hashing import content_hash
 from dossier.domain.judges import (
     Calibration,
     calibration,
+    require_held,
     require_measurable,
 )
 from dossier.domain.keys import JudgeInputs, cache_key, provenance
@@ -1111,6 +1112,13 @@ def calibrate_fields(
     """
     for name, sample in sorted(samples.items()):
         require_measurable(name, len(sample.cases))
+        # What the judge is shown of each case's document: its pages for the
+        # described judge, its text for the grounded one (R7.22).
+        require_held(
+            name,
+            [case.document for case in sample.cases],
+            held=(parts or {}) if sample.state == DESCRIBED else documents,
+        )
     if tracker is not None:
         tracker.start_run(
             experiment=experiment,
