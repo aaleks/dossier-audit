@@ -757,6 +757,8 @@ def judged_cached(
                     evidence=evidence,
                     capture=capture,
                 )
+                # A verdict stands, though nothing was asked (R11.36 row 3).
+                status = "OK"
                 return supported, evidence
             except (ValueError, KeyError, TypeError):
                 # A damaged entry is a miss, not authority (R5.9): the judge is
