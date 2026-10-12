@@ -18,7 +18,7 @@ evidence. Refusing to print it is the only thing that tells the two apart.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping, Sequence
 from math import sqrt
 from statistics import NormalDist
 
@@ -256,6 +256,23 @@ def require_measurable(field: str, count: int) -> None:
             f"{field}: the sample holds {count} case(s), and {MINIMUM_SAMPLE} is the "
             "minimum at which agreement means anything. Report this as not measurable at "
             "this N, never as a percentage (R7.11 example 3)."
+        )
+
+
+def require_held(field: str, documents: Sequence[str], *, held: Collection[str]) -> None:
+    """Refuse a sample whose cases name a document the judge would be shown nothing of (R7.14).
+
+    Before a single judge call is made, as a short sample is refused: a case
+    about a document this workspace does not hold -- not synced yet, or a key
+    mistyped -- cannot be judged, and measuring the rest would be another
+    sample's figure.
+    """
+    missing = sorted({document for document in documents if document not in held})
+    if missing:
+        raise NotCalibrated(
+            f"{field}: the sample's cases name {', '.join(missing)}, which this workspace "
+            "does not hold. Sync and convert it, or correct the sample; a judge shown "
+            "nothing of a document is not measured on it (R7.14 row 7)."
         )
 
 

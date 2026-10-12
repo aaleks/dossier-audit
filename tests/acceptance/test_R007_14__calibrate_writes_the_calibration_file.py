@@ -191,3 +191,38 @@ class TestCalibrateWritesTheCalibrationFile:
         assert result.exit_code != 0
         assert "19" in result.output
         assert not (calibratable / "gold" / "incidents" / "calibrations").exists()
+
+    def test_a_missing_sample_is_refused_naming_the_field_once(
+        self, calibratable: Path, monkeypatch
+    ):
+        """Example 6: the one with no `samples/root_cause.jsonl`, its refusal read whole."""
+        (calibratable / "gold" / "incidents" / "samples" / f"{FIELD}.jsonl").unlink()
+
+        result = _cli(calibratable, monkeypatch, "calibrate", PIPELINE, "--gold", GOLD)
+
+        assert result.exit_code == 2, result.output
+        (line,) = result.stderr.splitlines()
+        assert line.startswith(f"{FIELD}: no calibration sample at "), line
+        assert line.count(f"{FIELD}:") == 1, line
+
+    def test_a_case_naming_a_document_not_held_is_refused_before_the_judge_is_asked(
+        self, calibratable: Path, monkeypatch
+    ):
+        """Example 7: the one whose last case names `INC-9999`, which nothing synced."""
+        import dossier.cli.bootstrap as cli
+
+        cases = _cases()
+        cases[-1]["document"] = "INC-9999"
+        (calibratable / "gold" / "incidents" / "samples" / f"{FIELD}.jsonl").write_text(
+            "\n".join(json.dumps(case) for case in cases) + "\n", encoding="utf-8"
+        )
+        judge = FakeModelClient(responses=_replies(cases))
+        monkeypatch.setattr(cli, "build_model_client", lambda model_id: judge)
+
+        result = _cli(calibratable, monkeypatch, "calibrate", PIPELINE, "--gold", GOLD)
+
+        assert result.exit_code == 2, result.output
+        assert result.exception is None or isinstance(result.exception, SystemExit)
+        assert FIELD in result.stderr and "INC-9999" in result.stderr, result.stderr
+        assert judge.call_count == 0
+        assert not (calibratable / "gold" / "incidents" / "calibrations").exists()

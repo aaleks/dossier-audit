@@ -632,7 +632,7 @@ def load_calibration_sample(directory: Path, field: str) -> tuple[CalibrationCas
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError as error:
         raise ConfigError(
-            f"{field}: no calibration sample at {path}. A judge cannot be measured "
+            f"no calibration sample at {path}. A judge cannot be measured "
             "against a sample nobody has written (R7.14, R7.16)."
         ) from error
 
