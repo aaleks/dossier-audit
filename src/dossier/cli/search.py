@@ -18,7 +18,7 @@ from typing import Annotated
 
 import typer
 
-from dossier.application.masking import mask_query
+from dossier.application.masking import detected_in, mask_query
 from dossier.application.relevance import (
     RelevanceReport,
     gold_hash,
@@ -52,9 +52,11 @@ from dossier.domain.search import (
     UnfilterableWhere,
     excerpt,
     header,
+    masked_where_refusal,
     readers_for,
     unreflected_line,
     values_line,
+    where_values,
     wheres,
 )
 from dossier.domain.sync import State
@@ -204,6 +206,9 @@ def search(
         if declaration.fields.carried:
             step = carried_output(pipeline.steps, pipeline=declaration.pipeline)
             enums = load_enum_values(path.parent / step.output)
+        # Before the filters are read: a value refused by field and type is
+        # never printed back, sent or recorded (R21.26).
+        _refuse_masked_where(declaration.pipeline, pipeline, path, where or [], index=index)
         asked = wheres(where or [], index=index, filters=declaration.fields.filter, enums=enums)
         read_by = {
             name
@@ -473,6 +478,26 @@ def as_document(report: SearchReport) -> dict[str, object]:
         ],
         "unreflected": report.unreflected,
     }
+
+
+def _refuse_masked_where(
+    pipeline: str, config: PipelineConfig, path: Path, given: list[str], *, index: str
+) -> None:
+    """Stop a search of a masked index on a `--where` value its masker detects (R21.26)."""
+    values = where_values(given)
+    if not values:
+        return
+    masking, masker = bootstrap.masking_for(pipeline, config, path)
+    if masking is None or masker is None:
+        return
+    try:
+        detected = detected_in(values, masking=masking, masker=masker)
+    except MaskerUnavailable as error:
+        typer.echo(f"{pipeline}: {error}", err=True)
+        raise typer.Exit(code=2) from error
+    if detected:
+        typer.echo(masked_where_refusal(index, detected), err=True)
+        raise typer.Exit(code=2)
 
 
 def _masked_query(pipeline: str, config: PipelineConfig, path: Path, query: str) -> str:

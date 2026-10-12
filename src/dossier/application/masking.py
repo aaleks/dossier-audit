@@ -10,7 +10,7 @@ never sent unmasked instead (R21.8).
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from dossier.domain.keys import cache_key, mask_inputs, provenance
@@ -164,3 +164,24 @@ def mask_query(query: str, *, masking: Masking, masker: Masker) -> str:
     language = language_of(query, masking.declaration.languages)
     masked, _ = mask(query, masker.detect(query, language=language), masking)
     return masked
+
+
+def detected_in(
+    values: Mapping[str, Sequence[str]], *, masking: Masking, masker: Masker
+) -> dict[str, list[str]]:
+    """The types the masker finds in each field's values, where it finds any (R21.26).
+
+    Decided as a document's text is masked (R21.2 - R21.4), so what a search
+    refuses to filter on is exactly what a masked view would not have shown.
+    A masker that cannot run raises `MaskerUnavailable`; the search stops.
+    """
+    found: dict[str, list[str]] = {}
+    for name, given in values.items():
+        types: set[str] = set()
+        for value in given:
+            language = language_of(value, masking.declaration.languages)
+            _, counts = mask(value, masker.detect(value, language=language), masking)
+            types.update(counts)
+        if types:
+            found[name] = sorted(types)
+    return found

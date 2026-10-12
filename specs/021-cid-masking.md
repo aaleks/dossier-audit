@@ -742,7 +742,7 @@ filters are.
 - **Kind:** deterministic
 - **Layer:** application (`dossier.application.masking`), cli (`dossier.cli.search`)
 - **Proved by:** `tests/integration/test_R021_26__a_search_refuses_a_where_its_masker_detects.py`
-- **Status:** NOT MET
+- **Status:** MET
 
 | # | Given | Then |
 |---|-------|------|
