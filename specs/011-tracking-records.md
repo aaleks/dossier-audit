@@ -944,6 +944,7 @@ that saw the error said all was well.
 |---|-------|------|
 | 1 | `dossier eval incident-audit --gold gold/incidents` with tracking on, a `root_cause` verdict not in the cache, and the judge's request refused | the judge's trace closes as ERROR, its error the client's line; the eval stops in one line, exit 2 (R9.25) |
 | 2 | *counter-example* — the judge answered | its trace closes as OK, as before |
+| 3 | *counter-example* — the same eval again, the verdict served from the cache | its trace closes as OK, with no LLM span in it (R7.18 row 5): the verdict stands, though nothing was asked. It closed as ERROR, with no error, from #695 (2026-10-02) until the playground's exercise 26 found it on 2026-10-11 |
 
 ### R11.37 — a search measured against relevance gold is one MLflow run of its measures, in its pipeline's `search` experiment
 
