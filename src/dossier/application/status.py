@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dossier.application.manifest import MANIFEST_NAME, read_manifest
+from dossier.application.manifest import MANIFEST_NAME, read_manifest, unreadable_failures
 from dossier.application.run import recorded_failures
 from dossier.domain.status import RunSeen
-from dossier.domain.store import RUNS_ROOT
+from dossier.domain.store import FAILURES_NAME, RUNS_ROOT
 
 
 def read_runs(
@@ -36,7 +36,13 @@ def read_runs(
         if isinstance(found, str):
             # Passed over and named, as every command looking for a run does (R4.30).
             if unreadable is not None:
-                unreadable.append((directory.name, found))
+                unreadable.append((f"{directory.name}/{MANIFEST_NAME}", found))
+            continue
+        # What it failed cannot be known: passed over and named too (R4.34).
+        reason = unreadable_failures(directory)
+        if reason is not None:
+            if unreadable is not None:
+                unreadable.append((f"{directory.name}/{FAILURES_NAME}", reason))
             continue
         plan = found.plan
         failures = recorded_failures(directory)

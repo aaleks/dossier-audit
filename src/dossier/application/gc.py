@@ -15,8 +15,8 @@ from pathlib import Path
 from dossier.application.manifest import MANIFEST_NAME, Manifest
 from dossier.application.run import (
     MissingFromReplay,
-    recorded_failures,
     replay,
+    replayed_failures,
     replayed_inputs,
     replayed_parts,
 )
@@ -33,7 +33,7 @@ from dossier.domain.gc import (
 )
 from dossier.domain.ports import ArtifactStore, CollectableStore, SnapshotReader, Tracker
 from dossier.domain.resolution import is_run_id
-from dossier.domain.store import FAILURES_NAME, REPLAYS, RUNS_ROOT, TRIES_ROOT
+from dossier.domain.store import REPLAYS, RUNS_ROOT, TRIES_ROOT
 from dossier.domain.tracking import gc_description, label_for, run_name
 from dossier.domain.tracking import tags as tracking_tags
 
@@ -174,7 +174,7 @@ def _needed(
         try:
             text = replayed_inputs(manifest, store=store, cache=traced[CONVERT], masks=masks)
             parts = replayed_parts(manifest, store=store, cache=traced[CONVERT])
-            failures = _failures(runs / run_id)
+            failures = replayed_failures(runs / run_id)
         except MissingFromReplay as error:
             # Stopped before any stage key was read: a deleted conversion, which
             # `dossier convert` makes again (R5.9), or a record of failures cut
@@ -201,19 +201,6 @@ def _needed(
         tuple(unreplayable),
         tuple(untraced),
     )
-
-
-def _failures(run_dir: Path):
-    """What the run recorded as failed, or `MissingFromReplay` naming a record cut short.
-
-    `failures.json` is written once the run ends, not all at once, so a run
-    killed as it wrote it leaves it unreadable. Its replay cannot start, which
-    is R16.8's case: named, and nothing collected (R16.11).
-    """
-    try:
-        return recorded_failures(run_dir)
-    except ValueError as error:
-        raise MissingFromReplay(f"{FAILURES_NAME} cannot be read: {error}") from error
 
 
 class _Traced:

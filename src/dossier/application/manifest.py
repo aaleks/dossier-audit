@@ -20,6 +20,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from dossier.domain.resolution import ResolvedPlan
+from dossier.domain.store import FAILURES_NAME
 
 MANIFEST_NAME = "manifest.json"
 
@@ -74,6 +75,25 @@ def write_whole(path: Path, text: str, *, newline: str | None = None) -> None:
     temporary = path.with_name(f".{path.name}.tmp")
     temporary.write_text(text, encoding="utf-8", newline=newline)
     _rename(temporary, path)
+
+
+def unreadable_failures(run_dir: Path) -> str | None:
+    """Why the run's `failures.json` cannot be read, on one line, or `None` (R4.34).
+
+    `None` for a file that reads, and for none at all: a run that wrote none
+    stopped, or predates R4.27, which is R4.31's case and not this one. One
+    that does not load predates R4.29 or was edited by a person (R0.11): its
+    run says nothing reliable of what it failed, so a command looking for a
+    past run passes it over, as it passes over a manifest it cannot read.
+    """
+    path = run_dir / FAILURES_NAME
+    if not path.is_file():
+        return None
+    try:
+        json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as error:
+        return " ".join(str(error).split())
+    return None
 
 
 def read_manifest(path: Path) -> Manifest | str:

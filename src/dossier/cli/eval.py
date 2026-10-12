@@ -29,9 +29,9 @@ from dossier.application.recording import failed_if_stopped
 from dossier.application.run import (
     MissingFromReplay,
     judge_evidence,
-    recorded_failures,
     reference_context,
     replay,
+    replayed_failures,
     replayed_inputs,
     replayed_parts,
 )
@@ -789,7 +789,7 @@ def _reproduced(
             # What the run failed, reproduced rather than looked for, so one
             # failed document no longer makes the whole run unscorable (R4.28,
             # R7.52).
-            failures=recorded_failures(workspace / RUNS_ROOT / manifest.run_id),
+            failures=replayed_failures(workspace / RUNS_ROOT / manifest.run_id),
         )
     except MissingFromReplay as error:
         typer.echo(str(error), err=True)

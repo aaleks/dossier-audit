@@ -415,9 +415,9 @@ def build_prompt_registry(settings: TrackingSettings, *, verify: bool = True) ->
 
 
 def say_passed_over(unreadable: Sequence[tuple[str, str]]) -> None:
-    """Name on stderr each run whose manifest a command could not read (R4.30)."""
-    for run_id, reason in unreadable:
-        typer.echo(passed_over_line(run_id, reason), err=True)
+    """Name on stderr each run passed over, and the file it could not read (R4.30, R4.34)."""
+    for where, reason in unreadable:
+        typer.echo(passed_over_line(where, reason), err=True)
 
 
 def latest_run(

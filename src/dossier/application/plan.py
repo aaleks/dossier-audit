@@ -16,7 +16,7 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from dossier.application.manifest import MANIFEST_NAME, read_manifest
+from dossier.application.manifest import MANIFEST_NAME, read_manifest, unreadable_failures
 from dossier.domain.pipeline import PipelineConfig
 from dossier.domain.plan import StepPlan, diff
 from dossier.domain.resolution import PinnedConverter, ResolvedPlan, resolve
@@ -99,8 +99,9 @@ def latest_manifest(
     Run directories are named with a sortable timestamp prefix (spec 000), so
     the newest is the last by name -- no `stat` call, and no dependence on
     filesystem timestamps that a copy would rewrite. A newer manifest that
-    cannot be read is passed over, and put in `unreadable` with why, for the
-    command to name (R4.30).
+    cannot be read is passed over, and put in `unreadable` with the file and
+    why, for the command to name (R4.30). So is a run of the pipeline whose
+    `failures.json` cannot be read: what it failed cannot be known (R4.34).
 
     Given `stopped`, a run of the pipeline that wrote no `failures.json` is
     passed over too, and put in it. It stopped before it ended, or predates
@@ -122,9 +123,14 @@ def latest_manifest(
         if isinstance(found, str):
             # It says nothing of its run, not even its pipeline (R4.30).
             if unreadable is not None:
-                unreadable.append((directory.name, found))
+                unreadable.append((f"{directory.name}/{MANIFEST_NAME}", found))
             continue
         if found.plan.pipeline != pipeline:
+            continue
+        reason = unreadable_failures(directory)
+        if reason is not None:
+            if unreadable is not None:
+                unreadable.append((f"{directory.name}/{FAILURES_NAME}", reason))
             continue
         if stopped is not None and not (directory / FAILURES_NAME).is_file():
             stopped.append(directory.name)

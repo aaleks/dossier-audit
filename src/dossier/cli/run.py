@@ -23,6 +23,7 @@ from dossier.application.run import (
     key_hashes,
     recorded_failures,
     replay,
+    replayed_failures,
     replayed_inputs,
     replayed_parts,
 )
@@ -343,8 +344,9 @@ def _replay(workspace: Path, directory: Path) -> None:
             cache=ArtifactCache(workspace, namespace="stage"),
             destination=workspace / destination,
             # What the run recorded as failed, reproduced rather than looked for
-            # (R4.28). Absent for a run from before R4.27.
-            failures=recorded_failures(directory),
+            # (R4.28). Absent for a run from before R4.27; one that cannot be
+            # read refuses the replay by name (R4.34).
+            failures=replayed_failures(directory),
         )
     except MissingFromReplay as error:
         # A replay may fail; it may never substitute other content (R4.7 row 4).
