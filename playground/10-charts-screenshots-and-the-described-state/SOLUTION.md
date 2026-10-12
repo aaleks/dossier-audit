@@ -265,7 +265,7 @@ guessed:
 
 ```console
 $ dossier calibrate observability-audit --gold gold/observability
-root_cause.described: root_cause.described: no calibration sample at
+root_cause.described: no calibration sample at
 .../samples/root_cause.described.jsonl. A judge cannot be measured against a sample
 nobody has written (R7.14, R7.16).
 ```

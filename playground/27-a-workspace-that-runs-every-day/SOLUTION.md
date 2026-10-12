@@ -581,35 +581,51 @@ the manifest goes last, and the question never arises.
 
 ## Task 8 — a record cut short
 
+Recorded again on 2026-10-12, after R4.34, from a workspace at the end of
+task 7. So day 7 is `20261012T171309Z-e8e1` here, not task 7's id.
+
 ```console
+$ ls runs
+20261012T171309Z-e8e1
+
 $ $D run incident-audit
-run 20261011T132538Z-8fec · /…/playground/work/27/runs/20261011T132538Z-8fec/manifest.json
+run 20261012T171319Z-6cad · /…/playground/work/27/runs/20261012T171319Z-6cad/manifest.json
   extract: 5 document(s) · 5 from cache · 0 failed
 
-$ head -c 200 runs/20261011T132535Z-99cd/manifest.json > short && mv short runs/20261011T132535Z-99cd/manifest.json
+$ head -c 200 runs/20261012T171309Z-e8e1/manifest.json > short && mv short runs/20261012T171309Z-e8e1/manifest.json
 
 $ $D gc; echo $?
-  left as it is: runs/20261011T132535Z-99cd/manifest.json cannot be read: Unterminated string starting at: line 7 column 5 (char 182)
+  left as it is: runs/20261012T171309Z-e8e1/manifest.json cannot be read: Unterminated string starting at: line 7 column 5 (char 182)
 nothing to collect
 0
 
 $ $D status
 sources
-  incidents-manual · 5 held · 0 tombstoned · last synced 2026-10-11T13:25:11Z
-  vendor-runbooks · 2 held · 0 tombstoned · last synced 2026-10-11T13:24:59Z
+  incidents-manual · 5 held · 0 tombstoned · last synced 2026-10-12T17:13:08Z
+  vendor-runbooks · 2 held · 0 tombstoned · last synced 2026-10-12T17:13:08Z
 pipelines
-  passed over: runs/20261011T132535Z-99cd/manifest.json cannot be read: Unterminated string starting at: line 7 column 5 (char 182)
-  incident-audit · latest run 20261011T132538Z-8fec · 5 documents · 0 failed
+  passed over: runs/20261012T171309Z-e8e1/manifest.json cannot be read: Unterminated string starting at: line 7 column 5 (char 182)
+  incident-audit · latest run 20261012T171319Z-6cad · 5 documents · 0 failed
   runbooks · no run yet
 
-$ head -c 1 runs/20261011T132538Z-8fec/failures.json > short && mv short runs/20261011T132538Z-8fec/failures.json
+$ head -c 1 runs/20261012T171319Z-6cad/failures.json > short && mv short runs/20261012T171319Z-6cad/failures.json
 
 $ $D gc; echo $?
-  left as it is: runs/20261011T132535Z-99cd/manifest.json cannot be read: Unterminated string starting at: line 7 column 5 (char 182)
-  kept as it is: runs/20261011T132538Z-8fec/ cannot be replayed: failures.json cannot be read: Expecting value: line 1 column 2 (char 1)
-  no cache entry deleted: runs/20261011T132538Z-8fec/ stopped before its stages, so the entries it reads cannot be traced
+  left as it is: runs/20261012T171309Z-e8e1/manifest.json cannot be read: Unterminated string starting at: line 7 column 5 (char 182)
+  kept as it is: runs/20261012T171319Z-6cad/ cannot be replayed: failures.json cannot be read: Expecting value: line 1 column 2 (char 1)
+  no cache entry deleted: runs/20261012T171319Z-6cad/ stopped before its stages, so the entries it reads cannot be traced
 nothing to collect
 0
+
+$ $D status
+sources
+  incidents-manual · 5 held · 0 tombstoned · last synced 2026-10-12T17:13:08Z
+  vendor-runbooks · 2 held · 0 tombstoned · last synced 2026-10-12T17:13:08Z
+pipelines
+  passed over: runs/20261012T171309Z-e8e1/manifest.json cannot be read: Unterminated string starting at: line 7 column 5 (char 182)
+  passed over: runs/20261012T171319Z-6cad/failures.json cannot be read: Expecting value: line 1 column 2 (char 1)
+  incident-audit · no run yet
+  runbooks · no run yet
 ```
 
 **Left, and kept.** A manifest that cannot be read says nothing of its run, not
@@ -626,28 +642,43 @@ traced, so none is deleted (R16.11 row 2, R16.8). Without R16.11, either file
 cut short would stop `gc` with a traceback, and nothing would be deleted until
 a person found the file.
 
+**Kept, and passed over.** `gc` asks only whether day 8 is a run of
+`incident-audit`, and its manifest answers. `status` has to say what the
+latest run failed, and day 8's record of that cannot be read. So `status`
+names the file and why, and looks for an older run it can read. Day 7 is cut
+too, so there is none: `no run yet`, with the two lines above it saying why.
+`run --plan`, `eval` and `embed` pass day 8 over the same way, and a replay of
+it is refused by name (R4.34). Before R4.34, this `status` stopped with a
+traceback and exited 1. This task is where that was found.
+
 The next morning:
 
 ```console
 $ $D run incident-audit
-run 20261011T132543Z-27a4 · /…/playground/work/27/runs/20261011T132543Z-27a4/manifest.json
+  passed over: runs/20261012T171319Z-6cad/failures.json cannot be read: Expecting value: line 1 column 2 (char 1)
+  passed over: runs/20261012T171309Z-e8e1/manifest.json cannot be read: Unterminated string starting at: line 7 column 5 (char 182)
+run 20261012T171322Z-6baa · /…/playground/work/27/runs/20261012T171322Z-6baa/manifest.json
   extract: 5 document(s) · 5 from cache · 0 failed
 
 $ $D gc --keep-last 1 --apply; echo $?
-  left as it is: runs/20261011T132535Z-99cd/manifest.json cannot be read: Unterminated string starting at: line 7 column 5 (char 182)
+  left as it is: runs/20261012T171309Z-e8e1/manifest.json cannot be read: Unterminated string starting at: line 7 column 5 (char 182)
 freed 0.0 MB: 1 run, 0 tries, 0 replays, 0 cache entries
-  runs/20261011T132538Z-8fec/  incident-audit, beyond the latest 1
+  runs/20261012T171319Z-6cad/  incident-audit, beyond the latest 1
 0
 
 $ ls runs
-20261011T132535Z-99cd
-20261011T132543Z-27a4
+20261012T171309Z-e8e1
+20261012T171322Z-6baa
 
-$ rm -rf runs/20261011T132535Z-99cd
+$ rm -rf runs/20261012T171309Z-e8e1
 
 $ ls runs
-20261011T132543Z-27a4
+20261012T171322Z-6baa
 ```
+
+`run` looks for the latest run too, to say what has moved since it, so it
+names both before it starts, and goes on (R4.34 row 5). The answers are the
+cache's either way.
 
 Day 8 aged out like any run: its manifest names its pipeline, and day 9 is the
 latest. Day 7 is named on every `gc` until a person deals with it, which is the

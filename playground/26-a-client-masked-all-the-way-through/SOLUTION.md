@@ -636,7 +636,7 @@ $ wc -l < embed-calls.jsonl
    cache, because the masked text had not changed, and so the record chunks'
    texts had not either. Every vector was cached.
 
-## Task 7 — search for the client (R21.19) **[run · Postgres + Ollama]**
+## Task 7 — search for the client (R21.19, R21.26) **[run · Postgres + Ollama]**
 
 ```console
 $ : > embed-calls.jsonl
@@ -706,6 +706,27 @@ qwen3-embedding:4b-fp16 · 1 texts
    `0 of 7` because a canary is a whole value, `Erika Mustermann`, and a part
    of one is not counted. That is why task 5's query looks for parts.
 
+Recorded on 2026-10-12, after R21.26, in the same workspace:
+
+```console
+$ $D search masked-tickets "settlement held" --as incident-response --where "affected_client=Erika Mustermann"; echo "exit $?"
+masked-tickets is masked, and --where affected_client holds PERSON. Each document numbers its own values (R21.2), so a filter cannot name a client; nothing was searched or recorded (R21.26).
+exit 2
+```
+
+4. **A masked filter would name the wrong people.** `--where` matches a whole
+   stored value, and each note's values carry that note's own numbering.
+   Masked on its own, as the query is, she would be `[PERSON_1]`, and in
+   PLAY-6001 `[PERSON_1]` is Hans Muster. In a real corpus, `[PERSON_1]` is
+   whoever each note names first. So the filter is refused by field and type.
+   Its value goes nowhere: not to the index's query, and not to the search's
+   trace in MLflow, which is where it went before R21.26. **The value is read
+   before anything else is asked of the filter.** A later refusal such as
+   `is not a value of` prints the value, and R21.26 row 1 allows no canary on
+   either stream. With nothing detected, this index's own answer follows:
+   `affected_client is not a filter of masked-tickets`, because its
+   declaration names no `filter` fields.
+
 ```console
 $ $P $R/mlflow_canaries.py http://127.0.0.1:5000
 run      dossier-audit/incident-audit/calibrate   calibrate incidents · openai:gpt-5.4-mini
@@ -734,7 +755,7 @@ $ cat mlartifacts/*/*/artifacts/changes.json 2>/dev/null | grep -i muster
       "key": "Erika-Mustermann-complaint.md",
 ```
 
-4. **The key, and the surname.** No canary is in any param, metric, tag, trace
+5. **The key, and the surname.** No canary is in any param, metric, tag, trace
    or dataset record. Two things hold part of her name:
    - the sync's `changes.json` names the key `Erika-Mustermann-complaint.md`.
      A key reaches MLflow when it is synced, before any pipeline masks
