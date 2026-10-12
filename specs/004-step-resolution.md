@@ -1,7 +1,7 @@
 # 004 — Step resolution and the run manifest
 
-**Status:** Implemented
-**Rules:** R4.1 – R4.34
+**Status:** Partially implemented
+**Rules:** R4.1 – R4.35
 
 ## Purpose
 
@@ -955,3 +955,45 @@ went on (R16.11).
 | 5 | the same, `dossier run incident-audit` | the same line, and the run goes on; exit 0 |
 | 6 | `INC-4830` run twice, the second run's `failures.json` then cut short; `dossier embed incidents` | the same line, naming the second run; `INC-4830`'s values carried from the first run, which names it |
 | 7 | *counter-example* — `failures.json` whole | no such line |
+
+### R4.35 — a manifest pins the kinds each document was read as, and a replay reads those and no others
+
+A replay decided which kinds a document held from the converters its manifest
+pins for that document's media type (R8.9). That is a fact about a media type,
+and a run decides about each document. Found while verifying the playground on
+2026-10-11, and reproduced on 2026-10-12 in both directions:
+
+- `INC-4830`'s `page_images` container, gone from the cache since the run, read
+  as a document that never had pages. The `per_part` step passed over it, as a
+  run passes over a document holding nothing a step reads (R6.21), and the
+  replay exited 0 with `0 artifact(s) reproduced` against the three the run
+  wrote. R4.14 stops on a part whose entry is gone, and never saw this one,
+  because no part was asked for.
+- Two sources of PDFs, `incidents-manual` converting them to `markdown` and
+  `page_images` and `incidents-screenshots` to `page_images` alone (a map,
+  R8.26), pin a `markdown` converter for `application/pdf`. The replay asked
+  for a `markdown` conversion of `INC-4977`, which the run never made, and
+  refused a run it could reproduce. The other way round, a conversion cached
+  since, by a source since told to make more, drew a document into a step the
+  run never asked about it.
+
+So a run pins, beside each document, the kinds it was read as: the text and
+the parts a step could be given (R3.11, R3.12). A container the run could not
+read is not among them (R8.34). A replay reads exactly those. A kind pinned and
+not found stops it by name, naming the step and the document, and nothing is
+written (R0.12). A kind not pinned is not read, whatever the cache holds now.
+A manifest written before this rule pins none, and is replayed as before.
+
+- **Kind:** deterministic
+- **Layer:** domain (`dossier.domain.resolution.PinnedDocument`), application (`dossier.application.run.replay`, `replayed_inputs`, `replayed_parts`), cli (`dossier.cli.run`)
+- **Proved by:** `tests/acceptance/test_R004_35__a_replay_reads_the_kinds_each_document_was_read_as.py`
+- **Status:** NOT MET
+
+| # | Given | Then |
+|---|-------|------|
+| 1 | `INC-4830` in `incidents-manual`, converting PDFs to `markdown` and `page_images`; `extract` reading `documents`, `describe` reading `documents@page_images` part by part; `dossier run incident-audit` | the manifest pins `INC-4830` with `"kinds": ["markdown", "page_images"]` |
+| 2 | that run's `page_images` container for `INC-4830` since gone from the cache; `dossier run --replay runs/<run_id>/` | exit 2, naming `describe` and `INC-4830`; no `replays/` directory under the run |
+| 3 | `INC-4977` beside it in `incidents-screenshots`, mapping `application/pdf` to `[page_images]` alone; the run replayed | the manifest pins `INC-4977` with `"kinds": ["page_images"]`; the replay asks no `markdown` of it, and reproduces every artifact the run wrote, byte for byte |
+| 4 | the same, `incidents-screenshots` since told `[markdown, page_images]` and run again, which caches a `markdown` conversion of `INC-4977`; the first run replayed | `extract` is not asked about `INC-4977`; the replay reproduces the first run, byte for byte |
+| 5 | *counter-example* — `INC-4830`'s `page_images` container cut short in the cache before the run (R8.34) | pinned with `"kinds": ["markdown"]`; a replay passes over its pages, as the run did, and exits 0 |
+| 6 | *counter-example* — a manifest written before this rule, with no `kinds` | replayed as before, from the converters pinned for each document's media type |
