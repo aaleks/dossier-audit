@@ -13,6 +13,45 @@ superseded is still correct history, and `specs/` names what replaced it.
 
 ---
 
+The playground run against today's code, and what it found (2026-10-11 to
+2026-10-12, #750 - #762).
+- A narrated quickstart video was added: every command is typed live, and
+  every output is real (#750).
+- The walkthroughs that had drifted were refreshed (#751).
+- Two exercises cover the rules none showed yet: 26 takes a masked client
+  past `run`, and 27 is a workspace that runs every day (#752).
+
+Writing them found seven bugs, each fixed spec first:
+- `status` crashed, exit 1, on a `failures.json` cut short. Every command
+  that looks for a past run now passes over that run and names it, and a
+  replay of it is refused (R4.34).
+- A replay guessed which kinds a document held from the converters pinned
+  for its media type. A `page_images` container gone from the cache
+  replayed as `0 artifact(s) reproduced`, exit 0. A second source mapping
+  PDFs to pictures alone was refused for text the run never made. A text
+  conversion cached since by a later run was served as the first run's
+  answer. A manifest now pins the kinds each document was read as (R4.35).
+- `search --where` sent a client number to the index and to MLflow. A
+  masked index now refuses a filter its masker detects anything in,
+  naming the field and the type (R21.26). Masking the value would not
+  help: each document numbers its own.
+- A cached judge verdict closed its trace as ERROR, from #695 on (R11.36
+  row 3).
+- `calibrate` named a missing sample's field twice, and stopped in a
+  `KeyError` on a case about a document nobody had synced (R7.14 rows 6
+  and 7).
+- A possessive in a document took a new placeholder number:
+  `Erika Mustermann's` became `[PERSON_2]` and lost its `'s` (R21.2 rows
+  6 and 7). `MASKING_VERSION` 2.
+- `owed ..., since` moved to every sync that failed again (R17.2 row 6).
+
+Each masking fix was checked live with Presidio. Its span takes in an
+ASCII `'s` and leaves a typographic `’s` outside, which the fake masker,
+finding canaries by their exact text, never shows. It finds
+`CIF 0042-118733` in a one-word filter as the fake assumed.
+
+---
+
 Calibration, gold and MLflow follow a masked pipeline's masking (2026-10-04,
 spec 021 parts 4a and 4b, R21.20 - R21.25, #741 - #749). `dossier calibrate`
 was the last road to a model: it showed its judge the converted text and
