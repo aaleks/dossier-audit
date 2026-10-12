@@ -140,6 +140,36 @@ class UnfilterableWhere(ValueError):
     the field does not declare (R19.4). Refused before the model is asked."""
 
 
+def where_values(given: Sequence[str]) -> dict[str, tuple[str, ...]]:
+    """Each `FIELD=VALUE` given, as typed, by field: what a masker reads (R21.26).
+
+    Only the well-formed: one with no field or no value is `wheres`'s to refuse.
+    """
+    values: dict[str, tuple[str, ...]] = {}
+    for pair in given:
+        name, equals, value = pair.partition("=")
+        name, value = name.strip(), value.strip()
+        if equals and name and value:
+            values[name] = (*values.get(name, ()), value)
+    return values
+
+
+def masked_where_refusal(index: str, detected: Mapping[str, Sequence[str]]) -> str:
+    """Why a masked index is not filtered on what `--where` was given (R21.26).
+
+    By field and type, never the value. Masking the value would not help: each
+    document numbers its own values (R21.2), so `[CLIENT_NUMBER_1]` is a
+    different client in each, and a filter on it would find other clients'
+    documents and look like an answer.
+    """
+    held = "; ".join(f"{name} holds {', '.join(types)}" for name, types in detected.items())
+    return (
+        f"{index} is masked, and --where {held}. Each document numbers its own values "
+        "(R21.2), so a filter cannot name a client; nothing was searched or recorded "
+        "(R21.26)."
+    )
+
+
 def wheres(
     given: Sequence[str],
     *,
