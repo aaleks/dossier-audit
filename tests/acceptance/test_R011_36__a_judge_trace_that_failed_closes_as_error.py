@@ -61,3 +61,20 @@ class TestAJudgeTraceThatFailedClosesAsError:
 
         assert result.exit_code == 0, result.output
         assert [trace.status for trace in _judge_traces(tracker)] == ["OK"]
+
+    def test_a_verdict_served_from_the_cache_closes_its_trace_as_ok(
+        self, judged_run: tuple[Path, str], monkeypatch, judge: JudgingModel, tracker
+    ):
+        """Row 3, counter-example — the same eval again, nothing asked."""
+        workspace, _ = judged_run
+        assert _cli(workspace, monkeypatch, "eval", PIPELINE, "--gold", GOLD).exit_code == 0
+        asked = list(judge.calls)
+
+        result = _cli(workspace, monkeypatch, "eval", PIPELINE, "--gold", GOLD)
+
+        assert result.exit_code == 0, result.output
+        assert judge.calls == asked
+        first, again = _judge_traces(tracker)
+        assert (again.status, again.error) == ("OK", None)
+        assert [span.kind for span in again.spans] == []
+        assert first.status == "OK"
