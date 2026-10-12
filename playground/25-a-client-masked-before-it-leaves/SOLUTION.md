@@ -70,7 +70,7 @@ $ python count.py
                 "IBAN_CODE": 1, "PERSON": 2, "PHONE_NUMBER": 1},
      "masker_id": "presidio",
      "masker_version": "1.0.0",
-     "masking_version": "1",
+     "masking_version": "2",
      "text": "ea9354ca…"
    }
    ```

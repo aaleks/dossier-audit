@@ -467,7 +467,7 @@ $ cat .dossier/index/masked-tickets.json
   "masker": {
     "declaration": "88b1a87d4f8493c44110a0382ce3fa3c1e94bef7b6a7ea3a3bcc192ae143b889",
     "id": "presidio",
-    "masking_version": "1",
+    "masking_version": "2",
     "version": "1.0.0"
   }
 }

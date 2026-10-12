@@ -8,6 +8,8 @@ here with plain values and no masker at all. The canaries are `_fixtures.md`'s
 
 from __future__ import annotations
 
+import pytest
+
 
 def _person(text: str, value: str, *, at: int = 0):
     from dossier.domain.masking import Detection
@@ -83,3 +85,26 @@ class TestAValueBecomesANumberedPlaceholder:
         assert (
             _masked(second, [_person(second, "Erika Mustermann")]) == "[PERSON_1] reported it."
         )
+
+    @pytest.mark.parametrize("possessive", ["'s", "’s", "'"])
+    def test_a_possessive_is_not_part_of_the_value(self, possessive: str):
+        """Row 6: the one where the masker's span takes in the `'s`, as Presidio's does.
+
+        Measured live on 2026-10-12: `Erika Mustermann's` was numbered a second
+        person, and the `'s` went with it.
+        """
+        text = f"Erika Mustermann called. Erika Mustermann{possessive} settlement was held."
+        detections = [
+            _person(text, "Erika Mustermann"),
+            _person(text, f"Erika Mustermann{possessive}", at=20),
+        ]
+
+        assert _masked(text, detections) == (
+            f"[PERSON_1] called. [PERSON_1]{possessive} settlement was held."
+        )
+
+    def test_an_apostrophe_inside_a_name_is_not_a_possessive(self):
+        """Row 7, a counter-example: the one whose name holds an apostrophe."""
+        text = "Siobhan O'Brien called."
+
+        assert _masked(text, [_person(text, "Siobhan O'Brien")]) == "[PERSON_1] called."

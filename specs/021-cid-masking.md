@@ -387,6 +387,8 @@ placeholder where the converted text held the value.
 | 3 | `Erika Mustermann` and `CH93 0076 2011 6238 5295 7` | `[PERSON_1]` and `[IBAN_CODE_1]`: numbered per type |
 | 4 | `Erika Mustermann`, then `Mustermann` alone | `[PERSON_1]`, then `[PERSON_2]`: a different string is a different value, and no surname is guessed at |
 | 5 | *counter-example* — `PLAY-6001` names `Hans Muster` first, `PLAY-6002` names `Erika Mustermann` first | both are `[PERSON_1]` in their own document: numbering is per document |
+| 6 | `Erika Mustermann called. Erika Mustermann's settlement was held.`, the masker's second span taking in the `'s` | `[PERSON_1] called. [PERSON_1]'s settlement was held.`: a possessive at the end of a span, `'s`, `’s` or a bare `'`, is not part of the value. Measured live with Presidio on 2026-10-12, which numbered it `[PERSON_2]` and swallowed the `'s` |
+| 7 | *counter-example* — `Siobhan O'Brien called` | masked whole, `[PERSON_1] called`: an apostrophe inside a name is not a possessive |
 
 ### R21.3 — overlapping detections are masked as one span covering both, under the longer one's type
 
