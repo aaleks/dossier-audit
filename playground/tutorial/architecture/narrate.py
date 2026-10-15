@@ -288,8 +288,9 @@ def main(argv: list[str] | None = None) -> int:
             "-c:a", "aac", "-b:a", "128k",
             "-c:s", "mov_text", "-metadata:s:s:0", "language=eng",
             # The concat list names the last slide twice, or its duration is
-            # dropped; the second one would then play for as long again.
-            "-t", f"{end:.3f}",
+            # dropped; the second one would then play for as long again. A
+            # frame count cuts exactly; `-t` drops the last slide's repeats.
+            "-frames:v", str(round(end * FPS)),
             "-movflags", "+faststart", str(out),
         ]  # fmt: skip
         subprocess.run(command, check=True)

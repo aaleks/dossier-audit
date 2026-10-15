@@ -15,11 +15,10 @@ tutorial/*.mp4
 tutorial/*.srt
 tutorial/*.png
 
-# What tutorial/architecture builds: the deck, its slides as pictures, the video
-# and its subtitles. Generated from deck.js, so never committed; and the npm
-# packages deck.js is built with.
+# What tutorial/architecture builds besides the deck: its slides as pictures,
+# the video and its subtitles; and the npm packages deck.js is built with. The
+# deck itself is committed, so it can be opened without building it.
 tutorial/architecture/node_modules/
-tutorial/architecture/*.pptx
 tutorial/architecture/*-slides/
 tutorial/architecture/*.mp4
 tutorial/architecture/*.srt

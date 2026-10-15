@@ -780,6 +780,10 @@ def main(argv: list[str] | None = None) -> int:
             "-pix_fmt", "yuv420p", "-r", str(FPS), "-fps_mode", "cfr",
             "-c:a", "aac", "-b:a", "128k",
             "-c:s", "mov_text", "-metadata:s:s:0", "language=eng",
+            # The concat list names the last frame twice, or its duration is
+            # dropped; the second one would then hold it as long again. A
+            # frame count cuts exactly; `-t` drops the last frame's repeats.
+            "-frames:v", str(end_frame),
             "-movflags", "+faststart", str(out),
         ]  # fmt: skip
         subprocess.run(command, check=True)
