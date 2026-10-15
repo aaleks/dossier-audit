@@ -68,6 +68,12 @@ live, a voice says what each one is for, and every output is one the command
 printed. Its README says how to render it with two commands. `TRANSCRIPT.md`
 there is the same lesson as text, to type along with.
 
+[`tutorial/architecture/`](tutorial/architecture/) is the second video, and
+the PowerPoint deck it is narrated from: how `dossier` is built (the two loops,
+the hash boundary and the purity boundary), what each command does from a
+source to a search, and what could come next. Watch it after the quickstart,
+or before exercise 09, where the design starts to show.
+
 ## Before you start
 
 ```bash

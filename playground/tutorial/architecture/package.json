@@ -1,0 +1,15 @@
+{
+  "name": "dossier-architecture-deck",
+  "private": true,
+  "description": "Builds architecture.pptx, the deck the architecture video is narrated from. Not part of dossier.",
+  "scripts": {
+    "deck": "node deck.js"
+  },
+  "dependencies": {
+    "pptxgenjs": "3.12.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-icons": "5.4.0",
+    "sharp": "0.33.5"
+  }
+}

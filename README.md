@@ -589,3 +589,5 @@ one needs the `docling` extra and Docling's weights. Start at
 type, `playground/tutorial/` renders a narrated ten-minute quickstart of the
 core loop -- sync, convert, plan, run, eval -- in which every command is typed
 live and every output is one the command printed.
+`playground/tutorial/architecture/` renders a second, with the PowerPoint deck
+it is narrated from, on how `dossier` is built and what could come next.

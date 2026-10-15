@@ -14,3 +14,12 @@ work/
 tutorial/*.mp4
 tutorial/*.srt
 tutorial/*.png
+
+# What tutorial/architecture builds: the deck, its slides as pictures, the video
+# and its subtitles. Generated from deck.js, so never committed; and the npm
+# packages deck.js is built with.
+tutorial/architecture/node_modules/
+tutorial/architecture/*.pptx
+tutorial/architecture/*-slides/
+tutorial/architecture/*.mp4
+tutorial/architecture/*.srt
