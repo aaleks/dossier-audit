@@ -12,8 +12,9 @@ disagree: change the deck, run the narration again, and the video follows.
 
 ## Watch it, or present it
 
-`architecture.mp4` and `architecture.pptx` in this folder, once built (see
-below; both are generated, and are not kept in git). The video is about
+`architecture.pptx` in this folder is the deck, committed so it opens without
+building anything. `architecture.mp4` is the video, once rendered (see below;
+it is generated, and is not kept in git). The video is about
 fourteen minutes, 1080p, with chapters and English subtitles built in, and an
 `.srt` beside it. The deck has 25 slides in four sections; its speaker notes
 are a script to present it live.
@@ -27,6 +28,8 @@ are a script to present it live.
 
 The figures on slide 3 -- specs, rules, test files and exercises -- are counted
 from the repository when the deck is built, and the slide says on which day.
+The committed deck keeps the figures of the day it was built: build it again
+and commit it when they have moved far enough to matter.
 
 ## Build it
 
@@ -62,8 +65,9 @@ subtitles: `PRONOUNCE` in `narrate.py` says how the voice reads a word such as
   (line spacing) on a text made of several runs makes pptxgenjs write the
   paragraph's properties before each run, inside the paragraph. A schema
   check of the file passed it; PowerPoint said only that it could not open
-  the file, and one slide at a time found which. Exporting the slides through PowerPoint is the check, and
-  `deck.js` sets no paragraph option on a text of runs.
+  the file, and one slide at a time found which. Exporting the slides through
+  PowerPoint is the check, and `deck.js` sets no paragraph option on a text of
+  runs.
 - **pptxgenjs writes Office's palette into the theme**, so a theme colour
   would come out Office blue. `deck.js` writes its own colours over it after
   saving, which is why the deck can be restyled in one place: PowerPoint's
@@ -71,9 +75,9 @@ subtitles: `PRONOUNCE` in `narrate.py` says how the voice reads a word such as
 - **The picture ran 29 seconds past the voice.** ffmpeg's concat list has to
   name its last picture twice, or the last duration is dropped, and the second
   naming then plays for as long again. `narrate.py` cuts the video at the
-  narration's end. `../render.py` makes the quickstart the same way, and its
-  video holds its last frame about three seconds past the voice for the same
-  reason.
+  narration's end. `../render.py` made the quickstart the same way, and held
+  its last frame about three seconds past the voice; it now cuts at the end
+  too.
 
 Nothing here is part of `dossier`, and nothing under `src/`, `tests/` or
 `specs/` refers to it.
